@@ -1,0 +1,13 @@
+# Containerized verification for openclaw-team.
+#   docker compose -f docker/docker-compose.yml up --build --abort-on-container-exit
+#
+# Set OPENCLAW_TEAM_NET=1 to also exercise the network fetch path.
+services:
+  verify:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: openclaw-team:verify
+    environment:
+      OPENCLAW_TEAM_NET: "${OPENCLAW_TEAM_NET:-0}"
+    command: ["bash", "docker/verify-in-container.sh"]

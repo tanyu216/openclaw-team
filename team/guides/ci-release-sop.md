@@ -9,7 +9,17 @@
 - **Elon 负责**：验收与放行。
 即：**门禁红/绿由 Linus 保证，验收由 Turing/Elon 独立判定**。
 
-## 二、CI 门禁纪律
+## 二、验证环境：Docker（强制）
+> 项目约定：**本地验证一律在容器内跑，绝不在宿主**（与 task-panel 一致）。
+
+- **唯一健康事实源**：`docker/verify-in-container.sh` —— CI 与本地 `docker/verify.sh` 调**同一脚本**，故「本地绿 = CI 绿」。
+- **入口**：`docker/verify.sh`（宿主构建+运行）· `docker compose -f docker/docker-compose.yml up --build` · CI `.github/workflows/verify.yml`。
+- **离线优先**：默认无网络；网络路径用 `OPENCLAW_TEAM_NET=1`（或 `docker/verify.sh --net`）。
+- **覆盖**：语法（shell/node）· manifest+lock 完整性（0 未解析/0 重复）· 安装器与 fetcher 干跑 · 真实文件部署 · **升级/备份/用户文件保留** · （可选）上游拉取。
+- **要求**：任何交付前，容器验证必须**全绿**；宿主直跑只允许用于排障，**不得作为交付证据**。
+- **验收依据**：Report 附容器验证输出（退出码 0 + 末行 `all container checks passed`）。
+
+## 三、CI 门禁纪律
 1. **门禁即 DoD**：任何提交 / PR 必须通过统一门禁才可合并、才可置 `done`。
 2. **门禁最小集**（按项目裁剪，缺项须在卡内说明）：
    - [ ] lint / 静态检查
@@ -23,7 +33,7 @@
 6. **失败留痕**：CI 失败需在 Report 附「失败 job + 关键日志摘要 + 修复 commit」。
 7. **门禁配置归 Linus**：workflow / Makefile / task runner 由 Linus 维护；变更属**口径变更**，需双签并以 `kind=change` 留痕（`PROTOCOL §⑬`）。
 
-## 三、发版 SOP（Build & Release）
+## 四、发版 SOP（Build & Release）
 1. **版本号**：语义化 `MAJOR.MINOR.PATCH`；每次发版更新 `CHANGELOG`。
 2. **冻结**：发版前确认门禁全绿、待发内容 frozen（无半成品）。
 3. **可复现构建**：锁定依赖（lockfile）+ 固定 toolchain 版本；产物生成 `sha256` 校验和。
@@ -36,7 +46,7 @@
    - [ ] 发布 / 归档产物
 5. **发布证据入 Report**：`tag` + `commit hash` + CI run 链接 + 产物 `sha256` + 冒烟结果。
 
-## 四、部署 SOP（Deploy）
+## 五、部署 SOP（Deploy）
 1. **环境分层**：`staging → production`；禁止跳过 staging（紧急热修须记录理由并经 Elon 批准）。
 2. **部署前**：备份当前版本 / 数据；确认**回滚点**。
 3. **部署中**：按既定脚本 / 流水线执行，**禁止手改线上**。
@@ -44,13 +54,13 @@
 5. **回滚预案**：保留上一稳定版本；回滚后留痕（时间 / 原因 / 版本）。
 6. **记录入 Report**：部署版本、时间、环境、冒烟结果、回滚点。
 
-## 五、交付前门禁清单（并入 Linus「交付前总清单」）
+## 六、交付前门禁清单（并入 Linus「交付前总清单」）
 - [ ] CI 门禁全绿（含 build）
 - [ ] 发版：tag + CHANGELOG + 产物哈希 + 产物冒烟
 - [ ] 部署：备份/回滚点 + 部署冒烟
 - [ ] Report 含门禁与发版/部署证据
 
-## 六、引用关系
+## 七、引用关系
 - 质量 / 测试门槛：`PROTOCOL §⑥.1`
 - 文档双向同步：`PROTOCOL §⑫`
 - 段收尾（心跳/终态/Report）：`PROTOCOL §⑥`

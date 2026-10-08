@@ -28,6 +28,8 @@
 #   --no-task-panel        Skip the task-provider step entirely
 #   --vendor               Snapshot skills from source into skills/vendor/
 #   --offline              Install skills from skills/vendor/ (no network)
+#   --no-register          Deploy role workspaces but skip agent registration
+#                          (no `openclaw agents add`; useful in containers/CI)
 #   --keep-existing        Skip existing files (never overwrite); default is
 #                          UPGRADE: managed files are backed up then overwritten
 #   --skip-skills          Skip all skill installation
@@ -65,6 +67,7 @@ DO_CONFIG=1
 DO_TASKS=1
 VENDOR=0
 OFFLINE=0
+NOREG=0           # --no-register: deploy role workspaces but skip `openclaw agents add`
 
 WARNINGS=0
 STEPS=0
@@ -97,6 +100,7 @@ while [ "$#" -gt 0 ]; do
     --skip-claude-skills) DO_CLAUDE_SKILLS=0 ;;
     --skip-codex-skills) DO_CODEX_SKILLS=0 ;;
     --skip-agents) DO_AGENTS=0 ;;
+    --no-register) NOREG=1 ;;
     --skip-config) DO_CONFIG=0 ;;
     --skip-team) DO_TEAM=0 ;;
     -h|--help) usage; exit 0 ;;
@@ -186,7 +190,10 @@ step "preflight"
 if ! have_cmd node; then echo "install.sh: node is required" >&2; exit 1; fi
 info "node $(node -v)  ·  repo $REPO"
 info "openclaw home: $OPENCLAW_HOME"
-if resolve_openclaw; then info "openclaw CLI: ${OCL[*]}"; else warn "openclaw CLI not found (npm i -g openclaw)"; fi
+if resolve_openclaw; then info "openclaw CLI: ${OCL[*]}"
+elif [ "$DO_CONFIG" = 1 ] || { [ "$DO_AGENTS" = 1 ] && [ "$NOREG" != 1 ]; }; then
+  warn "openclaw CLI not found — agent registration/config steps need it (npm i -g openclaw)"
+else info "openclaw CLI not found (ok: registration/config steps disabled)"; fi
 
 # upgrade detection + backup dir (used by deploy_file on overwrite)
 prev="$(node -e 'try{process.stdout.write(String(require(process.argv[1]).version||""))}catch(e){}' "$TEAM_DIR/.install-state.json" 2>/dev/null || true)"
@@ -196,9 +203,9 @@ BK_DIR="$TEAM_DIR/.backups/$(date +%Y%m%d-%H%M%S)"
 [ "$KEEP" = 1 ] && info "mode: keep-existing (no overwrite)" || info "mode: install/upgrade (backs up before overwrite)"
 
 if have_cmd claude; then info "claude: $(claude --version 2>/dev/null | head -1)"
-else warn "claude CLI not found — Claude skills will still be copied, but the host is absent (npm i -g @anthropic-ai/claude-code)"; fi
+else info "claude CLI absent — Claude skills still install to $CLAUDE_HOME/skills (optional host; npm i -g @anthropic-ai/claude-code)"; fi
 if have_cmd codex; then info "codex: $(codex --version 2>/dev/null | head -1)"
-else warn "codex CLI not found — Codex skills will still be copied, but the host is absent (npm i -g @openai/codex)"; fi
+else info "codex CLI absent — Codex skills still install to $CODEX_HOME/skills (optional host; npm i -g @openai/codex)"; fi
 
 # ---- 1. team docs -----------------------------------------------------------
 if [ "$DO_TEAM" = 1 ]; then
@@ -257,7 +264,9 @@ if [ "$DO_AGENTS" = 1 ]; then
       if [ "$f" = "USER.md" ] && [ -e "$dst" ]; then info "keep      $id/USER.md (user-owned)"; continue; fi
       deploy_file "$src" "$dst" "$id/$f"
     done
-    if [ -n "${OCL[*]:-}" ] && agent_exists "$id"; then
+    if [ "$NOREG" = 1 ]; then
+      info "agent '$id': files deployed (registration skipped)"
+    elif [ -n "${OCL[*]:-}" ] && agent_exists "$id"; then
       info "agent '$id' already registered"
     elif [ -n "${OCL[*]:-}" ]; then
       run "${OCL[@]}" agents add "$id" --workspace "$wsdir" --non-interactive

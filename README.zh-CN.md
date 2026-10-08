@@ -134,13 +134,17 @@ openclaw-team/
 - 量化研究角色与相关技能。
 - 运行时任务卡与工作区产物。
 
-## 验证
+## 验证（Docker）
+
+验证**在容器内跑，绝不在宿主**：
 
 ```bash
-bash -n install.sh
-./install.sh --dry-run
-openclaw doctor
+docker/verify.sh          # 构建镜像 + 跑离线套件
+docker/verify.sh --net    # 额外验证上游拉取路径
+docker compose -f docker/docker-compose.yml up --build --abort-on-container-exit
 ```
+
+`docker/verify-in-container.sh` 是唯一健康事实源（CI 跑同一脚本），「本地绿 = CI 绿」。覆盖：shell/node 语法 · manifest+lock 完整性 · 安装器与 fetcher 干跑 · 真实文件部署（隔离 HOME）· 安装→升级→备份路径。
 
 ## License
 
