@@ -18,6 +18,8 @@
 
 ## ① 看板协议
 
+> **任务提供方（ACL，可切换）**：本协议的任务层经 `guides/task-interface.md` 的 ACL 对接任意任务系统；**参考实现** = `task-panel`（`taskctl`），**非强制依赖**（可换 Jira/Linear/Plane 等；其连接 skill/MCP 用户自备）。下文命令均以参考实现为例。
+
 任务卡 = 内容持久化的唯一载体（Goal/Acceptance/Background/Report），存放 `~/.openclaw/team/tasks/T-YYYYMMDD-HHMMSS.md`（flat 目录）。
 
 **Schema（frontmatter）**：

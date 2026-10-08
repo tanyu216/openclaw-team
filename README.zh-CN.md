@@ -39,8 +39,9 @@ cd ~/Documents/openclaw-team
 | `--force` | 覆盖已存在的 skill / 角色文件 / team 文档 |
 | `--openclaw-home DIR` | OpenClaw 家目录（默认 `~/.openclaw`） |
 | `--claude-home DIR` / `--codex-home DIR` | Claude Code / Codex 家目录 |
+| `--with-task-panel` | 安装参考任务提供方（task-panel） |
 | `--task-panel DIR` | 指定 task-panel 源码路径 |
-| `--no-task-panel` | 不检查/安装 task-panel |
+| `--no-task-panel` | 跳过任务提供方阶段 |
 | `--skip-skills` `--skip-agents` `--skip-config` `--skip-team` | 跳过对应阶段 |
 
 安装器做这些事（每步幂等，已存在则跳过）：
@@ -50,7 +51,7 @@ cd ~/Documents/openclaw-team
 3. **技能** → 见下表。
 4. **Agent 与角色工作区**：拷贝 `AGENTS.md`/`SOUL.md`/`IDENTITY.md`，然后 `openclaw agents add <id> --workspace <dir> --non-interactive`；已注册则跳过。**永不覆盖**既有 `USER.md`。
 5. **配置片段** → `openclaw config patch --file config/*.json5`（`config/examples/` 下仅参考，不自动应用）。
-6. **task-panel 依赖**：检测 `~/.openclaw/skills/task-panel`；缺失则调用其 `install.sh --target openclaw` 安装。
+6. **任务提供方（ACL）**：报告已配置的提供方（`OPENCLAW_TEAM_TASK_PROVIDER`）；仅在 `--with-task-panel` 时安装参考实现，否则打印「自备」指引。
 
 ### 技能安装目标
 
@@ -63,15 +64,13 @@ cd ~/Documents/openclaw-team
 
 技能来源与许可见 [`skills/PROVENANCE.md`](skills/PROVENANCE.md)。
 
-## 依赖：task-panel
+## 任务系统（可切换，经 ACL）
 
-任务管理不在本仓库内——团队消费独立项目 **task-panel**（本地看板 + agent 领取/心跳/依赖树）。安装器会检测并代为安装：
+任务管理**不在本仓库内**，且**非强制依赖**。团队经一个小的 **ACL** 契约（`team/guides/task-interface.md`）对接任意任务系统：卡、原子领取 + 心跳、`ready → in_progress → in_review → done | failed` 状态机、评论/过程留痕、父子 + 依赖 DAG。
 
-```bash
-./install.sh --task-panel ~/Documents/task-panel   # 显式指定源码
-```
-
-未找到源码时给出警告与克隆指引；task-panel 提供团队的任务技能（本仓库不再自带旧 `task-ops`）。
+- **参考提供方**：**task-panel**（提供任务 skill + `taskctl` CLI）。需要时安装：`./install.sh --with-task-panel [--task-panel DIR]`。
+- **自备**：Jira / Linear / Plane / GitHub Issues / 自研看板 … —— 自行安装其连接 skill/MCP，并用 `OPENCLAW_TEAM_TASK_PROVIDER=<name>` 指向它。
+- **范围边界**：第三方任务系统的连接 skill/MCP **不在本项目范围**；本仓库只交付 ACL 与团队侧适配约定。
 
 ## 仓库结构
 

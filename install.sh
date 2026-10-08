@@ -9,9 +9,10 @@
 # It is IDEMPOTENT: re-running installs only what is missing. Existing files are
 # preserved unless --force is given. Use --dry-run to preview every action.
 #
-# Task management is NOT bundled here: the team consumes the external
-# `task-panel` project. This installer checks for it and installs it into
-# OpenClaw when missing (see --task-panel / --no-task-panel).
+# Task management is NOT bundled here. The team integrates with any task
+# system through a small ACL (see team/guides/task-interface.md); `task-panel`
+# is the OPTIONAL reference provider. Connectors for other systems (Jira,
+# Linear, Plane, ...) are out of scope. See --with-task-panel / --no-task-panel.
 #
 # Usage:
 #   ./install.sh [options]
@@ -22,8 +23,9 @@
 #   --openclaw-home DIR    OpenClaw home            (default: ~/.openclaw)
 #   --claude-home DIR      Claude Code home         (default: ~/.claude)
 #   --codex-home DIR       Codex home               (default: ~/.codex)
+#   --with-task-panel      Install the reference task provider (task-panel)
 #   --task-panel DIR       Path to the task-panel source checkout
-#   --no-task-panel        Do not check/install task-panel
+#   --no-task-panel        Skip the task-provider step entirely
 #   --skip-skills          Skip all skill installation
 #   --skip-claude-skills   Skip Claude Code skills
 #   --skip-codex-skills    Skip Codex skills
@@ -43,6 +45,7 @@ OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
 CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 TASK_PANEL_SRC="${TASK_PANEL_SRC:-}"
+WITH_TASK_PANEL=0
 
 DRY_RUN=0
 FORCE=0
@@ -76,6 +79,7 @@ while [ "$#" -gt 0 ]; do
     --codex-home=*) CODEX_HOME="${1#*=}" ;;
     --task-panel) TASK_PANEL_SRC="${2:?}"; shift ;;
     --task-panel=*) TASK_PANEL_SRC="${1#*=}" ;;
+    --with-task-panel) WITH_TASK_PANEL=1 ;;
     --no-task-panel) DO_TASKS=0 ;;
     --skip-skills) DO_SKILLS=0 ;;
     --skip-claude-skills) DO_CLAUDE_SKILLS=0 ;;
@@ -245,27 +249,40 @@ elif [ "$DO_CONFIG" = 1 ]; then
   warn "skip config patch (openclaw CLI missing)"
 fi
 
-# ---- 5. task-panel (external dependency) ------------------------------------
+# ---- 5. task provider (ACL) -------------------------------------------------
+# The team talks to ANY task system through the ACL in
+# team/guides/task-interface.md. task-panel is the optional reference provider;
+# other systems (Jira/Linear/Plane/...) are the user's own concern.
 if [ "$DO_TASKS" = 1 ]; then
-  step "task-panel dependency"
-  if [ -e "$OPENCLAW_HOME/skills/task-panel" ]; then
-    info "task-panel already installed at $OPENCLAW_HOME/skills/task-panel"
-  else
-    src="$TASK_PANEL_SRC"
-    [ -n "$src" ] || for c in "$HOME/Documents/task-panel" "$HOME/task-panel" "$PWD/../task-panel"; do
-      [ -f "$c/install.sh" ] && { src="$c"; break; }
-    done
-    if [ -n "$src" ] && [ -f "$src/install.sh" ]; then
-      info "installing task-panel from $src"
-      pfx="$HOME"
-      args=(--target openclaw --prefix "$pfx")
-      [ "$FORCE" = 1 ] && args+=(--force)
-      [ "$DRY_RUN" = 1 ] && args+=(--dry-run)
-      run bash "$src/install.sh" "${args[@]}"
+  step "task provider (ACL)"
+  provider="${OPENCLAW_TEAM_TASK_PROVIDER:-}"
+  [ -n "$provider" ] && info "configured provider: $provider"
+  if [ -e "$OPENCLAW_HOME/skills/task-panel" ] || have_cmd taskctl; then
+    info "reference provider present: task-panel"
+  fi
+  if [ "$WITH_TASK_PANEL" = 1 ]; then
+    if [ -e "$OPENCLAW_HOME/skills/task-panel" ]; then
+      info "task-panel already installed at $OPENCLAW_HOME/skills/task-panel"
     else
-      warn "task-panel not found — clone it and re-run, or set --task-panel <dir>"
-      info "  git clone <task-panel-repo> ~/Documents/task-panel && ./install.sh"
+      src="$TASK_PANEL_SRC"
+      [ -n "$src" ] || for c in "$HOME/Documents/task-panel" "$HOME/task-panel" "$PWD/../task-panel"; do
+        [ -f "$c/install.sh" ] && { src="$c"; break; }
+      done
+      if [ -n "$src" ] && [ -f "$src/install.sh" ]; then
+        info "installing reference provider task-panel from $src"
+        args=(--target openclaw --prefix "$HOME")
+        [ "$FORCE" = 1 ] && args+=(--force)
+        [ "$DRY_RUN" = 1 ] && args+=(--dry-run)
+        run bash "$src/install.sh" "${args[@]}"
+      else
+        warn "task-panel source not found — set --task-panel <dir> or clone it"
+      fi
     fi
+  else
+    info "task-panel is the OPTIONAL reference provider (not a hard dependency)."
+    info "  enable it:  ./install.sh --with-task-panel [--task-panel DIR]"
+    info "  or bring your own task system (Jira/Linear/Plane/...): install its"
+    info "  connector skill/MCP, then set OPENCLAW_TEAM_TASK_PROVIDER=<name>."
   fi
 fi
 

@@ -1,4 +1,4 @@
-<!-- NOTE: this file is a v0 document derived from a reference instance. Task management now lives in the external `task-panel` project. -->
+<!-- NOTE: this file is a v0 document derived from a reference instance. Task management is provider-agnostic (ACL); `task-panel` is the reference provider and is optional. -->
 
 # OpenClaw 五人 Agent 团队 — 交接文档（README）
 
@@ -23,7 +23,7 @@
 ```
 
 **事实源分工**：
-- 任务**内容**（Goal/Acceptance/Background/Report）→ 任务卡（由外部项目 `task-panel` 管理）
+- 任务**内容**（Goal/Acceptance/Background/Report）→ 任务卡（由任务提供方管理；参考实现 `task-panel`，经 ACL 可切换）
 - 任务**派单/状态/通讯** → OpenClaw 原生（sessions_send/spawn、background tasks、automations）
 - 项目 metadata（路径/git 边界/规则）→ `projects.json`
 - 会话 registry（claude/codex 子进程）→ `claude-sessions.json` / `turing-runs.json`
