@@ -345,6 +345,13 @@ if [ "$DO_AGENTS" = 1 ]; then
       if [ "$f" = "USER.md" ] && [ -e "$dst" ]; then info "keep      $id/USER.md (user-owned)"; continue; fi
       deploy_file "$src" "$dst" "$id/$f"
     done
+    if [ -d "$REPO/roles/$role/guides" ]; then
+      run mkdir -p "$wsdir/guides"
+      for g in "$REPO/roles/$role/guides"/*; do
+        [ -e "$g" ] || continue
+        deploy_file "$g" "$wsdir/guides/$(basename "$g")" "$id/guides/$(basename "$g")"
+      done
+    fi
     if [ "$NOREG" = 1 ]; then
       info "agent '$id': files deployed (registration skipped)"
     elif [ -n "${OCL[*]:-}" ] && agent_exists "$id"; then
