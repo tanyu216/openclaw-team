@@ -159,6 +159,10 @@ Rules:
    - Carrier layering: the task-card Progress records only "segment-level milestones/results"; state.md records "segment-level decisions/definitions".
 
 ### Phase 4: Verify the Plan
+0. **Completion self-verification = two ordered passes** (the "did we finish, correctly" gate):
+   ① **Plan conformance** (against `plan.md`): every planned task is done as specified — **no silent deviation, no scope creep, no leftover/unimplemented item**, no work beyond the plan;
+   ② **Requirement conformance** (against the card): the "Requirement-Completeness Acceptance" below — Acceptance item-by-item + Background/goal omitted-item check + the requirement→test traceability matrix.
+   Only after **both** pass → write the Report (plan-conformance table + Acceptance checklist + evidence) → set `in_review`. Neither pass alone is deliverable.
 1. After all tasks run, do the **quality gates**:
    - **Requirement→code traceability**: for each requirement, not only grep symbols but Read the code logic to confirm "the behavior described by the requirement is really implemented";
    - **Compile/import verification**: run `python -c "import X"` / `vue-tsc --noEmit` / `ruff check` yourself; ImportError/SyntaxError = CRITICAL;

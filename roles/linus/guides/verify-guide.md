@@ -9,6 +9,7 @@
 
 > **Core principle**: reading code can be delegated to a "read-only tool"; but verification that "the code actually works" (running tests/import/curl) **must be performed by Linus himself**, and cannot be outsourced.
 
+- [ ] 0. **Plan conformance**: every task in `plan.md` done as specified — no silent deviation / no scope creep / no leftover item (pass ① of the two-pass completion self-check)
 - [ ] 1. **Requirement→code traceability**: for each requirement, Read the code to confirm the behavior is really implemented (not just grep symbols) (Details §Phase 1)
 - [ ] 2. **Run compile/import yourself**: `python -c "import X"` / `vue-tsc --noEmit` / `ruff check` (ImportError/SyntaxError = fatal)
 - [ ] 3. **Dead code/caller verification**: is the old code really deleted? Does the new API have a frontend caller? Is the scheduled task registered? (Details §Phase 1)
