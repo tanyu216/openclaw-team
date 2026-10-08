@@ -478,10 +478,12 @@
       "targets": [
         "agent:jobs"
       ],
+      "ref": "2f9be3206855bcb2d1d0af262c8bae25cba6658d",
+      "repo": "https://github.com/Dammyjay93/interface-design",
       "tree_sha256": [
         "sha256:b165aed1f0c24719a801a5905c2f95acee107794854a6567aa67b347d8f61d26"
       ],
-      "resolved": false
+      "resolved": true
     },
     {
       "name": "marketing-copywriting",
@@ -721,14 +723,6 @@
       "tree_sha256": [
         "sha256:035334ed9afa466f80b9c3e3a3e99e5cb2540696a305c8a29b1e387f821529a1"
       ],
-      "resolved": true
-    },
-    {
-      "name": "skill-installer",
-      "targets": [
-        "claude"
-      ],
-      "tree_sha256": [],
       "resolved": true
     },
     {
