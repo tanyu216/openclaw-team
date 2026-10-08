@@ -8,7 +8,7 @@
 
 | 名称 | Agent | 频率 | Trigger | 投递 | 作用 |
 |---|---|---|---|---|---|
-| `jobs-poll` | jobs | 每 1m | ✅ | none | 看板轮询兜底：原子领取 jobs 的 ready/stale 卡 |
+| `jobs-poll` | jobs | 每 1m | ✅ | none | 看板轮询兜底：原子领取 jobs 的 todo/stale 卡 |
 | `linus-poll` | linus | 每 1m | ✅ | none | 同上（linus） |
 | `turing-poll` | turing | 每 1m | ✅ | none | 同上（turing） |
 | `assistant-poll` | assistant | 每 1m | ✅ | none | 同上（assistant） |

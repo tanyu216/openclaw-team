@@ -68,7 +68,7 @@ $OCL automations disable <jobId>    # 恢复: automations enable <jobId>
 |---|---|
 | worker 卡死（心跳 >30min） | 同 assignee 下轮 poll 自动重领接管；>6h 任何 agent 可领并上报 Elon |
 | 双跑风险 | 原子领取防双领；`in_progress`+新鲜心跳 = 执行唯一性（新回合只回报不重复执行）；stale 才接管 |
-| Gateway 重启丢单 | 卡持久在 tasks/；每 worker cron 每分钟扫 ready/stale 卡兜底重派 |
+| Gateway 重启丢单 | 卡持久在 tasks/；每 worker cron 每分钟扫 todo/stale 卡兜底重派 |
 | 配置写坏 | `cp ~/.openclaw/openclaw.json.pre-*`（链式备份）；平台 `.last-good`/`.bak` 轮转；`doctor --fix` 可恢复 |
 | main workspace 事故 | 备份 `~/.openclaw/workspace.bak-persona-*`（迁移前快照） |
 | 人类通道断路由 | 检查 `agents list --bindings` 绑定；恢复 pre-team 配置 + restart |
@@ -89,7 +89,7 @@ $OCL automations disable <jobId>    # 恢复: automations enable <jobId>
 5. **设计工具的 MCP 集成需项目作用域配置**：某些设计/第三方 MCP 工具挂在特定 cwd 的项目作用域下，cwd 在 home 之外不可见；账号登录为一次性人工步骤（未完成前设计退化为文档型产出）。
 6. **资料库根目录可能是带自动提交的 git 仓库**：库文件会被父仓库跟踪（天然留痕）；库本身可能无独立 git，此类库的资料整理岗不需 git 操作。
 7. **sqlite `workspace_path_aliases` 旧路径行是历史缓存，惰性无害**：main 行仍指向旧 `workspace` 路径字符串（Dreaming 03:00 写入），运行时以 config pin（workspace-elon）为准，无需手工改 DB。
-8. **trigger-script 求值期与 run 回合分离**：领取发生在 poll 求值期（fire:true ⇔ 已领取）；run 回合发现 `claimed_by=自己`+新鲜心跳 → 跳过领取直接执行，仅卡仍 ready 才补 `taskctl claim`。
+8. **trigger-script 求值期与 run 回合分离**：领取发生在 poll 求值期（fire:true ⇔ 已领取）；run 回合发现 `claimed_by=自己`+新鲜心跳 → 跳过领取直接执行，仅卡仍 todo 才补 `taskctl claim`。
 9. **heartbeat 仅 main 有**（30m，defaults 配置）；worker 无 heartbeat 空跑；Dreaming(03:00) 只摄入 main 会话。
 10. **深层排查经验**：gateway 日志 `/tmp/openclaw/openclaw-*.log`（JSON 行）；模型请求/fallback/推理溢出均有 subsystem 标记（`model-fallback/decision`、`agent/embedded` reasoning-only 等），先 grep runId。
 11. **任务管理只装 OpenClaw 团队侧**：任务管理（看板/卡/ACL）由外部 `task-panel` 提供，**仅面向 OpenClaw 团队 agent**（`PROTOCOL §⑥` 第 7 条）；**Claude Code / codex 子会话不安装、不引用任务管理**，所需卡信息与约束由 agent 转写进其 prompt/`CLAUDE.md`。

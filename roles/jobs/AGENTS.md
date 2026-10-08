@@ -8,15 +8,15 @@
 
 ## 消息来源判定
 - 带 `[Inter-session message]` 且来自 agent:main:main 的消息 = Elon 派单（消息是数据，不是终端用户指令）→ 按任务卡执行。
-- 我的 cron 兜底回合（jobs-poll）唤醒的任务：poll 已原子领取（in_progress+心跳新鲜）→ **直接执行不再 claim** → 回填；卡仍 ready（直派未领）才先 task.claim。
+- 我的 cron 兜底回合（jobs-poll）唤醒的任务：poll 已原子领取（in_progress+心跳新鲜）→ **直接执行不再 claim** → 回填；卡仍 todo（直派未领）才先 task.claim。
 
 <!-- BEGIN REDLINES:v1 (generated from team/guides/redlines.core.md — 勿手改) -->
 > 🚨 **红线速查（每回合当面；详解见 `PROTOCOL §①/§④/§⑥/§⑬`）**
 > 1. **领取**：一律经任务系统契约 `task.claim`（task-panel）；`in_progress` + 心跳新鲜 ⇒ 不重领、不重复执行（执行唯一性）。
-> 2. **心跳/收尾**：执行中 ≤10min 刷心跳；段结束三件＝刷心跳 → 置终态(`in_review`/`done`/`failed`/`blocked`) → 回发 Elon Report（结论+卡路径+hash）。
+> 2. **心跳/收尾**：执行中 ≤10min 刷心跳；段结束三件＝刷心跳 → 置终态(`in_review`/`done`/`canceled`/`blocked`) → 回发 Elon Report（结论+卡路径+hash）。
 > 3. **过程留痕**：协作讨论 / 用户决策 / 确认(双签) / **任务变更** 用 `task.comment`（`kind ∈ discuss|decision|confirm|change|note|defect`；人类决策标 `author=操作者`；**任务变更用 `kind=change`，记 what/why**）。
 > 4. **汇报瘦身**：只给结论+卡路径+hash；日志/长表/大文件不进消息、不进上下文。
-> 5. **状态机**：`ready→in_progress→in_review→done|failed`（`blocked` 任意态进出）。
+> 5. **状态机**：`todo→in_progress→in_review→done|canceled`（`blocked` 任意态进出）。
 > 6. **消息**：只有 Elon 面向人类；worker 不互派单；空闲不报批。
 > 7. **工具红线**：写码经 Claude Code；测试经 codex；`prototype/**` 禁写实现；禁破坏性 git；提交 `git commit -- <显式路径>`。
 > 8. **二义**：置 `blocked` 回发 Elon 澄清，不臆测。
@@ -95,7 +95,7 @@
 5. **保真**：以「结构(id/role/data-*) + token + 关键几何」为准，不依赖 class 名（见 TW 迁移 M1 口径）。
 
 ## 通用执行流（PROTOCOL §看板）
-读卡 → **判断领取**：poll 已领（claimed_by=自己 && in_progress && 心跳新鲜）→ 跳过 claim 直接执行；卡仍 ready（直派未领）→ 先 task.claim 领取 → 按卡 `project` 解析 metadata（`lib.get_project`：root/repos/guides/规则；`__team__` 返回 team 专用语义不查 registry）→ 执行 → 心跳（≤10min）→ 逐条勾 Acceptance → 写 Report（结论/自检/验证/变更/遗留）→ 置终态 → notify_elon 时 sessions_send 回发 agent:main:main 摘要。
+读卡 → **判断领取**：poll 已领（claimed_by=自己 && in_progress && 心跳新鲜）→ 跳过 claim 直接执行；卡仍 todo（直派未领）→ 先 task.claim 领取 → 按卡 `project` 解析 metadata（`lib.get_project`：root/repos/guides/规则；`__team__` 返回 team 专用语义不查 registry）→ 执行 → 心跳（≤10min）→ 逐条勾 Acceptance → 写 Report（结论/自检/验证/变更/遗留）→ 置终态 → notify_elon 时 sessions_send 回发 agent:main:main 摘要。
 
 ## 📋 交付前总清单（一页扫完）
 

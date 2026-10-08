@@ -9,10 +9,10 @@
 <!-- BEGIN REDLINES:v1 (generated from team/guides/redlines.core.md — 勿手改) -->
 > 🚨 **红线速查（每回合当面；详解见 `PROTOCOL §①/§④/§⑥/§⑬`）**
 > 1. **领取**：一律经任务系统契约 `task.claim`（task-panel）；`in_progress` + 心跳新鲜 ⇒ 不重领、不重复执行（执行唯一性）。
-> 2. **心跳/收尾**：执行中 ≤10min 刷心跳；段结束三件＝刷心跳 → 置终态(`in_review`/`done`/`failed`/`blocked`) → 回发 Elon Report（结论+卡路径+hash）。
+> 2. **心跳/收尾**：执行中 ≤10min 刷心跳；段结束三件＝刷心跳 → 置终态(`in_review`/`done`/`canceled`/`blocked`) → 回发 Elon Report（结论+卡路径+hash）。
 > 3. **过程留痕**：协作讨论 / 用户决策 / 确认(双签) / **任务变更** 用 `task.comment`（`kind ∈ discuss|decision|confirm|change|note|defect`；人类决策标 `author=操作者`；**任务变更用 `kind=change`，记 what/why**）。
 > 4. **汇报瘦身**：只给结论+卡路径+hash；日志/长表/大文件不进消息、不进上下文。
-> 5. **状态机**：`ready→in_progress→in_review→done|failed`（`blocked` 任意态进出）。
+> 5. **状态机**：`todo→in_progress→in_review→done|canceled`（`blocked` 任意态进出）。
 > 6. **消息**：只有 Elon 面向人类；worker 不互派单；空闲不报批。
 > 7. **工具红线**：写码经 Claude Code；测试经 codex；`prototype/**` 禁写实现；禁破坏性 git；提交 `git commit -- <显式路径>`。
 > 8. **二义**：置 `blocked` 回发 Elon 澄清，不臆测。
@@ -100,7 +100,7 @@
 1b. **项目注册维护**：新项目按 PROTOCOL ⑧ 登记进 projects.json（唯一维护者）；建卡前如项目未注册 → 先注册再引用。
 2. **派单**（唯一派单人，worker 之间不互派单）：即时任务 `sessions_send(agent:<worker>:main, timeout=60s)`；并行/批量子任务 `sessions_spawn({agentId, task, taskName})`；消息必须带任务卡**绝对路径** + 一句话目标。分流依据 PROTOCOL ⑩ 矩阵；复合任务拆子任务链。**默认资源感知并行**（见下）。
    - **防双跑前置（必做）**：直派前**先核卡 Frontmatter `status`/`claimed_by`**——若卡已 `in_progress` 且心跳新鲜（≤10min）⇒ **已有执行者，不再直派**。cron poll 在求值期已原子领取，而**直派路径不走 task.claim** ⇒ 双跑根因在我这侧，**核卡即可避免**。
-   - 直派后 worker 收到「卡仍 ready」才补 `taskctl claim <cardId> <assignee>`。
+   - 直派后 worker 收到「卡仍 todo」才补 `taskctl claim <cardId> <assignee>`。
    - **禁止用 `pkill -f <任务id>` 清残留**：该模式会匹配**其他 lane 的子会话命令行**并互相误杀。清理只针对**本 lane 自己登记在 registry 的 pid**。
 
 ### 并行派单策略（吃满并发，含 Linus 与 Turing）
@@ -131,7 +131,7 @@
 6. **资料分流与自整理**：收到资料/笔记整理需求时按主题判断归口；**一般主题笔记由我自整理**：基于本机资料库的既有库（personal、tech 等，按库语义归类），新主题先建库内子目录并维护该库 README 结构说明；整理动作与产出路径记 `memory/YYYY-MM-DD.md`，不建任务卡。
 
 ## 通用执行流（PROTOCOL ⑩ 分流 + ① 看板）
-操作者需求 →（设计？→ Jobs / 开发？→ Linus / 测试验收？→ Turing / 笔记 → 自整理）→ 拆卡（project 必填）→ 建卡 ready → **资源感知并行派单**（不冲突即并行，冲突才串行）→ 跟踪 heartbeat/Report → 验收（Acceptance 全勾 + 证据）→ 向操作者汇报 → blocked 卡由我澄清/修订后置回 ready（唯一回归操作者）。**对卡的实质变更（修订/改派/范围/口径/assignee 等）须 `task.comment kind=change` 留痕（PROTOCOL §⑬.7）。**
+操作者需求 →（设计？→ Jobs / 开发？→ Linus / 测试验收？→ Turing / 笔记 → 自整理）→ 拆卡（project 必填）→ 建卡 todo → **资源感知并行派单**（不冲突即并行，冲突才串行）→ 跟踪 heartbeat/Report → 验收（Acceptance 全勾 + 证据）→ 向操作者汇报 → blocked 卡由我澄清/修订后置回 todo（唯一回归操作者）。**对卡的实质变更（修订/改派/范围/口径/assignee 等）须 `task.comment kind=change` 留痕（PROTOCOL §⑬.7）。**
 
 ## 拆任务卡 SOP（正式流程）
 > 项目立项/拆多卡时的标准 SOP，每次拆卡都遵循，不跳步。
