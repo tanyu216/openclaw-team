@@ -32,6 +32,8 @@
 #                          (no `openclaw agents add`; useful in containers/CI)
 #   --keep-existing        Skip existing files (never overwrite); default is
 #                          UPGRADE: managed files are backed up then overwritten
+#   --keys                 Force the interactive API-key prompt
+#   --skip-keys            Never prompt; list every key in the closing summary
 #   --prototype <carrier>  Prototype carrier chosen at install time:
 #                          static-html | figma | google-stitch | pixso
 #                          (default static-html). Recorded in
@@ -73,6 +75,7 @@ VENDOR=0
 OFFLINE=0
 NOREG=0           # --no-register: deploy role workspaces but skip `openclaw agents add`
 PROTOTYPE=""      # --prototype: static-html|figma|google-stitch|pixso (recorded in team.config.json)
+SKIP_KEYS=""      # --skip-keys: never prompt; --keys: force prompt (default: prompt only on a TTY)
 
 WARNINGS=0
 STEPS=0
@@ -82,7 +85,7 @@ ROLES=(elon jobs linus turing assistant)
 AGENT_ID=(main jobs linus turing assistant)
 WORKSPACE=(workspace-elon workspace-jobs workspace-linus workspace-turing workspace-assistant)
 
-usage() { sed -n '2,42p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$0"; }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -108,6 +111,8 @@ while [ "$#" -gt 0 ]; do
     --no-register) NOREG=1 ;;
     --prototype) PROTOTYPE="${2:?}"; shift ;;
     --prototype=*) PROTOTYPE="${1#*=}" ;;
+    --keys) SKIP_KEYS=0 ;;
+    --skip-keys) SKIP_KEYS=1 ;;
     --skip-config) DO_CONFIG=0 ;;
     --skip-team) DO_TEAM=0 ;;
     -h|--help) usage; exit 0 ;;
@@ -273,6 +278,38 @@ if [ "$carrier" != "static-html" ]; then
   fi
 fi
 
+# ---- 1d. API keys (masked prompt; skippable) -------------------------------
+KEYS_FILE="$TEAM_DIR/.secrets.env"
+if [ -f "$REPO/config/api-keys.json" ]; then
+  step "api keys"
+  krows="$(node -e '
+    const m=require(process.argv[1]);const c=process.argv[2];
+    for(const [k,v] of Object.entries(m.keys||{})){
+      const when=v.when||"";
+      if(when && !when.split(",").map(s=>s.trim()).includes("carrier="+c)) continue;
+      console.log([k,(v.purpose||""),(v.configure||""),(v.required?"1":"0")].join("|"));
+    }
+  ' "$REPO/config/api-keys.json" "$carrier" 2>/dev/null || true)"
+  while IFS='|' read -r kname kpurpose kconf kreq; do
+    [ -n "$kname" ] || continue
+    eval "curval=\${$kname:-}"
+    if [ -n "$curval" ]; then info "$kname: already set in environment"; continue; fi
+    if [ "$SKIP_KEYS" = 1 ] || [ "$DRY_RUN" = 1 ] || [ ! -t 0 ]; then
+      info "$kname: not set (see the closing summary)"; continue
+    fi
+    printf '  %s — %s\n  Enter value (input hidden; Enter to skip): ' "$kname" "$kpurpose"
+    read -rs kval < /dev/tty || true
+    printf '\n'
+    if [ -n "$kval" ]; then
+      mkdir -p "$TEAM_DIR"; umask 077
+      printf '%s=%s\n' "$kname" "$kval" >> "$KEYS_FILE"; chmod 600 "$KEYS_FILE"
+      info "$kname: stored (0600) in $KEYS_FILE"
+    else
+      info "$kname: skipped"
+    fi
+  done <<< "$krows"
+fi
+
 # ---- 2. skills (declared sources; option A) ---------------------------------
 if [ "$DO_SKILLS" = 1 ]; then
   if [ -f "$REPO/skills/manifest.json" ]; then
@@ -383,6 +420,31 @@ if [ "$DRY_RUN" != 1 ]; then
   run mkdir -p "$TEAM_DIR"
   printf '{\n  "version": "%s",\n  "installedAt": "%s"\n}\n' "$VERSION" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$TEAM_DIR/.install-state.json"
 fi
+# ---- closing summary: API keys ---------------------------------------------
+if [ -f "$REPO/config/api-keys.json" ]; then
+  say ""
+  say "API keys (closing summary)"
+  krows="$(node -e '
+    const m=require(process.argv[1]);const c=process.argv[2];
+    for(const [k,v] of Object.entries(m.keys||{})){
+      const when=v.when||"";
+      if(when && !when.split(",").map(s=>s.trim()).includes("carrier="+c)) continue;
+      console.log([k,(v.purpose||""),(v.configure||""),(v.required?"1":"0")].join("|"));
+    }
+  ' "$REPO/config/api-keys.json" "$carrier" 2>/dev/null || true)"
+  while IFS='|' read -r kname kpurpose kconf kreq; do
+    [ -n "$kname" ] || continue
+    state="NOT SET"
+    eval "curval=\${$kname:-}"
+    if [ -n "$curval" ]; then state="set (environment)"
+    elif [ -f "$KEYS_FILE" ] && grep -q "^$kname=" "$KEYS_FILE" 2>/dev/null; then state="provided (stored 0600)"; fi
+    req=""; [ "$kreq" = 1 ] && req=" [required]"
+    printf '  %-26s %s%s\n' "$kname" "$state" "$req"
+    if [ "$state" = "NOT SET" ]; then info "    → $kpurpose"; info "      set it:  $kconf"; fi
+  done <<< "$krows"
+  info "Stored keys: $KEYS_FILE (0600; never committed). Re-run with --keys to (re)enter them."
+fi
+
 say ""
 say "Done. version=$VERSION  steps=$STEPS  warnings=$WARNINGS"
 [ "$DRY_RUN" = 1 ] && say "(dry-run: nothing was changed)"
