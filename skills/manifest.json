@@ -1,6 +1,6 @@
 {
   "$schema": "openclaw-team/skills-manifest@1",
-  "note": "Declarations only (option A). Bodies are NOT vendored. install.sh fetches from source; --vendor snapshots. needs_source=true => unresolved, skipped.",
+  "note": "Declarations only (option A). Bodies NOT vendored. install.sh fetches from source; --vendor snapshots. needs_source=true => unresolved, skipped.",
   "skills": [
     {
       "name": "antfu",
@@ -27,18 +27,7 @@
     {
       "name": "ask-matt",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "ask-matt"
-      }
-    },
-    {
-      "name": "ask-matt",
-      "targets": [
+        "claude",
         "agent:linus"
       ],
       "source": {
@@ -64,18 +53,7 @@
     {
       "name": "claude-handoff",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "claude-handoff"
-      }
-    },
-    {
-      "name": "claude-handoff",
-      "targets": [
+        "claude",
         "agent:linus"
       ],
       "source": {
@@ -88,30 +66,8 @@
     {
       "name": "code-review",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "code-review"
-      }
-    },
-    {
-      "name": "code-review",
-      "targets": [
-        "agent:linus"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "code-review"
-      }
-    },
-    {
-      "name": "code-review",
-      "targets": [
+        "claude",
+        "agent:linus",
         "agent:turing"
       ],
       "source": {
@@ -124,18 +80,7 @@
     {
       "name": "codebase-design",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "codebase-design"
-      }
-    },
-    {
-      "name": "codebase-design",
-      "targets": [
+        "claude",
         "agent:linus"
       ],
       "source": {
@@ -160,18 +105,7 @@
     {
       "name": "diagnosing-bugs",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "diagnosing-bugs"
-      }
-    },
-    {
-      "name": "diagnosing-bugs",
-      "targets": [
+        "claude",
         "agent:linus"
       ],
       "source": {
@@ -189,7 +123,7 @@
       "source": {
         "kind": "clawhub",
         "ref": "@ivangdavila/docker",
-        "version": "1.0.10"
+        "self_declared": true
       }
     },
     {
@@ -208,18 +142,7 @@
     {
       "name": "domain-modeling",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "domain-modeling"
-      }
-    },
-    {
-      "name": "domain-modeling",
-      "targets": [
+        "claude",
         "agent:linus"
       ],
       "source": {
@@ -232,17 +155,7 @@
     {
       "name": "e2e-testing-patterns",
       "targets": [
-        "codex"
-      ],
-      "source": {
-        "kind": "clawhub",
-        "ref": "@wpank/e2e-testing-patterns",
-        "self_declared": true
-      }
-    },
-    {
-      "name": "e2e-testing-patterns",
-      "targets": [
+        "codex",
         "agent:turing"
       ],
       "source": {
@@ -315,18 +228,7 @@
     {
       "name": "git-guardrails-claude-code",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "git-guardrails-claude-code"
-      }
-    },
-    {
-      "name": "git-guardrails-claude-code",
-      "targets": [
+        "claude",
         "agent:linus"
       ],
       "source": {
@@ -339,18 +241,7 @@
     {
       "name": "grill-with-docs",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "grill-with-docs"
-      }
-    },
-    {
-      "name": "grill-with-docs",
-      "targets": [
+        "claude",
         "agent:linus"
       ],
       "source": {
@@ -363,18 +254,7 @@
     {
       "name": "grilling",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "grilling"
-      }
-    },
-    {
-      "name": "grilling",
-      "targets": [
+        "claude",
         "agent:jobs"
       ],
       "source": {
@@ -387,18 +267,7 @@
     {
       "name": "handoff",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "handoff"
-      }
-    },
-    {
-      "name": "handoff",
-      "targets": [
+        "claude",
         "agent:jobs"
       ],
       "source": {
@@ -435,18 +304,7 @@
     {
       "name": "implement",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "implement"
-      }
-    },
-    {
-      "name": "implement",
-      "targets": [
+        "claude",
         "agent:linus"
       ],
       "source": {
@@ -459,18 +317,7 @@
     {
       "name": "implement-spec",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "implement-spec"
-      }
-    },
-    {
-      "name": "implement-spec",
-      "targets": [
+        "claude",
         "agent:linus"
       ],
       "source": {
@@ -483,18 +330,7 @@
     {
       "name": "improve-codebase-architecture",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "improve-codebase-architecture"
-      }
-    },
-    {
-      "name": "improve-codebase-architecture",
-      "targets": [
+        "claude",
         "agent:linus"
       ],
       "source": {
@@ -527,17 +363,7 @@
     {
       "name": "nm-parseltongue-python-testing",
       "targets": [
-        "codex"
-      ],
-      "source": {
-        "kind": "clawhub",
-        "ref": "@athola/nm-parseltongue-python-testing",
-        "self_declared": true
-      }
-    },
-    {
-      "name": "nm-parseltongue-python-testing",
-      "targets": [
+        "codex",
         "agent:turing"
       ],
       "source": {
@@ -575,9 +401,11 @@
         "claude"
       ],
       "source": {
-        "kind": "clawhub",
-        "ref": "@awspace/pdf",
-        "version": "0.1.0"
+        "kind": "github",
+        "repo": "https://github.com/anthropics/skills",
+        "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
+        "path": "skills/pdf",
+        "verified": true
       }
     },
     {
@@ -618,18 +446,7 @@
     {
       "name": "pr",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "pr"
-      }
-    },
-    {
-      "name": "pr",
-      "targets": [
+        "claude",
         "agent:linus"
       ],
       "source": {
@@ -642,18 +459,7 @@
     {
       "name": "prototype",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "prototype"
-      }
-    },
-    {
-      "name": "prototype",
-      "targets": [
+        "claude",
         "agent:jobs"
       ],
       "source": {
@@ -719,18 +525,7 @@
     {
       "name": "setup-matt-pocock-skills",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "setup-matt-pocock-skills"
-      }
-    },
-    {
-      "name": "setup-matt-pocock-skills",
-      "targets": [
+        "claude",
         "agent:linus"
       ],
       "source": {
@@ -743,18 +538,7 @@
     {
       "name": "setup-pre-commit",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "setup-pre-commit"
-      }
-    },
-    {
-      "name": "setup-pre-commit",
-      "targets": [
+        "claude",
         "agent:linus"
       ],
       "source": {
@@ -847,18 +631,7 @@
     {
       "name": "tavily-cli",
       "targets": [
-        "openclaw"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/tavily-ai/skills",
-        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
-        "path": "tavily-cli"
-      }
-    },
-    {
-      "name": "tavily-cli",
-      "targets": [
+        "openclaw",
         "claude"
       ],
       "source": {
@@ -884,18 +657,7 @@
     {
       "name": "tavily-dynamic-search",
       "targets": [
-        "openclaw"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/tavily-ai/skills",
-        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
-        "path": "tavily-dynamic-search"
-      }
-    },
-    {
-      "name": "tavily-dynamic-search",
-      "targets": [
+        "openclaw",
         "claude"
       ],
       "source": {
@@ -908,18 +670,7 @@
     {
       "name": "tavily-extract",
       "targets": [
-        "openclaw"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/tavily-ai/skills",
-        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
-        "path": "tavily-extract"
-      }
-    },
-    {
-      "name": "tavily-extract",
-      "targets": [
+        "openclaw",
         "claude"
       ],
       "source": {
@@ -945,18 +696,7 @@
     {
       "name": "tavily-research",
       "targets": [
-        "openclaw"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/tavily-ai/skills",
-        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
-        "path": "tavily-research"
-      }
-    },
-    {
-      "name": "tavily-research",
-      "targets": [
+        "openclaw",
         "claude"
       ],
       "source": {
@@ -969,18 +709,7 @@
     {
       "name": "tavily-search",
       "targets": [
-        "openclaw"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/tavily-ai/skills",
-        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
-        "path": "tavily-search"
-      }
-    },
-    {
-      "name": "tavily-search",
-      "targets": [
+        "openclaw",
         "claude"
       ],
       "source": {
@@ -993,30 +722,8 @@
     {
       "name": "tdd",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "tdd"
-      }
-    },
-    {
-      "name": "tdd",
-      "targets": [
-        "agent:linus"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "tdd"
-      }
-    },
-    {
-      "name": "tdd",
-      "targets": [
+        "claude",
+        "agent:linus",
         "agent:turing"
       ],
       "source": {
@@ -1029,18 +736,7 @@
     {
       "name": "to-questionnaire",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "to-questionnaire"
-      }
-    },
-    {
-      "name": "to-questionnaire",
-      "targets": [
+        "claude",
         "agent:jobs"
       ],
       "source": {
@@ -1053,18 +749,7 @@
     {
       "name": "to-spec",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "to-spec"
-      }
-    },
-    {
-      "name": "to-spec",
-      "targets": [
+        "claude",
         "agent:jobs"
       ],
       "source": {
@@ -1077,18 +762,7 @@
     {
       "name": "to-tickets",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "to-tickets"
-      }
-    },
-    {
-      "name": "to-tickets",
-      "targets": [
+        "claude",
         "agent:jobs"
       ],
       "source": {
@@ -1186,18 +860,7 @@
     {
       "name": "wayfinder",
       "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "github",
-        "repo": "https://github.com/mattpocock/skills",
-        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "wayfinder"
-      }
-    },
-    {
-      "name": "wayfinder",
-      "targets": [
+        "claude",
         "agent:jobs"
       ],
       "source": {

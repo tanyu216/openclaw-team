@@ -1,671 +1,963 @@
 {
   "$schema": "openclaw-team/skills-lock@1",
-  "skills": {
-    "antfu": {
+  "skills": [
+    {
+      "name": "antfu",
       "targets": [
         "claude"
       ],
       "ref": "e53a142a2420e8cd812cfe9ed0484ab01bc856aa",
-      "version": null,
-      "tree_sha256": "sha256:ba4e14d781cab560a26974609cd792e320d75f3adad48c17d4bd5a6a03d76236",
+      "repo": "https://github.com/antfu/skills",
+      "tree_sha256": [
+        "sha256:ba4e14d781cab560a26974609cd792e320d75f3adad48c17d4bd5a6a03d76236"
+      ],
       "resolved": true
     },
-    "api-security-testing": {
+    {
+      "name": "api-security-testing",
       "targets": [
         "agent:turing"
       ],
-      "tree_sha256": "sha256:b2e7a1c3258c67f8cd2a2a3d5ab867c742e720e4d7938dd85da5b766ba4b34a2",
+      "tree_sha256": [
+        "sha256:b2e7a1c3258c67f8cd2a2a3d5ab867c742e720e4d7938dd85da5b766ba4b34a2"
+      ],
       "resolved": false
     },
-    "ask-matt": {
+    {
+      "name": "ask-matt",
       "targets": [
+        "claude",
         "agent:linus"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:41a52a95f946142fa873c8c504eb5aba483deee611adf17b651f6ec878702fac",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:41a52a95f946142fa873c8c504eb5aba483deee611adf17b651f6ec878702fac",
+        "sha256:70c59ebfe4f83b849b84ef5a4507bd29b45e8ec7a6b7fa1ed770d68d00334f0c"
+      ],
       "resolved": true
     },
-    "canvas-design": {
+    {
+      "name": "canvas-design",
       "targets": [
         "claude"
       ],
       "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
-      "version": null,
-      "tree_sha256": "sha256:b958beb4e89a524215b7a5b5f2aa3e0d8b49ba516b74b5fcd704b1d48addad67",
+      "repo": "https://github.com/anthropics/skills",
+      "tree_sha256": [
+        "sha256:b958beb4e89a524215b7a5b5f2aa3e0d8b49ba516b74b5fcd704b1d48addad67"
+      ],
       "resolved": true
     },
-    "claude-handoff": {
+    {
+      "name": "claude-handoff",
       "targets": [
+        "claude",
         "agent:linus"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:8c42832f2a7f1a6958156278b0788a1374541d15cd03a0edbdb327837fcac34e",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:169fbd35f3cf8a4425aec7f7c428d549325d50fa637e8626c5ed2ecfc3a300b9",
+        "sha256:8c42832f2a7f1a6958156278b0788a1374541d15cd03a0edbdb327837fcac34e"
+      ],
       "resolved": true
     },
-    "code-review": {
+    {
+      "name": "code-review",
       "targets": [
+        "claude",
+        "agent:linus",
         "agent:turing"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:ec8dfcaf1aedac53e3125a4e715dd16b6ce967b75e72a963cc23a82c72cc85b7",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:43ebd40e471f1577e14086a5b7a59c55dc9fc5fa761cba3f469d5f38cb63323a",
+        "sha256:780be2eef8e387f5d0c07473485cdce4dd2e55c0587f1e96635eb7e929ed1123",
+        "sha256:ec8dfcaf1aedac53e3125a4e715dd16b6ce967b75e72a963cc23a82c72cc85b7"
+      ],
       "resolved": true
     },
-    "codebase-design": {
+    {
+      "name": "codebase-design",
       "targets": [
+        "claude",
         "agent:linus"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:c6f7c42bf1e566479a87026d03c7e619268c9307e858add3ae887f5a92487491",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:c6f7c42bf1e566479a87026d03c7e619268c9307e858add3ae887f5a92487491",
+        "sha256:e91e18258598832efe27af7e3c423ab262c6f8b8ecb6262d8fbb80d626ef0e19"
+      ],
       "resolved": true
     },
-    "daisyui": {
+    {
+      "name": "daisyui",
       "targets": [
         "claude",
         "agent:jobs"
       ],
       "ref": "@saadeghi/daisyui/daisyui",
-      "version": null,
-      "tree_sha256": "sha256:c3699c095bfc77d88d3f2e41dc5ab7d9c27eb251c66fac6985712f310a1099b9",
+      "tree_sha256": [
+        "sha256:c3699c095bfc77d88d3f2e41dc5ab7d9c27eb251c66fac6985712f310a1099b9"
+      ],
       "resolved": true
     },
-    "diagnosing-bugs": {
+    {
+      "name": "diagnosing-bugs",
       "targets": [
+        "claude",
         "agent:linus"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:a93c395d79c49ea7284cd439c82ca0d61ae20126fc1e850b0834bc584d77d55e",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:29faf0d352422aa58beb0ce4666a49bdfdd5d2cc065c9dfe9be7b7e89fbdf584",
+        "sha256:a93c395d79c49ea7284cd439c82ca0d61ae20126fc1e850b0834bc584d77d55e"
+      ],
       "resolved": true
     },
-    "docker": {
+    {
+      "name": "docker",
       "targets": [
         "agent:linus"
       ],
       "ref": "@ivangdavila/docker",
-      "version": "1.0.10",
-      "tree_sha256": "sha256:c7b7a2f0a1c346c7ff9f4f66ab293e93a3e803a9a23d4762988bf98c320a153f",
+      "tree_sha256": [
+        "sha256:c7b7a2f0a1c346c7ff9f4f66ab293e93a3e803a9a23d4762988bf98c320a153f"
+      ],
       "resolved": true
     },
-    "docx": {
+    {
+      "name": "docx",
       "targets": [
         "claude"
       ],
       "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
-      "version": null,
-      "tree_sha256": "sha256:2ef8f47d0ef992fc0042b4137f2df1baf402b78c76b76a9c94c130bd5efda0bb",
+      "repo": "https://github.com/anthropics/skills",
+      "tree_sha256": [
+        "sha256:2ef8f47d0ef992fc0042b4137f2df1baf402b78c76b76a9c94c130bd5efda0bb"
+      ],
       "resolved": true
     },
-    "domain-modeling": {
+    {
+      "name": "domain-modeling",
       "targets": [
+        "claude",
         "agent:linus"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:95268593c8ca32bc54eb2766805c3a3a32e8296f23afbd23b44a2dc63214e63f",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:18a9314d338b8135e4108d1d31d2fd57ad289cf8bf31d2acd6a6f3053ac22a38",
+        "sha256:95268593c8ca32bc54eb2766805c3a3a32e8296f23afbd23b44a2dc63214e63f"
+      ],
       "resolved": true
     },
-    "e2e-testing-patterns": {
+    {
+      "name": "e2e-testing-patterns",
       "targets": [
+        "codex",
         "agent:turing"
       ],
       "ref": "@wpank/e2e-testing-patterns",
-      "version": null,
-      "tree_sha256": "sha256:c8ff2e7e01e68576807ee65d484342db1ca18e9854bb88451967e36e374e73b6",
+      "tree_sha256": [
+        "sha256:7c1eed8ecdd9e83ab0669e894d78d4ca0a435a25bc85e0a4d1d125b0cba84117",
+        "sha256:c8ff2e7e01e68576807ee65d484342db1ca18e9854bb88451967e36e374e73b6"
+      ],
       "resolved": true
     },
-    "excel-xlsx": {
+    {
+      "name": "excel-xlsx",
       "targets": [
         "openclaw"
       ],
       "ref": "@ivangdavila/excel-xlsx",
       "version": "1.0.2",
-      "tree_sha256": "sha256:0704372a0e78bbb9fe197a06090ca900267babec5c2f71f60f14b7db6c0c3b6c",
+      "tree_sha256": [
+        "sha256:0704372a0e78bbb9fe197a06090ca900267babec5c2f71f60f14b7db6c0c3b6c"
+      ],
       "resolved": true
     },
-    "find-skills-skill": {
+    {
+      "name": "find-skills-skill",
       "targets": [
         "openclaw"
       ],
       "ref": "@fangkelvin/find-skills-skill",
       "version": "1.0.0",
-      "tree_sha256": "sha256:4fb4228d9071063261ecf2db357ccad6de47bfea2cfe38fe296dde2904830e20",
+      "tree_sha256": [
+        "sha256:4fb4228d9071063261ecf2db357ccad6de47bfea2cfe38fe296dde2904830e20"
+      ],
       "resolved": true
     },
-    "finesse-term": {
+    {
+      "name": "finesse-term",
       "targets": [
         "agent:jobs"
       ],
       "ref": "139200b884b761da9fca4cc3baaa3d58fd64107c",
-      "version": null,
-      "tree_sha256": "sha256:12ded1e5cc31378df368d9ff615656f84498d11101aae5d55faaa15f507cdee7",
+      "repo": "https://github.com/mouse-lin/finesse-term",
+      "tree_sha256": [
+        "sha256:12ded1e5cc31378df368d9ff615656f84498d11101aae5d55faaa15f507cdee7"
+      ],
       "resolved": true
     },
-    "finesse-ui": {
+    {
+      "name": "finesse-ui",
       "targets": [
         "agent:jobs"
       ],
       "ref": "5050b6c71e27b829d1b3087d2be889d29c60db00",
-      "version": null,
-      "tree_sha256": "sha256:142b22e9a4eeed3a56d8d4bea504324a0d4695dc0eb3da38ec829913273526a0",
+      "repo": "https://github.com/mouse-lin/finesse-skill",
+      "tree_sha256": [
+        "sha256:142b22e9a4eeed3a56d8d4bea504324a0d4695dc0eb3da38ec829913273526a0"
+      ],
       "resolved": true
     },
-    "frame-smith": {
+    {
+      "name": "frame-smith",
       "targets": [
         "agent:jobs"
       ],
       "ref": "44b7e716971b46ab801f302d3ba34c5b61442e9f",
-      "version": null,
-      "tree_sha256": "sha256:d6326487398a662eb12484aa820a86eb87bdec3eb042cd1bce74701b66da392b",
+      "repo": "https://github.com/mouse-lin/frame-smith",
+      "tree_sha256": [
+        "sha256:d6326487398a662eb12484aa820a86eb87bdec3eb042cd1bce74701b66da392b"
+      ],
       "resolved": true
     },
-    "git-guardrails-claude-code": {
+    {
+      "name": "git-guardrails-claude-code",
       "targets": [
+        "claude",
         "agent:linus"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:51ed133e401491a91bddfe6fd4d5994c42e0db88f33f1464af0de3a56a29b163",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:51ed133e401491a91bddfe6fd4d5994c42e0db88f33f1464af0de3a56a29b163",
+        "sha256:8d9c6499217ae7cebd8aba75d529bcb96e54a80e91157976149c502075fc31ab"
+      ],
       "resolved": true
     },
-    "grill-with-docs": {
+    {
+      "name": "grill-with-docs",
       "targets": [
+        "claude",
         "agent:linus"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:5f7322abb409e95d1f2cc9734b20e65d44ba0bcecc3bca787955338cc2d12ae9",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:2dff19547f0f72000f8b88868e21b7d76c27cf5c7ececc6edf4042bbe06157ac",
+        "sha256:5f7322abb409e95d1f2cc9734b20e65d44ba0bcecc3bca787955338cc2d12ae9"
+      ],
       "resolved": true
     },
-    "grilling": {
+    {
+      "name": "grilling",
       "targets": [
+        "claude",
         "agent:jobs"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:19396c281f2ed9199ae52441ed96f387364ddbca75340df53796cfb2effacc5f",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:19396c281f2ed9199ae52441ed96f387364ddbca75340df53796cfb2effacc5f",
+        "sha256:84ca0320c5fa81a1261d6d1d4c120ada9dea80f856a2c2565404f7125a809b86"
+      ],
       "resolved": true
     },
-    "handoff": {
+    {
+      "name": "handoff",
       "targets": [
+        "claude",
         "agent:jobs"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:17a949476d69cb29becdb9de949884d6cedc02b8eb181ce7115d21127b13e6be",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:17a949476d69cb29becdb9de949884d6cedc02b8eb181ce7115d21127b13e6be",
+        "sha256:77c2607c751b7c522e0208ab113ba4949f8267610d6061323c7ccd3ace21d7da"
+      ],
       "resolved": true
     },
-    "humanizer": {
+    {
+      "name": "humanizer",
       "targets": [
         "openclaw"
       ],
       "ref": "@biostartechnology/humanizer",
       "version": "1.0.0",
-      "tree_sha256": "sha256:dd5fc897e5237cf7567a4851fdde36eb47fd0e1405d7ae3058f4819fd5ead45e",
+      "tree_sha256": [
+        "sha256:dd5fc897e5237cf7567a4851fdde36eb47fd0e1405d7ae3058f4819fd5ead45e"
+      ],
       "resolved": true
     },
-    "impeccable": {
+    {
+      "name": "impeccable",
       "targets": [
         "agent:jobs"
       ],
       "ref": "778c8a7b71ccd5bfe3ca6ac68c15d9d872d0f87d",
-      "version": null,
-      "tree_sha256": "sha256:7b1415cf0b64ce00463a6c75a1ed6aef2afb6a0c2e689fb7b7afef0cb7577625",
+      "repo": "https://github.com/pbakaus/impeccable",
+      "tree_sha256": [
+        "sha256:7b1415cf0b64ce00463a6c75a1ed6aef2afb6a0c2e689fb7b7afef0cb7577625"
+      ],
       "resolved": true
     },
-    "implement": {
+    {
+      "name": "implement",
       "targets": [
+        "claude",
         "agent:linus"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:9093e0a7eef681a69eeab8113654a1bdec49b910b4bb9d6b45643c28e19dd73c",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:72f446ef5b35d3df73c21b574ba2ae50ab3d02fc5d4da44b80f27ce13e7dc18d",
+        "sha256:9093e0a7eef681a69eeab8113654a1bdec49b910b4bb9d6b45643c28e19dd73c"
+      ],
       "resolved": true
     },
-    "implement-spec": {
+    {
+      "name": "implement-spec",
       "targets": [
+        "claude",
         "agent:linus"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:3f64c581c8b3c720217b7a545c418af21b3c11e5bf8cc7b4bfa2929b8e0e3282",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:3e613d4c4ad1c95dc3489fa447a420875dd2b6b6750eace3dcbc4d218a7d6623",
+        "sha256:3f64c581c8b3c720217b7a545c418af21b3c11e5bf8cc7b4bfa2929b8e0e3282"
+      ],
       "resolved": true
     },
-    "improve-codebase-architecture": {
+    {
+      "name": "improve-codebase-architecture",
       "targets": [
+        "claude",
         "agent:linus"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:242f1a0833d3eb459d1ad033d687dfc4072490862773db525b1c4db1cc3b3cfd",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:21e81aed6d25a2b16ad0e6b9ec65b398145a110d11fd76951263d13372822e9d",
+        "sha256:242f1a0833d3eb459d1ad033d687dfc4072490862773db525b1c4db1cc3b3cfd"
+      ],
       "resolved": true
     },
-    "interface-design": {
+    {
+      "name": "interface-design",
       "targets": [
         "agent:jobs"
       ],
-      "tree_sha256": "sha256:b165aed1f0c24719a801a5905c2f95acee107794854a6567aa67b347d8f61d26",
+      "tree_sha256": [
+        "sha256:b165aed1f0c24719a801a5905c2f95acee107794854a6567aa67b347d8f61d26"
+      ],
       "resolved": false
     },
-    "marketing-copywriting": {
+    {
+      "name": "marketing-copywriting",
       "targets": [
         "agent:assistant"
       ],
-      "tree_sha256": "sha256:c1124246747d299594c43927281e126b8eeffff0fa7f6fd66d7d4d726abb055d",
+      "tree_sha256": [
+        "sha256:c1124246747d299594c43927281e126b8eeffff0fa7f6fd66d7d4d726abb055d"
+      ],
       "resolved": false
     },
-    "nm-parseltongue-python-testing": {
+    {
+      "name": "nm-parseltongue-python-testing",
       "targets": [
+        "codex",
         "agent:turing"
       ],
       "ref": "@athola/nm-parseltongue-python-testing",
-      "version": null,
-      "tree_sha256": "sha256:5943c7f643216e9b98ebea9445883d2e5f02a430a0fa9a510ba9b31ef335cb13",
+      "tree_sha256": [
+        "sha256:5943c7f643216e9b98ebea9445883d2e5f02a430a0fa9a510ba9b31ef335cb13",
+        "sha256:a9d057f79a42ebeda27750686e5df872c17e894a2bf72765f600cec1f2ea89d4"
+      ],
       "resolved": true
     },
-    "nuxt": {
+    {
+      "name": "nuxt",
       "targets": [
         "claude"
       ],
       "ref": "e53a142a2420e8cd812cfe9ed0484ab01bc856aa",
-      "version": null,
-      "tree_sha256": "sha256:f10beafaaa4abe92e89ed4cee5f66cea69a569e4fdb33c98e13807ad5c19039b",
+      "repo": "https://github.com/antfu/skills",
+      "tree_sha256": [
+        "sha256:f10beafaaa4abe92e89ed4cee5f66cea69a569e4fdb33c98e13807ad5c19039b"
+      ],
       "resolved": true
     },
-    "pdf": {
+    {
+      "name": "pdf",
       "targets": [
-        "claude"
+        "openclaw"
       ],
       "ref": "@awspace/pdf",
       "version": "0.1.0",
-      "tree_sha256": "sha256:6a01b6dc757b8856d7eba5e9985d8550783f946d7afdf86402ba324b93239fc0",
+      "tree_sha256": [
+        "sha256:91c7e6c03c3e77b0e5ab5fe24c8ec768ffb4f2e232e6d68e01d8a33a131c32ef"
+      ],
       "resolved": true
     },
-    "pinia": {
+    {
+      "name": "pdf",
+      "targets": [
+        "claude"
+      ],
+      "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
+      "repo": "https://github.com/anthropics/skills",
+      "tree_sha256": [
+        "sha256:6a01b6dc757b8856d7eba5e9985d8550783f946d7afdf86402ba324b93239fc0"
+      ],
+      "resolved": true
+    },
+    {
+      "name": "pinia",
       "targets": [
         "claude"
       ],
       "ref": "e53a142a2420e8cd812cfe9ed0484ab01bc856aa",
-      "version": null,
-      "tree_sha256": "sha256:adf8ba25c083c782bf5f05808406cc336a175ab8dd5ddeeb121a6cedf1f87960",
+      "repo": "https://github.com/antfu/skills",
+      "tree_sha256": [
+        "sha256:adf8ba25c083c782bf5f05808406cc336a175ab8dd5ddeeb121a6cedf1f87960"
+      ],
       "resolved": true
     },
-    "playwright": {
+    {
+      "name": "playwright",
       "targets": [
         "openclaw"
       ],
       "ref": "@ivangdavila/playwright",
       "version": "1.0.4",
-      "tree_sha256": "sha256:72d1ab793d5599eb90a84e874b8c0da5615004a27ab64c1060c440276fa64c16",
+      "tree_sha256": [
+        "sha256:72d1ab793d5599eb90a84e874b8c0da5615004a27ab64c1060c440276fa64c16"
+      ],
       "resolved": true
     },
-    "pnpm": {
+    {
+      "name": "pnpm",
       "targets": [
         "claude"
       ],
       "ref": "e53a142a2420e8cd812cfe9ed0484ab01bc856aa",
-      "version": null,
-      "tree_sha256": "sha256:e2afb8b7aa136a7b75a6f68610d686cd4a4440a0c00d72e6fa905fdbec9cc225",
+      "repo": "https://github.com/antfu/skills",
+      "tree_sha256": [
+        "sha256:e2afb8b7aa136a7b75a6f68610d686cd4a4440a0c00d72e6fa905fdbec9cc225"
+      ],
       "resolved": true
     },
-    "pr": {
+    {
+      "name": "pr",
       "targets": [
+        "claude",
         "agent:linus"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:a2c945d3696d08050c0dbd763a1ee067d6682e5de55c98da91efd91c8bb5a8d1",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:a2c945d3696d08050c0dbd763a1ee067d6682e5de55c98da91efd91c8bb5a8d1",
+        "sha256:fd6364a4c6714b4978b23abcbb170eaddeb99da87f2efee1f6e9baf9dfc2a446"
+      ],
       "resolved": true
     },
-    "prototype": {
+    {
+      "name": "prototype",
       "targets": [
+        "claude",
         "agent:jobs"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:b6c033f7a07cdf42a4b168e4616e408ab9b9e47e6b828c4cfc018ca6eda772c4",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:b6c033f7a07cdf42a4b168e4616e408ab9b9e47e6b828c4cfc018ca6eda772c4",
+        "sha256:c4efd5e0f1c302b6225be83e8e42abdb05e13fde900484e4e2240e90b4e83eb6"
+      ],
       "resolved": true
     },
-    "qa-api-testing": {
+    {
+      "name": "qa-api-testing",
       "targets": [
         "agent:turing"
       ],
       "ref": "@kokxi/qa-api-testing",
-      "version": null,
-      "tree_sha256": "sha256:20ebcc003070d38cb890920618e1ecb5ab112f29d0339f6af6f3038ecb220c14",
+      "tree_sha256": [
+        "sha256:20ebcc003070d38cb890920618e1ecb5ab112f29d0339f6af6f3038ecb220c14"
+      ],
       "resolved": true
     },
-    "qa-test-automation-arch": {
+    {
+      "name": "qa-test-automation-arch",
       "targets": [
         "agent:turing"
       ],
       "ref": "@kokxi/qa-test-automation-arch",
-      "version": null,
-      "tree_sha256": "sha256:65a6c6195d7c10eb171c53239bc50e3382a96915c91e24a4d20d1cde679ad03e",
+      "tree_sha256": [
+        "sha256:65a6c6195d7c10eb171c53239bc50e3382a96915c91e24a4d20d1cde679ad03e"
+      ],
       "resolved": true
     },
-    "research": {
+    {
+      "name": "research",
       "targets": [
         "agent:jobs"
       ],
-      "tree_sha256": "sha256:2b1387e3ef2108a992eb11922aa7ab39a620b7f5dfe56f00ea0003846471dd6f",
+      "tree_sha256": [
+        "sha256:2b1387e3ef2108a992eb11922aa7ab39a620b7f5dfe56f00ea0003846471dd6f"
+      ],
       "resolved": false
     },
-    "retro": {
+    {
+      "name": "retro",
       "targets": [
         "agent:linus"
       ],
-      "tree_sha256": "sha256:3419a4f33baab4a0e0b46b9d8e24e12cbd53e230bc0b1f7e42ee267fa9701d2c",
+      "tree_sha256": [
+        "sha256:3419a4f33baab4a0e0b46b9d8e24e12cbd53e230bc0b1f7e42ee267fa9701d2c"
+      ],
       "resolved": false
     },
-    "security-audit-toolkit": {
+    {
+      "name": "security-audit-toolkit",
       "targets": [
         "agent:turing"
       ],
       "ref": "@gitgoodordietrying/security-audit-toolkit",
-      "version": null,
-      "tree_sha256": "sha256:8967201b3d3a793ab1bc49c37072c0a2ab569ee823c043cb650a61ad56f18d8d",
+      "tree_sha256": [
+        "sha256:8967201b3d3a793ab1bc49c37072c0a2ab569ee823c043cb650a61ad56f18d8d"
+      ],
       "resolved": true
     },
-    "setup-matt-pocock-skills": {
+    {
+      "name": "setup-matt-pocock-skills",
       "targets": [
+        "claude",
         "agent:linus"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:d37919b8bd246a5213580b7a2a5526965a8badc599e5e7aca0047401fda27f4e",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:343cec56011e727e63275b1ec6aa92b683572d4d79c663334267ce91279d4af5",
+        "sha256:d37919b8bd246a5213580b7a2a5526965a8badc599e5e7aca0047401fda27f4e"
+      ],
       "resolved": true
     },
-    "setup-pre-commit": {
+    {
+      "name": "setup-pre-commit",
       "targets": [
+        "claude",
         "agent:linus"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:92f0444cdf080f431ca1d6f767f7d2f43e17f32eb40955d2cfa9d4b341ca5f7a",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:3b77ee3d6c0d69ecb5fcb700a84b857976dec4f9312b3ec249c79ff27a765328",
+        "sha256:92f0444cdf080f431ca1d6f767f7d2f43e17f32eb40955d2cfa9d4b341ca5f7a"
+      ],
       "resolved": true
     },
-    "skill-creator": {
+    {
+      "name": "skill-creator",
       "targets": [
         "openclaw"
       ],
       "ref": "@chindden/skill-creator",
       "version": "0.1.0",
-      "tree_sha256": "sha256:035334ed9afa466f80b9c3e3a3e99e5cb2540696a305c8a29b1e387f821529a1",
+      "tree_sha256": [
+        "sha256:035334ed9afa466f80b9c3e3a3e99e5cb2540696a305c8a29b1e387f821529a1"
+      ],
       "resolved": true
     },
-    "skill-installer": {
+    {
+      "name": "skill-installer",
       "targets": [
         "claude"
       ],
-      "tree_sha256": "sha256:97f533e6eaff3fa7655e38f8b7012ad48e36ff9261d8dd70177bab8768153252",
+      "tree_sha256": [
+        "sha256:97f533e6eaff3fa7655e38f8b7012ad48e36ff9261d8dd70177bab8768153252"
+      ],
       "resolved": false
     },
-    "skill-vetter": {
+    {
+      "name": "skill-vetter",
       "targets": [
         "openclaw"
       ],
       "ref": "@spclaudehome/skill-vetter",
       "version": "1.0.0",
-      "tree_sha256": "sha256:f192bf03c67e9f1ccb0766c680289188fbc069841b337bedc2b443d41dc93375",
+      "tree_sha256": [
+        "sha256:f192bf03c67e9f1ccb0766c680289188fbc069841b337bedc2b443d41dc93375"
+      ],
       "resolved": true
     },
-    "subtitle": {
+    {
+      "name": "subtitle",
       "targets": [
         "agent:assistant"
       ],
       "ref": "@scikkk/subtitle",
-      "version": null,
-      "tree_sha256": "sha256:58fdc6196d5c55e310316592dfdc382897ba5cd02888ccdb3849f5b09c973dff",
+      "tree_sha256": [
+        "sha256:58fdc6196d5c55e310316592dfdc382897ba5cd02888ccdb3849f5b09c973dff"
+      ],
       "resolved": true
     },
-    "subtitle-extractor": {
+    {
+      "name": "subtitle-extractor",
       "targets": [
         "agent:assistant"
       ],
       "ref": "@poltawa/subtitle-extractor",
-      "version": null,
-      "tree_sha256": "sha256:d5056337ae790dc48efd16c6985bb36d5c8ec1a0bf96f08a3405ec777021e7fb",
+      "tree_sha256": [
+        "sha256:d5056337ae790dc48efd16c6985bb36d5c8ec1a0bf96f08a3405ec777021e7fb"
+      ],
       "resolved": true
     },
-    "taste-skill": {
+    {
+      "name": "taste-skill",
       "targets": [
         "agent:jobs"
       ],
       "ref": "b482f7a970abb98c4108d4a9f761e458c64cefc8",
-      "version": null,
-      "tree_sha256": "sha256:3e9093443477cbb4d3cde4bbdf027cc0c0f52487aa04bb385f760862c4ca0aab",
+      "repo": "https://github.com/Leonxlnx/taste-skill",
+      "tree_sha256": [
+        "sha256:3e9093443477cbb4d3cde4bbdf027cc0c0f52487aa04bb385f760862c4ca0aab"
+      ],
       "resolved": true
     },
-    "tavily-best-practices": {
+    {
+      "name": "tavily-best-practices",
       "targets": [
         "openclaw"
       ],
       "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
-      "version": null,
-      "tree_sha256": "sha256:4d322abac21e9b286e432c9bd1c19aeba0cfd527ecf948f8cc592119b48afc5e",
+      "repo": "https://github.com/tavily-ai/skills",
+      "tree_sha256": [
+        "sha256:4d322abac21e9b286e432c9bd1c19aeba0cfd527ecf948f8cc592119b48afc5e"
+      ],
       "resolved": true
     },
-    "tavily-cli": {
+    {
+      "name": "tavily-cli",
       "targets": [
+        "openclaw",
         "claude"
       ],
       "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
-      "version": null,
-      "tree_sha256": "sha256:c45e8e4099456ae4babb63ecea6085528c252f5afdbf5f4d20effc589315df83",
+      "repo": "https://github.com/tavily-ai/skills",
+      "tree_sha256": [
+        "sha256:c45e8e4099456ae4babb63ecea6085528c252f5afdbf5f4d20effc589315df83",
+        "sha256:f51804e247a777cc71a4ef7bb4601800f6bdf7d60d4313367a4a2b68d24461e3"
+      ],
       "resolved": true
     },
-    "tavily-crawl": {
+    {
+      "name": "tavily-crawl",
       "targets": [
         "openclaw"
       ],
       "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
-      "version": null,
-      "tree_sha256": "sha256:1987f09953dcc1a175a9f7c9d696a62d62093a637e1a6334ec3f1ffa18144507",
+      "repo": "https://github.com/tavily-ai/skills",
+      "tree_sha256": [
+        "sha256:1987f09953dcc1a175a9f7c9d696a62d62093a637e1a6334ec3f1ffa18144507"
+      ],
       "resolved": true
     },
-    "tavily-dynamic-search": {
+    {
+      "name": "tavily-dynamic-search",
       "targets": [
+        "openclaw",
         "claude"
       ],
       "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
-      "version": null,
-      "tree_sha256": "sha256:20613b48b29a8c86926eca8f3dc950bfd2dc900dc7a710e5c681b6d09a0e4b26",
+      "repo": "https://github.com/tavily-ai/skills",
+      "tree_sha256": [
+        "sha256:20613b48b29a8c86926eca8f3dc950bfd2dc900dc7a710e5c681b6d09a0e4b26",
+        "sha256:6ceeef14cfd1083ea56e93d8e7fe0b54939c3d04d0b8fd15afc08f67c15f4698"
+      ],
       "resolved": true
     },
-    "tavily-extract": {
+    {
+      "name": "tavily-extract",
       "targets": [
+        "openclaw",
         "claude"
       ],
       "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
-      "version": null,
-      "tree_sha256": "sha256:392daf79566fe701c6ceedd8dbad0c3aef206651587383883f20a9b66fd1c44d",
+      "repo": "https://github.com/tavily-ai/skills",
+      "tree_sha256": [
+        "sha256:0e696804195017546b612e66833a267c1d8d91da5d58540019f9a7f08f808251",
+        "sha256:392daf79566fe701c6ceedd8dbad0c3aef206651587383883f20a9b66fd1c44d"
+      ],
       "resolved": true
     },
-    "tavily-map": {
+    {
+      "name": "tavily-map",
       "targets": [
         "openclaw"
       ],
       "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
-      "version": null,
-      "tree_sha256": "sha256:77cdb043219f652e5dd2b1b9e1336201e0a2ef646a132e125e1b1e2fc90bd939",
+      "repo": "https://github.com/tavily-ai/skills",
+      "tree_sha256": [
+        "sha256:77cdb043219f652e5dd2b1b9e1336201e0a2ef646a132e125e1b1e2fc90bd939"
+      ],
       "resolved": true
     },
-    "tavily-research": {
+    {
+      "name": "tavily-research",
       "targets": [
+        "openclaw",
         "claude"
       ],
       "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
-      "version": null,
-      "tree_sha256": "sha256:09aeec61745f7a92d0845e7803ea7c93634ff373cd17a41214e7bf6af5670144",
+      "repo": "https://github.com/tavily-ai/skills",
+      "tree_sha256": [
+        "sha256:09aeec61745f7a92d0845e7803ea7c93634ff373cd17a41214e7bf6af5670144",
+        "sha256:db6ac345de7d10c86e001fafa4f9b53ebfbe7a89215c060818805ed5c7c0fd27"
+      ],
       "resolved": true
     },
-    "tavily-search": {
+    {
+      "name": "tavily-search",
       "targets": [
+        "openclaw",
         "claude"
       ],
       "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
-      "version": null,
-      "tree_sha256": "sha256:75682b6e1202b26883bb03f07b6fc69ff9629ac38913328a46f63853072c0b7f",
+      "repo": "https://github.com/tavily-ai/skills",
+      "tree_sha256": [
+        "sha256:707609981a37910261d239af993400a65add1bd6ca40c21c0528b43f846cd649",
+        "sha256:75682b6e1202b26883bb03f07b6fc69ff9629ac38913328a46f63853072c0b7f"
+      ],
       "resolved": true
     },
-    "tdd": {
+    {
+      "name": "tdd",
       "targets": [
+        "claude",
+        "agent:linus",
         "agent:turing"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:9c432401a85c7d496e9324641a25e2adeda6aedf0a1ac637676d555f44cb82d5",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:0882509f9cd2afce9ab107bee88f92dde348bae663546723cc4e4b74b5e4662f",
+        "sha256:1167ae34474fd78ece382c7b1a7b61c43a75d5268330bd4d692db62796cc11bd",
+        "sha256:9c432401a85c7d496e9324641a25e2adeda6aedf0a1ac637676d555f44cb82d5"
+      ],
       "resolved": true
     },
-    "to-questionnaire": {
+    {
+      "name": "to-questionnaire",
       "targets": [
+        "claude",
         "agent:jobs"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:a35553820cc5e43bebc7883d499d41525a0eb3d2f249b4423763280812a167e0",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:560491db9f48174ca9f7b5dd1444bc9c3cb7ac2d9e3e673e48289ef3221f164e",
+        "sha256:a35553820cc5e43bebc7883d499d41525a0eb3d2f249b4423763280812a167e0"
+      ],
       "resolved": true
     },
-    "to-spec": {
+    {
+      "name": "to-spec",
       "targets": [
+        "claude",
         "agent:jobs"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:8e7988c7426b8c49dcee2c31945b2e7026aab01667551d3a8ee5beb4791ab33b",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:8e7988c7426b8c49dcee2c31945b2e7026aab01667551d3a8ee5beb4791ab33b",
+        "sha256:f525dab8b9bd3961aa4813d8568ef6184f6e24aad5a020e129165ca6c220f836"
+      ],
       "resolved": true
     },
-    "to-tickets": {
+    {
+      "name": "to-tickets",
       "targets": [
+        "claude",
         "agent:jobs"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:bbe29c6412681ab3d12ff2eb021eb54a75a7f6203d61bb9ed436e9dae33a721c",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:6eccfac132d92b949821d154679adc7f597bfc3e8c929f3c03786b92f91b961f",
+        "sha256:bbe29c6412681ab3d12ff2eb021eb54a75a7f6203d61bb9ed436e9dae33a721c"
+      ],
       "resolved": true
     },
-    "triage": {
+    {
+      "name": "triage",
       "targets": [
         "claude"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:9c6b69d13831d354c1a62eaa047e3160617f9b035d411555268a343b51e96a0c",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:9c6b69d13831d354c1a62eaa047e3160617f9b035d411555268a343b51e96a0c"
+      ],
       "resolved": true
     },
-    "ui-ux-pro-max": {
+    {
+      "name": "ui-ux-pro-max",
       "targets": [
         "agent:jobs"
       ],
       "ref": "1a2c459b35f26116fd165b0a0f30597f252749ff",
-      "version": null,
-      "tree_sha256": "sha256:4432749b6d2be17d47481da73ae5195ad2ce907060171ee1f22e0d5053b95a2a",
+      "repo": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+      "tree_sha256": [
+        "sha256:4432749b6d2be17d47481da73ae5195ad2ce907060171ee1f22e0d5053b95a2a"
+      ],
       "resolved": true
     },
-    "unocss": {
+    {
+      "name": "unocss",
       "targets": [
         "claude"
       ],
       "ref": "e53a142a2420e8cd812cfe9ed0484ab01bc856aa",
-      "version": null,
-      "tree_sha256": "sha256:5efb33547c7f5e95b56bfba62f8986609a32950f9788720eb4139ca1161a1bad",
+      "repo": "https://github.com/antfu/skills",
+      "tree_sha256": [
+        "sha256:5efb33547c7f5e95b56bfba62f8986609a32950f9788720eb4139ca1161a1bad"
+      ],
       "resolved": true
     },
-    "video-downloader-skill": {
+    {
+      "name": "video-downloader-skill",
       "targets": [
         "agent:assistant"
       ],
       "ref": "@jingrongx/video-downloader-skill",
-      "version": null,
-      "tree_sha256": "sha256:ec3191225bd071a8f594104087949774c18030eda6521e4db2f2e02942ceddec",
+      "tree_sha256": [
+        "sha256:ec3191225bd071a8f594104087949774c18030eda6521e4db2f2e02942ceddec"
+      ],
       "resolved": true
     },
-    "vite": {
+    {
+      "name": "vite",
       "targets": [
         "claude"
       ],
       "ref": "e53a142a2420e8cd812cfe9ed0484ab01bc856aa",
-      "version": null,
-      "tree_sha256": "sha256:f68ccd67998839de7886886942650fd90f0f6e5fbc7a6e19a28d6ad3ca9f4062",
+      "repo": "https://github.com/antfu/skills",
+      "tree_sha256": [
+        "sha256:f68ccd67998839de7886886942650fd90f0f6e5fbc7a6e19a28d6ad3ca9f4062"
+      ],
       "resolved": true
     },
-    "vitest": {
+    {
+      "name": "vitest",
       "targets": [
         "claude",
         "codex"
       ],
       "ref": "e53a142a2420e8cd812cfe9ed0484ab01bc856aa",
-      "version": null,
-      "tree_sha256": "sha256:656d7c13dcda690e65765613f57885d67e343b125e3e1b5a75e429a8791d1585",
+      "repo": "https://github.com/antfu/skills",
+      "tree_sha256": [
+        "sha256:656d7c13dcda690e65765613f57885d67e343b125e3e1b5a75e429a8791d1585"
+      ],
       "resolved": true
     },
-    "vue": {
+    {
+      "name": "vue",
       "targets": [
         "claude"
       ],
       "ref": "e53a142a2420e8cd812cfe9ed0484ab01bc856aa",
-      "version": null,
-      "tree_sha256": "sha256:82591136310a826a0735cc17b6ae743e31fbb5e653e02258e5db83415730d14e",
+      "repo": "https://github.com/antfu/skills",
+      "tree_sha256": [
+        "sha256:82591136310a826a0735cc17b6ae743e31fbb5e653e02258e5db83415730d14e"
+      ],
       "resolved": true
     },
-    "wayfinder": {
+    {
+      "name": "wayfinder",
       "targets": [
+        "claude",
         "agent:jobs"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-      "version": null,
-      "tree_sha256": "sha256:212ec731250cad55e081b8b0f1107cb1525a01abedc90e1de380707f16070b60",
+      "repo": "https://github.com/mattpocock/skills",
+      "tree_sha256": [
+        "sha256:212ec731250cad55e081b8b0f1107cb1525a01abedc90e1de380707f16070b60",
+        "sha256:4f71c4310d6ffaaa7db7df1ec416be6cdb5c06fc3a58751f4310901f9aacf945"
+      ],
       "resolved": true
     },
-    "wizard": {
+    {
+      "name": "wizard",
       "targets": [
         "agent:linus"
       ],
-      "tree_sha256": "sha256:b6c06cf24502e57c1c6a8da93e58fcc1e4b03f21523f446d401d0f323c92619c",
+      "tree_sha256": [
+        "sha256:b6c06cf24502e57c1c6a8da93e58fcc1e4b03f21523f446d401d0f323c92619c"
+      ],
       "resolved": false
     },
-    "word-docx": {
+    {
+      "name": "word-docx",
       "targets": [
         "openclaw"
       ],
       "ref": "@ivangdavila/word-docx",
       "version": "1.0.2",
-      "tree_sha256": "sha256:2da7e3ee78d89344a22d26efb68f2c4be46e34f3251b26c10d6e6c08ffee5f38",
+      "tree_sha256": [
+        "sha256:2da7e3ee78d89344a22d26efb68f2c4be46e34f3251b26c10d6e6c08ffee5f38"
+      ],
       "resolved": true
     },
-    "writing-beats": {
+    {
+      "name": "writing-beats",
       "targets": [
         "agent:assistant"
       ],
-      "tree_sha256": "sha256:1c9a00615e7090e926710857c1dda205a13339e8424404d8025235b7ccfb671c",
+      "tree_sha256": [
+        "sha256:1c9a00615e7090e926710857c1dda205a13339e8424404d8025235b7ccfb671c"
+      ],
       "resolved": false
     },
-    "writing-fragments": {
+    {
+      "name": "writing-fragments",
       "targets": [
         "agent:assistant"
       ],
-      "tree_sha256": "sha256:39b0ba03d20f30fa7393e723a9abe0d6c9e61c196009c292de7874a4eb707139",
+      "tree_sha256": [
+        "sha256:39b0ba03d20f30fa7393e723a9abe0d6c9e61c196009c292de7874a4eb707139"
+      ],
       "resolved": false
     },
-    "writing-shape": {
+    {
+      "name": "writing-shape",
       "targets": [
         "agent:assistant"
       ],
-      "tree_sha256": "sha256:2a73a48cb40bc7ba77f4954c7b4255f8a4c9ad3ba2d4708f0d69a3add644b915",
+      "tree_sha256": [
+        "sha256:2a73a48cb40bc7ba77f4954c7b4255f8a4c9ad3ba2d4708f0d69a3add644b915"
+      ],
       "resolved": false
     },
-    "xlsx": {
+    {
+      "name": "xlsx",
       "targets": [
         "claude"
       ],
       "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
-      "version": null,
-      "tree_sha256": "sha256:acc08a84bfeabc25c65a5c0edb9e26f7167ade2e09aaeff27289d8a428a361ba",
+      "repo": "https://github.com/anthropics/skills",
+      "tree_sha256": [
+        "sha256:acc08a84bfeabc25c65a5c0edb9e26f7167ade2e09aaeff27289d8a428a361ba"
+      ],
       "resolved": true
     }
-  }
+  ]
 }
