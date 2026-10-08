@@ -127,6 +127,7 @@
         "agent:linus"
       ],
       "ref": "@ivangdavila/docker",
+      "version": "1.0.10",
       "tree_sha256": [
         "sha256:c7b7a2f0a1c346c7ff9f4f66ab293e93a3e803a9a23d4762988bf98c320a153f"
       ],
@@ -165,6 +166,7 @@
         "agent:turing"
       ],
       "ref": "@wpank/e2e-testing-patterns",
+      "version": "1.0.0",
       "tree_sha256": [
         "sha256:7c1eed8ecdd9e83ab0669e894d78d4ca0a435a25bc85e0a4d1d125b0cba84117",
         "sha256:c8ff2e7e01e68576807ee65d484342db1ca18e9854bb88451967e36e374e73b6"
@@ -490,10 +492,12 @@
       "targets": [
         "agent:assistant"
       ],
+      "ref": "@1970168137/marketing-copywriting",
+      "version": "1.0.0",
       "tree_sha256": [
         "sha256:c1124246747d299594c43927281e126b8eeffff0fa7f6fd66d7d4d726abb055d"
       ],
-      "resolved": false
+      "resolved": true
     },
     {
       "name": "nm-parseltongue-python-testing",
@@ -502,6 +506,7 @@
         "agent:turing"
       ],
       "ref": "@athola/nm-parseltongue-python-testing",
+      "version": "1.9.19",
       "tree_sha256": [
         "sha256:5943c7f643216e9b98ebea9445883d2e5f02a430a0fa9a510ba9b31ef335cb13",
         "sha256:a9d057f79a42ebeda27750686e5df872c17e894a2bf72765f600cec1f2ea89d4"
@@ -634,6 +639,7 @@
         "agent:turing"
       ],
       "ref": "@kokxi/qa-api-testing",
+      "version": "1.8.0",
       "tree_sha256": [
         "sha256:20ebcc003070d38cb890920618e1ecb5ab112f29d0339f6af6f3038ecb220c14"
       ],
@@ -645,6 +651,7 @@
         "agent:turing"
       ],
       "ref": "@kokxi/qa-test-automation-arch",
+      "version": "1.8.0",
       "tree_sha256": [
         "sha256:65a6c6195d7c10eb171c53239bc50e3382a96915c91e24a4d20d1cde679ad03e"
       ],
@@ -680,6 +687,7 @@
         "agent:turing"
       ],
       "ref": "@gitgoodordietrying/security-audit-toolkit",
+      "version": "1.0.0",
       "tree_sha256": [
         "sha256:8967201b3d3a793ab1bc49c37072c0a2ab569ee823c043cb650a61ad56f18d8d"
       ],
@@ -743,6 +751,7 @@
         "agent:assistant"
       ],
       "ref": "@scikkk/subtitle",
+      "version": "1.0.1",
       "tree_sha256": [
         "sha256:58fdc6196d5c55e310316592dfdc382897ba5cd02888ccdb3849f5b09c973dff"
       ],
@@ -754,6 +763,7 @@
         "agent:assistant"
       ],
       "ref": "@poltawa/subtitle-extractor",
+      "version": "1.0.0",
       "tree_sha256": [
         "sha256:d5056337ae790dc48efd16c6985bb36d5c8ec1a0bf96f08a3405ec777021e7fb"
       ],
@@ -977,6 +987,7 @@
         "agent:assistant"
       ],
       "ref": "@jingrongx/video-downloader-skill",
+      "version": "1.0.1",
       "tree_sha256": [
         "sha256:ec3191225bd071a8f594104087949774c18030eda6521e4db2f2e02942ceddec"
       ],
