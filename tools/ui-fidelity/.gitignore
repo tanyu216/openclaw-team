@@ -1,0 +1,4 @@
+# UI deps / generated artifacts
+node_modules
+.tmp
+.ui-fidelity

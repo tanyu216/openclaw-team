@@ -1,0 +1,9 @@
+{
+  "page": "fixture",
+  "viewports": [1512, 760],
+  "blocks": [
+    { "name": "top nav", "selector": "[data-nav-topbar]", "required": true },
+    { "name": "KPI cards", "selector": "[data-ov-kpi] .kpi-card", "required": true, "min": 3 }
+  ],
+  "noHorizontalOverflow": { "viewports": [1512, 760] }
+}

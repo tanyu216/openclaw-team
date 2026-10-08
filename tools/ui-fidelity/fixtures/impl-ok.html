@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ui-fidelity fixture — implementation (conforming)</title>
+<style>
+  :root { --bg:#0b0f14; --fg:#e6edf3; --card:#131a22; --accent:#3b82f6; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  [data-nav-topbar] { display:flex; gap:16px; padding:12px 20px; background:var(--card); }
+  [data-ov-kpi] { display:flex; gap:16px; padding:20px; }
+  .kpi-card { background:var(--card); border-radius:8px; padding:16px; min-width:160px; }
+</style>
+</head>
+<body>
+  <nav data-nav-topbar><span>App</span><span>Dashboard</span><span>Settings</span></nav>
+  <section data-ov-kpi>
+    <div class="kpi-card">Users 1,024</div>
+    <div class="kpi-card">Revenue $8,320</div>
+    <div class="kpi-card">Churn 2.1%</div>
+  </section>
+</body>
+</html>

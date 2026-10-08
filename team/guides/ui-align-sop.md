@@ -156,7 +156,36 @@ The tool **compares only DOM facts, not pixels**; computed style covers fonts/co
 
 ---
 
-## 10. Related Clauses
+## 10. Layered Gate Upgrade — L2 Pixel Regression + L3 Prototype-as-Oracle (recommended)
+
+> The original gate is **structure-only** (§9 Known Boundaries: "compares only DOM facts, not pixels"). The upgrade keeps L1 and adds layers, all **deterministic in Docker**.
+
+| Layer | What | Tool | Gate |
+|---|---|---|---|
+| L1 structural | blocks / counts / overflow / console / computed-style dual-side diff | `tools/ui-align` | hard |
+| **L2 pixel regression** | full-page screenshot vs pinned baseline (`pixelmatch`) | `tools/ui-fidelity` | hard |
+| **L3 prototype-as-oracle** | render **prototype and implementation in the same browser**, diff **computed styles** per block | `tools/ui-fidelity` | `--style-strict` |
+| L4 design tokens | computed CSS variables equal the design tokens | roadmap | — |
+| L5 a11y | axe-core (contrast/labels/roles) across viewports | roadmap | — |
+| L6 human/VLM | Elon personally views screenshots (redline) + optional VLM pre-triage | — | hard |
+
+**Determinism rules (mandatory):**
+- Run in the pinned image `docker/ui-fidelity/Dockerfile` (bundled fonts + fixed browser) — **never on a developer laptop**.
+- Fix `deviceScaleFactor`, viewport, `theme` and `locale`; mask/stabilize dynamic regions.
+- **Review the diff images**; never blind-pass. Thresholds are a filter, not a verdict.
+- L2 baselines are committed/versioned; `--update-baseline` is a deliberate, reviewed act.
+
+**Why L3 first:** it reuses the existing dual-side computed-style diff and simply points side A at the **prototype rendered by the same engine** — objective per-element deltas, no image brittleness. L2 then covers what DOM cannot (pure pixels: gradients, shadows, icons, charts).
+
+**Prototype carrier:** the baseline source is chosen at install time — `static-html` | `figma` | `google-stitch` | `pixso` (`~/.openclaw/team/team.config.json`). L3 needs a **renderable** prototype; for non-HTML carriers use the exported **static HTML mirror** (or exported screenshots for L2-only). See `roles/linus/AGENTS.md` "Prototype Consumption", `roles/jobs/AGENTS.md` carrier routing.
+
+Run:
+```bash
+docker/ui-fidelity/verify.sh                    # self-test (conforming passes, violating fails)
+node tools/ui-fidelity/check.mjs --config ./.ui-fidelity.json --style-strict
+```
+
+## 11. Related Clauses
 
 - Mechanisms/hard-gate thresholds → `PROTOCOL §⑨.1`; prototype must not contain implementation → `PROTOCOL §⑨.2`; container-form acceptance → `PROTOCOL §⑨.3`.
 - Two-way document sync (backfill after acceptance) → `PROTOCOL §⑫`; machine-checkable gate landing points → `PROTOCOL §⑳.1`.

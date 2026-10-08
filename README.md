@@ -46,6 +46,7 @@ Options:
 | `--openclaw-home DIR` | OpenClaw home (default `~/.openclaw`) |
 | `--claude-home DIR` / `--codex-home DIR` | Claude Code / Codex home |
 | `--with-task-panel` | Install the reference task provider (task-panel) |
+| `--prototype <carrier>` | Prototype carrier: `static-html` \| `figma` \| `google-stitch` \| `pixso` (default `static-html`); recorded in `~/.openclaw/team/team.config.json` for Jobs/Linus |
 | `--task-panel DIR` | Path to the task-panel source checkout |
 | `--no-task-panel` | Skip the task-provider step |
 | `--keep-existing` | Never overwrite existing files (skip instead of upgrade) |
@@ -188,6 +189,32 @@ docker compose -f docker/docker-compose.yml up --build --abort-on-container-exit
 script), so a green local run and a green CI run mean the same thing. It covers
 shell/node syntax, manifest+lock integrity, installer/fetcher dry-runs, a real
 file deploy into a throwaway HOME, and the install→upgrade→backup path.
+
+For **UI fidelity** there is a second, network-based image that pins the browser
+and fonts so pixel diffs are deterministic:
+
+```bash
+docker/ui-fidelity/verify.sh    # build + run the ui-fidelity self-test
+```
+
+See `tools/ui-fidelity/README.md` (L1 structural · L2 pixel regression · L3
+prototype-as-oracle) and `team/guides/ui-align-sop.md` §10.
+
+### Prototype carrier
+
+The UI prototype's source is a **deployment choice** (`install.sh --prototype`),
+recorded in `~/.openclaw/team/team.config.json` and consumed by both Jobs
+(produces the baseline) and Linus (implements against it):
+
+| Carrier | Baseline source |
+|---|---|
+| `static-html` (default) | HTML/CSS/JS under `prototype/**` (closed stack: Tailwind + daisyUI + jQuery) |
+| `figma` | Figma via MCP/API, or the exported static HTML mirror |
+| `google-stitch` | Stitch export bundle (static HTML + tokens + assets) |
+| `pixso` | Pixso via MCP, or the exported file |
+
+See `roles/linus/AGENTS.md` "Prototype Consumption" and `roles/jobs/AGENTS.md`
+carrier routing.
 
 ## License
 

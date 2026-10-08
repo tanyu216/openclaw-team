@@ -32,6 +32,10 @@
 #                          (no `openclaw agents add`; useful in containers/CI)
 #   --keep-existing        Skip existing files (never overwrite); default is
 #                          UPGRADE: managed files are backed up then overwritten
+#   --prototype <carrier>  Prototype carrier chosen at install time:
+#                          static-html | figma | google-stitch | pixso
+#                          (default static-html). Recorded in
+#                          ~/.openclaw/team/team.config.json for Jobs/Linus.
 #   --skip-skills          Skip all skill installation
 #   --skip-claude-skills   Skip Claude Code skills
 #   --skip-codex-skills    Skip Codex skills
@@ -68,6 +72,7 @@ DO_TASKS=1
 VENDOR=0
 OFFLINE=0
 NOREG=0           # --no-register: deploy role workspaces but skip `openclaw agents add`
+PROTOTYPE=""      # --prototype: static-html|figma|google-stitch|pixso (recorded in team.config.json)
 
 WARNINGS=0
 STEPS=0
@@ -101,6 +106,8 @@ while [ "$#" -gt 0 ]; do
     --skip-codex-skills) DO_CODEX_SKILLS=0 ;;
     --skip-agents) DO_AGENTS=0 ;;
     --no-register) NOREG=1 ;;
+    --prototype) PROTOTYPE="${2:?}"; shift ;;
+    --prototype=*) PROTOTYPE="${1#*=}" ;;
     --skip-config) DO_CONFIG=0 ;;
     --skip-team) DO_TEAM=0 ;;
     -h|--help) usage; exit 0 ;;
@@ -110,6 +117,11 @@ while [ "$#" -gt 0 ]; do
 done
 
 TEAM_DIR="$OPENCLAW_HOME/team"
+
+case "$PROTOTYPE" in
+  ""|static-html|figma|google-stitch|pixso) ;;
+  *) echo "install.sh: --prototype must be static-html|figma|google-stitch|pixso" >&2; exit 2 ;;
+esac
 
 # ---- helpers ----------------------------------------------------------------
 say()  { printf '\033[1m%s\033[0m\n' "$*"; }
@@ -227,6 +239,25 @@ if [ "$DO_TEAM" = 1 ]; then
   done
   for d in tasks workspace memory; do run mkdir -p "$TEAM_DIR/$d"; done
   info "protocol: $TEAM_DIR/PROTOCOL.md"
+fi
+
+# ---- 1b. prototype carrier (install-time choice read by Jobs/Linus) ---------
+carrier="$PROTOTYPE"
+if [ -z "$carrier" ]; then
+  carrier="$(node -e 'try{process.stdout.write(String(require(process.argv[1]).prototype.carrier||""))}catch(e){}' "$TEAM_DIR/team.config.json" 2>/dev/null || true)"
+fi
+[ -n "$carrier" ] || carrier="static-html"
+if [ "$DRY_RUN" = 1 ]; then
+  info "[dry-run] set prototype.carrier=$carrier in $TEAM_DIR/team.config.json"
+else
+  run mkdir -p "$TEAM_DIR"
+  node -e '
+    const fs=require("fs");const p=process.argv[1],c=process.argv[2];
+    let d={version:1};try{d=JSON.parse(fs.readFileSync(p,"utf8"))}catch{}
+    d.prototype=Object.assign({},d.prototype,{carrier:c});
+    fs.writeFileSync(p,JSON.stringify(d,null,2)+"\n");
+  ' "$TEAM_DIR/team.config.json" "$carrier"
+  info "prototype carrier: $carrier ($TEAM_DIR/team.config.json)"
 fi
 
 # ---- 2. skills (declared sources; option A) ---------------------------------
