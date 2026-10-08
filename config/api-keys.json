@@ -1,0 +1,39 @@
+{
+  "$schema": "openclaw-team/api-keys@1",
+  "note": "Keys the team install may need. The installer prompts (masked) when interactive, allows skipping, and prints a unified configuration summary at the end. Values are never echoed; they are stored 0600 in ~/.openclaw/team/.secrets.env (not in the repo).",
+  "keys": {
+    "MODEL_API_KEY": {
+      "required": true,
+      "purpose": "Model provider key (the team's LLM). Your provider's key.",
+      "configure": "export MODEL_API_KEY=…  &&  openclaw config set models.providers.<provider>.apiKey --ref-provider default --ref-source env --ref-id MODEL_API_KEY"
+    },
+    "MEMORY_SEARCH_API_KEY": {
+      "required": false,
+      "purpose": "Embeddings key for memory search (optional).",
+      "configure": "export MEMORY_SEARCH_API_KEY=…  &&  openclaw config set memory.search.remote.apiKey --ref-provider default --ref-source env --ref-id MEMORY_SEARCH_API_KEY"
+    },
+    "TAVILY_API_KEY": {
+      "required": false,
+      "purpose": "Tavily web search/extract key — used by the tavily-* skills (tavily-cli/tavily-search/tavily-extract/tavily-map/tavily-crawl/tavily-research/tavily-dynamic-search). Keyless access has limits.",
+      "configure": "export TAVILY_API_KEY=…  in the Gateway environment (consumed by the `tvly` CLI used by the tavily-* skills)"
+    },
+    "FIGMA_TOKEN": {
+      "required": false,
+      "when": "carrier=figma",
+      "purpose": "Figma access token (carrier=figma).",
+      "configure": "Add the Figma MCP server with your token under mcp.servers (see config/examples/mcp.example.json5)"
+    },
+    "PIXSO_TOKEN": {
+      "required": false,
+      "when": "carrier=pixso",
+      "purpose": "Pixso credential (carrier=pixso).",
+      "configure": "Configure the Pixso MCP server/auth under mcp.servers (see config/examples/mcp.example.json5)"
+    },
+    "STITCH_TOKEN": {
+      "required": false,
+      "when": "carrier=google-stitch",
+      "purpose": "Google Stitch credential (carrier=google-stitch).",
+      "configure": "Configure the Stitch connector under mcp.servers (see config/examples/mcp.example.json5)"
+    }
+  }
+}

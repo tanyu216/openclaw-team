@@ -45,6 +45,7 @@ Options:
 | `--claude-home DIR` / `--codex-home DIR` | Claude Code / Codex home |
 | `--with-task-panel` | Install the reference task provider (task-panel) |
 | `--prototype <carrier>` | Prototype carrier: `static-html` \| `figma` \| `google-stitch` \| `pixso` (default `static-html`); recorded in `~/.openclaw/team/team.config.json` for Jobs/Linus |
+| `--keys` / `--skip-keys` | Force / skip the interactive API-key prompt (default: prompt only on a TTY) |
 | `--task-panel DIR` | Path to the task-panel source checkout |
 | `--no-task-panel` | Skip the task-provider step |
 | `--keep-existing` | Never overwrite existing files (skip instead of upgrade) |
@@ -216,6 +217,18 @@ is missing (declared in `config/prototype-carriers.json`; template in
 
 See `roles/linus/AGENTS.md` "Prototype Consumption" and `roles/jobs/AGENTS.md`
 carrier routing.
+
+### API keys
+
+Keys the install may need are declared in `config/api-keys.json` — the model
+provider key, the memory-search key, `TAVILY_API_KEY` (used by the `tavily-*`
+skills; keyless access has limits), and carrier tokens for
+`figma`/`pixso`/`google-stitch`. When interactive the installer **prompts for each
+one with hidden input**, and you may press **Enter to skip**; provided values are
+stored `0600` in `~/.openclaw/team/.secrets.env` (never in the repo, never echoed).
+At the end it prints a **unified key summary**: the status of every key plus the
+exact command to set each one later. Non-interactive runs never prompt — they just
+print the summary. Re-enter keys any time with `./install.sh --keys`.
 
 ## License
 
