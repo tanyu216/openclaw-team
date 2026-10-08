@@ -11,8 +11,14 @@
 #
 # Task management is NOT bundled here. The team integrates with any task
 # system through a small ACL (see team/guides/task-interface.md); `task-panel`
-# is the OPTIONAL reference provider. Connectors for other systems (Jira,
-# Linear, Plane, ...) are out of scope. See --with-task-panel / --no-task-panel.
+# is the DEFAULT reference provider (installed unless --no-task-panel).
+# Connectors for other systems (Jira, Linear, Plane, ...) are out of scope.
+#
+# Team-level SCHEDULING is FRAMEWORK-OWNED and provider-agnostic: the scheduled
+# jobs (*-poll / task-patrol / team-check-all) are registered here and dispatch
+# to the configured provider through team/automations/dispatch.mjs (task-panel
+# by default; select another with OPENCLAW_TEAM_TASK_PROVIDER). See
+# --skip-automations.
 #
 # Usage:
 #   ./install.sh [options]
@@ -23,9 +29,12 @@
 #   --openclaw-home DIR    OpenClaw home            (default: ~/.openclaw)
 #   --claude-home DIR      Claude Code home         (default: ~/.claude)
 #   --codex-home DIR       Codex home               (default: ~/.codex)
-#   --with-task-panel      Install the reference task provider (task-panel)
 #   --task-panel DIR       Path to the task-panel source checkout
-#   --no-task-panel        Skip the task-provider step entirely
+#   --with-task-panel      Install the reference task provider (task-panel) [default]
+#   --no-task-panel        Opt out: do NOT install task-panel; bring your own
+#                          task system (Jira/Plane/Linear/...) via the
+#                          task-interface ACL
+#   --skip-automations     Do not register team-level scheduled jobs
 #   --vendor               Snapshot skills from source into skills/vendor/
 #   --offline              Install skills from skills/vendor/ (no network)
 #   --no-register          Deploy role workspaces but skip agent registration
@@ -57,7 +66,7 @@ OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
 CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 TASK_PANEL_SRC="${TASK_PANEL_SRC:-}"
-WITH_TASK_PANEL=0
+WITH_TASK_PANEL=1   # task-panel is the DEFAULT reference provider (opt out: --no-task-panel)
 KEEP=0            # --keep-existing: never overwrite (legacy install-only behaviour)
 BK_DIR=""        # backup dir for this run (set in preflight)
 VERSION="$(cat "$REPO/VERSION" 2>/dev/null || echo 0.0.0)"
@@ -71,6 +80,7 @@ DO_CODEX_SKILLS=1
 DO_AGENTS=1
 DO_CONFIG=1
 DO_TASKS=1
+DO_AUTOMATIONS=1  # --skip-automations: do not register team-level scheduled jobs
 VENDOR=0
 OFFLINE=0
 NOREG=0           # --no-register: deploy role workspaces but skip `openclaw agents add`
@@ -100,7 +110,8 @@ while [ "$#" -gt 0 ]; do
     --task-panel) TASK_PANEL_SRC="${2:?}"; shift ;;
     --task-panel=*) TASK_PANEL_SRC="${1#*=}" ;;
     --with-task-panel) WITH_TASK_PANEL=1 ;;
-    --no-task-panel) DO_TASKS=0 ;;
+    --no-task-panel) WITH_TASK_PANEL=0 ;;
+    --skip-automations) DO_AUTOMATIONS=0 ;;
     --skip-skills) DO_SKILLS=0 ;;
     --vendor) VENDOR=1 ;;
     --offline) OFFLINE=1 ;;
@@ -199,6 +210,66 @@ agent_exists() {
       const ids=a.map(x=>x.id||x.name||x.agentId);
       process.exit(ids.includes(process.argv[1])?0:1);}catch(e){process.exit(2);}
     });' "$id"
+}
+
+# automations_json_ok — validate that $AUTOMATIONS_JSON is `{jobs:[...]}`
+# (guards against an error object / gateway-unreachable reply on stdout)
+automations_json_ok() {
+  printf '%s' "$AUTOMATIONS_JSON" | node -e '
+    let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+      try{const j=JSON.parse(s);process.exit(Array.isArray((j&&(j.jobs||j.items))||j)?0:1);}catch(e){process.exit(1);}
+    });'
+}
+
+# automation_exists <declarationKey> — true when a job with that key already exists
+automation_exists() {
+  printf '%s' "$AUTOMATIONS_JSON" | node -e '
+    let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+      try{const j=JSON.parse(s);const a=Array.isArray(j)?j:(j.jobs||j.items||[]);
+      const keys=a.map(x=>x.declarationKey||x.declaration_key||"");
+      process.exit(keys.includes(process.argv[1])?0:1);}catch(e){process.exit(2);}
+    });' "$1"
+}
+
+# write_trigger <dispatch-args> <outfile> — generate the Gateway inline-JS trigger.
+# Absolute paths only; NEVER {{...}} templating (see team/AUTOMATIONS.md §6). The
+# script is a thin adapter over the framework dispatcher: it wakes the agent only
+# when the dispatcher's last JSON line says fire:true.
+write_trigger() {
+  local dargs="$1" out="$2"
+  local cmd="node $TEAM_DIR/automations/dispatch.mjs $dargs"
+  cat > "$out" <<EOF
+// OpenClaw cron condition-trigger — openclaw-team framework dispatcher (provider-agnostic).
+// Inline JS executed by the Gateway; no brace-template substitution — absolute paths only.
+const res = await exec({ command: "$cmd" });
+const out = String(res?.aggregated ?? res?.stdout ?? res?.output ?? "").trim();
+let r = null; try { r = JSON.parse(out.split("\n").pop().trim()); } catch (e) { r = null; }
+if (!r || r.fire !== true) { json({ fire: false, state: (r && r.state) || { checkedAt: Date.now() } }); }
+else { json({ fire: true, message: r.message || "", state: r.state || { firedAt: Date.now() } }); }
+EOF
+}
+
+# register_automation <name> <agent> <declarationKey> <job> <schedule-args...>
+#   job ∈ poll|patrol|check-all (dispatch job; poll also passes <agent>)
+# Idempotent by declarationKey; never hard-codes a provider name.
+register_automation() {
+  local name="$1" agent="$2" key="$3" job="$4"; shift 4
+  local sched=("$@")
+  if automation_exists "$key"; then info "exists   $name  ($key)"; return 0; fi
+  local dargs="$job" msg tmp
+  [ "$job" = poll ] && dargs="poll $agent"
+  case "$job" in
+    poll)      msg="[openclaw-team] Scheduled poll for $agent: if the dispatcher claimed a card, execute it via the task-interface ACL and PROTOCOL.md; otherwise reply NO_REPLY." ;;
+    patrol)    msg="[openclaw-team] Stale in_progress card(s) detected by task-patrol: recover per the PROTOCOL recovery rules." ;;
+    check-all) msg="[openclaw-team] Team gate patrol failed: run the team gate checks and handle per the PROTOCOL gates/archiving rules." ;;
+    *)         msg="[openclaw-team] Scheduled job $name." ;;
+  esac
+  tmp="$(mktemp "${TMPDIR:-/tmp}/openclaw-trigger.XXXXXX")"
+  write_trigger "$dargs" "$tmp"
+  info "add      $name  ($key)"
+  run "${OCL[@]}" automations add "$name" --agent "$agent" "${sched[@]}" \
+      --session isolated --wake now --trigger-script "$tmp" --declaration-key "$key" --message "$msg"
+  rm -f "$tmp"
 }
 
 # ---- 0. preflight -----------------------------------------------------------
@@ -387,12 +458,14 @@ fi
 
 # ---- 5. task provider (ACL) -------------------------------------------------
 # The team talks to ANY task system through the ACL in
-# team/guides/task-interface.md. task-panel is the optional reference provider;
-# other systems (Jira/Linear/Plane/...) are the user's own concern.
+# team/guides/task-interface.md. task-panel is the DEFAULT reference provider
+# (opt out with --no-task-panel); other systems (Jira/Linear/Plane/...) are the
+# user's own concern. This stage only selects/installs the provider — the
+# framework OWNS scheduling and dispatches through the ACL (see stage 6).
 if [ "$DO_TASKS" = 1 ]; then
   step "task provider (ACL)"
-  provider="${OPENCLAW_TEAM_TASK_PROVIDER:-}"
-  [ -n "$provider" ] && info "configured provider: $provider"
+  provider="${OPENCLAW_TEAM_TASK_PROVIDER:-task-panel}"
+  info "configured provider: $provider  (ACL: team/guides/task-interface.md)"
   if [ -e "$OPENCLAW_HOME/skills/task-panel" ] || have_cmd taskctl; then
     info "reference provider present: task-panel"
   fi
@@ -411,14 +484,64 @@ if [ "$DO_TASKS" = 1 ]; then
         [ "$DRY_RUN" = 1 ] && args+=(--dry-run)
         run bash "$src/install.sh" "${args[@]}"
       else
-        warn "task-panel source not found — set --task-panel <dir> or clone it"
+        # task-panel is the default provider but its source is an external
+        # checkout; missing source degrades (informational, never fatal).
+        info "task-panel source not found — reference provider NOT installed."
+        info "  provide it:  ./install.sh --task-panel <dir>   (or git clone it)"
+        info "  or opt out:  ./install.sh --no-task-panel      (bring your own below)"
+        info "  the framework still deploys scheduling; it dispatches through the ACL"
+        info "  and degrades to no-fire until a provider entry exists."
       fi
     fi
   else
-    info "task-panel is the OPTIONAL reference provider (not a hard dependency)."
-    info "  enable it:  ./install.sh --with-task-panel [--task-panel DIR]"
-    info "  or bring your own task system (Jira/Linear/Plane/...): install its"
-    info "  connector skill/MCP, then set OPENCLAW_TEAM_TASK_PROVIDER=<name>."
+    info "task-panel opted out (--no-task-panel)."
+    info "  Scheduling stays framework-owned and provider-agnostic (see stage 6)."
+    info "  Bring your own task system — Jira / Plane / Linear / GitHub Issues / …:"
+    info "    install its connector skill/MCP, then set OPENCLAW_TEAM_TASK_PROVIDER=<name>"
+    info "    and point the entry commands at it (team/automations/providers.json or"
+    info "    OPENCLAW_TEAM_POLL_CMD / OPENCLAW_TEAM_PATROL_CMD / OPENCLAW_TEAM_CHECKALL_CMD)."
+    info "  The upper layers change zero — they depend only on the task-interface ACL"
+    info "  (team/guides/task-interface.md)."
+  fi
+fi
+
+# ---- 6. team automations (framework-owned scheduling, provider-agnostic) ----
+# The framework registers the team's scheduled jobs; each trigger calls the
+# framework dispatcher, which in turn calls the configured provider behind the
+# ACL. No provider literal (task-panel / taskctl) appears in any trigger script.
+if [ "$DO_AUTOMATIONS" = 1 ]; then
+  step "team automations (provider-agnostic)"
+  auto_provider="${OPENCLAW_TEAM_TASK_PROVIDER:-task-panel}"
+  info "scheduler: framework-owned  ·  provider: $auto_provider (callee via the ACL)"
+  info "dispatcher: $TEAM_DIR/automations/dispatch.mjs"
+  # built-in workers only for poll (skip main/elon), derived from ROLES/AGENT_ID
+  auto_agents=()
+  for i in "${!ROLES[@]}"; do
+    id="${AGENT_ID[$i]}"; [ "$id" = main ] && continue
+    auto_agents+=("$id")
+  done
+  if [ "$DRY_RUN" = 1 ]; then
+    for a in "${auto_agents[@]}"; do
+      printf '  [dry-run] %s\n' "openclaw automations add poll-$a --agent $a --every 1m --session isolated --wake now --trigger-script <tmp> --declaration-key openclaw-team:poll:$a"
+    done
+    printf '  [dry-run] %s\n' "openclaw automations add task-patrol --agent main --every 5m --session isolated --wake now --trigger-script <tmp> --declaration-key openclaw-team:task-patrol"
+    printf '  [dry-run] %s\n' "openclaw automations add team-check-all --agent main --cron \"0 * * * *\" --tz Asia/Shanghai --session isolated --wake now --trigger-script <tmp> --declaration-key openclaw-team:team-check-all"
+    info "idempotent: a job is skipped when its declarationKey already exists"
+  elif [ -z "${OCL[*]:-}" ]; then
+    info "openclaw CLI not found — skipping automation registration (npm i -g openclaw)"
+    info "  re-run ./install.sh once the CLI + Gateway are up; registration is idempotent"
+  else
+    AUTOMATIONS_JSON="$("${OCL[@]}" automations list --json --timeout 10000 2>/dev/null || true)"
+    if ! automations_json_ok; then
+      info "Gateway/automations API unreachable — skipping registration (no changes made)"
+      info "  re-run when the Gateway is up; registration is idempotent (declarationKey)"
+    else
+      for a in "${auto_agents[@]}"; do
+        register_automation "poll-$a" "$a" "openclaw-team:poll:$a" poll --every 1m
+      done
+      register_automation "task-patrol" main "openclaw-team:task-patrol" patrol --every 5m
+      register_automation "team-check-all" main "openclaw-team:team-check-all" check-all --cron "0 * * * *" --tz Asia/Shanghai
+    fi
   fi
 fi
 
