@@ -131,7 +131,8 @@
       "source": {
         "kind": "clawhub",
         "ref": "@ivangdavila/docker",
-        "self_declared": true
+        "version": "1.0.10",
+        "origin_meta": true
       }
     },
     {
@@ -170,7 +171,8 @@
       "source": {
         "kind": "clawhub",
         "ref": "@wpank/e2e-testing-patterns",
-        "self_declared": true
+        "version": "1.0.0",
+        "origin_meta": true
       }
     },
     {
@@ -531,8 +533,10 @@
         "agent:assistant"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "clawhub",
+        "ref": "@1970168137/marketing-copywriting",
+        "version": "1.0.0",
+        "origin_meta": true
       }
     },
     {
@@ -544,7 +548,8 @@
       "source": {
         "kind": "clawhub",
         "ref": "@athola/nm-parseltongue-python-testing",
-        "self_declared": true
+        "version": "1.9.19",
+        "origin_meta": true
       }
     },
     {
@@ -680,7 +685,8 @@
       "source": {
         "kind": "clawhub",
         "ref": "@kokxi/qa-api-testing",
-        "self_declared": true
+        "version": "1.8.0",
+        "origin_meta": true
       }
     },
     {
@@ -691,7 +697,8 @@
       "source": {
         "kind": "clawhub",
         "ref": "@kokxi/qa-test-automation-arch",
-        "self_declared": true
+        "version": "1.8.0",
+        "origin_meta": true
       }
     },
     {
@@ -728,7 +735,8 @@
       "source": {
         "kind": "clawhub",
         "ref": "@gitgoodordietrying/security-audit-toolkit",
-        "self_declared": true
+        "version": "1.0.0",
+        "origin_meta": true
       }
     },
     {
@@ -789,7 +797,8 @@
       "source": {
         "kind": "clawhub",
         "ref": "@scikkk/subtitle",
-        "self_declared": true
+        "version": "1.0.1",
+        "origin_meta": true
       }
     },
     {
@@ -800,7 +809,8 @@
       "source": {
         "kind": "clawhub",
         "ref": "@poltawa/subtitle-extractor",
-        "self_declared": true
+        "version": "1.0.0",
+        "origin_meta": true
       }
     },
     {
@@ -1023,7 +1033,8 @@
       "source": {
         "kind": "clawhub",
         "ref": "@jingrongx/video-downloader-skill",
-        "self_declared": true
+        "version": "1.0.1",
+        "origin_meta": true
       }
     },
     {
