@@ -16,15 +16,16 @@
 ## 2. 数据模型（最小必需集）
 | 实体 | 字段 |
 |---|---|
-| **Card** | `id` `title` `assignee` `status` `priority` `goal` `project` `target` `created_by` `created_at` `claimed_by` `claimed_at` `heartbeat_at` `blocked_at` `status_changed_at` `notify_elon` `subsession_ids` `active_session_id` |
-| **Comment** | `{ ts, author, kind, text, refs? }`（append-only，落卡的 `## Comments` 段） |
-| **Registry** | 子会话条目：`task_id/owner/phase/pid/startedAt/log/status/session_id` |
+| **Card** | `id` `title` `assignee` `assignee_kind` `status` `priority` `kind` `labels` `project` `target` `created_by` `created_at` `updated_at` `status_changed_at` `claimed_by` `claimed_at` `heartbeat_at` `blocked_at` `depends_on` `parent` `review_of` `notify_elon` `goal`（= task-panel `KNOWN_CARD_KEYS`；未识别键入 `meta.legacy` 原样保留） |
+| **Comment** | `{ id, task_id, body, kind, author_kind, author_id, refs, created_at }`（append-only，落卡 `## Comments` 段；`kind ∈ discuss\|decision\|confirm\|change\|note\|defect`） |
+| **AgentSession** | `{ task_id, seg, owner, backend, session_id, phase, pid, status, ts }`（`status ∈ running\|closed\|failed`；落卡 `## Sessions` 段） |
+| **Relation** | `{ relation_type, source_task_id, target_task_id }`（`relation_type ∈ parent\|blocks\|related`；`related` 方向规范化为 source<target；单父约束） |
 
 > 实现的私有字段隔离在访问点内，不进上层。
 
 ## 3. 状态机
 ```
-ready → in_progress → in_review → done | failed
+backlog | todo → in_progress → in_review → done | canceled
                  ↘  blocked  ↙         （blocked 可从任意执行态进入并回退）
 ```
 - `in_review` = 已交付待 Elon 验收；此后不刷心跳、不重领、poll 不 fire。
@@ -42,15 +43,15 @@ ready → in_progress → in_review → done | failed
 | `task.query <filter>` | 只读查询（按 assignee/status） |
 
 ## 5. 事件（协作层订阅）
-`onReady` · `onClaimed` · `onDelivered(in_review)` · `onBlocked` · `onComment` · `onTerminal(done|failed)`
+`onReady` · `onClaimed` · `onDelivered(in_review)` · `onBlocked` · `onComment` · `onTerminal(done|canceled)`
 
 ## 6. 不变量（契约测试对象）
 1. **claim 原子**（不双领）。
 2. **执行唯一性**：`in_progress` + 心跳新鲜(≤10min) ⇒ 不重领、不重复执行。
-3. **终态不可逆**：`done|failed` 不再迁移（勘误以新卡或评论更正）。
+3. **终态不可逆**：`done|canceled` 不再迁移（勘误以新卡或评论更正）。
 4. **评论 append-only**：不可改删。
 5. **人类决策留痕**：`author=操作者` 的评论即"用户决策/确认"。
-6. **终态可归档**：`done|failed` 满 7 天可归档。
+6. **终态可归档**：`done|canceled` 满 7 天可归档。
 
 ## 7. 评论 / 过程留痕（process trail）
 - **用途**：记录**团队协作讨论、操作者决策与确认、双签、异常处置说明**。
@@ -94,7 +95,7 @@ ready → in_progress → in_review → done | failed
 
 ## 11. frontmatter 序列化不变量与写卡护栏
 - **不变量（幂等）**：卡 frontmatter 字段值的**转义/反转义必须幂等** —— `parse→serialize→parse` 稳定，同一值反复「读→回写」（heartbeat / comment / status / report 任一）**字节数不增长**。
-- **过渡期口径（旧实现可能仍在）**：建卡/写卡时 frontmatter 字段值**禁用 ASCII 双引号 `"` 与反斜杠 `\`**；需要引号一律用中文「」替代。否则在旧代码路径上一轮回写即把转义层数翻倍，导致文件指数膨胀。
+- **状态取值（对齐 task-panel）**：规范 7 值 `backlog|todo|in_progress|in_review|blocked|done|canceled`；兼容别名 `ready→todo`、`failed→canceled`（及 `in-review`/`in-progress`/`cancelled`）**仅边界解析、不落库**，导出还原原词（旧卡字节稳定）。优先级 `low|medium|high|urgent`（默认 `medium`）。kind 仅 `task|epic`。
 - **写卡护栏**：写入**先序列化、后校验**；目标卡已存在且新输出 > 上版文件大小 **× 4（K=4）** 时**拒绝写入**并抛错，避免部分写入与静默膨胀；**新卡（无既有文件）不受限**。
 - **回归测试**：幂等矩阵 / 旧格式兼容 / 真卡只读回归 / 护栏，随巡检门禁执行。
 

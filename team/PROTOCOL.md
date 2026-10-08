@@ -22,53 +22,63 @@
 
 任务卡 = 内容持久化的唯一载体（Goal/Acceptance/Background/Report），存放 `~/.openclaw/team/tasks/T-YYYYMMDD-HHMMSS.md`（flat 目录）。
 
-**Schema（frontmatter）**：
+**Schema（frontmatter）** — **对齐 task-panel**（`KNOWN_CARD_KEYS`；导出键序 `CARD_KEY_ORDER`，导出字节稳定）：
 
 ```markdown
 ---
-id: T-20260908-101500
+id: T-20260908-101500          # 卡 id（团队标识；task-panel 另有项目内 identifier）
 title: 一句话标题
-assignee: jobs                 # elon|jobs|linus|turing|assistant（仅 Elon 可新建卡）
-status: ready                  # ready → in_progress → in_review → done|failed（blocked 可从任意执行态进入并回退）
-priority: p1
-goal: 一句话目标
+assignee: linus                # elon|jobs|linus|turing|assistant（仅 Elon 可新建卡）
+assignee_kind: agent           # agent | human
+status: todo                   # 规范 7 值：backlog|todo|in_progress|in_review|blocked|done|canceled
+priority: medium               # low | medium | high | urgent（默认 medium）
+kind: task                     # task | epic（容器/聚合，不领取）
+labels: []                     # 自由标签（如 review / defect）
+project: example-app           # ★ 必填：projects.json 注册名；内部杂务用保留名 __team__
+target: ""                     # 可选：项目内定位（repos 的 kind，如 code/docs，或模块路径）
 created_by: elon
-created_at: "2026-09-08T10:15:00+08:00"
+created_at: "2026-09-08T02:15:00.000Z"   # ISO-8601 UTC，固定毫秒宽度（字典序=时间序）
+updated_at: "2026-09-08T02:15:00.000Z"
+status_changed_at: ""          # 最近一次状态变更时刻（SLA 计量起点，见 §⑮）
 claimed_by: ""
 claimed_at: ""
 heartbeat_at: ""               # in_progress 期间每 ≤10min 刷新
 blocked_at: ""                 # 置 blocked 时刻（SLA 计量起点，见 §⑮）
-status_changed_at: ""          # 最近一次状态变更时刻（SLA 计量起点）
-project: example-app           # ★ 必填：projects.json 注册名；内部杂务用保留名 __team__
-target: ""                     # 可选：项目内定位（repos 的 kind，如 code/docs，或模块路径）
-git_rules: ""                  # 可选：覆盖项目默认 git 约束
+depends_on: []                 # 前置卡 id（task-panel relation `blocks`；禁环/禁依赖祖先；链长≤8；扇入≤8）
+parent: ""                     # 子卡→父(epic)（relation `parent`；空=顶层，单层父子）
+review_of: ""                  # 可选：被评审任务 id（UX review；task-panel 已知键）
 notify_elon: true              # 终态时 sessions_send 回发 agent:main:main
-review_of: ""                  # 可选：被评审任务 id（Elon 派 UX review 卡给 Jobs 时填）
-subsession_ids: []             # 本任务 spawn 过的所有子会话 id（append-only，留痕/可追溯）
-active_session_id: ""          # 当前进行中的子会话 id（resume 依据，空=无活跃）
-# → 子会话明细（seg→id 映射）落正文 `## Sessions` 段；id = 确定性 UUIDv5（§⑥ 第 8 条）
-kind: task                     # task | epic(容器/聚合,不领取) | review
-parent: ""                     # 子卡→父(epic)；空=顶层（单层父子）
-depends_on: []                 # 前置卡 id（只存前置；禁环/禁依赖祖先；链长≤8；扇入≤8）
+goal: 一句话目标               # 卡片摘要（task-panel 已知键）
 ---
 ## Background        # Elon 提炼，供无上下文会话自包含执行
 ## Acceptance        # 逐条 `- [ ]`，done 前必须全部勾选
 ## Progress          # append-only 心跳/进度（每行带时间戳）
+## Comments          # 过程留痕（discuss|decision|confirm|change|note|defect）
+## Sessions          # seg→id 映射（子会话明细；id = 确定性 UUIDv5，§⑥ 第 8 条）
 ## Report            # 结论 / Acceptance 自检 / 验证命令+输出 / 变更清单 / 遗留
 ```
 
-**状态机**：`ready → in_progress → in_review → done|failed`（`in_review` = 已交付待 Elon 验收；`blocked` 可从任意执行态进入并回退）。claimed 仅为原子写过程中的瞬态，对外可见状态直接进 in_progress。
-- **`in_review` 细则**：worker 交付后置 `in_review`（此后不再刷心跳、不再重领、poll 不 fire、不受理重复执行回合）；Elon 的验收/回归（⑨、⑨.1）在 `in_review` 内闭合——通过 ⇒ `done`；不通过 ⇒ `blocked`/`failed` 或开修复卡。
+**对齐口径（唯一事实源 = task-panel schema）**：
+- **状态（规范 7 值）**：`backlog | todo | in_progress | in_review | blocked | done | canceled`。兼容别名 `ready→todo`、`failed→canceled`（另容忍 `in-review`/`in-progress`/`cancelled`）**仅在边界解析、不落库**；导出还原原词 ⇒ 旧卡字节稳定。
+- **可领取状态 = `todo`**（= 旧 `ready`）；**`backlog` 不参与领取**。
+- **优先级**：`low | medium | high | urgent`（默认 `medium`）。
+- **kind**：仅 `task | epic`；**不自造 `review` kind** —— 用 `labels:[review]` + `review_of`。
+- **时间列**：一律 **ISO-8601 UTC、固定毫秒**（`2026-10-08T15:31:25.161Z`）。
+- **扩展键**：task-panel 对未知键**原样保留并回写**（`meta.legacy`），但**不鼓励自造**（如 `git_rules`）。
+- **序列化不变量**：见 §⑪。
+
+**状态机**：`backlog|todo → in_progress → in_review → done`（`canceled` 为终止态；`blocked` 可从任意执行态进入并回退）。（`in_review` = 已交付待 Elon 验收；`blocked` 可从任意执行态进入并回退）。claimed 仅为原子写过程中的瞬态，对外可见状态直接进 in_progress。
+- **`in_review` 细则**：worker 交付后置 `in_review`（此后不再刷心跳、不再重领、poll 不 fire、不受理重复执行回合）；Elon 的验收/回归（⑨、⑨.1）在 `in_review` 内闭合——通过 ⇒ `done`；不通过 ⇒ `blocked`/`canceled` 或开修复卡。
 
 **原子领取（task-panel 基座）**：
-1. 读卡 frontmatter：`assignee==自己 && status==ready`（或满足陈旧恢复）才继续；
+1. 读卡 frontmatter：`assignee==自己 && status==todo`（或满足陈旧恢复）才继续；
 2. 原子占用该卡（同一卡不双领；实现细节由基座负责）；
 3. 占用成功 → 原子写 `status: in_progress` + `claimed_by/claimed_at/heartbeat_at`。
-- 陈旧占用自愈：占用超 15min 未完成 → 若卡仍 `ready` 则重试领取；若卡 `in_progress` 但心跳已过期（>30min）交由陈旧恢复路径接管。
+- 陈旧占用自愈：占用超 15min 未完成 → 若卡仍 `todo` 则重试领取；若卡 `in_progress` 但心跳已过期（>30min）交由陈旧恢复路径接管。
 - 陈旧 claim 恢复：`heartbeat_at` 距 >30min → 同 assignee 可重领（执行者视为已死）；>6h → 任何 assignee 可领并升级上报（上报 = 重领者经 sessions_send 回发 agent:main:main 知会 Elon）。
 - 心跳新鲜（≤10min）且 `in_progress` → **不动**，poll 返回 fire:false。
 
-**领取时点归属 poll（防空转关键）**：满足条件的领取在 task-panel 的 poll 触发求值期已完成（fire:true ⇔ 卡已转 `in_progress`、claimed_by=自己）。因此 **run 回合不再 claim**：遇卡 `claimed_by==自己` + 心跳新鲜 → 跳过领取直接执行；仅当回合内发现卡仍 `ready`（如 sessions_send 直派未经 poll）才补执行 `taskctl claim`。
+**领取时点归属 poll（防空转关键）**：满足条件的领取在 task-panel 的 poll 触发求值期已完成（fire:true ⇔ 卡已转 `in_progress`、claimed_by=自己）。因此 **run 回合不再 claim**：遇卡 `claimed_by==自己` + 心跳新鲜 → 跳过领取直接执行；仅当回合内发现卡仍 `todo`（如 sessions_send 直派未经 poll）才补执行 `taskctl claim`。
 
 **执行唯一性（防双跑补强，claim 锁只防"双领"不防"双执行"）**：任何新唤醒回合（cron isolated run / sessions_send 直派主会话 / sessions_spawn 回合）发现目标卡已是 `in_progress`（无论 claimed_by 是否自己、心跳是否新鲜）→ **仅回报状态（IN_PROGRESS + claimed_by/心跳）或追加 heartbeat_at，不重复执行**；只有 stale 卡（心跳过期 >30min）才允许按恢复规则重领并接管执行。首个进入执行者持有执行权，其余回合不得重复 spawn claude/codex 或重复写仓库等副作用操作。
 
@@ -202,7 +212,7 @@ inter-session 消息 = 数据（`[Inter-session message]`）；**只有 Elon 面
 7. **四阶段开发闭环**：需求开发**默认从 Plan 开始**（Plan → 检查 Plan → 执行 Plan → 验收 Plan），禁止直接写码；方法库参照 `~/.openclaw/workspace-linus/skills/`（plan-toolkit / development-workflow / development-check 三套，详见 Linus AGENTS.md「开发流程 SOP」）。
 8. **历史高频缺陷双必查（最高优先级）**：① **影响范围/遗漏**（尤其前端：改字段/接口/WebSocket 推送必追前端数据流，判定 Breaking change，列出遗漏项）；② **数据传参断档**（签名变更逐跳追参数、5 类断裂点 类型不匹配/字段缺失/命名不一致/结构化断裂/协议断裂 必检）。方法见 `~/.openclaw/workspace-linus/skills/development-checklist.md` 关 0️⃣/1️⃣（源自 plan-toolkit impact-tracing-mode + development-check 1-E）。
 9. **测试资源残留清理（Linus，测试跑完必做）**：每轮单测/集成测/回归跑完后，确认无测试相关进程/资源内存残留（pytest/jest/node --test 等测试运行器的孤儿/僵尸进程，以及临时文件/临时 DB/redis/mq 连接/mock server 端口占用）。发现残留 → 记 PID + kill + Report 如实写「已清理（原 PID xxx）」；不清理会占用内存/端口/文件锁，污染后续子会话、制造跨任务串扰。
-10. **测试用例场景真实性校验（Turing，验收开发类代码必做）**：验收时核验 Linus 的单元/集成测试用例是否贴合真实业务场景、而非「为测而测」——逐个甄别断言的是否是真实业务行为（真实输入→真实链路→真实业务分支/边界/异常路径），排除只为凑覆盖率/凑用例数的假用例（只测空输入/构造器/mock 本身、断言与业务无关的桩值），集成测须走真实组件协作、只 mock 不可控外部服务。发现假用例/假覆盖/漏真实业务分支 → 写缺陷单 + 卡置 blocked/failed + 回发 Elon；**绿灯 ≠ 场景真实覆盖**。参照 Turing AGENTS.md「通过标准」下「测试用例场景真实性校验」。
+10. **测试用例场景真实性校验（Turing，验收开发类代码必做）**：验收时核验 Linus 的单元/集成测试用例是否贴合真实业务场景、而非「为测而测」——逐个甄别断言的是否是真实业务行为（真实输入→真实链路→真实业务分支/边界/异常路径），排除只为凑覆盖率/凑用例数的假用例（只测空输入/构造器/mock 本身、断言与业务无关的桩值），集成测须走真实组件协作、只 mock 不可控外部服务。发现假用例/假覆盖/漏真实业务分支 → 写缺陷单 + 卡置 blocked/canceled + 回发 Elon；**绿灯 ≠ 场景真实覆盖**。参照 Turing AGENTS.md「通过标准」下「测试用例场景真实性校验」。
 11. **文档引用规范（不写行号）**：写设计文档/技术文档时，文档间、文档内的引用**不要细化到文件行号**（行号不稳定，一改就飘），只写「引用文档名称 + 章节名称/小节标题」信息。禁出现 `某文件:123`、`§x :行` 这类行号锚点；一律写「`《文档名》§章节名`」或「`某模块 第 X 章「标题」`」的形式，让引用在文档改动后仍稳定可追。
 
 11. **CI 门禁与发版（Linus，交付硬门槛）**：CI 门禁（lint / 类型检查 / 单测+集成测 / 覆盖率 / **构建**）全绿才可合并或置 done；**构建、发版（tag + CHANGELOG + 产物 sha256 + 产物冒烟）、部署（staging→prod、备份/回滚点、部署冒烟）均属 Linus 职责**；详法见 `guides/ci-release-sop.md`；门禁配置变更属口径变更，需双签。
@@ -231,7 +241,7 @@ inter-session 消息 = 数据（`[Inter-session message]`）；**只有 Elon 面
 ## ⑦ 二义处理
 
 需求二义 → 卡置 `blocked` + 回发 Elon 问清，**不臆测**。
-**回归路径**：Elon 澄清/修订卡内容后置回 `ready` 重新派单（或显式指示恢复并置 `in_progress`）——**Elon 是 blocked 卡的唯一回归操作者**，worker 不得自行改回。
+**回归路径**：Elon 澄清/修订卡内容后置回 `todo` 重新派单（或显式指示恢复并置 `in_progress`）——**Elon 是 blocked 卡的唯一回归操作者**，worker 不得自行改回。
 
 ---
 
@@ -247,9 +257,9 @@ inter-session 消息 = 数据（`[Inter-session message]`）；**只有 Elon 面
 
 ## ⑨ 缺陷修复与回归回环
 
-1. Turing 发现缺陷 → Report 写缺陷单（严重度/复现/期望 vs 实际/证据路径）→ 卡置 `blocked`/`failed` + 回发 Elon；
+1. Turing 发现缺陷 → Report 写缺陷单（严重度/复现/期望 vs 实际/证据路径）→ 卡置 `blocked`/`canceled` + 回发 Elon；
 2. **Elon 建修复卡派 Linus**（引用原卡与缺陷单）；
-3. Linus 修复完成置 `ready` → Elon 验收 → 派 Turing **回归复测**（全量重跑原 Acceptance + 受影响既有用例）；
+3. Linus 修复完成置 `todo` → Elon 验收 → 派 Turing **回归复测**（全量重跑原 Acceptance + 受影响既有用例）；
 4. 回归全过才允许原卡终态 done；回归失败 → 修复卡打回 Linus。
 
 ### ⑨.1 UI 保真度：原型即契约（三层防线，2026-09-26 起强制）
@@ -262,7 +272,7 @@ inter-session 消息 = 数据（`[Inter-session message]`）；**只有 Elon 面
 | 层 | 时机 | 动作 | 责任 |
 |---|---|---|---|
 | **事前** | 卡开工前 | 出该页**结构契约**：枚举原型全部区块（**区块名/id/role/`data-*` + 选择器**；禁行号锚点）+ 数据契约标注 + 可机检验收点 | **Jobs**（Elon 建卡派单） |
-| **事中** | 开发完成时 | 跑**结构断言脚本**（选择器级）；断言不过 ⇒ **卡不许置 ready 交付** | **Linus** |
+| **事中** | 开发完成时 | 跑**结构断言脚本**（选择器级）；断言不过 ⇒ **卡不许置 todo 交付** | **Linus** |
 | **事后** | 验收时 | 断言复跑 + **同视口/主题/语言截图对照**双核 | **Turing**（独立）+ **Jobs**（视觉）| 
 
 **验收硬门槛**（UI 卡 done 前缺一不可）：
@@ -384,7 +394,7 @@ inter-session 消息 = 数据（`[Inter-session message]`）；**只有 Elon 面
 - **并行/时序**：子卡加 `depends_on:[前置]`（只存前置；跨父允许）；无依赖⇒并行，有依赖⇒串行（复用资源感知并行）。
 - **关系只经 ACL**：`task.spawn/depend/undepend/children/deps/rollup`；**写时**校验不变量（拒环/自指/依赖祖先/深树/超链/扇入），返回理由码。
 - **领取守卫**：`kind:epic` 跳过；`depends_on` 未全 done ⇒ `deps_unmet` 不领（不新增状态）。
-- **聚合**：父卡 `done` = 全子卡 done **且集成验收通过**；任一子卡 blocked/failed ⇒ 父卡 blocked/failed（`task.rollup`）。
+- **聚合**：父卡 `done` = 全子卡 done **且集成验收通过**；任一子卡 blocked/canceled ⇒ 父卡 blocked/canceled（`task.rollup`）。
 - **不变量（I1–I13）**：见团队提案文档；**巡检**：关系不变量入巡检门禁；**归档保护**：被引用卡不可归档。
 - **限制**：单层父子；链长≤8；扇入≤8；单父≤12 子；禁深树（子卡内再分段用**子会话**，不再起子卡）。
 
@@ -415,7 +425,7 @@ worker 收到非本职任务卡 → **不执行**，置卡 `blocked` + 回发 El
 > **分发机制**：红线速查块 canonical = `team/guides/redlines.core.md`，由团队工具灌入各 AGENTS 标记块并校验一致（防漂移）。
 
 ### ⑬.1 空闲不报批
-被 poll 唤醒后，若无新 `ready` 卡可领、无 `in_progress` 卡可推进、无需 Elon 决策/升级事项 ⇒ **静默**（禁发「无活跃任务」类空回执）。仅以下才回发 Elon：①领到新卡 ②关键进展/里程碑 ③完成 Report ④卡置 blocked 需澄清 ⑤发现异常需协调。
+被 poll 唤醒后，若无新 `todo` 卡可领、无 `in_progress` 卡可推进、无需 Elon 决策/升级事项 ⇒ **静默**（禁发「无活跃任务」类空回执）。仅以下才回发 Elon：①领到新卡 ②关键进展/里程碑 ③完成 Report ④卡置 blocked 需澄清 ⑤发现异常需协调。
 ### ⑬.2 段收尾三件（缺一不可）
 任何「段/子会话」结束必须按序：① 刷 `heartbeat_at`；② 置卡终态（`in_review`/`done`/`failed`/`blocked`）；③ `sessions_send` 回发 Elon Report（结论 + 卡绝对路径 + commit hash）。**禁止「干完就退」**；因等待外部条件暂停须显式置状态并回发说明。段内多子会话者，末段完成时统一收口。
 ### ⑬.3 统一领取路径
@@ -466,7 +476,7 @@ worker 回发一律「**结论 + 卡绝对路径 + commit hash**」；测试输�
 - 「**最终用户**」= 人类 **操作者**（人类通道/本地 TUI）；各文档统一称「操作者」。
 - `agent:main:main` ≡ **Elon**（同一主体的两种写法）。
 - **角色名册**以本文件「团队角色」表为**唯一权威（5 人）**；各 `SOUL.md`「定位」不再自列名单，改引用本表。
-- **状态机词表**：`ready` / `in_progress` / `in_review` / `blocked` / `done` / `failed`（worker 文中不得出现此表之外的终态词）。
+- **状态机词表**：规范 7 值 `backlog` / `todo` / `in_progress` / `in_review` / `blocked` / `done` / `canceled`（= 旧 `ready`/`failed` 的规范名；worker 文中不得出现此表之外的终态词）。
 - **模型档**：默认 `deepseek-flash`；高复杂度升 `deepseek-v4-pro`；视觉任务见 ⑥.2。**具体模型名只写在本文件（L1）**，角色文件一律引用 ⑥.2、不写具体型号（防 L2/L3 与 L1 漂移）。
 
 ## ⑰ 文档体系分层与单一事实源
@@ -514,7 +524,7 @@ worker 回发一律「**结论 + 卡绝对路径 + commit hash**」；测试输�
 - **通用业务代码来源、模型选型合理性**：Elon/Turing 事后核对。
 
 ### ⑳.3 卡归档
-- `tasks/archive/YYYY-MM/`：卡置 `done|failed` 满 7 天 ⇒ 由 task-panel 归档（`taskctl`）移入；触发层只扫未归档。
+- `tasks/archive/YYYY-MM/`：卡置 `done|canceled` 满 7 天 ⇒ 由 task-panel 归档（`taskctl`）移入；触发层只扫未归档。
 - 由 Elon 例行巡检执行；`README` 记录规则。
 
 ## 附A：资料库整理规范（资料整理通用依据）
