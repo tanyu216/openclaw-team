@@ -174,13 +174,20 @@ openclaw-team/
 - Quant-research roles and skills.
 - Runtime task cards and workspace artifacts.
 
-## Verify
+## Verify (Docker)
+
+Verification runs **inside Docker, never on the host**:
 
 ```bash
-bash -n install.sh
-./install.sh --dry-run
-openclaw doctor
+docker/verify.sh          # build image + run the offline suite
+docker/verify.sh --net    # also exercise the upstream fetch path
+docker compose -f docker/docker-compose.yml up --build --abort-on-container-exit
 ```
+
+`docker/verify-in-container.sh` is the single source of truth (CI runs the same
+script), so a green local run and a green CI run mean the same thing. It covers
+shell/node syntax, manifest+lock integrity, installer/fetcher dry-runs, a real
+file deploy into a throwaway HOME, and the install→upgrade→backup path.
 
 ## License
 

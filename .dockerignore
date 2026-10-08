@@ -1,0 +1,8 @@
+# Keep the verification image lean. Nothing needed at build time is excluded.
+.git
+.github
+skills/vendor
+**/.DS_Store
+*.log
+Dockerfile*
+docker-compose.yml

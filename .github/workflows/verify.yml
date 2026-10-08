@@ -1,0 +1,20 @@
+name: verify
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  docker-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build verification image
+        run: docker build -f docker/Dockerfile -t openclaw-team:verify .
+
+      - name: Verify (offline suite)
+        run: docker run --rm openclaw-team:verify bash docker/verify-in-container.sh
+
+      - name: Verify (network sample)
+        run: docker run --rm -e OPENCLAW_TEAM_NET=1 openclaw-team:verify bash docker/verify-in-container.sh
