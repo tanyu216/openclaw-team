@@ -20,8 +20,11 @@
         "agent:turing"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/usestrix/strix",
+        "ref": "f5a900416b6e1d8023e7c2ce11885232ffa8b806",
+        "path": "skills/api-security-testing",
+        "verified": true
       }
     },
     {
@@ -770,8 +773,7 @@
         "claude"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "local"
       }
     },
     {

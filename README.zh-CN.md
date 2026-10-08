@@ -16,7 +16,7 @@
 |---|---|---|---|
 | 🧠 Elon | `main` | `workspace-elon` | 需求入口 / 建卡 / 派单 / 验收 / 汇报 |
 | 🎨 Jobs | `jobs` | `workspace-jobs` | 产品设计 / PRD / UI / UX |
-| ⚙️ Linus | `linus` | `workspace-linus` | 代码开发 / 缺陷修复 / 重构 |
+| ⚙️ Linus | `linus` | `workspace-linus` | 代码开发 / 缺陷修复 / 重构 · **CI 门禁 / 构建 / 发版 / 部署** |
 | 🧪 Turing | `turing` | `workspace-turing` | 测试 / 验收 / 回归 / 安全审计 |
 | 🧹 Assistant | `assistant` | `workspace-assistant` | 视频解析 / 运营 / 杂活 |
 

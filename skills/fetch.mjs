@@ -52,6 +52,7 @@ function copyInto(srcDir, name, target) {
 function materialize(entry, workdir) {
   // returns a local directory containing the skill, or null
   const s = entry.source;
+  if (s.kind === "local") return join(HERE, "local", entry.name);
   if (s.kind === "github") {
     const clone = join(workdir, entry.name);
     execFileSync("git", ["clone", "-q", "--depth", "1", s.repo, clone], { stdio: "inherit" });    if (s.ref) {
