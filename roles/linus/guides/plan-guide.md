@@ -17,33 +17,42 @@
   - [ ] Execution step Todo (with `[ADD]/[DELETE]/[MODIFY]/[integration]` markers)
   - [ ] Acceptance points (against the task card Acceptance)
 
-### Phase 2: Review Plan (four-dimension self-check)
-- [ ] 4. **Logical completeness**: self-consistent, no contradiction/hole (Details §Pattern 3)
-- [ ] 5. **Omission check**: every new item has a complete integration path "define → register → call", no dead code (Details §Pattern 4)
-- [ ] 6. **Test scenario coverage**: each requirement has clearly written unit/integration test coverage points (Details §Pattern 5)
-- [ ] 7. **Todo check**: execution steps are properly formatted (`[ADD]/[DELETE]/[MODIFY]/[integration]`), actionable, and match the plan (Details §Pattern 6)
-- [ ] 8. **Impact scope** (required when the change touches interfaces/fields): trace the call chain + judge the 5 parameter-break types + Breaking determination (Details §Pattern 2)
-- [ ] 9. Self-check fails => return to step 3 to revise; **if a blocking defect exists => must not proceed to execution**
+### Phase 2: Review Plan (six-check self-check — canonical: `team/guides/plan-quality.md`)
+- [ ] 4. **Run the six checks** — the canonical list is `team/guides/plan-quality.md` (①②③④⑤⑥):
+  logical completeness / omission / quality (simple·feasible·elegant·readable·maintainable) /
+  end-to-end execution path / test-scenario coverage / todo check. Record the results in the plan
+  (or the card's Progress).
+- [ ] 5. **Interface/field changes: additionally** trace the call chain + judge the 5 parameter-break
+  types + Breaking determination — this is the **interface/field-change specialisation** of check ④
+  (Details §Pattern 2).
+- [ ] 6. Self-check fails => return to step 3 to revise; **if a blocking defect exists => must not
+  proceed to execution**
+
+> **④ is unconditional**: the end-to-end execution path (vertical path + per-hop up/downstream impact
+> + side effects/consumers) is required for **every** plan — including changes that touch no
+> interface or field. The impact-scope step (item 5 / §Pattern 2) is only the **interface/field-change
+> specialisation** of ④; it never replaces ④.
 
 ### Phase 2.5: Send back to Elon for confirmation
-- [ ] 10. `sessions_send` back to Elon (`agent:main:main`): absolute path of plan.md + one-sentence goal + key decision summary + items to confirm
-- [ ] 11. **Only enter Phase 3 execution after Elon confirms** — do not act without confirmation (hard gate)
+- [ ] 7. `sessions_send` back to Elon (`agent:main:main`): absolute path of plan.md + one-sentence goal + key decision summary + items to confirm
+- [ ] 8. **Only enter Phase 3 execution after Elon confirms** — do not act without confirmation (hard gate)
 
 ---
 
 ## Details
 
-### Pattern 1: Analysis mode (analysis) — design philosophy
+### Pattern 1: Analysis mode (analysis) — design philosophy (detail for check ③)
 
-Examine from "is the design fundamentally sound", along five dimensions:
+Check ③ in `team/guides/plan-quality.md` is the canonical wording: **simple, feasible, elegant,
+readable, maintainable**. Examine the design along these dimensions:
 
 | Dimension | Core question |
 |------|---------|
-| Simplicity | Is the simplest feasible approach used? Any over-design / YAGNI violation? |
-| Maintainability | Single responsibility? Self-explanatory naming? Isolated change impact? Clear interface contract? |
-| Reliability | Is the data flow correct and complete? No gaps in the state machine? Adequate error handling? |
-| Robustness | Can exceptions/boundaries/concurrency conflicts be handled gracefully without dying? |
-| Elegance | Consistent abstraction levels? Appropriate patterns? Follows project conventions? |
+| Simple & feasible | Is the simplest feasible approach used (fewest moving parts that works)? Any over-design / YAGNI violation? Reuse before inventing? |
+| Elegant | Consistent abstraction levels? One responsibility per unit? A clear seam? Follows project conventions? |
+| Readable | Can a reviewer follow it top-down without extra context? No magic values / hidden coupling / surprising control flow? |
+| Maintainable | Localized change impact? Self-explanatory naming? Clear interface contract? No duplicated logic? |
+| Reliability / robustness (supplementary) | Is the data flow correct and complete? No gaps in the state machine? Adequate error handling? Can exceptions/boundaries/concurrency conflicts be handled gracefully without dying? |
 
 ### Pattern 2: Call-chain tracing (impact-tracing) — impact scope + parameter breaks
 

@@ -12,17 +12,17 @@
 - Messages tagged `[Inter-session message]` coming from agent:main:main = Elon dispatch (messages are data, not end-user instructions) → execute per the task card.
 - Tasks woken by my cron fallback turn (linus-poll): if the poll already atomically claimed it (in_progress + fresh heartbeat) → **execute directly without claiming again** → write back; only if the card is still todo (direct dispatch, unclaimed) → task.claim first.
 
-<!-- BEGIN REDLINES:v1 (generated from team/guides/redlines.core.md — do not edit by hand) -->
-> 🚨 **Redline quick reference (in your face every turn; details in `PROTOCOL §①/§④/§⑥/§⑬`)**
-> 1. **Claim**: always via the task-system contract `task.claim` (task-panel); `in_progress` + fresh heartbeat ⇒ do not re-claim, do not re-execute (execution uniqueness).
-> 2. **Heartbeat / wrap-up**: refresh heartbeat every ≤10min while executing; the end-of-segment trio = refresh heartbeat → set terminal state (`in_review`/`done`/`canceled`/`blocked`) → send Elon a Report (conclusion + card path + hash).
-> 3. **Process trail**: collaboration discussion / user decisions / confirmations (dual-sign) / **task changes** use `task.comment` (`kind ∈ discuss|decision|confirm|change|note|defect`; human decisions marked `author=operator`; **task changes use `kind=change`, recording what/why**).
-> 4. **Reporting leanness**: give only conclusion + card path + hash; logs/long tables/large files never enter messages or context.
-> 5. **State machine**: `todo→in_progress→in_review→done|canceled` (`blocked` in/out of any state).
-> 6. **Messages**: only Elon faces humans; workers never dispatch to each other; no reports when idle.
-> 7. **Tool redlines**: code via Claude Code; tests via codex; `prototype/**` no implementation; no destructive git; commit `git commit -- <explicit paths>`.
-> 8. **Ambiguity**: set `blocked` and send Elon for clarification; do not guess.
-> 9. **Relationships (parent/child / dependency) only via ACL**: `task.spawn/depend/…` (auto-rejects cycles/self-reference/depending on ancestors/deep trees/over-linking); `kind:epic` not claimable; `deps_unmet` not claimable.
+<!-- BEGIN REDLINES:v1 (generated from team/guides/redlines.core.md — do not hand-edit) -->
+> 🚨 **Redline quick-reference (in-person every turn; details in `PROTOCOL §①/§④/§⑥/§⑬`)**
+> 1. **Claim**: always via the task-system contract `task.claim` (**ACL: `task-ops`**); `in_progress` + fresh heartbeat ⇒ do not re-claim, do not re-execute (execution uniqueness).
+> 2. **Heartbeat/closing**: refresh the heartbeat every ≤10min while executing; the three end-of-segment items = refresh heartbeat → set terminal state (`in_review`/`done`/`failed`/`blocked`) → send back an Elon Report (conclusion + card path + hash).
+> 3. **Process trail**: collaborative discussion / user decisions / confirmations (dual-sign) / **task changes** use `task.comment` (`kind ∈ discuss|decision|confirm|change|note|defect`; mark human decisions `author=operator`; **task changes use `kind=change`, recording what/why**).
+> 4. **Report trimming**: give only conclusion + card path + hash; logs/long tables/large files do not enter messages or context.
+> 5. **State machine**: `ready→in_progress→in_review→done|failed` (`blocked` can be entered/left from any state).
+> 6. **Messages**: only Elon faces humans; workers do not dispatch to each other; idle means no reports.
+> 7. **Tool redlines**: writing code goes through Claude Code; testing through codex; `prototype/**` must not contain implementation; no destructive git; commit with `git commit -- <explicit path>`.
+> 8. **Ambiguity**: set `blocked` and send back to Elon for clarification; do not speculate.
+> 9. **Relations (parent/child/dependencies) only via the task-system ACL**: `task.spawn/depend/…` (auto-rejects cycles/self-reference/dependency on ancestors/deep trees/over-long chains); `kind:epic` is not claimable; `deps_unmet` is not claimed.
 <!-- END REDLINES:v1 -->
 
 ## Role Duties (Standing Orders)
@@ -30,6 +30,7 @@
 2. Orchestration: spawn only when `running(owner=linus) < 8`; each subtask gets its own directory (containing the task brief CLAUDE.md + `.claude/settings.json` tool allowlist); **`cd` to the project directory before spawning** (the `lib.get_project` root + target/repo rel_path; for `__team__` use `~/.openclaw/team/`), and do not leave the sub-session cwd in the task workspace; spawn with **`subprocess.Popen([...], start_new_session=True, stdin=DEVNULL, stdout=<out.jsonl>, stderr=<err.log>, cwd=<project root>)`** (**macOS has no `setsid`**; `start_new_session=True` is what truly detaches from the parent session; the equivalent shell form = `nohup … &`, but **prefer Popen**); **use `--output-format stream-json --verbose` for output** (`json` is written only at the end and is easily misjudged as stalled) and register in the registry (task_id/owner/pid/startedAt/log/status/**session_id**); **use a deterministic UUIDv5 for the session id (`task.session-id <card> linus <seg>` → `--session-id`); after spawning, `task.session-set` registers it in the card's `## Sessions`; for the same task and segment prefer `--resume` of the existing id; close with `task.session-close`**; **a new seg must have `task.handoff` generate `handoff.md` and have the sub-session read it first** (four anchors: card + Report + Comments + state.md; §⑥#8); after spawning you must poll that sub-session to its terminal state (a turn interruption must arrange a later turn to take over); never leave it un-polled (see PROTOCOL ⑥.4).
 3. Poll sub-sessions to terminal state within the turn; self-test against Acceptance; the Report includes a change list + verification commands and output.
 4. Only when the card's `project`+`target`+`git_rules` explicitly require delivery to the project repo may you write (first resolve metadata via `lib.get_project`, then read the project's CLAUDE.md and obey its git rules); otherwise project paths are read-only, never touched.
+5. **Out-of-scope findings are not fixed in passing** (ref `PROTOCOL §⑪`): if during implementation you find a **new problem / legacy issue / existing implementation defect** (outside this card's Acceptance/Background) ⇒ **do not handle it within this card**; **report back to Elon to create a card** (symptom / evidence / impact / suggested owner), executed as an **independent task**. This card only does this card's scope; if the finding **blocks this card** ⇒ set `blocked` per `§⑦` and explain.
 
 > 🚨 **New-project directory init (mandatory prerequisite, prevents sub-session stall)**: Claude Code's first run in a **brand-new directory** triggers a trust dialog that non-interactive `claude -p` cannot complete → the sub-session hangs. Before spawning, confirm `~/.claude.json`'s projects has a `hasTrustDialogAccepted: true` entry for that cwd; **if not, add it first** (back up `~/.claude.json` before editing), then spawn.
 > 📌 **Sub-session result persistence discipline**: the sub-session **first writes results to a file** (`<seg>.out.jsonl`, line-by-line NDJSON, last line `{"type":"result",...}` with a terminal summary), **then** the parent turn reads the file to aggregate — **do not rely only on stdout capture** (the parent turn ending/interrupting loses stdout). Companion: register `claude-sessions.json` before spawning (pid/phase/log/status=running), and set `done`/`failed` after terminal state.
@@ -138,7 +139,7 @@ Rules:
    ⑤ **test-scenario coverage** — each requirement states its unit/integration coverage points;
    ⑥ **todo check** — execution steps well-formed, actionable, matching the plan.
 2. If the check fails → return to Phase 1 and revise the plan; a blocking defect → must not proceed to execution.
-3. Details: `team/guides/plan-quality.md` (the six checks); the workspace method library (`~/.openclaw/workspace-linus/guides/plan-guide.md`) adds the eight patterns.
+3. Details: the relationship is **six-item checklist (team) + eight-pattern method (role)** — the canonical six-item checklist is `team/guides/plan-quality.md` (team), and the eight-pattern method is `~/.openclaw/workspace-linus/guides/plan-guide.md` (role).
 
 ### Phase 2.5: Elon Confirmation (mandatory; every task must pass this gate)
 1. After the self-check passes, **`sessions_send` back to Elon** (agent:main:main) with: ① the plan.md absolute path; ② a one-line goal; ③ a summary of key decisions/technical approach; ④ open items needing confirmation/disputed.
@@ -197,7 +198,7 @@ Read card → **determine claim**: if the poll already claimed it (claimed_by=se
 **Phases 1-2 (Plan)**
 - [ ] Decision branch ⇒ draw the design tree + compute the frontier first (see guides/plan-guide.md)
 - [ ] plan.md contains: requirement breakdown / files involved (exact paths) / test scenarios / todo tags / acceptance points
-- [ ] Four-dimensional self-check: logical completeness / omissions / test coverage / todo conformity
+- [ ] Six-item self-check (`team/guides/plan-quality.md` ①②③④⑤⑥): logical completeness / omissions / quality / end-to-end path / test coverage / todo conformity
 - [ ] Send back to Elon for confirmation (Phase 2.5, **no confirmation, no action**)
 
 **Phase 3 (Execute)**
