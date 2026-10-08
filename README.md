@@ -48,6 +48,7 @@ Options:
 | `--with-task-panel` | Install the reference task provider (task-panel) |
 | `--task-panel DIR` | Path to the task-panel source checkout |
 | `--no-task-panel` | Skip the task-provider step |
+| `--keep-existing` | Never overwrite existing files (skip instead of upgrade) |
 | `--skip-skills` `--skip-agents` `--skip-config` `--skip-team` | Skip a stage |
 | `--vendor` | Snapshot skills from their sources into `skills/vendor/` |
 | `--offline` | Install skills from `skills/vendor/` (no network) |
@@ -71,6 +72,28 @@ What the installer does (every stage is idempotent; existing items are skipped):
 6. **Task provider (ACL)** — reports any configured provider
    (`OPENCLAW_TEAM_TASK_PROVIDER`). Installs the reference provider only with
    `--with-task-panel`; otherwise prints how to bring your own.
+
+### Upgrade / reinstall
+
+The default mode is **install-or-upgrade**. Re-running `./install.sh` after a repo
+update overwrites previously installed managed content:
+
+- **Managed** (updated on upgrade): team docs, role seeds `AGENTS.md` / `SOUL.md` /
+  `IDENTITY.md`, config fragments, and skills.
+- **User-owned** (never touched): `USER.md`, `team/tasks/`, `team/workspace/`,
+  `team/memory/`, `team/projects.json`, and the session registries.
+- **Backup**: any managed file that differs is copied to
+  `~/.openclaw/team/.backups/<timestamp>/` **before** being overwritten.
+- **State**: the installed version is recorded in
+  `~/.openclaw/team/.install-state.json`; upgrades print the old → new version.
+- **Opt out**: `--keep-existing` restores the old install-only behaviour (skip
+  existing files).
+
+```bash
+./install.sh --dry-run        # preview install/upgrade actions
+./install.sh                  # install or upgrade managed content
+./install.sh --keep-existing  # never overwrite
+```
 
 ### Skills (option A: declarations, not vendored code)
 

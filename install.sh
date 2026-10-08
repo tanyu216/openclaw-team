@@ -28,6 +28,8 @@
 #   --no-task-panel        Skip the task-provider step entirely
 #   --vendor               Snapshot skills from source into skills/vendor/
 #   --offline              Install skills from skills/vendor/ (no network)
+#   --keep-existing        Skip existing files (never overwrite); default is
+#                          UPGRADE: managed files are backed up then overwritten
 #   --skip-skills          Skip all skill installation
 #   --skip-claude-skills   Skip Claude Code skills
 #   --skip-codex-skills    Skip Codex skills
@@ -48,6 +50,9 @@ CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 TASK_PANEL_SRC="${TASK_PANEL_SRC:-}"
 WITH_TASK_PANEL=0
+KEEP=0            # --keep-existing: never overwrite (legacy install-only behaviour)
+BK_DIR=""        # backup dir for this run (set in preflight)
+VERSION="$(cat "$REPO/VERSION" 2>/dev/null || echo 0.0.0)"
 
 DRY_RUN=0
 FORCE=0
@@ -88,6 +93,7 @@ while [ "$#" -gt 0 ]; do
     --skip-skills) DO_SKILLS=0 ;;
     --vendor) VENDOR=1 ;;
     --offline) OFFLINE=1 ;;
+    --keep-existing) KEEP=1 ;;
     --skip-claude-skills) DO_CLAUDE_SKILLS=0 ;;
     --skip-codex-skills) DO_CODEX_SKILLS=0 ;;
     --skip-agents) DO_AGENTS=0 ;;
@@ -110,6 +116,24 @@ run()  { if [ "$DRY_RUN" = 1 ]; then printf '  [dry-run] %s\n' "$*"; else "$@"; 
 
 # have_cmd <name>
 have_cmd() { command -v "$1" >/dev/null 2>&1; }
+
+# backup_path <path> — copy an existing managed path into $BK_DIR before overwrite
+backup_path() {
+  [ -n "$BK_DIR" ] || return 0
+  local p="$1" rel
+  case "$p" in "$OPENCLAW_HOME"/*) rel="${p#$OPENCLAW_HOME/}" ;; *) rel="$(basename "$p")" ;; esac
+  run mkdir -p "$BK_DIR/$(dirname "$rel")"
+  run cp -R "$p" "$BK_DIR/$rel"
+}
+
+# deploy_file <src> <dst> <label> — install / upgrade / keep a single managed file
+deploy_file() {
+  local src="$1" dst="$2" label="$3"
+  if [ ! -e "$dst" ]; then run mkdir -p "$(dirname "$dst")"; run cp "$src" "$dst"; info "install  $label"; return 0; fi
+  if cmp -s "$src" "$dst"; then info "unchanged $label"; return 0; fi
+  if [ "$KEEP" = 1 ]; then info "keep      $label (differs)"; return 0; fi
+  backup_path "$dst"; run cp "$src" "$dst"; info "upgrade  $label"; return 0
+}
 
 # install_skills <label> <src_root> <dst_root>
 # Copies each immediate child (file or dir) of <src_root> into <dst_root>,
@@ -164,6 +188,13 @@ info "node $(node -v)  ·  repo $REPO"
 info "openclaw home: $OPENCLAW_HOME"
 if resolve_openclaw; then info "openclaw CLI: ${OCL[*]}"; else warn "openclaw CLI not found (npm i -g openclaw)"; fi
 
+# upgrade detection + backup dir (used by deploy_file on overwrite)
+prev="$(node -e 'try{process.stdout.write(String(require(process.argv[1]).version||""))}catch(e){}' "$TEAM_DIR/.install-state.json" 2>/dev/null || true)"
+if [ -n "$prev" ] && [ "$prev" != "$VERSION" ]; then info "existing install v$prev → v$VERSION (upgrade)"
+elif [ -n "$prev" ]; then info "existing install v$prev (re-run)"; fi
+BK_DIR="$TEAM_DIR/.backups/$(date +%Y%m%d-%H%M%S)"
+[ "$KEEP" = 1 ] && info "mode: keep-existing (no overwrite)" || info "mode: install/upgrade (backs up before overwrite)"
+
 if have_cmd claude; then info "claude: $(claude --version 2>/dev/null | head -1)"
 else warn "claude CLI not found — Claude skills will still be copied, but the host is absent (npm i -g @anthropic-ai/claude-code)"; fi
 if have_cmd codex; then info "codex: $(codex --version 2>/dev/null | head -1)"
@@ -176,17 +207,15 @@ if [ "$DO_TEAM" = 1 ]; then
   for f in "$REPO"/team/*; do
     [ -e "$f" ] || continue
     name="$(basename "$f")"
-    case "$name" in tasks|workspace|memory) continue ;; esac   # runtime dirs
+    case "$name" in tasks|workspace|memory) continue ;; esac   # runtime dirs (user-owned)
     if [ -d "$f" ]; then
       run mkdir -p "$TEAM_DIR/$name"
       for sub in "$f"/*; do
         [ -e "$sub" ] || continue
-        if [ -e "$TEAM_DIR/$name/$(basename "$sub")" ] && [ "$FORCE" != 1 ]; then continue; fi
-        run cp -R "$sub" "$TEAM_DIR/$name/"
+        deploy_file "$sub" "$TEAM_DIR/$name/$(basename "$sub")" "$name/$(basename "$sub")"
       done
     else
-      if [ -e "$TEAM_DIR/$name" ] && [ "$FORCE" != 1 ]; then info "keep existing $name"; continue; fi
-      run cp "$f" "$TEAM_DIR/$name"
+      deploy_file "$f" "$TEAM_DIR/$name" "$name"
     fi
   done
   for d in tasks workspace memory; do run mkdir -p "$TEAM_DIR/$d"; done
@@ -199,7 +228,7 @@ if [ "$DO_SKILLS" = 1 ]; then
     step "skills (declared sources)"
     sargs=(--openclaw-home "$OPENCLAW_HOME" --claude-home "$CLAUDE_HOME" --codex-home "$CODEX_HOME")
     [ "$DRY_RUN" = 1 ] && sargs+=(--dry-run)
-    [ "$FORCE" = 1 ] && sargs+=(--force)
+    [ "$KEEP" = 1 ] && sargs+=(--keep)
     [ "$VENDOR" = 1 ] && sargs+=(--vendor)
     [ "$OFFLINE" = 1 ] && sargs+=(--offline)
     node "$REPO/skills/fetch.mjs" "${sargs[@]}" || warn "some skills failed to fetch (see above)"
@@ -224,10 +253,9 @@ if [ "$DO_AGENTS" = 1 ]; then
       src="$REPO/roles/$role/$f"
       [ -f "$src" ] || continue
       dst="$wsdir/$f"
-      # Never clobber an existing USER.md: it holds operator preferences.
-      if [ "$f" = "USER.md" ] && [ -e "$dst" ]; then info "keep existing $id/USER.md"; continue; fi
-      if [ -e "$dst" ] && [ "$FORCE" != 1 ]; then info "keep existing $id/$f"; continue; fi
-      run cp "$src" "$dst"
+      # USER.md is user-owned: never overwritten by install/upgrade.
+      if [ "$f" = "USER.md" ] && [ -e "$dst" ]; then info "keep      $id/USER.md (user-owned)"; continue; fi
+      deploy_file "$src" "$dst" "$id/$f"
     done
     if [ -n "${OCL[*]:-}" ] && agent_exists "$id"; then
       info "agent '$id' already registered"
@@ -298,8 +326,12 @@ if [ "$DO_TASKS" = 1 ]; then
 fi
 
 # ---- summary ----------------------------------------------------------------
+if [ "$DRY_RUN" != 1 ]; then
+  run mkdir -p "$TEAM_DIR"
+  printf '{\n  "version": "%s",\n  "installedAt": "%s"\n}\n' "$VERSION" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$TEAM_DIR/.install-state.json"
+fi
 say ""
-say "Done. steps=$STEPS  warnings=$WARNINGS"
+say "Done. version=$VERSION  steps=$STEPS  warnings=$WARNINGS"
 [ "$DRY_RUN" = 1 ] && say "(dry-run: nothing was changed)"
 if [ "$WARNINGS" -gt 0 ]; then
   say "Review the warnings above, then run: ${OCL[*]:-openclaw} doctor"
