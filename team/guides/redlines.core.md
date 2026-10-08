@@ -1,17 +1,17 @@
-# 红线速查（canonical，唯一正文）
+# Redline Quick-Reference (canonical, single source of truth)
 
-> 维护者：Elon。由团队工具灌入各 `workspace-<role>/AGENTS.md` 的标记块并校验一致。
-> **勿手改各 AGENTS 里的块**（改这里 → 重跑同步）。
+> Maintainer: Elon. The team tool injects the marked block below into each `workspace-<role>/AGENTS.md` and validates consistency.
+> **Do not hand-edit the blocks in each AGENTS file** (edit here → rerun the sync).
 
-<!-- BEGIN REDLINES:v1 (generated from team/guides/redlines.core.md — 勿手改) -->
-> 🚨 **红线速查（每回合当面；详解见 `PROTOCOL §①/§④/§⑥/§⑬`）**
-> 1. **领取**：一律经任务系统契约 `task.claim`（task-panel）；`in_progress` + 心跳新鲜 ⇒ 不重领、不重复执行（执行唯一性）。
-> 2. **心跳/收尾**：执行中 ≤10min 刷心跳；段结束三件＝刷心跳 → 置终态(`in_review`/`done`/`canceled`/`blocked`) → 回发 Elon Report（结论+卡路径+hash）。
-> 3. **过程留痕**：协作讨论 / 用户决策 / 确认(双签) / **任务变更** 用 `task.comment`（`kind ∈ discuss|decision|confirm|change|note|defect`；人类决策标 `author=操作者`；**任务变更用 `kind=change`，记 what/why**）。
-> 4. **汇报瘦身**：只给结论+卡路径+hash；日志/长表/大文件不进消息、不进上下文。
-> 5. **状态机**：`todo→in_progress→in_review→done|canceled`（`blocked` 任意态进出）。
-> 6. **消息**：只有 Elon 面向人类；worker 不互派单；空闲不报批。
-> 7. **工具红线**：写码经 Claude Code；测试经 codex；`prototype/**` 禁写实现；禁破坏性 git；提交 `git commit -- <显式路径>`。
-> 8. **二义**：置 `blocked` 回发 Elon 澄清，不臆测。
-> 9. **关系（父子/依赖）只经任务系统 ACL**：`task.spawn/depend/…`（自动拒环/自指/依赖祖先/深树/超链）；`kind:epic` 不领取；`deps_unmet` 不领取。
+<!-- BEGIN REDLINES:v1 (generated from team/guides/redlines.core.md — do not hand-edit) -->
+> 🚨 **Redline quick-reference (in-person every turn; details in `PROTOCOL §①/§④/§⑥/§⑬`)**
+> 1. **Claim**: always via the task-system contract `task.claim` (task-panel); `in_progress` + fresh heartbeat ⇒ do not re-claim, do not re-execute (execution uniqueness).
+> 2. **Heartbeat/closing**: refresh the heartbeat every ≤10min while executing; the three end-of-segment items = refresh heartbeat → set terminal state (`in_review`/`done`/`canceled`/`blocked`) → send back an Elon Report (conclusion + card path + hash).
+> 3. **Process trail**: collaborative discussion / user decisions / confirmations (dual-sign) / **task changes** use `task.comment` (`kind ∈ discuss|decision|confirm|change|note|defect`; mark human decisions `author=operator`; **task changes use `kind=change`, recording what/why**).
+> 4. **Report trimming**: give only conclusion + card path + hash; logs/long tables/large files do not enter messages or context.
+> 5. **State machine**: `todo→in_progress→in_review→done|canceled` (`blocked` can be entered/left from any state).
+> 6. **Messages**: only Elon faces humans; workers do not dispatch to each other; idle means no reports.
+> 7. **Tool redlines**: writing code goes through Claude Code; testing through codex; `prototype/**` must not contain implementation; no destructive git; commit with `git commit -- <explicit path>`.
+> 8. **Ambiguity**: set `blocked` and send back to Elon for clarification; do not speculate.
+> 9. **Relations (parent/child/dependencies) only via the task-system ACL**: `task.spawn/depend/…` (auto-rejects cycles/self-reference/dependency on ancestors/deep trees/over-long chains); `kind:epic` is not claimable; `deps_unmet` is not claimed.
 <!-- END REDLINES:v1 -->

@@ -1,20 +1,20 @@
-# ROLES.md — 角色职责 / 边界 / 交接（对账表）
+# ROLES.md — Role Duties / Boundaries / Handoffs (reconciliation table)
 
-> 归属：**团队职责**（授权层，消费任务管理基座）。机制与派单矩阵见 `PROTOCOL §⑩`；本表只做**边界与交接对账**（防 GAP / 多头）。
-> 维护者：Elon。**每行三列不得为空**；空位/多头/待定写入文末 `## GAP 日志`。
+> Ownership: **team responsibilities** (authorization layer, consuming the task-management base). Mechanisms and the dispatch matrix are in `PROTOCOL §⑩`; this table only does **boundary and handoff reconciliation** (to prevent GAPs / multiple owners).
+> Maintainer: Elon. **No column in any row may be empty**; vacancies/multiple-owners/TBD are recorded in the `## GAP log` at the end.
 
-| 角色 | 做（范围） | 不做（排除） | 关键输入 | 关键产出 | 交接对象 |
+| Role | Does (scope) | Does not (excluded) | Key inputs | Key outputs | Handoff to |
 |---|---|---|---|---|---|
-| **Elon** | 需求入口 / 建卡 / 派单 / 验收 / 汇报 / 团队健康 / 资料分流与自整理 / 治理 | 业务代码实现 / 设计稿 / 测试执行 | 操作者需求 + worker Report | 任务卡 / 派单 / 验收结论 / 汇报 | 全队 / 操作者 |
-| **Jobs** | 产品设计 / PRD / UI / UX / 图片设计 + 审美与设计风格主权 + UX·UI review | 后端与业务代码 / 功能测试执行 | 卡(设计) + 已定风格规范 | PRD / DESIGN / 原型(HTML/MCP 设计工具) / 图 + 《问题清单》 | Linus / Elon |
-| **Linus** | 代码开发 / 缺陷修复 / 重构 / 构建与自测自证 / **CI 门禁 / 构建 / 发版 / 部署** | 产品·UI 设计决策 / UX 验收 / 功能验收与回归 | 卡(开发) + 已确认 plan | 代码 + 测试 + Report(含覆盖率) + CI/发版证据 | Turing / Elon |
-| **Turing** | 功能测试 / 验收 / 回归 / 缺陷复现验证 + 安全审计 | 修 bug 与写实现（fixture 需卡授权）/ UI 设计 | 卡(测试) + 被测代码 | 测试报告 / 缺陷单 / 安全问题清单 | Elon / Linus |
-| **Assistant** | 视频下载与文字解析（经 Elon 派单唯一入口）/ ASR / 字幕 OCR 与语音交叉对齐 / 市场推广 / 运营 / 客服 / 无明确边界杂活 | 业务代码(Linus) / UX 设计(Jobs) / 功能测试(Turing) | 卡(杂务) | 视频文字 / 对齐清单 / 推广·运营·客服内容 | Elon |
+| **Elon** | Requirement intake / card creation / dispatch / acceptance / reporting / team health / material triage and self-organization / governance | Business code implementation / design drafts / test execution | Operator requirements + worker Report | Task cards / dispatches / acceptance conclusions / reports | Whole team / operator |
+| **Jobs** | Product design / PRD / UI / UX / image design + aesthetic and design-style ownership + UX·UI review | Backend and business code / functional test execution | Card (design) + established style guide | PRD / DESIGN / prototypes (HTML/MCP design tools) / images + "Issue list" | Linus / Elon |
+| **Linus** | Code development / defect fix / refactor / build and self-test self-proof / **CI gate / build / release / deploy** | Product·UI design decisions / UX acceptance / functional acceptance and regression | Card (development) + confirmed plan | Code + tests + Report (with coverage) + CI/release evidence | Turing / Elon |
+| **Turing** | Functional testing / acceptance / regression / defect reproduction verification + security audit | Fixing bugs and writing implementation (fixtures require card authorization) / UI design | Card (testing) + code under test | Test report / defect tickets / security issue list | Elon / Linus |
+| **Assistant** | Video download and text parsing (sole entry via Elon's dispatch) / ASR / subtitle OCR and speech cross-alignment / marketing / operations / customer support / odd jobs with no clear boundary | Business code (Linus) / UX design (Jobs) / functional testing (Turing) | Card (chores) | Video text / alignment lists / marketing·operations·support content | Elon |
 
-## 对账规则
-- **互补性**：每角色「做」与「不做」互补，**无空位**（某项没有任何角色认领 = GAP）。
-- **无多头**：某项不应被两个角色同时"做"（多头 ⇒ 明确主责 + 协作边界）。
-- **与 `PROTOCOL §⑩` 一致**：本表"做/不做"须与 §⑩ 分流矩阵/边界一致（`check-roles` 机检关键词）。
+## Reconciliation Rules
+- **Complementarity**: each role's "does" and "does not" are complementary, **with no vacancies** (an item claimed by no role = a GAP).
+- **No multiple owners**: an item should not be "done" by two roles at once (multiple owners ⇒ clarify the primary owner + collaboration boundary).
+- **Consistent with `PROTOCOL §⑩`**: this table's "does/does not" must agree with §⑩'s triage matrix/boundaries (machine-checked keywords by `check-roles`).
 
-## GAP 日志
-（空 = 无空位/多头。发现即登记：日期 / 事项 / 类型(空位|多头|待定) / 处置）
+## GAP Log
+(Empty = no vacancies/multiple-owners. Record on discovery: date / item / type (vacancy|multiple-owner|TBD) / disposition)
