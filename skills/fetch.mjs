@@ -22,7 +22,7 @@ const OPENCLAW_HOME = opt("--openclaw-home", join(os.homedir(), ".openclaw"));
 const CLAUDE_HOME = opt("--claude-home", join(os.homedir(), ".claude"));
 const CODEX_HOME = opt("--codex-home", join(os.homedir(), ".codex"));
 const VENDOR_DIR = opt("--vendor-dir", join(HERE, "vendor"));
-const DRY = flag("--dry-run"), FORCE = flag("--force");
+const DRY = flag("--dry-run"), KEEP = flag("--keep");
 const MODE = flag("--vendor") ? "vendor" : flag("--offline") ? "offline" : "install";
 
 const manifest = JSON.parse(readFileSync(join(HERE, "manifest.json"), "utf8"));
@@ -40,7 +40,7 @@ let installed = 0, skipped = 0, unresolved = 0, failed = 0;
 function copyInto(srcDir, name, target) {
   const dst = join(targetDir(target), name);
   if (resolve(srcDir) === resolve(dst)) { installed++; return; }
-  if (existsSync(dst) && !FORCE) { console.log(`  skip  ${name} → ${target} (exists)`); skipped++; return; }
+  if (existsSync(dst) && KEEP) { console.log(`  skip  ${name} → ${target} (exists)`); skipped++; return; }
   console.log(`  ${DRY ? "[dry-run] " : ""}fetch ${name} → ${target}`);
   if (DRY) { installed++; return; }
   mkdirSync(dirname(dst), { recursive: true });
@@ -77,7 +77,7 @@ function materialize(entry, workdir) {
     }
     const slug = s.ref.split("/").pop();
     const dst = join(OPENCLAW_HOME, "skills", slug);
-    if (existsSync(dst) && !FORCE) return dst; // already present
+    if (existsSync(dst) && KEEP) return dst; // already present
     const a = ["skills", "install", s.ref, "--global", "--force"];
     if (s.version) a.push("--version", s.version);
     execFileSync("openclaw", a, { stdio: "inherit" });

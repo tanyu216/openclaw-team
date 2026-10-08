@@ -42,6 +42,7 @@ cd ~/Documents/openclaw-team
 | `--with-task-panel` | 安装参考任务提供方（task-panel） |
 | `--task-panel DIR` | 指定 task-panel 源码路径 |
 | `--no-task-panel` | 跳过任务提供方阶段 |
+| `--keep-existing` | 从不覆盖已存在文件（跳过而非升级） |
 | `--skip-skills` `--skip-agents` `--skip-config` `--skip-team` | 跳过对应阶段 |
 | `--vendor` | 从来源快照到 `skills/vendor/` |
 | `--offline` | 从 `skills/vendor/` 快照安装（不联网） |
@@ -54,6 +55,22 @@ cd ~/Documents/openclaw-team
 4. **Agent 与角色工作区**：拷贝 `AGENTS.md`/`SOUL.md`/`IDENTITY.md`，然后 `openclaw agents add <id> --workspace <dir> --non-interactive`；已注册则跳过。**永不覆盖**既有 `USER.md`。
 5. **配置片段** → `openclaw config patch --file config/*.json5`（`config/examples/` 下仅参考，不自动应用）。
 6. **任务提供方（ACL）**：报告已配置的提供方（`OPENCLAW_TEAM_TASK_PROVIDER`）；仅在 `--with-task-panel` 时安装参考实现，否则打印「自备」指引。
+
+### 升级 / 重装
+
+默认模式为 **安装或升级**。仓库更新后重跑 `./install.sh` 会**覆盖**先前安装的受管内容：
+
+- **受管**（升级时更新）：团队文档、角色种子 `AGENTS.md` / `SOUL.md` / `IDENTITY.md`、配置片段、技能。
+- **用户所有**（从不触碰）：`USER.md`、`team/tasks/`、`team/workspace/`、`team/memory/`、`team/projects.json` 与会话 registry。
+- **备份**：凡内容有变的受管文件，**覆盖前**先备份到 `~/.openclaw/team/.backups/<时间戳>/`。
+- **状态**：已装版本记录在 `~/.openclaw/team/.install-state.json`；升级会打印 旧→新 版本。
+- **退出升级**：`--keep-existing` 恢复旧的「只装不覆盖」行为。
+
+```bash
+./install.sh --dry-run        # 预览安装/升级动作
+./install.sh                  # 安装或升级受管内容
+./install.sh --keep-existing  # 从不覆盖
+```
 
 ### 技能（方案 A：只存声明，不 vendor 代码）
 
