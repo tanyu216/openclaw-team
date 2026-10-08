@@ -49,6 +49,8 @@ Options:
 | `--task-panel DIR` | Path to the task-panel source checkout |
 | `--no-task-panel` | Skip the task-provider step |
 | `--skip-skills` `--skip-agents` `--skip-config` `--skip-team` | Skip a stage |
+| `--vendor` | Snapshot skills from their sources into `skills/vendor/` |
+| `--offline` | Install skills from `skills/vendor/` (no network) |
 
 What the installer does (every stage is idempotent; existing items are skipped):
 
@@ -56,7 +58,11 @@ What the installer does (every stage is idempotent; existing items are skipped):
    install hints if absent; never aborts).
 2. **Team docs** → `~/.openclaw/team/` (`PROTOCOL.md`, `ROLES.md`, `README.md`,
    `guides/`). Never touches runtime dirs `tasks/`, `workspace/`, `memory/`.
-3. **Skills** → see the table below.
+3. **Skills (declared sources)** — resolves every entry in `skills/manifest.json`
+   from its upstream (ClawHub / GitHub / git) and installs it into the right
+   target. Entries with no verified upstream (`needs_source`) are skipped with a
+   warning. `--vendor` snapshots sources into `skills/vendor/`; `--offline`
+   installs from that snapshot.
 4. **Agents & role workspaces** — copies `AGENTS.md`/`SOUL.md`/`IDENTITY.md`, then
    `openclaw agents add <id> --workspace <dir> --non-interactive` (skipped if the
    agent already exists). An existing `USER.md` is **never** overwritten.
@@ -66,16 +72,33 @@ What the installer does (every stage is idempotent; existing items are skipped):
    (`OPENCLAW_TEAM_TASK_PROVIDER`). Installs the reference provider only with
    `--with-task-panel`; otherwise prints how to bring your own.
 
-### Skill install targets
+### Skills (option A: declarations, not vendored code)
 
-| Source | Target |
+Skill **bodies are not stored in this repo**. `skills/manifest.json` declares each
+skill's upstream source; `skills/lock.json` pins resolved refs and tree hashes.
+The installer fetches from source:
+
+```bash
+./install.sh                 # fetch + install from declared sources
+./install.sh --vendor        # snapshot sources into skills/vendor/
+./install.sh --offline       # install from a previous snapshot (no network)
+```
+
+Targets:
+
+| Target | Where |
 |---|---|
-| `skills/openclaw/` | `~/.openclaw/skills/` |
-| `skills/claude/` | `~/.claude/skills/` |
-| `skills/codex/` | `~/.codex/skills/` |
-| `skills/agents/<agent>/` | `~/.openclaw/workspace-<agent>/skills/` |
+| `openclaw` | `~/.openclaw/skills/` |
+| `claude` | `~/.claude/skills/` |
+| `codex` | `~/.codex/skills/` |
+| `agent:<id>` | `~/.openclaw/workspace-<id>/skills/` |
 
-Skill provenance and licenses: [`skills/PROVENANCE.md`](skills/PROVENANCE.md).
+Entries marked `needs_source: true` have no verified upstream yet and are skipped
+until resolved. Provenance notes: [`skills/PROVENANCE.md`](skills/PROVENANCE.md).
+
+> **Migration note**: the legacy `skills/{openclaw,claude,codex,agents}/` copies
+> are still present as a transitional fallback and will be removed once every
+> manifest entry has a verified source.
 
 ## Task system (pluggable, via ACL)
 

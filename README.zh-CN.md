@@ -43,26 +43,40 @@ cd ~/Documents/openclaw-team
 | `--task-panel DIR` | 指定 task-panel 源码路径 |
 | `--no-task-panel` | 跳过任务提供方阶段 |
 | `--skip-skills` `--skip-agents` `--skip-config` `--skip-team` | 跳过对应阶段 |
+| `--vendor` | 从来源快照到 `skills/vendor/` |
+| `--offline` | 从 `skills/vendor/` 快照安装（不联网） |
 
 安装器做这些事（每步幂等，已存在则跳过）：
 
 1. **预检**：node / openclaw CLI；检查 `claude`、`codex`（缺失给出安装提示，不中断）。
 2. **团队文档** → `~/.openclaw/team/`（`PROTOCOL.md`、`ROLES.md`、`README.md`、`guides/`）。**不覆盖**运行时目录 `tasks/`、`workspace/`、`memory/`。
-3. **技能** → 见下表。
+3. **技能（声明源）**：逐条解析 `skills/manifest.json` 的上游来源（ClawHub / GitHub / git）并安装到对应目标。无已核上游（`needs_source`）的条目会跳过并告警。`--vendor` 快照到 `skills/vendor/`；`--offline` 从快照安装。
 4. **Agent 与角色工作区**：拷贝 `AGENTS.md`/`SOUL.md`/`IDENTITY.md`，然后 `openclaw agents add <id> --workspace <dir> --non-interactive`；已注册则跳过。**永不覆盖**既有 `USER.md`。
 5. **配置片段** → `openclaw config patch --file config/*.json5`（`config/examples/` 下仅参考，不自动应用）。
 6. **任务提供方（ACL）**：报告已配置的提供方（`OPENCLAW_TEAM_TASK_PROVIDER`）；仅在 `--with-task-panel` 时安装参考实现，否则打印「自备」指引。
 
-### 技能安装目标
+### 技能（方案 A：只存声明，不 vendor 代码）
 
-| 来源 | 目标 |
+技能**正文不存本仓库**。`skills/manifest.json` 声明每个技能的上游来源；`skills/lock.json` 锁定已解析的 ref 与目录哈希。安装器从来源拉取：
+
+```bash
+./install.sh                 # 按声明源拉取并安装
+./install.sh --vendor        # 快照来源到 skills/vendor/
+./install.sh --offline       # 从既有快照安装（不联网）
+```
+
+目标：
+
+| 目标 | 位置 |
 |---|---|
-| `skills/openclaw/` | `~/.openclaw/skills/` |
-| `skills/claude/` | `~/.claude/skills/` |
-| `skills/codex/` | `~/.codex/skills/` |
-| `skills/agents/<agent>/` | `~/.openclaw/workspace-<agent>/skills/` |
+| `openclaw` | `~/.openclaw/skills/` |
+| `claude` | `~/.claude/skills/` |
+| `codex` | `~/.codex/skills/` |
+| `agent:<id>` | `~/.openclaw/workspace-<id>/skills/` |
 
-技能来源与许可见 [`skills/PROVENANCE.md`](skills/PROVENANCE.md)。
+标 `needs_source: true` 的条目尚无已核上游，解析前一律跳过。来源与许可见 [`skills/PROVENANCE.md`](skills/PROVENANCE.md)。
+
+> **迁移说明**：旧 `skills/{openclaw,claude,codex,agents}/` 副本暂留作过渡兜底；待 manifest 每条都有已核来源后移除。
 
 ## 任务系统（可切换，经 ACL）
 

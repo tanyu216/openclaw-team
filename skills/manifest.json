@@ -1,0 +1,1233 @@
+{
+  "$schema": "openclaw-team/skills-manifest@1",
+  "note": "Declarations only (option A). Skill bodies are NOT vendored. install.sh fetches from source; --vendor snapshots on demand. Entries with needs_source=true are unresolved and skipped.",
+  "skills": [
+    {
+      "name": "antfu",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/antfu/skills",
+        "ref": "e53a142a2420e8cd812cfe9ed0484ab01bc856aa",
+        "path": "antfu"
+      }
+    },
+    {
+      "name": "api-security-testing",
+      "targets": [
+        "agent:turing"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true,
+        "hint": "usestrix / https://docs.strix.ai (verify repo)"
+      }
+    },
+    {
+      "name": "ask-matt",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "ask-matt"
+      }
+    },
+    {
+      "name": "ask-matt",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "ask-matt"
+      }
+    },
+    {
+      "name": "canvas-design",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "claude-handoff",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "claude-handoff"
+      }
+    },
+    {
+      "name": "claude-handoff",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "claude-handoff"
+      }
+    },
+    {
+      "name": "code-review",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "code-review"
+      }
+    },
+    {
+      "name": "code-review",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "code-review"
+      }
+    },
+    {
+      "name": "code-review",
+      "targets": [
+        "agent:turing"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "code-review"
+      }
+    },
+    {
+      "name": "codebase-design",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "codebase-design"
+      }
+    },
+    {
+      "name": "codebase-design",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "codebase-design"
+      }
+    },
+    {
+      "name": "daisyui",
+      "targets": [
+        "claude",
+        "agent:jobs"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true,
+        "hint": "https://daisyui.com/SKILL.md (verify upstream repo)"
+      }
+    },
+    {
+      "name": "diagnosing-bugs",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "diagnosing-bugs"
+      }
+    },
+    {
+      "name": "diagnosing-bugs",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "diagnosing-bugs"
+      }
+    },
+    {
+      "name": "docker",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "clawhub",
+        "ref": "@ivangdavila/docker",
+        "version": "1.0.10"
+      }
+    },
+    {
+      "name": "docx",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "domain-modeling",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "domain-modeling"
+      }
+    },
+    {
+      "name": "domain-modeling",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "domain-modeling"
+      }
+    },
+    {
+      "name": "e2e-testing-patterns",
+      "targets": [
+        "codex"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "e2e-testing-patterns",
+      "targets": [
+        "agent:turing"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "excel-xlsx",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "clawhub",
+        "ref": "@ivangdavila/excel-xlsx",
+        "version": "1.0.2"
+      }
+    },
+    {
+      "name": "find-skills-skill",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "clawhub",
+        "ref": "@fangkelvin/find-skills-skill",
+        "version": "1.0.0"
+      }
+    },
+    {
+      "name": "finesse-term",
+      "targets": [
+        "agent:jobs"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "finesse-ui",
+      "targets": [
+        "agent:jobs"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "frame-smith",
+      "targets": [
+        "agent:jobs"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "git-guardrails-claude-code",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "git-guardrails-claude-code"
+      }
+    },
+    {
+      "name": "git-guardrails-claude-code",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "git-guardrails-claude-code"
+      }
+    },
+    {
+      "name": "grill-with-docs",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "grill-with-docs"
+      }
+    },
+    {
+      "name": "grill-with-docs",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "grill-with-docs"
+      }
+    },
+    {
+      "name": "grilling",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "grilling"
+      }
+    },
+    {
+      "name": "grilling",
+      "targets": [
+        "agent:jobs"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "grilling"
+      }
+    },
+    {
+      "name": "handoff",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "handoff"
+      }
+    },
+    {
+      "name": "handoff",
+      "targets": [
+        "agent:jobs"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "handoff"
+      }
+    },
+    {
+      "name": "humanizer",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "clawhub",
+        "ref": "@biostartechnology/humanizer",
+        "version": "1.0.0"
+      }
+    },
+    {
+      "name": "impeccable",
+      "targets": [
+        "agent:jobs"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "implement",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "implement"
+      }
+    },
+    {
+      "name": "implement",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "implement"
+      }
+    },
+    {
+      "name": "implement-spec",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "implement-spec"
+      }
+    },
+    {
+      "name": "implement-spec",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "implement-spec"
+      }
+    },
+    {
+      "name": "improve-codebase-architecture",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "improve-codebase-architecture"
+      }
+    },
+    {
+      "name": "improve-codebase-architecture",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "improve-codebase-architecture"
+      }
+    },
+    {
+      "name": "interface-design",
+      "targets": [
+        "agent:jobs"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "marketing-copywriting",
+      "targets": [
+        "agent:assistant"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "nm-parseltongue-python-testing",
+      "targets": [
+        "codex"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true,
+        "hint": "claude-night-market (verify repo)"
+      }
+    },
+    {
+      "name": "nm-parseltongue-python-testing",
+      "targets": [
+        "agent:turing"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true,
+        "hint": "claude-night-market (verify repo)"
+      }
+    },
+    {
+      "name": "nuxt",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/antfu/skills",
+        "ref": "e53a142a2420e8cd812cfe9ed0484ab01bc856aa",
+        "path": "nuxt"
+      }
+    },
+    {
+      "name": "pdf",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "clawhub",
+        "ref": "@awspace/pdf",
+        "version": "0.1.0"
+      }
+    },
+    {
+      "name": "pdf",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "clawhub",
+        "ref": "@awspace/pdf",
+        "version": "0.1.0"
+      }
+    },
+    {
+      "name": "pinia",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/antfu/skills",
+        "ref": "e53a142a2420e8cd812cfe9ed0484ab01bc856aa",
+        "path": "pinia"
+      }
+    },
+    {
+      "name": "playwright",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "clawhub",
+        "ref": "@ivangdavila/playwright",
+        "version": "1.0.4"
+      }
+    },
+    {
+      "name": "pnpm",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/antfu/skills",
+        "ref": "e53a142a2420e8cd812cfe9ed0484ab01bc856aa",
+        "path": "pnpm"
+      }
+    },
+    {
+      "name": "pr",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "pr"
+      }
+    },
+    {
+      "name": "pr",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "pr"
+      }
+    },
+    {
+      "name": "prototype",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "prototype"
+      }
+    },
+    {
+      "name": "prototype",
+      "targets": [
+        "agent:jobs"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "prototype"
+      }
+    },
+    {
+      "name": "qa-api-testing",
+      "targets": [
+        "agent:turing"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "qa-test-automation-arch",
+      "targets": [
+        "agent:turing"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "research",
+      "targets": [
+        "agent:jobs"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "retro",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "security-audit-toolkit",
+      "targets": [
+        "agent:turing"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "setup-matt-pocock-skills",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "setup-matt-pocock-skills"
+      }
+    },
+    {
+      "name": "setup-matt-pocock-skills",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "setup-matt-pocock-skills"
+      }
+    },
+    {
+      "name": "setup-pre-commit",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "setup-pre-commit"
+      }
+    },
+    {
+      "name": "setup-pre-commit",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "setup-pre-commit"
+      }
+    },
+    {
+      "name": "skill-creator",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "clawhub",
+        "ref": "@chindden/skill-creator",
+        "version": "0.1.0"
+      }
+    },
+    {
+      "name": "skill-installer",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "skill-vetter",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "clawhub",
+        "ref": "@spclaudehome/skill-vetter",
+        "version": "1.0.0"
+      }
+    },
+    {
+      "name": "subtitle",
+      "targets": [
+        "agent:assistant"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true,
+        "hint": "https://senseaudio.cn (verify repo)"
+      }
+    },
+    {
+      "name": "subtitle-extractor",
+      "targets": [
+        "agent:assistant"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "taste-skill",
+      "targets": [
+        "agent:jobs"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "tavily-best-practices",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "tavily-cli",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/tavily-ai/skills",
+        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
+        "path": "tavily-cli"
+      }
+    },
+    {
+      "name": "tavily-cli",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/tavily-ai/skills",
+        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
+        "path": "tavily-cli"
+      }
+    },
+    {
+      "name": "tavily-crawl",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "tavily-dynamic-search",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/tavily-ai/skills",
+        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
+        "path": "tavily-dynamic-search"
+      }
+    },
+    {
+      "name": "tavily-dynamic-search",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/tavily-ai/skills",
+        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
+        "path": "tavily-dynamic-search"
+      }
+    },
+    {
+      "name": "tavily-extract",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/tavily-ai/skills",
+        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
+        "path": "tavily-extract"
+      }
+    },
+    {
+      "name": "tavily-extract",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/tavily-ai/skills",
+        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
+        "path": "tavily-extract"
+      }
+    },
+    {
+      "name": "tavily-map",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "tavily-research",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/tavily-ai/skills",
+        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
+        "path": "tavily-research"
+      }
+    },
+    {
+      "name": "tavily-research",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/tavily-ai/skills",
+        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
+        "path": "tavily-research"
+      }
+    },
+    {
+      "name": "tavily-search",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/tavily-ai/skills",
+        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
+        "path": "tavily-search"
+      }
+    },
+    {
+      "name": "tavily-search",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/tavily-ai/skills",
+        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
+        "path": "tavily-search"
+      }
+    },
+    {
+      "name": "tdd",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "tdd"
+      }
+    },
+    {
+      "name": "tdd",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "tdd"
+      }
+    },
+    {
+      "name": "tdd",
+      "targets": [
+        "agent:turing"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "tdd"
+      }
+    },
+    {
+      "name": "to-questionnaire",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "to-questionnaire"
+      }
+    },
+    {
+      "name": "to-questionnaire",
+      "targets": [
+        "agent:jobs"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "to-questionnaire"
+      }
+    },
+    {
+      "name": "to-spec",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "to-spec"
+      }
+    },
+    {
+      "name": "to-spec",
+      "targets": [
+        "agent:jobs"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "to-spec"
+      }
+    },
+    {
+      "name": "to-tickets",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "to-tickets"
+      }
+    },
+    {
+      "name": "to-tickets",
+      "targets": [
+        "agent:jobs"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "to-tickets"
+      }
+    },
+    {
+      "name": "triage",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "triage"
+      }
+    },
+    {
+      "name": "ui-ux-pro-max",
+      "targets": [
+        "agent:jobs"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "unocss",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/antfu/skills",
+        "ref": "e53a142a2420e8cd812cfe9ed0484ab01bc856aa",
+        "path": "unocss"
+      }
+    },
+    {
+      "name": "video-downloader-skill",
+      "targets": [
+        "agent:assistant"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "vite",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/antfu/skills",
+        "ref": "e53a142a2420e8cd812cfe9ed0484ab01bc856aa",
+        "path": "vite"
+      }
+    },
+    {
+      "name": "vitest",
+      "targets": [
+        "claude",
+        "codex"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/antfu/skills",
+        "ref": "e53a142a2420e8cd812cfe9ed0484ab01bc856aa",
+        "path": "vitest"
+      }
+    },
+    {
+      "name": "vue",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/antfu/skills",
+        "ref": "e53a142a2420e8cd812cfe9ed0484ab01bc856aa",
+        "path": "vue"
+      }
+    },
+    {
+      "name": "wayfinder",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "wayfinder"
+      }
+    },
+    {
+      "name": "wayfinder",
+      "targets": [
+        "agent:jobs"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "wayfinder"
+      }
+    },
+    {
+      "name": "wizard",
+      "targets": [
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "word-docx",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "clawhub",
+        "ref": "@ivangdavila/word-docx",
+        "version": "1.0.2"
+      }
+    },
+    {
+      "name": "writing-beats",
+      "targets": [
+        "agent:assistant"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "writing-fragments",
+      "targets": [
+        "agent:assistant"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "writing-shape",
+      "targets": [
+        "agent:assistant"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    },
+    {
+      "name": "xlsx",
+      "targets": [
+        "claude"
+      ],
+      "source": {
+        "kind": "unknown",
+        "needs_source": true
+      }
+    }
+  ]
+}

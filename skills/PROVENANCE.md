@@ -1,5 +1,10 @@
 # SKILL PROVENANCE
 
+> **Source of truth is now [`manifest.json`](manifest.json) + [`lock.json`](lock.json)**
+> (option A: declarations, not vendored code). The table below documents the
+> vendored copies that remain as a transitional fallback — it is superseded as
+> entries acquire verified upstream sources.
+
 Vendored skills, by source layer. Generated 2026-10-08T17:56Z.
 
 > Third-party skills keep their own licenses. Review each before redistribution.
