@@ -12,9 +12,9 @@
 
 <!-- BEGIN REDLINES:v1 (generated from team/guides/redlines.core.md — 勿手改) -->
 > 🚨 **红线速查（每回合当面；详解见 `PROTOCOL §①/§④/§⑥/§⑬`）**
-> 1. **领取**：一律经基座契约 `task.claim`（ACL：`task-ops`）；`in_progress` + 心跳新鲜 ⇒ 不重领、不重复执行（执行唯一性）。
+> 1. **领取**：一律经任务系统契约 `task.claim`（task-panel）；`in_progress` + 心跳新鲜 ⇒ 不重领、不重复执行（执行唯一性）。
 > 2. **心跳/收尾**：执行中 ≤10min 刷心跳；段结束三件＝刷心跳 → 置终态(`in_review`/`done`/`failed`/`blocked`) → 回发 Elon Report（结论+卡路径+hash）。
-> 3. **过程留痕**：协作讨论 / 用户决策 / 确认(双签) / **任务变更** 用 `task.comment`（`kind ∈ discuss|decision|confirm|change|note|defect`；人类决策标 `author=Terry`；**任务变更用 `kind=change`，记 what/why**）。
+> 3. **过程留痕**：协作讨论 / 用户决策 / 确认(双签) / **任务变更** 用 `task.comment`（`kind ∈ discuss|decision|confirm|change|note|defect`；人类决策标 `author=操作者`；**任务变更用 `kind=change`，记 what/why**）。
 > 4. **汇报瘦身**：只给结论+卡路径+hash；日志/长表/大文件不进消息、不进上下文。
 > 5. **状态机**：`ready→in_progress→in_review→done|failed`（`blocked` 任意态进出）。
 > 6. **消息**：只有 Elon 面向人类；worker 不互派单；空闲不报批。

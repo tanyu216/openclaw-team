@@ -1,15 +1,16 @@
 # 任务管理接口契约（`task-interface v1`）
 
 > **归属**：任务管理**基座**（独立层）。规范正文 = `PROTOCOL §①`；本文件是**基座对上层的唯一访问契约**。
-> **目的**：上层（协作 / 职责 / SOP / 红线）**只依赖本契约，不依赖底层实现** ⇒ 日后把基座换成成熟 PM 工具时，**上层零改动**（只换 ACL 实现 + 跑契约测试）。
-> **版本**：`v1`（2026-10-08）；变更走独立卡 + 双签，版本号随 §9 记录。
+> **目的**：上层（协作 / 职责 / SOP / 红线）**只依赖本契约，不依赖底层实现** ⇒ 日后替换底层实现时，**上层零改动**（只换实现 + 跑契约测试）。
+> **基座实现**：外部项目 **task-panel**（提供任务 skill + `taskctl` CLI）。
+> **版本**：`v1`；变更走独立卡 + 双签，版本号随 §12 记录。
 
 ---
 
 ## 1. 分层与访问点
-- **基座实现（当前）**：markdown 卡（`tasks/*.md`）+ 内部脚本（`scripts/claim.mjs` / `lib.mjs`）+ registry（`claude-sessions.json`/`turing-runs.json`）+ 触发（`poll.mjs`）。
-- **唯一访问点（ACL）**：`team/skills/task-ops/` —— 对外只暴露下列**命令/事件/数据**。
-- **约束**：上层**不得**直接读写卡文件/registry 或调用内部脚本，**一律经 ACL**（命令名见 §4）。
+- **基座实现**：外部项目 **task-panel**（任务 skill + `taskctl` CLI）；卡内容持久化 + 会话 registry + 触发求值。
+- **唯一访问点**：task-panel 的任务接口（`taskctl`／任务 skill）—— 对外只暴露下列**命令/事件/数据**。
+- **约束**：上层**不得**直接读写卡文件或绕过接口操作，**一律经该访问点**（命令名见 §4）。
 
 ## 2. 数据模型（最小必需集）
 | 实体 | 字段 |
@@ -18,7 +19,7 @@
 | **Comment** | `{ ts, author, kind, text, refs? }`（append-only，落卡的 `## Comments` 段） |
 | **Registry** | 子会话条目：`task_id/owner/phase/pid/startedAt/log/status/session_id` |
 
-> 工具私有字段（未来 PM 工具特有）**隔离在 ACL 内**，不进上层。
+> 实现的私有字段隔离在访问点内，不进上层。
 
 ## 3. 状态机
 ```
@@ -43,34 +44,34 @@ ready → in_progress → in_review → done | failed
 `onReady` · `onClaimed` · `onDelivered(in_review)` · `onBlocked` · `onComment` · `onTerminal(done|failed)`
 
 ## 6. 不变量（契约测试对象）
-1. **claim 原子**（抢锁；不双领）。
+1. **claim 原子**（不双领）。
 2. **执行唯一性**：`in_progress` + 心跳新鲜(≤10min) ⇒ 不重领、不重复执行。
 3. **终态不可逆**：`done|failed` 不再迁移（勘误以新卡或评论更正）。
 4. **评论 append-only**：不可改删。
-5. **人类决策留痕**：`author=Terry` 的评论即"用户决策/确认"。
-6. **终态可归档**：`done|failed` 满 7 天可归档（`archive.mjs`）。
+5. **人类决策留痕**：`author=操作者` 的评论即"用户决策/确认"。
+6. **终态可归档**：`done|failed` 满 7 天可归档。
 
 ## 7. 评论 / 过程留痕（process trail）
-- **用途**：记录**团队协作讨论、用户(Terry)决策与确认、双签、异常处置说明**。
+- **用途**：记录**团队协作讨论、操作者决策与确认、双签、异常处置说明**。
 - **`kind` 枚举**：`discuss`（协作讨论）/ `decision`（决策）/ `confirm`（确认·双签）/ `change`（**任务变更**）/ `note`（一般）/ `defect`（缺陷相关）。
 - **任务变更留痕**：凡对卡的**实质变更**（Acceptance / Background / 范围 / assignee / priority / target / 口径 等）**必须**以 `kind:change` 评论记录（what/why/who，必要时 before→after）；仅状态机常规流转不需。
-- **`author`**：`Terry` / `elon` / 各 worker。
+- **`author`**：`操作者` / `elon` / 各 worker。
 - **Report ≠ 评论**：Report = 交付结论（每卡一次）；评论 = 过程流水（多次、任意角色）。
 - **衔接**：`§⑭ 确认门禁` 的双签 ⇒ `kind:confirm`；`§⑦/§⑪/§⑨` 澄清与判定 ⇒ 评论留痕。
 - **可替换性**：评论 ≈ issue comments，PM 工具里最易映射。
 
-## 8. 未来替换映射（换 PM 工具时，只改 ACL）
-| 契约 | 当前实现（md） | PM 工具（示例） |
+## 8. 未来替换映射（换 PM 工具时，只改访问点实现）
+| 契约 | 当前实现 | PM 工具（示例） |
 |---|---|---|
-| Card | `tasks/*.md` + frontmatter | issue |
+| Card | 任务卡 + frontmatter | issue |
 | Comment | 卡内 `## Comments` 段 | issue comments |
 | status | frontmatter.status | workflow state |
-| claim | mkdir 锁 + 写 status | assignment + lock/CAS |
+| claim | 原子占用 + 写 status | assignment + lock/CAS |
 | heartbeat | `heartbeat_at` | 自定义字段/事件 |
 | registry | `claude-sessions.json` | links / sub-issues |
-| 触发 | `poll.mjs` cron | webhook / 自动触发 |
+| 触发 | poll 求值 | webhook / 自动触发 |
 
-> **语义鸿沟（ACL 必须补实现，是最难的部分）**：①原子领取；②心跳/防双跑；③终态归档；④"卡即内容"（Report/评论体量口径）。
+> **语义鸿沟（访问点必须补实现，是最难的部分）**：①原子领取；②心跳/防双跑；③终态归档；④"卡即内容"（Report/评论体量口径）。
 
 ## 9. Session 关联与 resume（省 token）
 - **确定性 id**：`sessionId(taskId, owner, seg)` = UUIDv5(`openclaw-team/<taskId>/<owner>/<seg>`)，命令 `task.session-id <card> <owner> [seg]`；同参数恒定 ⇒ 可 `--resume`。
@@ -88,14 +89,14 @@ ready → in_progress → in_review → done | failed
 - **不变量（写时校验，理由码）**：自指 `self_ref`；父子环 `parent_cycle`；单层 `parent_depth`；父须 epic `parent_not_epic`；依赖环 `dep_cycle`；依赖缺失 `dep_missing`；禁依赖祖先 `dep_on_ancestor`；链长≤8 `chain_too_long`；扇入≤8 `fanin_too_high`；嵌套 epic `nested_epic`。
 - **领取守卫**：`epic` ⇒ `epic_container`；`depends_on` 未全 done ⇒ `deps_unmet`（**不新增状态**）。
 - **聚合**：`task.rollup` 派生父卡状态；父卡 `done` = 全子卡 done **+ 集成验收**。
-- **巡检**：`check-relations.mjs`（I1–I13）入 `check-all`；`archive.mjs` 引用保护。
+- **巡检**：关系不变量入巡检门禁；归档引用保护。
 
 ## 11. frontmatter 序列化不变量与写卡护栏
-- **不变量（幂等）**：卡 frontmatter 字段值的**转义/反转义必须幂等** —— `parse→serialize→parse` 稳定，同一值反复「读→回写」（heartbeat / comment / status / report 任一）**字节数不增长**。实现：`quoteIfNeeded` 用 `JSON.stringify` 包裹，`parseFrontmatter` 对双引号值用 `JSON.parse` 反转义（二者互为对偶）。
-- **过渡期口径（旧代码可能仍在）**：建卡/写卡时 frontmatter 字段值**禁用 ASCII 双引号 `"` 与反斜杠 `\`**；需要引号一律用中文「」替代。否则在旧代码路径上一轮回写即把转义层数翻倍，导致文件指数膨胀（事故 T-20261008-214730：8.4MB→…→268MB）。
-- **写卡护栏**：`writeCardAtomic` **先序列化、后校验**；目标卡已存在且新输出 > 上版文件大小 **× 4（K=4）** 时**拒绝写入**并抛错（`拒绝写入：疑似 frontmatter 转义膨胀 …`），避免部分写入与静默膨胀；**新卡（无既有文件）不受限**。原子写仍为同目录 tmp + `renameSync`。
-- **回归测试**：`scripts/tests/frontmatter.test.mjs`（幂等矩阵 / 旧格式兼容 / 真实卡只读回归 / 护栏），随 `check-all.sh` 执行。
+- **不变量（幂等）**：卡 frontmatter 字段值的**转义/反转义必须幂等** —— `parse→serialize→parse` 稳定，同一值反复「读→回写」（heartbeat / comment / status / report 任一）**字节数不增长**。
+- **过渡期口径（旧实现可能仍在）**：建卡/写卡时 frontmatter 字段值**禁用 ASCII 双引号 `"` 与反斜杠 `\`**；需要引号一律用中文「」替代。否则在旧代码路径上一轮回写即把转义层数翻倍，导致文件指数膨胀。
+- **写卡护栏**：写入**先序列化、后校验**；目标卡已存在且新输出 > 上版文件大小 **× 4（K=4）** 时**拒绝写入**并抛错，避免部分写入与静默膨胀；**新卡（无既有文件）不受限**。
+- **回归测试**：幂等矩阵 / 旧格式兼容 / 真卡只读回归 / 护栏，随巡检门禁执行。
 
 ## 12. 变更记录
-- **v1** 2026-10-08：初始契约（含**评论/过程留痕**）。责任人：Elon。
-- **v1（补充）** 2026-10-08：新增 §11 **frontmatter 序列化不变量与写卡护栏**（修 T-20261008-214730 回写指数膨胀事故）。责任人：Linus。
+- **v1**：初始契约（含**评论/过程留痕**）。责任人：Elon。
+- **v1（补充）**：新增 §11 **frontmatter 序列化不变量与写卡护栏**（修回写指数膨胀事故）。责任人：Linus。
