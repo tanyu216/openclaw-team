@@ -1,0 +1,22 @@
+// mcp.example.json5 — prototype-carrier connectors (figma / pixso / google-stitch).
+// NOT auto-applied. EDIT ME with your real command/url, then merge:
+//
+//   openclaw config patch --file config/examples/mcp.example.json5
+//
+// Which carrier needs which connector is declared in config/prototype-carriers.json;
+// the installer checks it and warns when the connector is missing.
+// static-html needs no connector.
+{
+  mcp: {
+    servers: {
+      // Figma MCP (Dev Mode / community server). Set the real transport + url:
+      // figma: { url: "http://127.0.0.1:3845/mcp", transport: "streamable-http" },
+
+      // Pixso MCP (streamable-http), e.g.:
+      // pixso: { url: "http://localhost:3667/mcp", transport: "streamable-http" },
+
+      // Google Stitch connector (MCP stdio or skill). Set per your setup:
+      // stitch: { command: "<stitch-mcp-binary>", args: ["mcp"] },
+    },
+  },
+}

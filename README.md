@@ -206,12 +206,16 @@ The UI prototype's source is a **deployment choice** (`install.sh --prototype`),
 recorded in `~/.openclaw/team/team.config.json` and consumed by both Jobs
 (produces the baseline) and Linus (implements against it):
 
-| Carrier | Baseline source |
-|---|---|
-| `static-html` (default) | HTML/CSS/JS under `prototype/**` (closed stack: Tailwind + daisyUI + jQuery) |
-| `figma` | Figma via MCP/API, or the exported static HTML mirror |
-| `google-stitch` | Stitch export bundle (static HTML + tokens + assets) |
-| `pixso` | Pixso via MCP, or the exported file |
+| Carrier | Baseline source | Required connector |
+|---|---|---|
+| `static-html` (default) | HTML/CSS/JS under `prototype/**` (closed stack: Tailwind + daisyUI + jQuery) | none |
+| `figma` | Figma via MCP/API, or the exported static HTML mirror | MCP server **`figma`** |
+| `google-stitch` | Stitch export bundle (static HTML + tokens + assets) | MCP/skill **`stitch`** |
+| `pixso` | Pixso via MCP, or the exported file | MCP server **`pixso`** |
+
+The installer **checks** the connector for non-`static-html` carriers and warns when it
+is missing (declared in `config/prototype-carriers.json`; template in
+`config/examples/mcp.example.json5`). Connectors are user-supplied.
 
 See `roles/linus/AGENTS.md` "Prototype Consumption" and `roles/jobs/AGENTS.md`
 carrier routing.

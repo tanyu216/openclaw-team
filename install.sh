@@ -260,6 +260,19 @@ else
   info "prototype carrier: $carrier ($TEAM_DIR/team.config.json)"
 fi
 
+# ---- 1c. prototype connector check (figma|pixso|google-stitch need an MCP) --
+if [ "$carrier" != "static-html" ]; then
+  step "prototype connector ($carrier)"
+  want="$(node -e 'try{const m=require(process.argv[1]);const c=m.carriers[process.argv[2]];process.stdout.write((c&&c.connector&&c.connector.name)||"")}catch(e){}' "$REPO/config/prototype-carriers.json" "$carrier" 2>/dev/null || true)"
+  have="$(node -e 'try{const fs=require("fs");const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));process.stdout.write(Object.keys((d.mcp&&d.mcp.servers)||{}).join(" "))}catch(e){}' "$OPENCLAW_HOME/openclaw.json" 2>/dev/null || true)"
+  if [ -n "$want" ] && printf '%s' "$have" | tr ' ' '\n' | grep -qx "$want"; then
+    info "connector '$want' present in mcp.servers"
+  else
+    warn "carrier '$carrier' needs connector MCP '$want' — not found in mcp.servers"
+    info "  template: config/examples/mcp.example.json5  (edit, then: openclaw config patch --file <it>)"
+  fi
+fi
+
 # ---- 2. skills (declared sources; option A) ---------------------------------
 if [ "$DO_SKILLS" = 1 ]; then
   if [ -f "$REPO/skills/manifest.json" ]; then
