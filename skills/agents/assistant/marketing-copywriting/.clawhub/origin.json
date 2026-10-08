@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "marketing-copywriting",
+  "ownerHandle": "1970168137",
+  "installedAt": 1791403056976,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "ca54f072ee7223c8c4b369ecf86669a440e079befe6170cb8a138d4e0eaba014",
+    "integrity": "sha256-ylTwcu5yI8jEs2ns+GZppEDgeb7+YXDLihONTg6roBQ="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "9298b34303aaceab7abbf01e84ad7a93da1d7e7f79d5980279ba1c498cd448b3"
+  },
+  "fileTreeSha256": "sha256:df86d1730aaef051eb925dc91baea031f796ab338d191863f4cb1ec3582d53e1",
+  "installedVersion": "1.0.0"
+}

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "video-downloader-skill",
+  "ownerHandle": "jingrongx",
+  "installedAt": 1791398161873,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "f6826dca83a461e51f53382d422f129827a8379af07b32512970d86e98d5b5de",
+    "integrity": "sha256-9oJtyoOkYeUfUzgtQi8SmCeoN5rwezJRKXDYbpjVtd4="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "fea666bfc18ddb0fcbba5ae8ccfda36a25bf58ea89eaec2f2a770549b0a6e030"
+  },
+  "fileTreeSha256": "sha256:c11659f87b8312d19a941b3401cc716c209a43317e10899a42630b5279192b02",
+  "installedVersion": "1.0.1"
+}

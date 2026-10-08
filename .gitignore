@@ -1,0 +1,21 @@
+# OS / runtime noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Runtime state — never commit
+team/tasks/*
+!team/tasks/.gitkeep
+team/workspace/*
+!team/workspace/.gitkeep
+team/memory/*
+!team/memory/.gitkeep
+team/*sessions*.json
+team/*runs*.json
+team/projects.json
+
+# Local / secrets
+.env
+*.local
+config/local*.json5

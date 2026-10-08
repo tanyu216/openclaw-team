@@ -1,0 +1,21 @@
+// 10-agents.json5 — team wiring (provider-agnostic, safe to auto-apply).
+// Applied by install.sh via: openclaw config patch --file config/10-agents.json5
+//
+// The coordinator (main) may delegate to the four specialists; the specialists
+// do not delegate further. agentToAgent allows peer session messaging.
+{
+  agents: {
+    entries: {
+      main: {
+        subagents: {
+          allowAgents: ["jobs", "linus", "turing", "assistant"],
+        },
+      },
+    },
+  },
+  tools: {
+    agentToAgent: {
+      allow: ["main", "jobs", "linus", "turing", "assistant"],
+    },
+  },
+}

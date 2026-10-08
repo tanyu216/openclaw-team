@@ -1,0 +1,23 @@
+{
+  "$schema_note": "Project metadata registry: task cards reference a project by `name`. Maintained by the coordinator (main); agents are read-only.",
+  "projects": {
+    "example-app": {
+      "kind": "code",
+      "root": "~/code/example-app",
+      "root_git": true,
+      "repos": [
+        {
+          "kind": "code",
+          "rel_path": ".",
+          "git": true,
+          "remote": "git@github.com:<you>/example-app.git",
+          "url": "https://github.com/<you>/example-app"
+        }
+      ],
+      "notes": "Replace with your own projects. See README for how the installer uses this file.",
+      "guides": [],
+      "default_git_rules": "Incremental commits; no destructive git commands; commit with explicit paths (-- <path>).",
+      "registered_at": "2026-10-09"
+    }
+  }
+}

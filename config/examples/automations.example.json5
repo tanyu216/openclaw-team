@@ -1,0 +1,17 @@
+// automations.example.json5 — reference only. NOT auto-applied.
+//
+// Task polling belongs to the external `task-panel` project, whose installer
+// wires its own scheduled automations. Team-level schedules to consider:
+//
+//   - heartbeat (main): covered by agents.defaults.heartbeat in 20-defaults.json5
+//   - daily gate check:  run <team-dir>/scripts/check-all.sh once per day
+//
+// Register automations through the gateway UI or:
+//   openclaw automations add --help
+{
+  // automations: [
+  //   { id: "team-gate-check", schedule: "cron 0 9 * * * @ Asia/Shanghai",
+  //     target: "isolated", agentId: "main",
+  //     prompt: "Run ~/.openclaw/team/scripts/check-all.sh and report failures." },
+  // ],
+}

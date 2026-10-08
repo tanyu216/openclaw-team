@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "word-docx",
+  "ownerHandle": "ivangdavila",
+  "installedAt": 1791398049050,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "433c586060f4e30d7c16e3a81b51eea994dfc12a0c131c05723d2414327499c7",
+    "integrity": "sha256-QzxYYGD04w18FuOoG1HuqZTfwSoMExwFcj0kFDJ0mcc="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "c766da489810acf03290283780ba9d3be798678d689255ace34477caeb6d7541"
+  },
+  "fileTreeSha256": "sha256:bd666100238f058ae35d6a9d2c029b628541a0d1724957b779ef6561bede63a0",
+  "installedVersion": "1.0.2"
+}

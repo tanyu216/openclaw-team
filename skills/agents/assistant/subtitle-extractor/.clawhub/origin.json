@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "subtitle-extractor",
+  "ownerHandle": "poltawa",
+  "installedAt": 1791403083477,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "58ee76bd1c98138eb1acd4d5f100365d8fd7cc279751b8076992c12902cb144a",
+    "integrity": "sha256-WO52vRyYE46xrNTV8QA2XY/XzCeXUbgHaZLBKQLLFEo="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "fa37c93550b6358b4bf57512c1dcd4522d0c7a0c77e403503f7fd896ded35aa3"
+  },
+  "fileTreeSha256": "sha256:5065836d9d871d2f7435860489393f03fde5ee4d1c2805d5f1ed2a4324b3fa32",
+  "installedVersion": "1.0.0"
+}
