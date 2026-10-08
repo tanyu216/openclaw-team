@@ -651,20 +651,24 @@
       "targets": [
         "agent:jobs"
       ],
+      "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+      "repo": "https://github.com/mattpocock/skills",
       "tree_sha256": [
         "sha256:2b1387e3ef2108a992eb11922aa7ab39a620b7f5dfe56f00ea0003846471dd6f"
       ],
-      "resolved": false
+      "resolved": true
     },
     {
       "name": "retro",
       "targets": [
         "agent:linus"
       ],
+      "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+      "repo": "https://github.com/mattpocock/skills",
       "tree_sha256": [
         "sha256:3419a4f33baab4a0e0b46b9d8e24e12cbd53e230bc0b1f7e42ee267fa9701d2c"
       ],
-      "resolved": false
+      "resolved": true
     },
     {
       "name": "security-audit-toolkit",
@@ -1040,10 +1044,12 @@
       "targets": [
         "agent:linus"
       ],
+      "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+      "repo": "https://github.com/mattpocock/skills",
       "tree_sha256": [
         "sha256:b6c06cf24502e57c1c6a8da93e58fcc1e4b03f21523f446d401d0f323c92619c"
       ],
-      "resolved": false
+      "resolved": true
     },
     {
       "name": "word-docx",
@@ -1062,30 +1068,36 @@
       "targets": [
         "agent:assistant"
       ],
+      "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+      "repo": "https://github.com/mattpocock/skills",
       "tree_sha256": [
         "sha256:1c9a00615e7090e926710857c1dda205a13339e8424404d8025235b7ccfb671c"
       ],
-      "resolved": false
+      "resolved": true
     },
     {
       "name": "writing-fragments",
       "targets": [
         "agent:assistant"
       ],
+      "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+      "repo": "https://github.com/mattpocock/skills",
       "tree_sha256": [
         "sha256:39b0ba03d20f30fa7393e723a9abe0d6c9e61c196009c292de7874a4eb707139"
       ],
-      "resolved": false
+      "resolved": true
     },
     {
       "name": "writing-shape",
       "targets": [
         "agent:assistant"
       ],
+      "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+      "repo": "https://github.com/mattpocock/skills",
       "tree_sha256": [
         "sha256:2a73a48cb40bc7ba77f4954c7b4255f8a4c9ad3ba2d4708f0d69a3add644b915"
       ],
-      "resolved": false
+      "resolved": true
     },
     {
       "name": "xlsx",

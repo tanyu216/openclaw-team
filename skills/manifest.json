@@ -34,7 +34,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "ask-matt"
+        "path": "skills/engineering/ask-matt",
+        "verified": true
       }
     },
     {
@@ -60,7 +61,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "claude-handoff"
+        "path": "skills/in-progress/claude-handoff",
+        "verified": true
       }
     },
     {
@@ -74,7 +76,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "code-review"
+        "path": "skills/engineering/code-review",
+        "verified": true
       }
     },
     {
@@ -87,7 +90,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "codebase-design"
+        "path": "skills/engineering/codebase-design",
+        "verified": true
       }
     },
     {
@@ -112,7 +116,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "diagnosing-bugs"
+        "path": "skills/engineering/diagnosing-bugs",
+        "verified": true
       }
     },
     {
@@ -149,7 +154,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "domain-modeling"
+        "path": "skills/engineering/domain-modeling",
+        "verified": true
       }
     },
     {
@@ -235,7 +241,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "git-guardrails-claude-code"
+        "path": "skills/misc/git-guardrails-claude-code",
+        "verified": true
       }
     },
     {
@@ -404,7 +411,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "grill-with-docs"
+        "path": "skills/engineering/grill-with-docs",
+        "verified": true
       }
     },
     {
@@ -417,7 +425,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "grilling"
+        "path": "skills/productivity/grilling",
+        "verified": true
       }
     },
     {
@@ -430,7 +439,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "handoff"
+        "path": "skills/productivity/handoff",
+        "verified": true
       }
     },
     {
@@ -467,7 +477,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "implement"
+        "path": "skills/engineering/implement",
+        "verified": true
       }
     },
     {
@@ -480,7 +491,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "implement-spec"
+        "path": "skills/engineering/implement-spec",
+        "verified": true
       }
     },
     {
@@ -493,7 +505,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "improve-codebase-architecture"
+        "path": "skills/engineering/improve-codebase-architecture",
+        "verified": true
       }
     },
     {
@@ -635,7 +648,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "pr"
+        "path": "skills/engineering/pr",
+        "verified": true
       }
     },
     {
@@ -648,7 +662,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "prototype"
+        "path": "skills/engineering/prototype",
+        "verified": true
       }
     },
     {
@@ -679,8 +694,11 @@
         "agent:jobs"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "skills/engineering/research",
+        "verified": true
       }
     },
     {
@@ -689,8 +707,11 @@
         "agent:linus"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "skills/engineering/retro",
+        "verified": true
       }
     },
     {
@@ -714,7 +735,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "setup-matt-pocock-skills"
+        "path": "skills/engineering/setup-matt-pocock-skills",
+        "verified": true
       }
     },
     {
@@ -727,7 +749,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "setup-pre-commit"
+        "path": "skills/misc/setup-pre-commit",
+        "verified": true
       }
     },
     {
@@ -912,7 +935,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "tdd"
+        "path": "skills/engineering/tdd",
+        "verified": true
       }
     },
     {
@@ -925,7 +949,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "to-questionnaire"
+        "path": "skills/productivity/to-questionnaire",
+        "verified": true
       }
     },
     {
@@ -938,7 +963,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "to-spec"
+        "path": "skills/engineering/to-spec",
+        "verified": true
       }
     },
     {
@@ -951,7 +977,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "to-tickets"
+        "path": "skills/engineering/to-tickets",
+        "verified": true
       }
     },
     {
@@ -963,7 +990,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "triage"
+        "path": "skills/engineering/triage",
+        "verified": true
       }
     },
     {
@@ -1049,7 +1077,8 @@
         "kind": "github",
         "repo": "https://github.com/mattpocock/skills",
         "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
-        "path": "wayfinder"
+        "path": "skills/engineering/wayfinder",
+        "verified": true
       }
     },
     {
@@ -1058,8 +1087,11 @@
         "agent:linus"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "skills/engineering/wizard",
+        "verified": true
       }
     },
     {
@@ -1079,8 +1111,11 @@
         "agent:assistant"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "skills/in-progress/writing-beats",
+        "verified": true
       }
     },
     {
@@ -1089,8 +1124,11 @@
         "agent:assistant"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "skills/in-progress/writing-fragments",
+        "verified": true
       }
     },
     {
@@ -1099,8 +1137,11 @@
         "agent:assistant"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/mattpocock/skills",
+        "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
+        "path": "skills/in-progress/writing-shape",
+        "verified": true
       }
     },
     {
