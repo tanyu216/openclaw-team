@@ -1,0 +1,10 @@
+// 20-defaults.json5 — coordinator is the ambient/system + heartbeat agent.
+// Applied by install.sh via: openclaw config patch --file config/20-defaults.json5
+{
+  agents: {
+    defaults: {
+      heartbeat: { agentId: "main" },
+      systemAgent: { agentId: "main" },
+    },
+  },
+}

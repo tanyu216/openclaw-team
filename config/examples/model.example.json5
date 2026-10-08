@@ -1,0 +1,23 @@
+// model.example.json5 — EDIT ME. NOT auto-applied.
+//
+// Model + provider wiring is environment-specific, so this file lives under
+// config/examples/ and is skipped by install.sh. Merge it by hand once you have
+// a provider configured, e.g.:
+//
+//   openclaw config patch --file config/examples/model.example.json5
+//
+// Replace provider/model ids with ones your host actually has.
+{
+  agents: {
+    defaults: {
+      models: {
+        "deepseek/deepseek-flash": { alias: "Flash" },
+        "deepseek/deepseek-v4-pro": { alias: "Pro" },
+      },
+      model: {
+        primary: "deepseek/deepseek-flash",
+        fallbacks: ["deepseek/deepseek-v4-pro"],
+      },
+    },
+  },
+}

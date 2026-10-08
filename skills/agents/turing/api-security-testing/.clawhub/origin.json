@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "api-security-testing",
+  "requestedReference": "skills-sh:usestrix/strix/api-security-testing",
+  "trustState": "not-scanned-by-clawhub",
+  "installedAt": 1791402637339,
+  "sourceUrl": "https://github.com/usestrix/strix/tree/55bc07991aacb1c26a81b43e7ca53148730d2019/skills/api-security-testing",
+  "artifact": {
+    "kind": "archive",
+    "sha256": "4458d15f1d0f35aec8fe43374a9e7051af1f104ee60799c46aee8dc7c23e6e5b",
+    "integrity": "sha256-RFjRXx0PNa7I/kM3Sp5wUa8fEE7mB5nEau6Nx8I+bls="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "bd04c90d87be2353ebefee33363af0818746345e25c80ed36f63fcdd2b25509c"
+  },
+  "fileTreeSha256": "sha256:7fb97ede4f67bab1147ab5062b4fa05ca94119df8f2c51facc369c979866a9e8",
+  "installedVersion": "55bc07991aacb1c26a81b43e7ca53148730d2019"
+}

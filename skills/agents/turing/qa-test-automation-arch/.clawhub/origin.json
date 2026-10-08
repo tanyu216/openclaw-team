@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "qa-test-automation-arch",
+  "ownerHandle": "kokxi",
+  "installedAt": 1791402680305,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "455cb9b9f622cb548b011cf770ec8d026ee7f4629a77e47795ce20c83e5a2439",
+    "integrity": "sha256-RVy5ufYiy1SLARz3cOyNAm7n9GKad+R3lc4gyD5aJDk="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "c515dec02d8e68d49577f231484da671671e1186e19f671b02ad1114fc8689da"
+  },
+  "fileTreeSha256": "sha256:ccac57c0521f3fadd1d25e7efb78238efe77747691da40290dc5c3651eda4ee5",
+  "installedVersion": "1.8.0"
+}

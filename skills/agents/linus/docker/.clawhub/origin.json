@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "docker",
+  "ownerHandle": "ivangdavila",
+  "installedAt": 1791402047193,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "7025b9355c401bf32fb0bab7b2b0a4052bf3d1e60ea46fa0ae0e28fdb505f742",
+    "integrity": "sha256-cCW5NVxAG/MvsLq3srCkBSvz0eYOpG+grg4o/bUF90I="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "1db285d7ae08ab082880cf2cb369fe96a0c8753486018485607f3ca8313daba8"
+  },
+  "fileTreeSha256": "sha256:65d446e1ab2ff1620f1a890f4fe6f3f332417b2030946de919a8bfa9cc580c6a",
+  "installedVersion": "1.0.10"
+}

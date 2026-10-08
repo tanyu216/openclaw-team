@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "security-audit-toolkit",
+  "ownerHandle": "gitgoodordietrying",
+  "installedAt": 1791402652579,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "73da212b5c679a8c8f8e6459fc2180544e579b9e9cef6e5da3d048e5a0caa27b",
+    "integrity": "sha256-c9ohK1xnmoyPjmRZ/CGAVE5Xm56c725do9BI5aDKons="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "632549f3103ff240533152a4026a8ad75d105fb4c71cdb5b46115daccdef9353"
+  },
+  "fileTreeSha256": "sha256:ad87a421efe5bf142b0868ced5120823c7599daf35371a1994b78d0fca3714a1",
+  "installedVersion": "1.0.0"
+}

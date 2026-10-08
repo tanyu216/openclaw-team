@@ -1,0 +1,11 @@
+// bindings.example.json5 — EDIT ME. NOT auto-applied.
+//
+// Route a chat channel to the coordinator. Uncomment + adjust after you have a
+// channel configured (see `openclaw channels list`), then:
+//
+//   openclaw config patch --file config/examples/bindings.example.json5
+{
+  // bindings: [
+  //   { agentId: "main", match: { channel: "<channel-id>", accountId: "*" } },
+  // ],
+}

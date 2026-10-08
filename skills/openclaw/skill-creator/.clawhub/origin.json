@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "skill-creator",
+  "ownerHandle": "chindden",
+  "installedAt": 1791398135381,
+  "artifact": {
+    "kind": "archive",
+    "sha256": "8fd72618591ce5a6364523c23b1c42988385bdb089237302684b494a81d22e6e",
+    "integrity": "sha256-j9cmGFkc5aY2RSPCOxxCmIOFvbCJI3MCaEtJSoHSLm4="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "b2e3d83f60425c2d0b9d4162efb8f9aa322b45843497340f2289f42be422801c"
+  },
+  "fileTreeSha256": "sha256:8198e7607bc613bc20411bd5a33a4bfd6174bc8dce6602ee36e2cbd5819eeca7",
+  "installedVersion": "0.1.0"
+}

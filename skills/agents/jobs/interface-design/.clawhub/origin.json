@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "registry": "https://clawhub.ai",
+  "slug": "interface-design",
+  "requestedReference": "skills-sh:dammyjay93/interface-design/interface-design",
+  "trustState": "not-scanned-by-clawhub",
+  "installedAt": 1791399448312,
+  "sourceUrl": "https://github.com/dammyjay93/interface-design/tree/2f9be3206855bcb2d1d0af262c8bae25cba6658d/.claude/skills/interface-design",
+  "artifact": {
+    "kind": "archive",
+    "sha256": "1d58e0e811f116d5c52bb9dac9ba9135e2b148d37a7728470def75bcb351ad51",
+    "integrity": "sha256-HVjg6BHxFtXFK7naybqRNeKxSNN6dyhHDe91vLNRrVE="
+  },
+  "skillFile": {
+    "path": "SKILL.md",
+    "sha256": "720b31a31276e899fbe3006a33cbfeaceb77a73ba4c27b80d29afd38c8b7b208"
+  },
+  "fileTreeSha256": "sha256:6a1f6163af1f274efa509244556416e8d629e6cb097bd4ec1658c29a85dfbf3d",
+  "installedVersion": "2f9be3206855bcb2d1d0af262c8bae25cba6658d"
+}
