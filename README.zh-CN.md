@@ -1,6 +1,6 @@
 # openclaw-team
 
-把一支 **AI Agent 研发团队** 装进一台 OpenClaw 主机：一名统筹（Elon）＋四名专家（设计 / 开发 / 测试 / 助理）。定位是**标准个人独立开发者**的多 agent 工作流——不含量化研究角色。
+把一支 **AI Agent 研发团队** 装进一台 OpenClaw 主机：一名统筹（Elon）＋四名专家（设计 / 开发 / 测试 / 助理）。定位是**标准个人独立开发者**的多 agent 工作流。
 
 > 本文是 [README.md](README.md) 的中文镜像；**英文为默认文档语言**。
 
@@ -20,7 +20,6 @@
 | 🧪 Turing | `turing` | `workspace-turing` | 测试 / 验收 / 回归 / 安全审计 |
 | 🧹 Assistant | `assistant` | `workspace-assistant` | 视频解析 / 运营 / 杂活 |
 
-> 量化研究角色（Simons）**不在本仓库内**——本项目面向通用个人开发者。
 
 ## 安装
 
@@ -131,7 +130,6 @@ openclaw-team/
 ## 未包含（明确边界）
 
 - 插件 / 原生扩展（Phase B）。
-- 量化研究角色与相关技能。
 - 运行时任务卡与工作区产物。
 
 ## 验证（Docker）

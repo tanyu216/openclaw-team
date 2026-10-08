@@ -36,7 +36,6 @@ Vendored skills, by source layer. Generated 2026-10-08T17:56Z.
 |---|---|---|
 | `antfu` | — | `~/Documents/openclaw-team/skills/claude/antfu` |
 | `ask-matt` | — | `~/Documents/openclaw-team/skills/claude/ask-matt` |
-| `backtest-expert` | — | `~/Documents/openclaw-team/skills/claude/backtest-expert` |
 | `canvas-design` | LICENSE.txt | `~/Documents/openclaw-team/skills/claude/canvas-design` |
 | `claude-handoff` | — | `~/Documents/openclaw-team/skills/claude/claude-handoff` |
 | `code-review` | — | `~/Documents/openclaw-team/skills/claude/code-review` |
@@ -52,22 +51,15 @@ Vendored skills, by source layer. Generated 2026-10-08T17:56Z.
 | `implement-spec` | — | `~/Documents/openclaw-team/skills/claude/implement-spec` |
 | `implement` | — | `~/Documents/openclaw-team/skills/claude/implement` |
 | `improve-codebase-architecture` | — | `~/Documents/openclaw-team/skills/claude/improve-codebase-architecture` |
-| `matplotlib` | — | `~/Documents/openclaw-team/skills/claude/matplotlib` |
 | `nuxt` | — | `~/Documents/openclaw-team/skills/claude/nuxt` |
 | `pdf` | LICENSE.txt | `~/Documents/openclaw-team/skills/claude/pdf` |
 | `pinia` | — | `~/Documents/openclaw-team/skills/claude/pinia` |
 | `pnpm` | — | `~/Documents/openclaw-team/skills/claude/pnpm` |
-| `polars` | — | `~/Documents/openclaw-team/skills/claude/polars` |
 | `pr` | — | `~/Documents/openclaw-team/skills/claude/pr` |
 | `prototype` | — | `~/Documents/openclaw-team/skills/claude/prototype` |
-| `python-dataviz` | — | `~/Documents/openclaw-team/skills/claude/python-dataviz` |
-| `quant-research-platform` | — | `~/Documents/openclaw-team/skills/claude/quant-research-platform` |
-| `scikit-learn` | — | `~/Documents/openclaw-team/skills/claude/scikit-learn` |
 | `setup-matt-pocock-skills` | — | `~/Documents/openclaw-team/skills/claude/setup-matt-pocock-skills` |
 | `setup-pre-commit` | — | `~/Documents/openclaw-team/skills/claude/setup-pre-commit` |
-| `shap` | — | `~/Documents/openclaw-team/skills/claude/shap` |
 | `skill-installer` | — | `~/Documents/openclaw-team/skills/claude/skill-installer` |
-| `statsmodels` | — | `~/Documents/openclaw-team/skills/claude/statsmodels` |
 | `tavily-cli` | — | `~/Documents/openclaw-team/skills/claude/tavily-cli` |
 | `tavily-dynamic-search` | — | `~/Documents/openclaw-team/skills/claude/tavily-dynamic-search` |
 | `tavily-extract` | — | `~/Documents/openclaw-team/skills/claude/tavily-extract` |
