@@ -18,10 +18,12 @@
       "targets": [
         "agent:turing"
       ],
+      "ref": "f5a900416b6e1d8023e7c2ce11885232ffa8b806",
+      "repo": "https://github.com/usestrix/strix",
       "tree_sha256": [
         "sha256:b2e7a1c3258c67f8cd2a2a3d5ab867c742e720e4d7938dd85da5b766ba4b34a2"
       ],
-      "resolved": false
+      "resolved": true
     },
     {
       "name": "ask-matt",
@@ -726,10 +728,8 @@
       "targets": [
         "claude"
       ],
-      "tree_sha256": [
-        "sha256:97f533e6eaff3fa7655e38f8b7012ad48e36ff9261d8dd70177bab8768153252"
-      ],
-      "resolved": false
+      "tree_sha256": [],
+      "resolved": true
     },
     {
       "name": "skill-vetter",

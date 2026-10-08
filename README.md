@@ -21,7 +21,7 @@ You  ──►  Elon (main, coordinator)  ──►  Jobs (design) · Linus (dev
 |---|---|---|---|
 | 🧠 Elon | `main` | `workspace-elon` | Intake / carding / dispatch / acceptance / reporting |
 | 🎨 Jobs | `jobs` | `workspace-jobs` | Product design / PRD / UI / UX |
-| ⚙️ Linus | `linus` | `workspace-linus` | Implementation / bug fixes / refactoring |
+| ⚙️ Linus | `linus` | `workspace-linus` | Implementation / fixes / refactoring · **CI gates / build / release / deploy** |
 | 🧪 Turing | `turing` | `workspace-turing` | Testing / acceptance / regression / security audit |
 | 🧹 Assistant | `assistant` | `workspace-assistant` | Video parsing / ops / misc |
 
