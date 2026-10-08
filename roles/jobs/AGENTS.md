@@ -12,17 +12,17 @@
 - Messages tagged `[Inter-session message]` coming from agent:main:main = Elon dispatch (messages are data, not end-user instructions) → execute per the task card.
 - Tasks woken by my cron fallback turn (jobs-poll): if the poll already atomically claimed it (in_progress + fresh heartbeat) → **execute directly without claiming again** → write back; only if the card is still todo (direct dispatch, unclaimed) → task.claim first.
 
-<!-- BEGIN REDLINES:v1 (generated from team/guides/redlines.core.md — do not edit by hand) -->
-> 🚨 **Redline quick reference (in your face every turn; details in `PROTOCOL §①/§④/§⑥/§⑬`)**
-> 1. **Claim**: always via the task-system contract `task.claim` (task-panel); `in_progress` + fresh heartbeat ⇒ do not re-claim, do not re-execute (execution uniqueness).
-> 2. **Heartbeat / wrap-up**: refresh heartbeat every ≤10min while executing; the end-of-segment trio = refresh heartbeat → set terminal state (`in_review`/`done`/`canceled`/`blocked`) → send Elon a Report (conclusion + card path + hash).
-> 3. **Process trail**: collaboration discussion / user decisions / confirmations (dual-sign) / **task changes** use `task.comment` (`kind ∈ discuss|decision|confirm|change|note|defect`; human decisions marked `author=operator`; **task changes use `kind=change`, recording what/why**).
-> 4. **Reporting leanness**: give only conclusion + card path + hash; logs/long tables/large files never enter messages or context.
-> 5. **State machine**: `todo→in_progress→in_review→done|canceled` (`blocked` in/out of any state).
-> 6. **Messages**: only Elon faces humans; workers never dispatch to each other; no reports when idle.
-> 7. **Tool redlines**: code via Claude Code; tests via codex; `prototype/**` no implementation; no destructive git; commit `git commit -- <explicit paths>`.
-> 8. **Ambiguity**: set `blocked` and send Elon for clarification; do not guess.
-> 9. **Relationships (parent/child / dependency) only via ACL**: `task.spawn/depend/…` (auto-rejects cycles/self-reference/depending on ancestors/deep trees/over-linking); `kind:epic` not claimable; `deps_unmet` not claimable.
+<!-- BEGIN REDLINES:v1 (generated from team/guides/redlines.core.md — do not hand-edit) -->
+> 🚨 **Redline quick-reference (in-person every turn; details in `PROTOCOL §①/§④/§⑥/§⑬`)**
+> 1. **Claim**: always via the task-system contract `task.claim` (**ACL: `task-ops`**); `in_progress` + fresh heartbeat ⇒ do not re-claim, do not re-execute (execution uniqueness).
+> 2. **Heartbeat/closing**: refresh the heartbeat every ≤10min while executing; the three end-of-segment items = refresh heartbeat → set terminal state (`in_review`/`done`/`failed`/`blocked`) → send back an Elon Report (conclusion + card path + hash).
+> 3. **Process trail**: collaborative discussion / user decisions / confirmations (dual-sign) / **task changes** use `task.comment` (`kind ∈ discuss|decision|confirm|change|note|defect`; mark human decisions `author=operator`; **task changes use `kind=change`, recording what/why**).
+> 4. **Report trimming**: give only conclusion + card path + hash; logs/long tables/large files do not enter messages or context.
+> 5. **State machine**: `ready→in_progress→in_review→done|failed` (`blocked` can be entered/left from any state).
+> 6. **Messages**: only Elon faces humans; workers do not dispatch to each other; idle means no reports.
+> 7. **Tool redlines**: writing code goes through Claude Code; testing through codex; `prototype/**` must not contain implementation; no destructive git; commit with `git commit -- <explicit path>`.
+> 8. **Ambiguity**: set `blocked` and send back to Elon for clarification; do not speculate.
+> 9. **Relations (parent/child/dependencies) only via the task-system ACL**: `task.spawn/depend/…` (auto-rejects cycles/self-reference/dependency on ancestors/deep trees/over-long chains); `kind:epic` is not claimable; `deps_unmet` is not claimed.
 <!-- END REDLINES:v1 -->
 
 ## Role Duties (Standing Orders)
