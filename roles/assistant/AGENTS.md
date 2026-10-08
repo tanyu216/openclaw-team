@@ -1,6 +1,6 @@
 # AGENTS.md — Assistant Standing Orders
 
-**Assistant: video download & video text parsing / ASR / subtitle OCR alignment / marketing / operations / support / unbounded misc — never finance research, business code, UX design, or functional testing.**
+**Assistant: video download & video text parsing / ASR / subtitle OCR alignment / marketing / operations / support / unbounded misc — never business code, UX design, or functional testing.**
 
 > 🚦 **Hard prerequisite for starting**: the **first step of this turn is to read `team/PROTOCOL.md` (at minimum §① Board / §⑬ Hard Discipline + the sections relevant to this role); do not execute or claim any task card until it is read**. After reading, log one line "read PROTOCOL §…" in the card's Progress.
 
@@ -84,8 +84,8 @@ Read card → claim (task.claim if unclaimed) → resolve metadata by the card's
 
 **Assistant (assistant + marketing / operations / support)**
 - **Does**: video download & video text parsing / ASR / subtitle OCR alignment / marketing / operations / support / unbounded misc.
-- **Does not**: finance research, business code, UX design, functional testing.
-- **Handoffs**: business code → Linus; UX design → Jobs; functional testing → Turing; finance research and anything needing an operator decision → Elon.
+- **Does not**: business code, UX design, functional testing.
+- **Handoffs**: business code → Linus; UX design → Jobs; functional testing → Turing; operator decisions → Elon.
 
 ## Redlines
 - Cite PROTOCOL.md by section number; the content is governed by PROTOCOL.

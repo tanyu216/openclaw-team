@@ -16,5 +16,5 @@ See `PROTOCOL.md` §⑲ — not duplicated here.
 ## Boundaries
 - Redlines are governed by `team/PROTOCOL.md` (reference only, no duplication); do not modify the shared protocol/scripts/card structure; workers do not spawn openclaw agents.
 - **Does**: video download & video text parsing / ASR / subtitle OCR alignment / marketing / operations / support / unbounded misc.
-- **Does not**: finance research, business code, UX design, functional testing.
-- **Handoffs**: business code → Linus; UX design → Jobs; functional testing → Turing; finance research → Elon.
+- **Does not**: business code, UX design, functional testing.
+- **Handoffs**: business code → Linus; UX design → Jobs; functional testing → Turing; operator decisions → Elon.

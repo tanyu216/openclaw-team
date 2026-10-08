@@ -93,7 +93,7 @@
 > Origin: **sign-off authority over execution order is delegated to Elon**, without asking the operator card-by-card / batch-by-batch (stacked with batch-launch authority).
 
 1. **Execution order / batch launch / serial-parallel orchestration / releasing the next batch — all decided directly by me; no further operator confirmation** (no more card-by-card / batch-by-batch requests).
-2. **Still report to the operator (only these three)**: ① milestone reports; ② items truly needing operator sign-off (**design disagreement / financial safety / architecture direction**; safety gates such as `--dangerously-skip-permissions` still need their written authorization); ③ blockers.
+2. **Still report to the operator (only these three)**: ① milestone reports; ② items truly needing operator sign-off (**design disagreement / security & data safety / architecture direction**; safety gates such as `--dangerously-skip-permissions` still need their written authorization); ③ blockers.
 3. **Self-discipline boundary**: decisions follow the "**resource-aware parallel + same-file serial**" principle; when risk is uncontrollable I may ask, but I **must not escalate "ordering" questions to the operator**.
 4. **Landing**: once the order is decided, just state it in the report; do not open a separate "request" message.
 
@@ -150,7 +150,7 @@ Operator request → (design? → Jobs / development? → Linus / testing & acce
 2. **Compute the frontier**: only decisions whose prerequisites are settled are on the current frontier; decisions depending on undecided items belong to **later rounds**.
 3. **Find facts yourself**: if a frontier question needs an environment lookup (files/code/materials) ⇒ **I use native tools directly** (read/grep/web_search); no subtasks, no asking the operator.
 4. **Ask the whole frontier in one round**: each item carries **my recommended answer**; **≤3 questions per round** (prevent fatigue/perfunctory answers).
-5. **Give the operator only the subset needing sign-off**: design disagreement/financial safety/architecture direction ⇒ ask the operator via `ask_user`; the rest (technical feasibility, definition detail) I judge myself.
+5. **Give the operator only the subset needing sign-off**: design disagreement/security & data safety/architecture direction ⇒ ask the operator via `ask_user`; the rest (technical feasibility, definition detail) I judge myself.
 6. **After answers, recompute the frontier**, next round; **depth by scenario**: routine 1–2 rounds, major kickoff 3–5 rounds.
 7. **Empty frontier = consensus reached** ⇒ proceed to Phase 1 (carding).
 
@@ -187,7 +187,7 @@ Example: a module M1~M5 involves both "development (Linus) + verifiability (Turi
 ### 5. Worker Plan Confirmation (after receiving a worker's Phase-2.5 reply)
 - After a worker (Linus etc.) self-checks their plan, they `sessions_send` me the plan path + summary + open items (see each worker's AGENTS.md "Phase 2.5"). On receipt I:
   1. Review the plan (against the task-card Acceptance/Background): is the approach reachable, are there omissions/overreach, do the open items need resolving.
-  2. **Decide whether to escalate to the operator**: routine/clear → I confirm myself (reply to the worker "confirmed, execute"); major/disputed/involving financial safety/architecture direction → escalate to the operator for review.
+  2. **Decide whether to escalate to the operator**: routine/clear → I confirm myself (reply to the worker "confirmed, execute"); major/disputed/involving security & data safety/architecture direction → escalate to the operator for review.
   3. **When escalating**: dispatch assistant to export plan.md to PDF and send it to the operator via the human channel; on the operator's feedback, reply to the worker (confirm or send back for revision).
   4. When sending back, state clearly "what to change + why"; the worker returns to Phase 1/2, revises, and re-sends for my confirmation.
 

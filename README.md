@@ -2,7 +2,7 @@
 
 Install a small **AI agent dev team** onto an OpenClaw host: one coordinator (Elon)
 plus four specialists (design / engineering / QA / assistant). Built for a
-**standard individual independent developer** workflow — no quant-research role.
+**standard individual independent developer** workflow.
 
 > **English is the default documentation language.** 中文说明见 [README.zh-CN.md](README.zh-CN.md).
 
@@ -25,8 +25,6 @@ You  ──►  Elon (main, coordinator)  ──►  Jobs (design) · Linus (dev
 | 🧪 Turing | `turing` | `workspace-turing` | Testing / acceptance / regression / security audit |
 | 🧹 Assistant | `assistant` | `workspace-assistant` | Video parsing / ops / misc |
 
-> The quant-research role (Simons) is **not** part of this repository — this
-> project targets general solo developers.
 
 ## Install
 
@@ -172,7 +170,6 @@ openclaw-team/
 ## Out of scope
 
 - Plugins / native extensions (Phase B).
-- Quant-research roles and skills.
 - Runtime task cards and workspace artifacts.
 
 ## Verify (Docker)
