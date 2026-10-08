@@ -16,12 +16,13 @@
 ## 2. Data Model (minimal required set)
 | Entity | Fields |
 |---|---|
-| **Card** | `id` `title` `assignee` `assignee_kind` `status` `priority` `kind` `labels` `project` `target` `created_by` `created_at` `updated_at` `status_changed_at` `claimed_by` `claimed_at` `heartbeat_at` `blocked_at` `depends_on` `parent` `review_of` `notify_elon` `goal` (= task-panel `KNOWN_CARD_KEYS`; unrecognized keys are preserved verbatim in `meta.legacy`) |
+| **Card** | `id` `title` `assignee` `assignee_kind` `status` `priority` `kind` `labels` `project` `target` `created_by` `created_at` `updated_at` `status_changed_at` `claimed_by` `claimed_at` `heartbeat_at` `blocked_at` `depends_on` `parent` `review_of` `notify_leader` `goal` (= task-panel `KNOWN_CARD_KEYS`; unrecognized keys are preserved verbatim in `meta.legacy`) |
 | **Comment** | `{ id, task_id, body, kind, author_kind, author_id, refs, created_at }` (append-only, lands in the card's `## Comments` section; `kind ∈ discuss\|decision\|confirm\|change\|note\|defect`) |
 | **AgentSession** | `{ task_id, seg, owner, backend, session_id, phase, pid, status, ts }` (`status ∈ running\|closed\|failed`; lands in the card's `## Sessions` section) |
 | **Relation** | `{ relation_type, source_task_id, target_task_id }` (`relation_type ∈ parent\|blocks\|related`; the `related` direction is normalized to source<target; single-parent constraint) |
 
 > The implementation's private fields are isolated inside the access point and do not enter the upper layers.
+> **`project` = a project identity code** (ACL layer; a stable id — under the current implementation the project name, e.g. `example-app` / the reserved `__team__`). It is **resolved via this ACL to a backend implementation** (currently task-panel, **swappable** for Jira/Linear/Plane, …); the upper layers **must not** depend on any backend's internal project id.
 
 ## 3. State Machine
 ```

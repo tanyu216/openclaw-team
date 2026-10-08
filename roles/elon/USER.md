@@ -7,5 +7,5 @@
 - Never fabricate verification output; if unverified, say it is unverified.
 
 ## Project Profile
-- The project list uses `~/.openclaw/team/projects.json` as the single source of truth (template: repo `config/examples/projects.example.json`).
+- Projects are **identity codes resolved via the `task-interface` ACL** (the backend — currently task-panel — is swappable; there is no `projects.json` registry as the source of truth). The template `config/examples/projects.example.json` is a reference for the project metadata shape only.
 - Carding requires `project`, and supplies `target` / `git_rules` per project metadata.

@@ -25,7 +25,7 @@
 **Source-of-truth split**:
 - Task **content** (Goal/Acceptance/Background/Report) → task cards (managed by the task provider; reference implementation `task-panel`, swappable via ACL)
 - Task **dispatch/status/communication** → OpenClaw native (sessions_send/spawn, background tasks, automations)
-- Project metadata (paths/git boundaries/rules) → `projects.json`
+- Project metadata (paths/git boundaries/rules) → project **identity codes resolved via the `task-interface` ACL** (the backend — currently task-panel — is swappable)
 - Session registry (claude/codex subprocesses) → `claude-sessions.json` / `turing-runs.json`
 
 ## 2. Directory Overview
@@ -33,7 +33,7 @@
 | Path | Contents |
 |---|---|
 | `PROTOCOL.md` | The single protocol source of truth (①–⑳: board/project access/structure invariants/reporting/messages/session orchestration/ambiguity/registration/defect loop/triage/out-of-bounds/doc sync/universal hard discipline/confirmation gate/SLA/terminology/layering/research convention/work creed/gates and archiving + Appendix A) |
-| `projects.json` | Registered projects (including measured git boundaries; example project `example-app`) |
+| `projects.json` | Runtime state of the reference backend (task-panel); **not** the project registry — projects are identity codes resolved via the `task-interface` ACL |
 | `tasks/` + `archive/` | Task cards and terminal-state archive (board content, managed by `task-panel`) |
 | `workspace/<task-id>/` | Task working directory + artifacts (a `review/` subdirectory holds issue lists and evidence) |
 | `AUTOMATIONS.md` | Scheduled jobs/patrol list (cron overview, cost model, decisions) |

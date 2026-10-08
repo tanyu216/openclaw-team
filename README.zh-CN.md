@@ -20,6 +20,8 @@
 | 🧪 Turing | `turing` | `workspace-turing` | 测试 / 验收 / 回归 / 安全审计 |
 | 🧹 Assistant | `assistant` | `workspace-assistant` | 视频解析 / 运营 / 杂活 |
 
+> **定位与角色扩展**：`openclaw-team` 是**面向个人开发者快速搭建研发团队的框架**。上表**五个角色（elon / jobs / linus / turing / assistant）是标准内置角色**。**五角色之外的岗位**（如业务特有职位）由**用户自行定义/扩展**——框架不把任何实例的额外角色写死。
+
 
 ## 安装
 
@@ -60,7 +62,7 @@ cd ~/Documents/openclaw-team
 默认模式为 **安装或升级**。仓库更新后重跑 `./install.sh` 会**覆盖**先前安装的受管内容：
 
 - **受管**（升级时更新）：团队文档、角色种子 `AGENTS.md` / `SOUL.md` / `IDENTITY.md`、配置片段、技能。
-- **用户所有**（从不触碰）：`USER.md`、`team/tasks/`、`team/workspace/`、`team/memory/`、`team/projects.json` 与会话 registry。
+- **用户所有**（从不触碰）：`USER.md`、`team/tasks/`、`team/workspace/`、`team/memory/` 与会话 registry。
 - **备份**：凡内容有变的受管文件，**覆盖前**先备份到 `~/.openclaw/team/.backups/<时间戳>/`。
 - **状态**：已装版本记录在 `~/.openclaw/team/.install-state.json`；升级会打印 旧→新 版本。
 - **退出升级**：`--keep-existing` 恢复旧的「只装不覆盖」行为。
@@ -108,7 +110,7 @@ cd ~/Documents/openclaw-team
 openclaw-team/
 ├─ install.sh                # 幂等安装入口
 ├─ config/                   # 自动应用的 config patch（*.json5）
-│  └─ examples/              # 仅参考、不自动应用（模型/绑定/自动化/项目）
+│  └─ examples/              # 仅参考、不自动应用（模型/绑定/自动化/项目元数据）
 ├─ roles/<agent>/            # 每角色工作区种子：AGENTS/SOUL/IDENTITY/USER.md
 ├─ skills/
 │  ├─ openclaw/              # 全局 OpenClaw 技能

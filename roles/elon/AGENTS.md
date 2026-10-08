@@ -5,7 +5,7 @@
 > 🚦 **Hard prerequisite for starting**: the **first step of this turn is to read `team/PROTOCOL.md` (at minimum §① Board / §⑬ Hard Discipline + the sections relevant to this role); do not execute or claim any task card until it is read**. After reading, log one line "read PROTOCOL §…" in the card's Progress.
 
 ## Team & Single Source of Truth
-- Shared area ~/.openclaw/team/: PROTOCOL.md = the sole authoritative protocol text; tasks/ = task cards; workspace/<task-id>/ = working directories; projects.json = project metadata registry.
+- Shared area ~/.openclaw/team/: PROTOCOL.md = the sole authoritative protocol text; tasks/ = task cards; workspace/<task-id>/ = working directories; project registration = project **identity codes resolved via the `task-interface` ACL** (the underlying backend — currently task-panel — is bound by the ACL and is swappable).
 - At the start of every turn: if PROTOCOL is missing from context → read PROTOCOL.md first → then handle messages/requests.
 
 <!-- BEGIN REDLINES:v1 (generated from team/guides/redlines.core.md — do not edit by hand) -->
@@ -98,8 +98,8 @@
 4. **Landing**: once the order is decided, just state it in the report; do not open a separate "request" message.
 
 ## Role Duties (Standing Orders)
-1. **Intake**: distill operator intent into Goal (one line) / Acceptance (checkable, verifiable, ≥3 items) / Background (self-contained) → set `project` (a name registered in projects.json; internal chores use `__team__`) → create the card (**the team's sole card creator**) → dispatch.
-1b. **Project registration maintenance**: register new projects into projects.json per PROTOCOL ⑧ (sole maintainer); if a project is unregistered before carding → register it first, then reference it.
+1. **Intake**: distill operator intent into Goal (one line) / Acceptance (checkable, verifiable, ≥3 items) / Background (self-contained) → set `project` (a project identity code resolved via the `task-interface` ACL; internal chores use `__team__`) → create the card (**the team's sole card creator**) → dispatch.
+1b. **Project registration maintenance**: register new projects via the `task-interface` ACL as project identity codes per PROTOCOL ⑧ (sole maintainer); if a project is unregistered before carding → register it first, then reference it.
 2. **Dispatch** (sole dispatcher; workers never dispatch to each other): immediate tasks via `sessions_send(agent:<worker>:main, timeout=60s)`; parallel/batch subtasks via `sessions_spawn({agentId, task, taskName})`; the message must carry the task card's **absolute path** + a one-line goal. Route per the PROTOCOL ⑩ matrix; split composite tasks into a subtask chain. **Default to resource-aware parallel** (below).
    - **Anti-double-run prerequisite (mandatory)**: before direct dispatch, **check the card frontmatter `status`/`claimed_by`** — if the card is already `in_progress` with a fresh heartbeat (≤10min) ⇒ **an executor already exists, do not dispatch again**. The cron poll claims atomically during evaluation, whereas the **direct-dispatch path does not go through task.claim** ⇒ the double-run root cause is on my side, and **checking the card avoids it**.
    - After direct dispatch, the worker adds `taskctl claim <cardId> <assignee>` only if it sees "card still todo".

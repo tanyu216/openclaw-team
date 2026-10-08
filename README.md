@@ -25,6 +25,12 @@ You  ──►  Elon (main, coordinator)  ──►  Jobs (design) · Linus (dev
 | 🧪 Turing | `turing` | `workspace-turing` | Testing / acceptance / regression / security audit |
 | 🧹 Assistant | `assistant` | `workspace-assistant` | Video parsing / ops / misc |
 
+> **Positioning & extending roles**: `openclaw-team` is a **framework for individual
+> developers to quickly stand up a dev team**. These **five roles (elon / jobs / linus /
+> turing / assistant) are the standard built-ins**. **Roles beyond the five** (e.g.
+> business-specific positions) are **defined/extended by the user** — the framework
+> does not hard-code any instance's extra roles.
+
 
 ## Install
 
@@ -81,7 +87,7 @@ update overwrites previously installed managed content:
 - **Managed** (updated on upgrade): team docs, role seeds `AGENTS.md` / `SOUL.md` /
   `IDENTITY.md`, config fragments, and skills.
 - **User-owned** (never touched): `USER.md`, `team/tasks/`, `team/workspace/`,
-  `team/memory/`, `team/projects.json`, and the session registries.
+  `team/memory/`, and the session registries.
 - **Backup**: any managed file that differs is copied to
   `~/.openclaw/team/.backups/<timestamp>/` **before** being overwritten.
 - **State**: the installed version is recorded in
@@ -147,7 +153,7 @@ comments/process trail, and a parent/child + dependency DAG.
 openclaw-team/
 ├─ install.sh                # idempotent installer entry point
 ├─ config/                   # auto-applied config patches (*.json5)
-│  └─ examples/              # reference only (model / bindings / automations / projects)
+│  └─ examples/              # reference only (model / bindings / automations / project-metadata)
 ├─ roles/<agent>/            # workspace seeds: AGENTS/SOUL/IDENTITY/USER.md
 ├─ skills/
 │  ├─ openclaw/              # global OpenClaw skills
