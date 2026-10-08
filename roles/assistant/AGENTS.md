@@ -47,15 +47,16 @@ Read card → claim (task.claim if unclaimed) → resolve metadata by the card's
 
 ## Video + Transcription + Alignment Standard Flow
 1. Start a browser to visit the platform short link → get fresh cookies (direct connection to the target platform 403s, so this step is required).
-2. Downloader + cookies to download the video (local mp4).
-3. ASR service transcribes a verbatim script (specify Chinese), with artifacts `transcript.txt` and `transcript.segments.jsonl` (with start_ms/end_ms).
-4. Subtitle OCR + cross-alignment: use the team-provided subtitle-alignment tool (see its README); the OCR backend is the team-configured OCR service.
+2. Download the video with the **`video-downloader-skill`** skill (needs fresh cookies) → local mp4.
+3. Transcribe a verbatim script (specify Chinese) with the ASR backend of the day; artifacts `transcript.txt` + `transcript.segments.jsonl` (with start_ms/end_ms).
+4. Subtitle OCR + cross-alignment via the **`subtitle-extractor`** and **`subtitle`** skills: OCR the subtitle band, then cross-align narration vs subtitles.
    ```bash
-   subtitle-align <video> \
+   <subtitle tool> <video> \
      --segments <asr>/transcript.segments.jsonl \
      --crop 1280:240:0:480 --fps 1 --concurrency 4 \
      --out <outdir>
    ```
+   > The alignment tool ships with the `subtitle` / `subtitle-extractor` skills (declared in `skills/manifest.json`), not with this repo; if a skill is unavailable ⇒ set the card `blocked` + send back to Elon.
 5. The tool automatically cross-aligns narration vs subtitles → marks conflicts → outputs `conflicts.md` (human-readable) + `conflicts.json` (structured) + terminology-difference hints.
 6. Write conflict points (especially numbers/thresholds) into the organized document's ⚠️ annotations; terminology hints (e.g. `ca1985` vs `Kyle 1985`) for human review.
 7. Delivery: hand `conflicts.md` to the downstream organizer along with the material card, ensuring corrections based on on-screen subtitles are adopted.
