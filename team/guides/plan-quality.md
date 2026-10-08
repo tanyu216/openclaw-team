@@ -14,12 +14,20 @@ Every new item has a **full integration path**: definition → registration → 
 (no dead code), and **nothing from the requirement is missing** — every Acceptance
 line maps to at least one plan step.
 
-### ③ Simplicity & reliability (is it simple and reliable?)
-- **Simplest reliable design**: fewest moving parts; no speculative abstraction or
-  future-proofing; reuse before inventing.
-- **Failure modes**: what breaks, what happens then, is it retryable/idempotent?
-- **No fragile ordering / hidden coupling**; no reliance on luck (timing, races).
-- If a simpler option exists, the plan must say why it was rejected.
+### ③ Quality — simple, feasible, elegant, readable, maintainable
+- **Simple & feasible**: the fewest moving parts that actually works with the
+  available tools, skills and time; reuse before inventing; no speculative
+  abstraction or future-proofing. If a simpler option exists, the plan must say why
+  it was rejected.
+- **Elegant**: fits the existing patterns; one responsibility per unit; a clear
+  seam; no accidental complexity; naming and structure express intent.
+- **Readable**: a reviewer can follow it top-down without extra context; no magic
+  values, no hidden coupling, no surprising control flow.
+- **Maintainable**: safe to change — localized edits, no duplicated logic, clear
+  extension points; **failure / retry / idempotency** considered; no fragile
+  ordering, no reliance on luck (timing, races).
+- If any of these is weak, the plan must state the trade-off explicitly and prefer
+  the simpler/clearer option.
 
 ### ④ End-to-end execution path (UI → API → persistence → back)
 Trace the **full vertical path** — e.g.

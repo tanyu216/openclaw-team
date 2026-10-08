@@ -133,7 +133,7 @@ Rules:
 1. Self-check plan.md item by item — **all six** (details in `team/guides/plan-quality.md`):
    ① **logical completeness** — self-consistent, no contradictions/holes;
    ② **omission check** — every new item has a full integration path (definition→registration→call; no dead code), and every Acceptance line maps to a plan step;
-   ③ **simplicity & reliability** — is this the **simplest reliable** design? fewest moving parts, no speculative abstraction, failure/retry/idempotency considered, no fragile ordering; if a simpler option exists, say why it was rejected;
+   ③ **quality — simple, feasible, elegant, readable, maintainable** — fewest moving parts that actually works (**simple & feasible**); fits existing patterns, one responsibility per unit, no accidental complexity (**elegant**); a reviewer can follow it without extra context, no magic values or hidden coupling (**readable**); safe to change — localized edits, no duplicated logic, clear extension points, failure/retry/idempotency handled, no fragile ordering (**maintainable**); if a simpler option exists, say why it was rejected;
    ④ **end-to-end execution path** — trace the **full vertical path** (e.g. UI → API → service → persistence → response → UI) and state the **up/downstream impact** at every hop (contracts, DTOs, migrations, jobs, caches, consumers);
    ⑤ **test-scenario coverage** — each requirement states its unit/integration coverage points;
    ⑥ **todo check** — execution steps well-formed, actionable, matching the plan.
@@ -174,7 +174,7 @@ Rules:
 > After development + testing, and **before setting done**, three items must be completed; **not done ⇒ no done**.
 > **Normative basis**: the project's **existing finalized docs** (`docs/design-docs/architecture/API-spec-design.md` etc.). **Where the norm is not finalized** → follow **current best practice** and mark "**pending norm**" in the Report (do not invent norms, do not change shared norms).
 
-- [ ] 1. **Code review (self-review, not a formality)**: read this diff to check naming/structure/boundaries/exceptions/duplication/readability; judge "can it be simplified"; judge bad smells (long functions/deep nesting/magic numbers/implicit coupling/error swallowing/duplicate implementation) ⇒ for each found: fix it / state a "reason to keep".
+- [ ] 1. **Code review (self-review, not a formality)**: read this diff to check naming/structure/boundaries/exceptions/duplication/readability **and maintainability (localized edits, low coupling, no duplicated logic, clear extension points)**; judge "can it be simplified"; judge bad smells (long functions/deep nesting/magic numbers/implicit coupling/error swallowing/duplicate implementation) ⇒ for each found: fix it / state a "reason to keep".
 - [ ] 2. **Dead-code check & cleanup**: clean dead code/unused imports/unreachable branches/deprecated stubs/commented-out old code/orphan files within the touched scope ⇒ itemize in the Report (what was cleaned + why safe; **when unsure, do not delete — list the doubt**).
 - [ ] 3. **Norm triple-check**: ① unified wrapper utilities (time↔`core/time`; storage↔`core/storage`; logging↔`core/logger`; JSON↔pydantic; responses↔the established envelope; no divergent implementations) ② logging norms (no `print`/custom formats) ③ interface norms (contract/error codes/DTO/pagination; do not start a new scheme) ⇒ itemize results in the Report (compliant ✔ / deviation fixed / gap reported to Elon).
 
