@@ -1,108 +1,127 @@
 # openclaw-team
 
-把一支 **AI Agent 研发团队** 装进一台 OpenClaw 主机：一名统筹（Elon）＋四名专家（设计 / 开发 / 测试 / 助理）。定位是**标准个人独立开发者**的多 agent 工作流——不含量化研究角色。
+Install a small **AI agent dev team** onto an OpenClaw host: one coordinator (Elon)
+plus four specialists (design / engineering / QA / assistant). Built for a
+**standard individual independent developer** workflow — no quant-research role.
 
-本仓库是 **Phase A（纯文件 + 幂等安装器）**：`install.sh` 把协议、角色工作区、技能、agent 注册与配置装配到 OpenClaw，并可重复执行。**不含插件**（Phase B 已明确不做）。
+> **English is the default documentation language.** 中文说明见 [README.zh-CN.md](README.zh-CN.md).
+
+This repository is **Phase A (file-based, idempotent installer)**: `install.sh`
+deploys protocol docs, per-agent workspaces (roles), skills, agent registration,
+and config wiring onto OpenClaw. It is safe to re-run. **No plugin is involved**
+(Phase B was explicitly dropped).
 
 ```text
-Terry / 你  ──►  Elon(main，统筹)  ──►  Jobs(设计) · Linus(开发) · Turing(测试) · Assistant(杂务)
+You  ──►  Elon (main, coordinator)  ──►  Jobs (design) · Linus (dev) · Turing (QA) · Assistant (misc)
 ```
 
-## 角色
+## Roles
 
-| 角色 | agent id | 工作区 | 职责 |
+| Role | agent id | workspace | Responsibility |
 |---|---|---|---|
-| 🧠 Elon | `main` | `workspace-elon` | 需求入口 / 建卡 / 派单 / 验收 / 汇报 |
-| 🎨 Jobs | `jobs` | `workspace-jobs` | 产品设计 / PRD / UI / UX |
-| ⚙️ Linus | `linus` | `workspace-linus` | 代码开发 / 缺陷修复 / 重构 |
-| 🧪 Turing | `turing` | `workspace-turing` | 测试 / 验收 / 回归 / 安全审计 |
-| 🧹 Assistant | `assistant` | `workspace-assistant` | 视频解析 / 运营 / 无明确边界杂活 |
+| 🧠 Elon | `main` | `workspace-elon` | Intake / carding / dispatch / acceptance / reporting |
+| 🎨 Jobs | `jobs` | `workspace-jobs` | Product design / PRD / UI / UX |
+| ⚙️ Linus | `linus` | `workspace-linus` | Implementation / bug fixes / refactoring |
+| 🧪 Turing | `turing` | `workspace-turing` | Testing / acceptance / regression / security audit |
+| 🧹 Assistant | `assistant` | `workspace-assistant` | Video parsing / ops / misc |
 
-> 量化研究角色（Simons）**不在本仓库内**——本项目面向通用个人开发者。
+> The quant-research role (Simons) is **not** part of this repository — this
+> project targets general solo developers.
 
-## 安装
+## Install
 
 ```bash
 git clone <this-repo> ~/Documents/openclaw-team
 cd ~/Documents/openclaw-team
-./install.sh --dry-run      # 先看将执行什么
-./install.sh                # 幂等安装
+./install.sh --dry-run      # preview every action
+./install.sh                # idempotent install
 ```
 
-常用选项：
+Options:
 
-| 选项 | 说明 |
+| Option | Meaning |
 |---|---|
-| `--dry-run` | 只打印动作，不改任何文件 |
-| `--force` | 覆盖已存在的 skill / 角色文件 / team 文档 |
-| `--openclaw-home DIR` | OpenClaw 家目录（默认 `~/.openclaw`） |
-| `--claude-home DIR` / `--codex-home DIR` | Claude Code / Codex 家目录 |
-| `--task-panel DIR` | 指定 task-panel 源码路径 |
-| `--no-task-panel` | 不检查/安装 task-panel |
-| `--skip-skills` `--skip-agents` `--skip-config` `--skip-team` | 跳过对应阶段 |
+| `--dry-run` | Print planned actions, change nothing |
+| `--force` | Overwrite existing skills / role files / team docs |
+| `--openclaw-home DIR` | OpenClaw home (default `~/.openclaw`) |
+| `--claude-home DIR` / `--codex-home DIR` | Claude Code / Codex home |
+| `--task-panel DIR` | Path to the task-panel source checkout |
+| `--no-task-panel` | Skip the task-panel check/install |
+| `--skip-skills` `--skip-agents` `--skip-config` `--skip-team` | Skip a stage |
 
-安装器做这些事（每步幂等，已存在则跳过）：
+What the installer does (every stage is idempotent; existing items are skipped):
 
-1. **预检**：node / openclaw CLI；检查 `claude`、`codex` 是否存在（缺失给出安装提示，不中断）。
-2. **团队文档** → `~/.openclaw/team/`（`PROTOCOL.md`、`ROLES.md`、`README.md`、`guides/`）。**不覆盖**运行时目录 `tasks/`、`workspace/`、`memory/`。
-3. **技能** → 见下表。
-4. **Agent 与角色工作区**：拷贝 `AGENTS.md`/`SOUL.md`/`IDENTITY.md`，然后 `openclaw agents add <id> --workspace <dir> --non-interactive`；已注册则跳过。**永不覆盖**既有的 `USER.md`。
-5. **配置片段** → `openclaw config patch --file config/*.json5`（`config/examples/` 下的示例不会自动应用）。
-6. **task-panel 依赖**：检测 `~/.openclaw/skills/task-panel`；缺失则调用其 `install.sh --target openclaw` 安装。
+1. **Preflight** — node / OpenClaw CLI; checks for `claude` and `codex` (warns with
+   install hints if absent; never aborts).
+2. **Team docs** → `~/.openclaw/team/` (`PROTOCOL.md`, `ROLES.md`, `README.md`,
+   `guides/`). Never touches runtime dirs `tasks/`, `workspace/`, `memory/`.
+3. **Skills** → see the table below.
+4. **Agents & role workspaces** — copies `AGENTS.md`/`SOUL.md`/`IDENTITY.md`, then
+   `openclaw agents add <id> --workspace <dir> --non-interactive` (skipped if the
+   agent already exists). An existing `USER.md` is **never** overwritten.
+5. **Config fragments** → `openclaw config patch --file config/*.json5`
+   (anything under `config/examples/` is reference-only and not applied).
+6. **task-panel dependency** — checks `~/.openclaw/skills/task-panel`; if missing,
+   runs its `install.sh --target openclaw`.
 
-### 技能安装目标
+### Skill install targets
 
-| 来源 | 目标 |
+| Source | Target |
 |---|---|
 | `skills/openclaw/` | `~/.openclaw/skills/` |
 | `skills/claude/` | `~/.claude/skills/` |
 | `skills/codex/` | `~/.codex/skills/` |
 | `skills/agents/<agent>/` | `~/.openclaw/workspace-<agent>/skills/` |
 
-技能来源与许可见 [`skills/PROVENANCE.md`](skills/PROVENANCE.md)。
+Skill provenance and licenses: [`skills/PROVENANCE.md`](skills/PROVENANCE.md).
 
-## 依赖：task-panel
+## Dependency: task-panel
 
-任务管理不在本仓库内——团队消费独立项目 **task-panel**（本地看板 + agent 领取/心跳/依赖树）。安装器会检测并代为安装：
+Task management is not bundled here — the team consumes the external
+**task-panel** project (local board + agent claim/heartbeat/dependency tree). The
+installer checks for it and installs it into OpenClaw when missing:
 
 ```bash
-./install.sh --task-panel ~/Documents/task-panel   # 显式指定源码
+./install.sh --task-panel ~/Documents/task-panel   # explicit source
 ```
 
-未找到源码时会给出警告与克隆指引；`task-panel` 提供的技能即团队的任务技能（本仓库不再自带旧 `task-ops`）。
+If no source is found it warns with clone instructions. task-panel provides the
+team's task skill; this repo no longer ships the legacy `task-ops`.
 
-## 仓库结构
+## Repository layout
 
 ```text
 openclaw-team/
-├─ install.sh                # 幂等安装入口
-├─ config/                   # 自动应用的 config patch（*.json5）
-│  └─ examples/              # 仅参考、不自动应用（模型/绑定/自动化/项目）
-├─ roles/<agent>/            # 每角色工作区种子：AGENTS/SOUL/IDENTITY/USER.md
+├─ install.sh                # idempotent installer entry point
+├─ config/                   # auto-applied config patches (*.json5)
+│  └─ examples/              # reference only (model / bindings / automations / projects)
+├─ roles/<agent>/            # workspace seeds: AGENTS/SOUL/IDENTITY/USER.md
 ├─ skills/
-│  ├─ openclaw/              # 全局 OpenClaw 技能
-│  ├─ claude/ codex/         # Claude Code / Codex 技能
-│  ├─ agents/<agent>/        # 各 agent 工作区技能
-│  └─ PROVENANCE.md          # 来源与许可清单
-└─ team/                     # 部署到 ~/.openclaw/team/ 的静态文档
+│  ├─ openclaw/              # global OpenClaw skills
+│  ├─ claude/ codex/         # Claude Code / Codex skills
+│  ├─ agents/<agent>/        # per-agent workspace skills
+│  └─ PROVENANCE.md          # source + license manifest
+└─ team/                     # static docs deployed to ~/.openclaw/team/
    ├─ PROTOCOL.md ROLES.md README.md
    └─ guides/
 ```
 
-## 设计原则
+## Design principles
 
-- **仓库只放静态内容**：协议、技能、角色模板、配置片段、安装器。**运行时状态**（`team/tasks/`、`team/workspace/`、会话 registry）留在本机，不入库。
-- **幂等**：可反复执行；默认不覆盖既有文件，`--force` 才覆盖。
-- **不碰机密**：仓库内无 token / 凭证 / 绝对路径；`config/examples/` 用占位符。
-- **本地优先**：先本地跑通，再决定推送到哪个 GitHub 账号。
+- **Static content only**: protocol, skills, role seeds, config fragments, installer.
+  **Runtime state** (`team/tasks/`, `team/workspace/`, session registries) stays on
+  the host and is never committed.
+- **Idempotent**: re-runnable; existing files are preserved unless `--force`.
+- **No secrets**: no tokens, credentials, or absolute personal paths in the repo.
+- **Local first**: verify locally, then decide where to push.
 
-## 未包含（明确边界）
+## Out of scope
 
-- 插件 / 原生扩展（Phase B）。
-- 量化研究角色与相关技能。
-- 运行时任务卡与工作区产物。
+- Plugins / native extensions (Phase B).
+- Quant-research roles and skills.
+- Runtime task cards and workspace artifacts.
 
-## 验证
+## Verify
 
 ```bash
 bash -n install.sh
@@ -112,4 +131,4 @@ openclaw doctor
 
 ## License
 
-MIT — 见 [LICENSE](LICENSE)。
+MIT — see [LICENSE](LICENSE).
