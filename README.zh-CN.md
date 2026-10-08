@@ -93,7 +93,7 @@ cd ~/Documents/openclaw-team
 
 标 `needs_source: true` 的条目尚无已核上游，解析前一律跳过。来源与许可见 [`skills/PROVENANCE.md`](skills/PROVENANCE.md)。
 
-> **迁移说明**：旧 `skills/{openclaw,claude,codex,agents}/` 副本暂留作过渡兜底；待 manifest 每条都有已核来源后移除。
+> **已迁移（方案 A 完成）**：技能正文不再 vendor；90 条声明均解析到已核上游（GitHub / ClawHub），安装时由 `skills/fetch.mjs` 拉取。
 
 ## 任务系统（可切换，经 ACL）
 

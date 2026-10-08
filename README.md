@@ -119,9 +119,9 @@ Targets:
 Entries marked `needs_source: true` have no verified upstream yet and are skipped
 until resolved. Provenance notes: [`skills/PROVENANCE.md`](skills/PROVENANCE.md).
 
-> **Migration note**: the legacy `skills/{openclaw,claude,codex,agents}/` copies
-> are still present as a transitional fallback and will be removed once every
-> manifest entry has a verified source.
+> **Migrated (option A complete)**: third-party skill bodies are no longer
+> vendored. All 90 declared skills resolve to verified upstreams (GitHub / ClawHub)
+> and are fetched at install time via `skills/fetch.mjs`.
 
 ## Task system (pluggable, via ACL)
 

@@ -23,6 +23,7 @@ const CLAUDE_HOME = opt("--claude-home", join(os.homedir(), ".claude"));
 const CODEX_HOME = opt("--codex-home", join(os.homedir(), ".codex"));
 const VENDOR_DIR = opt("--vendor-dir", join(HERE, "vendor"));
 const DRY = flag("--dry-run"), KEEP = flag("--keep");
+const ONLY = new Set((opt("--only", "") || "").split(",").map(s => s.trim()).filter(Boolean));
 const MODE = flag("--vendor") ? "vendor" : flag("--offline") ? "offline" : "install";
 
 const manifest = JSON.parse(readFileSync(join(HERE, "manifest.json"), "utf8"));
@@ -93,6 +94,7 @@ mkdirSync(VENDOR_DIR, { recursive: true });
 
 try {
   for (const entry of manifest.skills) {
+    if (ONLY.size && !ONLY.has(entry.name)) continue;
     const s = entry.source;
     if (s.kind === "unknown") {
       console.log(`  ! unresolved ${entry.name} (needs_source) — skipped`);
