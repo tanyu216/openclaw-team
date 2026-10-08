@@ -67,6 +67,23 @@
 
 > Acceptance linkage: Turing will re-check coverage and integration cases; missing unit/integration tests or sub-threshold coverage gives Elon the right to send back.
 
+## Prototype Consumption (by carrier)
+
+> The prototype carrier is a **deployment choice** recorded in `~/.openclaw/team/team.config.json` (`prototype.carrier`; set by `install.sh --prototype`): `static-html` | `figma` | `google-stitch` | `pixso`. Linus must be able to **obtain the prototype and implement against it** in every case. The prototype is **read-only** and the implementation always lands in the **real frontend project**, never in `prototype/**`.
+
+| Carrier | How Linus obtains the baseline | Prerequisite |
+|---|---|---|
+| `static-html` | Read `prototype/**/*.html` + the shared Tailwind theme tokens, then implement in the real frontend | — |
+| `figma` | Pull the design through the **Figma MCP/API** (frames → specs/tokens/assets), or use the static HTML mirror Jobs exports into `prototype/**` | Figma MCP server configured in `mcp.servers` |
+| `google-stitch` | Consume the Stitch export bundle (static HTML + tokens + assets) in `prototype/**` | — |
+| `pixso` | Pull through the **Pixso MCP**, or use the exported file | Pixso MCP server configured in `mcp.servers` |
+
+Rules:
+- **Obtain, don't invent**: if the configured carrier's source is unavailable or unreadable ⇒ set the card `blocked` + send back to Elon; never guess the design.
+- The prototype must be a **renderable artifact** (static HTML mirror and/or exported screenshots) for the fidelity gates — see `team/guides/ui-align-sop.md` §10 and `tools/ui-fidelity/README.md`.
+- The prototype is a **design baseline, not shippable code**: never copy prototype HTML/JS into the implementation as-is, and never write implementation into `prototype/**` (`PROTOCOL §⑨.2`).
+- The closed prototype tech stack (Tailwind + daisyUI + jQuery) constrains the **prototype** only; the real frontend stack is the project's call.
+
 ## CI Gates & Release (build / deploy, Linus's responsibility)
 > **CI gates, build, release, and deploy are all Linus's responsibility**. **Details in `~/.openclaw/team/guides/ci-release-sop.md`**; this section is a hard-constraint skeleton.
 

@@ -1,0 +1,16 @@
+{
+  "name": "ui-fidelity",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Layered UI fidelity checker: structural + prototype-as-oracle (computed styles) + pixel regression (+ a11y), deterministic in Docker.",
+  "bin": { "ui-fidelity": "./check.mjs" },
+  "scripts": {
+    "selftest": "bash self-test.sh"
+  },
+  "dependencies": {
+    "playwright": "^1.55.0",
+    "pixelmatch": "^6.0.0",
+    "pngjs": "^7.0.0"
+  }
+}
