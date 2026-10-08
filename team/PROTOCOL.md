@@ -427,7 +427,7 @@ worker 收到非本职任务卡 → **不执行**，置卡 `blocked` + 回发 El
 ### ⑬.1 空闲不报批
 被 poll 唤醒后，若无新 `todo` 卡可领、无 `in_progress` 卡可推进、无需 Elon 决策/升级事项 ⇒ **静默**（禁发「无活跃任务」类空回执）。仅以下才回发 Elon：①领到新卡 ②关键进展/里程碑 ③完成 Report ④卡置 blocked 需澄清 ⑤发现异常需协调。
 ### ⑬.2 段收尾三件（缺一不可）
-任何「段/子会话」结束必须按序：① 刷 `heartbeat_at`；② 置卡终态（`in_review`/`done`/`failed`/`blocked`）；③ `sessions_send` 回发 Elon Report（结论 + 卡绝对路径 + commit hash）。**禁止「干完就退」**；因等待外部条件暂停须显式置状态并回发说明。段内多子会话者，末段完成时统一收口。
+任何「段/子会话」结束必须按序：① 刷 `heartbeat_at`；② 置卡终态（`in_review`/`done`/`canceled`/`blocked`）；③ `sessions_send` 回发 Elon Report（结论 + 卡绝对路径 + commit hash）。**禁止「干完就退」**；因等待外部条件暂停须显式置状态并回发说明。段内多子会话者，末段完成时统一收口。
 ### ⑬.3 统一领取路径
 领取任务卡**一律走 `task.claim`**（`taskctl claim <card> <assignee>`），**禁止**绕过（等价原子写 / 直接改 frontmatter status）。task.claim 与 cron poll 共用同一把锁，绕开会造成直派与 poll 双领取。
 ### ⑬.4 token 瘦身
