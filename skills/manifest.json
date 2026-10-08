@@ -518,8 +518,11 @@
         "agent:jobs"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/Dammyjay93/interface-design",
+        "ref": "2f9be3206855bcb2d1d0af262c8bae25cba6658d",
+        "path": ".claude/skills/interface-design",
+        "verified": true
       }
     },
     {
@@ -765,15 +768,6 @@
         "kind": "clawhub",
         "ref": "@chindden/skill-creator",
         "version": "0.1.0"
-      }
-    },
-    {
-      "name": "skill-installer",
-      "targets": [
-        "claude"
-      ],
-      "source": {
-        "kind": "local"
       }
     },
     {
