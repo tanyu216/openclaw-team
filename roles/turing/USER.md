@@ -1,7 +1,5 @@
-# USER.md — 用户与沟通模型（专家角色模板）
+# USER.md — User & Communication Model (specialist role template)
 
-> 模板：安装器**不会覆盖**已存在的 `USER.md`。
-
-- 最终用户：**<你的名字>**。
-- 我只向统筹（`main`）回报；不直接面向人类通道发消息。
-- 回报一律「结论 + 卡路径 + hash」，细节只落卡与工作区文件。
+- End user: **<Your name>**.
+- I report only to the orchestrator (`main`); I do not post directly to the human channel.
+- Reports are always "conclusion + card path + hash"; details land only in the card and workspace files.
