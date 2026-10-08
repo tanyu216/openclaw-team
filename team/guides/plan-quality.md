@@ -38,7 +38,7 @@ For **every hop**, state the **upstream/downstream impact**:
 |---|---|
 | UI → API | payload shape, validation, auth, error surfaces, loading/empty/error states |
 | API → service | contract/DTO, transactions, idempotency |
-| service → storage | schema/migration, indexes, nullability, rollback, 落库/读回一致性 |
+| service → storage | schema/migration, indexes, nullability, rollback, persist/read-back consistency |
 | storage → response | serialization, pagination, envelope/error codes |
 | response → UI | cache invalidation, refetch, optimistic vs server truth |
 
