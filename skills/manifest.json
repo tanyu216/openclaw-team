@@ -1,6 +1,6 @@
 {
   "$schema": "openclaw-team/skills-manifest@1",
-  "note": "Declarations only (option A). Skill bodies are NOT vendored. install.sh fetches from source; --vendor snapshots on demand. Entries with needs_source=true are unresolved and skipped.",
+  "note": "Declarations only (option A). Bodies are NOT vendored. install.sh fetches from source; --vendor snapshots. needs_source=true => unresolved, skipped.",
   "skills": [
     {
       "name": "antfu",
@@ -21,8 +21,7 @@
       ],
       "source": {
         "kind": "unknown",
-        "needs_source": true,
-        "hint": "usestrix / https://docs.strix.ai (verify repo)"
+        "needs_source": true
       }
     },
     {
@@ -55,8 +54,11 @@
         "claude"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/anthropics/skills",
+        "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
+        "path": "skills/canvas-design",
+        "verified": true
       }
     },
     {
@@ -150,9 +152,9 @@
         "agent:jobs"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true,
-        "hint": "https://daisyui.com/SKILL.md (verify upstream repo)"
+        "kind": "clawhub",
+        "ref": "@saadeghi/daisyui/daisyui",
+        "verified": true
       }
     },
     {
@@ -196,8 +198,11 @@
         "claude"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/anthropics/skills",
+        "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
+        "path": "skills/docx",
+        "verified": true
       }
     },
     {
@@ -230,8 +235,9 @@
         "codex"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "clawhub",
+        "ref": "@wpank/e2e-testing-patterns",
+        "self_declared": true
       }
     },
     {
@@ -240,8 +246,9 @@
         "agent:turing"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "clawhub",
+        "ref": "@wpank/e2e-testing-patterns",
+        "self_declared": true
       }
     },
     {
@@ -272,8 +279,11 @@
         "agent:jobs"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/mouse-lin/finesse-term",
+        "ref": "139200b884b761da9fca4cc3baaa3d58fd64107c",
+        "path": "skills/finesse-term",
+        "verified": true
       }
     },
     {
@@ -282,8 +292,11 @@
         "agent:jobs"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/mouse-lin/finesse-skill",
+        "ref": "5050b6c71e27b829d1b3087d2be889d29c60db00",
+        "path": "skills/finesse-ui",
+        "verified": true
       }
     },
     {
@@ -292,8 +305,11 @@
         "agent:jobs"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/mouse-lin/frame-smith",
+        "ref": "44b7e716971b46ab801f302d3ba34c5b61442e9f",
+        "path": "skills/frame-smith",
+        "verified": true
       }
     },
     {
@@ -409,8 +425,11 @@
         "agent:jobs"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/pbakaus/impeccable",
+        "ref": "778c8a7b71ccd5bfe3ca6ac68c15d9d872d0f87d",
+        "path": "skill",
+        "verified": true
       }
     },
     {
@@ -511,9 +530,9 @@
         "codex"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true,
-        "hint": "claude-night-market (verify repo)"
+        "kind": "clawhub",
+        "ref": "@athola/nm-parseltongue-python-testing",
+        "self_declared": true
       }
     },
     {
@@ -522,9 +541,9 @@
         "agent:turing"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true,
-        "hint": "claude-night-market (verify repo)"
+        "kind": "clawhub",
+        "ref": "@athola/nm-parseltongue-python-testing",
+        "self_declared": true
       }
     },
     {
@@ -650,8 +669,9 @@
         "agent:turing"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "clawhub",
+        "ref": "@kokxi/qa-api-testing",
+        "self_declared": true
       }
     },
     {
@@ -660,8 +680,9 @@
         "agent:turing"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "clawhub",
+        "ref": "@kokxi/qa-test-automation-arch",
+        "self_declared": true
       }
     },
     {
@@ -690,8 +711,9 @@
         "agent:turing"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "clawhub",
+        "ref": "@gitgoodordietrying/security-audit-toolkit",
+        "self_declared": true
       }
     },
     {
@@ -780,9 +802,9 @@
         "agent:assistant"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true,
-        "hint": "https://senseaudio.cn (verify repo)"
+        "kind": "clawhub",
+        "ref": "@scikkk/subtitle",
+        "self_declared": true
       }
     },
     {
@@ -791,8 +813,9 @@
         "agent:assistant"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "clawhub",
+        "ref": "@poltawa/subtitle-extractor",
+        "self_declared": true
       }
     },
     {
@@ -801,8 +824,11 @@
         "agent:jobs"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/Leonxlnx/taste-skill",
+        "ref": "b482f7a970abb98c4108d4a9f761e458c64cefc8",
+        "path": "skills/taste-skill",
+        "verified": true
       }
     },
     {
@@ -811,8 +837,11 @@
         "openclaw"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/tavily-ai/skills",
+        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
+        "path": "skills/tavily-best-practices",
+        "verified": true
       }
     },
     {
@@ -845,8 +874,11 @@
         "openclaw"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/tavily-ai/skills",
+        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
+        "path": "skills/tavily-crawl",
+        "verified": true
       }
     },
     {
@@ -903,8 +935,11 @@
         "openclaw"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/tavily-ai/skills",
+        "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
+        "path": "skills/tavily-map",
+        "verified": true
       }
     },
     {
@@ -1081,8 +1116,11 @@
         "agent:jobs"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+        "ref": "1a2c459b35f26116fd165b0a0f30597f252749ff",
+        "path": ".claude/skills/ui-ux-pro-max",
+        "verified": true
       }
     },
     {
@@ -1103,8 +1141,9 @@
         "agent:assistant"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "clawhub",
+        "ref": "@jingrongx/video-downloader-skill",
+        "self_declared": true
       }
     },
     {
@@ -1225,8 +1264,11 @@
         "claude"
       ],
       "source": {
-        "kind": "unknown",
-        "needs_source": true
+        "kind": "github",
+        "repo": "https://github.com/anthropics/skills",
+        "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
+        "path": "skills/xlsx",
+        "verified": true
       }
     }
   ]
