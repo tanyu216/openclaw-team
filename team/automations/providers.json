@@ -1,0 +1,8 @@
+{
+  "_comment": "Provider entry commands for the framework dispatcher (dispatch.mjs). The framework owns scheduling; a provider is only a *callee* behind the task-interface ACL. Placeholders: {team} = the deployed team dir (~/.openclaw/team), {agent} = the dispatch agent argument. These entries are provided by the base/team runtime; if a script is missing or fails, dispatch.mjs degrades to fire:false and never wakes a model. Override per job with OPENCLAW_TEAM_POLL_CMD / OPENCLAW_TEAM_PATROL_CMD / OPENCLAW_TEAM_CHECKALL_CMD. Select a provider with OPENCLAW_TEAM_TASK_PROVIDER (default: task-panel).",
+  "task-panel": {
+    "poll": "node {team}/scripts/poll.mjs {agent}",
+    "patrol": "node {team}/scripts/patrol-scan.mjs",
+    "checkAll": "bash {team}/scripts/check-all.sh"
+  }
+}

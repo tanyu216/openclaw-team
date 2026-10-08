@@ -1,17 +1,38 @@
 // automations.example.json5 — reference only. NOT auto-applied.
 //
-// Task polling belongs to the external `task-panel` project, whose installer
-// wires its own scheduled automations. Team-level schedules to consider:
+// Team-level SCHEDULING is owned by the framework (openclaw-team), NOT by any task
+// provider. `install.sh` registers the scheduled jobs and each trigger dispatches,
+// provider-agnostically, through the task-interface ACL:
 //
-//   - heartbeat (main): covered by agents.defaults.heartbeat in 20-defaults.json5
-//   - daily gate check:  run <team-dir>/scripts/check-all.sh once per day
+//     team/automations/dispatch.mjs <job> [agent]
 //
-// Register automations through the gateway UI or:
+// The provider is a *callee* behind the ACL: `task-panel` is the DEFAULT provider
+// (opt out with `./install.sh --no-task-panel`, then bring your own). Swap it with
+// OPENCLAW_TEAM_TASK_PROVIDER; per-job entry commands live in
+// team/automations/providers.json and are overridable via
+// OPENCLAW_TEAM_POLL_CMD / OPENCLAW_TEAM_PATROL_CMD / OPENCLAW_TEAM_CHECKALL_CMD.
+// See team/automations/README.md and team/guides/task-interface.md.
+//
+// Registered jobs (idempotent, by declarationKey; disable with --skip-automations):
+//
+//   poll-<agent>     every 1m   per built-in worker (jobs / linus / turing / assistant)
+//   task-patrol      every 5m   stale in_progress heartbeat scan
+//   team-check-all   hourly     cron "0 * * * *" @ Asia/Shanghai (gate patrol)
+//
+// Inspect / add by hand through the official CLI:
+//   openclaw automations list --json
 //   openclaw automations add --help
 {
+  // Reference shape only — install.sh generates the real jobs (with an absolute
+  // trigger-script path). Do NOT hand-edit sqlite/store.
   // automations: [
-  //   { id: "team-gate-check", schedule: "cron 0 9 * * * @ Asia/Shanghai",
-  //     target: "isolated", agentId: "main",
-  //     prompt: "Run ~/.openclaw/team/scripts/check-all.sh and report failures." },
+  //   { name: "task-patrol", agentId: "main", schedule: "every 5m",
+  //     target: "isolated",
+  //     trigger: "<inline JS → team/automations/dispatch.mjs patrol>",
+  //     prompt: "[openclaw-team] Recover stale in_progress cards (PROTOCOL recovery rules)." },
+  //   { name: "team-check-all", agentId: "main", schedule: "cron 0 * * * * @ Asia/Shanghai",
+  //     target: "isolated",
+  //     trigger: "<inline JS → team/automations/dispatch.mjs check-all>",
+  //     prompt: "[openclaw-team] Gate patrol failed — handle per PROTOCOL gates/archiving." },
   // ],
 }

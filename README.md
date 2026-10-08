@@ -49,11 +49,12 @@ Options:
 | `--force` | Overwrite existing skills / role files / team docs |
 | `--openclaw-home DIR` | OpenClaw home (default `~/.openclaw`) |
 | `--claude-home DIR` / `--codex-home DIR` | Claude Code / Codex home |
-| `--with-task-panel` | Install the reference task provider (task-panel) |
+| `--task-panel DIR` | Path to the task-panel source checkout |
+| `--with-task-panel` | Install the reference task provider (**task-panel is installed by default**) |
+| `--no-task-panel` | Opt out of task-panel; bring your own task system (Jira / Plane / Linear / …) via the `task-interface` ACL |
+| `--skip-automations` | Do not register the team-level scheduled jobs |
 | `--prototype <carrier>` | Prototype carrier: `static-html` \| `figma` \| `google-stitch` \| `pixso` (default `static-html`); recorded in `~/.openclaw/team/team.config.json` for Jobs/Linus |
 | `--keys` / `--skip-keys` | Force / skip the interactive API-key prompt (default: prompt only on a TTY) |
-| `--task-panel DIR` | Path to the task-panel source checkout |
-| `--no-task-panel` | Skip the task-provider step |
 | `--keep-existing` | Never overwrite existing files (skip instead of upgrade) |
 | `--skip-skills` `--skip-agents` `--skip-config` `--skip-team` | Skip a stage |
 | `--vendor` | Snapshot skills from their sources into `skills/vendor/` |
@@ -75,9 +76,17 @@ What the installer does (every stage is idempotent; existing items are skipped):
    agent already exists). An existing `USER.md` is **never** overwritten.
 5. **Config fragments** → `openclaw config patch --file config/*.json5`
    (anything under `config/examples/` is reference-only and not applied).
-6. **Task provider (ACL)** — reports any configured provider
-   (`OPENCLAW_TEAM_TASK_PROVIDER`). Installs the reference provider only with
-   `--with-task-panel`; otherwise prints how to bring your own.
+6. **Task provider (ACL)** — reports the configured provider
+   (`OPENCLAW_TEAM_TASK_PROVIDER`, default `task-panel`) and installs the
+   reference provider **task-panel by default**. `--no-task-panel` opts out and
+   prints how to bring your own (Jira / Plane / Linear / … via the `task-interface`
+   ACL).
+7. **Team automations (scheduling)** — registers the team-level scheduled jobs
+   (`poll-<agent>` every 1m, `task-patrol` every 5m, `team-check-all` hourly),
+   **idempotently** (by `declarationKey`) and **provider-agnostically**: each
+   trigger calls the framework dispatcher `team/automations/dispatch.mjs`, never a
+   provider literal. `--skip-automations` disables it. See
+   [Scheduling & team automations](#scheduling--team-automations).
 
 ### Upgrade / reinstall
 
@@ -129,23 +138,53 @@ until resolved. Provenance notes: [`skills/PROVENANCE.md`](skills/PROVENANCE.md)
 > vendored. All 90 declared skills resolve to verified upstreams (GitHub / ClawHub)
 > and are fetched at install time via `skills/fetch.mjs`.
 
-## Task system (pluggable, via ACL)
+## Task system & scheduling (pluggable, via ACL)
 
-Task management is **not bundled** and is **not a hard dependency**. The team
-talks to any task system through a small **ACL** contract
-(`team/guides/task-interface.md`): cards, atomic claim + heartbeat, a
-`ready → in_progress → in_review → done | failed` state machine,
-comments/process trail, and a parent/child + dependency DAG.
+**Ownership boundary**: `openclaw-team` owns the **scheduling** and the **ACL
+abstraction**; the task base (task-panel / Jira / Plane / …) is only a **callee**
+behind the ACL. The full contract is `team/guides/task-interface.md` (cards, atomic
+claim + heartbeat, the `ready → in_progress → in_review → done | failed` state
+machine, comments/process trail, and a parent/child + dependency DAG); this README
+does not restate it.
 
-- **Reference provider** — **task-panel** ships a task skill and a `taskctl` CLI.
-  Install it only if you want it:
-  `./install.sh --with-task-panel [--task-panel DIR]`.
-- **Bring your own** — Jira, Linear, Plane, GitHub Issues, a custom board, …:
-  install that system's connector skill/MCP yourself and point the team at it
-  with `OPENCLAW_TEAM_TASK_PROVIDER=<name>`.
-- **Out of scope** — connector skills/MCP for third-party task systems are not
-  part of this project; the repo ships only the ACL and the team-side
-  adaptation contract.
+- **Default provider — task-panel**: installed by default (task skill + `taskctl`
+  CLI). Opt out with `./install.sh --no-task-panel`; supply a source checkout with
+  `--task-panel DIR`.
+- **Bring your own / swap the base** — Jira, Linear, Plane, GitHub Issues, a custom
+  board, …: install that system's connector skill/MCP and point the team at it with
+  `OPENCLAW_TEAM_TASK_PROVIDER=<name>`. The upper layers (roles / SOP / jobs) change
+  **zero** because they depend only on the ACL; then run the ACL contract tests
+  (`task-interface.md §6`, `§12`).
+- **Out of scope** — connector skills/MCP for third-party task systems are not part
+  of this project; the repo ships only the ACL and the team-side adaptation contract.
+
+### Scheduling & team automations
+
+Team-level **scheduling is framework-owned and provider-agnostic** — it is *not*
+delegated to the task provider. `install.sh` registers three kinds of job
+(idempotently, by `declarationKey`; `--skip-automations` disables them):
+
+| Job | Schedule | Purpose |
+|---|---|---|
+| `poll-<agent>` | every 1m | per-worker board poll (jobs/linus/turing/assistant); fires only when a card is claimed |
+| `task-patrol` | every 5m | stale `in_progress` heartbeat scan |
+| `team-check-all` | hourly (`0 * * * *` @ Asia/Shanghai) | gate patrol; fires only on failure |
+
+Each trigger calls the framework dispatcher
+`team/automations/dispatch.mjs <poll|patrol|check-all> [agent]`, which resolves the
+provider's entry command (`team/automations/providers.json`; provider =
+`OPENCLAW_TEAM_TASK_PROVIDER`, default `task-panel`) and returns `{"fire":…}`. No
+trigger script contains a provider literal, so **swapping the base changes zero
+jobs**. A missing entry / failure / unparseable output ⇒ `fire:false` (zero cost).
+Details and ACL gaps: `team/automations/README.md`.
+
+### Extending roles
+
+The five built-in roles (elon / jobs / linus / turing / assistant) are the standard
+set; **roles beyond the five are defined by the user** — the framework does not
+hard-code an instance's extra roles (see [Roles](#roles)). Adding one means adding
+its workspace seed files and (optionally) a `poll-<agent>` automation; scheduling
+itself stays the framework's job.
 
 ## Repository layout
 
@@ -161,7 +200,8 @@ openclaw-team/
 │  ├─ agents/<agent>/        # per-agent workspace skills
 │  └─ PROVENANCE.md          # source + license manifest
 └─ team/                     # static docs deployed to ~/.openclaw/team/
-   ├─ PROTOCOL.md ROLES.md README.md
+   ├─ PROTOCOL.md ROLES.md README.md AUTOMATIONS.md
+   ├─ automations/           # framework dispatcher + provider entries (scheduling)
    └─ guides/
 ```
 
