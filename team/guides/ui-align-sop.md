@@ -80,6 +80,7 @@ Aligned with `PROTOCOL §⑨.1` "acceptance hard gate", landed as operable items
 5. **console / page errors = `[]`**; **no horizontal overflow** at all five widths.
 6. **Single writer per file**: the card explicitly declares the serial order (to prevent concurrent writes to the same file by two cards).
 7. (Reinforcement) **Elon personally views screenshots at final review**; the **UI card's Acceptance physically contains** "block list + machine-check assertions + screenshot comparison"; missing any one ⇒ must not be done.
+8. **Requirement conformance (Turing, independent)**: a **requirement→implementation traceability matrix** — every requirement/prototype block mapped to evidence (selector assertion / screenshot) — filed by Turing against Jobs' baseline; any conformance gap ⇒ not done (`PROTOCOL §⑥.1` clause 13).
 
 ---
 
@@ -145,7 +146,7 @@ Aligned with `PROTOCOL §⑨.1` "acceptance hard gate", landed as operable items
 | **Elon** | Check dirty-surface files before card splitting / create UI cards and attach the three Acceptance items / **personally view screenshots** at final review / approve "deviation rationales" / documentation-impact determination |
 | **Jobs** | Before: **structural contract** (full block list + machine-check points) / After: **visual screenshot comparison** certification + "Issue list" / maintain this file and the unified design style guide |
 | **Linus** | Implement per the contract / write the manifest and config / get the **during-stage assertions** to pass / self-prove before delivery (command + exit code) |
-| **Turing** | **Independently** re-run assertions / check the acceptance hard gate / screenshot comparison (same viewport × same theme × same language) |
+| **Turing** | **Independently** re-run assertions / check the acceptance hard gate / screenshot comparison (same viewport × same theme × same language) / **requirement-conformance verification** against Jobs' baseline (traceability matrix) |
 
 ---
 
