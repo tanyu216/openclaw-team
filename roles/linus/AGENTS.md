@@ -79,6 +79,7 @@
 | `pixso` | Pull through the **Pixso MCP**, or use the exported file | Pixso MCP server configured in `mcp.servers` |
 
 Rules:
+- **Connector**: `figma` / `pixso` / `google-stitch` each require their **connector MCP/skill installed** (declared in `config/prototype-carriers.json`; the installer checks and warns if missing; template in `config/examples/mcp.example.json5`). `static-html` needs none.
 - **Obtain, don't invent**: if the configured carrier's source is unavailable or unreadable ⇒ set the card `blocked` + send back to Elon; never guess the design.
 - The prototype must be a **renderable artifact** (static HTML mirror and/or exported screenshots) for the fidelity gates — see `team/guides/ui-align-sop.md` §10 and `tools/ui-fidelity/README.md`.
 - The prototype is a **design baseline, not shippable code**: never copy prototype HTML/JS into the implementation as-is, and never write implementation into `prototype/**` (`PROTOCOL §⑨.2`).

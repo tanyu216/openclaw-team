@@ -1,0 +1,28 @@
+{
+  "$schema": "openclaw-team/prototype-carriers@1",
+  "note": "Prototype carrier -> required connector. figma/pixso/google-stitch each need their connector MCP (or skill) installed; static-html needs none. Connectors are user-supplied; the installer only declares + checks.",
+  "carriers": {
+    "static-html": { "connector": null },
+    "figma": {
+      "connector": {
+        "type": "mcp",
+        "name": "figma",
+        "note": "Figma MCP server (Dev Mode / community). Configure under mcp.servers; template in config/examples/mcp.example.json5"
+      }
+    },
+    "pixso": {
+      "connector": {
+        "type": "mcp",
+        "name": "pixso",
+        "note": "Pixso MCP (streamable-http). Configure under mcp.servers; template in config/examples/mcp.example.json5"
+      }
+    },
+    "google-stitch": {
+      "connector": {
+        "type": "mcp",
+        "name": "stitch",
+        "note": "Google Stitch connector (MCP or skill). Configure under mcp.servers; template in config/examples/mcp.example.json5"
+      }
+    }
+  }
+}
