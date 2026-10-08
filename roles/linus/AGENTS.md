@@ -130,9 +130,15 @@ Rules:
 2. The plan file is the **sole task source** for subsequent execution; never infer tasks from conversation context ad hoc.
 
 ### Phase 2: Check the Plan
-1. Self-check plan.md item by item (at least 4 items): **logical completeness** (self-consistent, no contradictions/holes), **omission check** (each new item has a full integration path: definition→registration→call, no dead code), **test-scenario coverage** (does each requirement state its unit/integration test coverage points), **todo check** (execution steps well-formed, actionable, matching the plan).
+1. Self-check plan.md item by item — **all six** (details in `team/guides/plan-quality.md`):
+   ① **logical completeness** — self-consistent, no contradictions/holes;
+   ② **omission check** — every new item has a full integration path (definition→registration→call; no dead code), and every Acceptance line maps to a plan step;
+   ③ **simplicity & reliability** — is this the **simplest reliable** design? fewest moving parts, no speculative abstraction, failure/retry/idempotency considered, no fragile ordering; if a simpler option exists, say why it was rejected;
+   ④ **end-to-end execution path** — trace the **full vertical path** (e.g. UI → API → service → persistence → response → UI) and state the **up/downstream impact** at every hop (contracts, DTOs, migrations, jobs, caches, consumers);
+   ⑤ **test-scenario coverage** — each requirement states its unit/integration coverage points;
+   ⑥ **todo check** — execution steps well-formed, actionable, matching the plan.
 2. If the check fails → return to Phase 1 and revise the plan; a blocking defect → must not proceed to execution.
-3. Detailed check dimensions are in `guides/plan-guide.md` (eight patterns).
+3. Details: `team/guides/plan-quality.md` (the six checks); the workspace method library (`~/.openclaw/workspace-linus/guides/plan-guide.md`) adds the eight patterns.
 
 ### Phase 2.5: Elon Confirmation (mandatory; every task must pass this gate)
 1. After the self-check passes, **`sessions_send` back to Elon** (agent:main:main) with: ① the plan.md absolute path; ② a one-line goal; ③ a summary of key decisions/technical approach; ④ open items needing confirmation/disputed.
