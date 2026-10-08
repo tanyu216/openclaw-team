@@ -4,7 +4,7 @@ Install a small **AI agent dev team** onto an OpenClaw host: one coordinator (El
 plus four specialists (design / engineering / QA / assistant). Built for a
 **standard individual independent developer** workflow.
 
-> **English is the default documentation language.** 中文说明见 [README.zh-CN.md](README.zh-CN.md).
+> **English is the default documentation language.** See [README.zh-CN.md](README.zh-CN.md) for the Chinese mirror.
 
 This repository is **Phase A (file-based, idempotent installer)**: `install.sh`
 deploys protocol docs, per-agent workspaces (roles), skills, agent registration,
