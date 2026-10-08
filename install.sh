@@ -26,6 +26,8 @@
 #   --with-task-panel      Install the reference task provider (task-panel)
 #   --task-panel DIR       Path to the task-panel source checkout
 #   --no-task-panel        Skip the task-provider step entirely
+#   --vendor               Snapshot skills from source into skills/vendor/
+#   --offline              Install skills from skills/vendor/ (no network)
 #   --skip-skills          Skip all skill installation
 #   --skip-claude-skills   Skip Claude Code skills
 #   --skip-codex-skills    Skip Codex skills
@@ -56,6 +58,8 @@ DO_CODEX_SKILLS=1
 DO_AGENTS=1
 DO_CONFIG=1
 DO_TASKS=1
+VENDOR=0
+OFFLINE=0
 
 WARNINGS=0
 STEPS=0
@@ -82,6 +86,8 @@ while [ "$#" -gt 0 ]; do
     --with-task-panel) WITH_TASK_PANEL=1 ;;
     --no-task-panel) DO_TASKS=0 ;;
     --skip-skills) DO_SKILLS=0 ;;
+    --vendor) VENDOR=1 ;;
+    --offline) OFFLINE=1 ;;
     --skip-claude-skills) DO_CLAUDE_SKILLS=0 ;;
     --skip-codex-skills) DO_CODEX_SKILLS=0 ;;
     --skip-agents) DO_AGENTS=0 ;;
@@ -187,20 +193,25 @@ if [ "$DO_TEAM" = 1 ]; then
   info "protocol: $TEAM_DIR/PROTOCOL.md"
 fi
 
-# ---- 2. skills --------------------------------------------------------------
+# ---- 2. skills (declared sources; option A) ---------------------------------
 if [ "$DO_SKILLS" = 1 ]; then
-  install_skills "openclaw global" "$REPO/skills/openclaw" "$OPENCLAW_HOME/skills"
-  if [ "$DO_CLAUDE_SKILLS" = 1 ]; then
-    install_skills "claude code" "$REPO/skills/claude" "$CLAUDE_HOME/skills"
+  if [ -f "$REPO/skills/manifest.json" ]; then
+    step "skills (declared sources)"
+    sargs=(--openclaw-home "$OPENCLAW_HOME" --claude-home "$CLAUDE_HOME" --codex-home "$CODEX_HOME")
+    [ "$DRY_RUN" = 1 ] && sargs+=(--dry-run)
+    [ "$FORCE" = 1 ] && sargs+=(--force)
+    [ "$VENDOR" = 1 ] && sargs+=(--vendor)
+    [ "$OFFLINE" = 1 ] && sargs+=(--offline)
+    node "$REPO/skills/fetch.mjs" "${sargs[@]}" || warn "some skills failed to fetch (see above)"
+  else
+    warn "skills/manifest.json missing — falling back to vendored copies"
+    install_skills "openclaw global" "$REPO/skills/openclaw" "$OPENCLAW_HOME/skills"
+    [ "$DO_CLAUDE_SKILLS" = 1 ] && install_skills "claude code" "$REPO/skills/claude" "$CLAUDE_HOME/skills"
+    [ "$DO_CODEX_SKILLS" = 1 ] && install_skills "codex" "$REPO/skills/codex" "$CODEX_HOME/skills"
+    for a in jobs linus turing assistant; do
+      install_skills "agent:$a" "$REPO/skills/agents/$a" "$OPENCLAW_HOME/workspace-$a/skills"
+    done
   fi
-  if [ "$DO_CODEX_SKILLS" = 1 ]; then
-    install_skills "codex" "$REPO/skills/codex" "$CODEX_HOME/skills"
-  fi
-  i=0
-  for a in jobs linus turing assistant; do
-    install_skills "agent:$a" "$REPO/skills/agents/$a" "$OPENCLAW_HOME/workspace-$a/skills"
-    i=$((i+1))
-  done
 fi
 
 # ---- 3. agents + roles ------------------------------------------------------
