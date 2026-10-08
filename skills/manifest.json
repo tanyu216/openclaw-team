@@ -239,6 +239,162 @@
       }
     },
     {
+      "name": "gitnexus-cli",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/abhigyanpatwari/GitNexus",
+        "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+        "path": "gitnexus-claude-plugin/skills/gitnexus-cli",
+        "verified": true
+      }
+    },
+    {
+      "name": "gitnexus-debugging",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/abhigyanpatwari/GitNexus",
+        "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+        "path": "gitnexus-claude-plugin/skills/gitnexus-debugging",
+        "verified": true
+      }
+    },
+    {
+      "name": "gitnexus-exploring",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/abhigyanpatwari/GitNexus",
+        "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+        "path": "gitnexus-claude-plugin/skills/gitnexus-exploring",
+        "verified": true
+      }
+    },
+    {
+      "name": "gitnexus-guide",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/abhigyanpatwari/GitNexus",
+        "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+        "path": "gitnexus-claude-plugin/skills/gitnexus-guide",
+        "verified": true
+      }
+    },
+    {
+      "name": "gitnexus-impact-analysis",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/abhigyanpatwari/GitNexus",
+        "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+        "path": "gitnexus-claude-plugin/skills/gitnexus-impact-analysis",
+        "verified": true
+      }
+    },
+    {
+      "name": "gitnexus-lfg",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/abhigyanpatwari/GitNexus",
+        "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+        "path": "gitnexus-claude-plugin/skills/gitnexus-lfg",
+        "verified": true
+      }
+    },
+    {
+      "name": "gitnexus-pdg-query",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/abhigyanpatwari/GitNexus",
+        "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+        "path": "gitnexus-claude-plugin/skills/gitnexus-pdg-query",
+        "verified": true
+      }
+    },
+    {
+      "name": "gitnexus-plan",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/abhigyanpatwari/GitNexus",
+        "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+        "path": "gitnexus-claude-plugin/skills/gitnexus-plan",
+        "verified": true
+      }
+    },
+    {
+      "name": "gitnexus-refactoring",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/abhigyanpatwari/GitNexus",
+        "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+        "path": "gitnexus-claude-plugin/skills/gitnexus-refactoring",
+        "verified": true
+      }
+    },
+    {
+      "name": "gitnexus-review",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/abhigyanpatwari/GitNexus",
+        "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+        "path": "gitnexus-claude-plugin/skills/gitnexus-review",
+        "verified": true
+      }
+    },
+    {
+      "name": "gitnexus-taint-analysis",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/abhigyanpatwari/GitNexus",
+        "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+        "path": "gitnexus-claude-plugin/skills/gitnexus-taint-analysis",
+        "verified": true
+      }
+    },
+    {
+      "name": "gitnexus-work",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/abhigyanpatwari/GitNexus",
+        "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+        "path": "gitnexus-claude-plugin/skills/gitnexus-work",
+        "verified": true
+      }
+    },
+    {
       "name": "grill-with-docs",
       "targets": [
         "claude",
@@ -382,6 +538,32 @@
         "repo": "https://github.com/antfu/skills",
         "ref": "e53a142a2420e8cd812cfe9ed0484ab01bc856aa",
         "path": "nuxt"
+      }
+    },
+    {
+      "name": "open-code-review",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/alibaba/open-code-review",
+        "ref": "fabbdb296b0d97e2140ada8d54ca7d6d6d1d7ad4",
+        "path": "skills/open-code-review",
+        "verified": true
+      }
+    },
+    {
+      "name": "open-code-review-delegate",
+      "targets": [
+        "openclaw"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/alibaba/open-code-review",
+        "ref": "fabbdb296b0d97e2140ada8d54ca7d6d6d1d7ad4",
+        "path": "skills/open-code-review-delegate",
+        "verified": true
       }
     },
     {
