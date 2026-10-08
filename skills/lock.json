@@ -244,6 +244,126 @@
       "resolved": true
     },
     {
+      "name": "gitnexus-cli",
+      "targets": [
+        "openclaw"
+      ],
+      "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+      "repo": "https://github.com/abhigyanpatwari/GitNexus",
+      "tree_sha256": [],
+      "resolved": true
+    },
+    {
+      "name": "gitnexus-debugging",
+      "targets": [
+        "openclaw"
+      ],
+      "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+      "repo": "https://github.com/abhigyanpatwari/GitNexus",
+      "tree_sha256": [],
+      "resolved": true
+    },
+    {
+      "name": "gitnexus-exploring",
+      "targets": [
+        "openclaw"
+      ],
+      "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+      "repo": "https://github.com/abhigyanpatwari/GitNexus",
+      "tree_sha256": [],
+      "resolved": true
+    },
+    {
+      "name": "gitnexus-guide",
+      "targets": [
+        "openclaw"
+      ],
+      "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+      "repo": "https://github.com/abhigyanpatwari/GitNexus",
+      "tree_sha256": [],
+      "resolved": true
+    },
+    {
+      "name": "gitnexus-impact-analysis",
+      "targets": [
+        "openclaw"
+      ],
+      "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+      "repo": "https://github.com/abhigyanpatwari/GitNexus",
+      "tree_sha256": [],
+      "resolved": true
+    },
+    {
+      "name": "gitnexus-lfg",
+      "targets": [
+        "openclaw"
+      ],
+      "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+      "repo": "https://github.com/abhigyanpatwari/GitNexus",
+      "tree_sha256": [],
+      "resolved": true
+    },
+    {
+      "name": "gitnexus-pdg-query",
+      "targets": [
+        "openclaw"
+      ],
+      "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+      "repo": "https://github.com/abhigyanpatwari/GitNexus",
+      "tree_sha256": [],
+      "resolved": true
+    },
+    {
+      "name": "gitnexus-plan",
+      "targets": [
+        "openclaw"
+      ],
+      "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+      "repo": "https://github.com/abhigyanpatwari/GitNexus",
+      "tree_sha256": [],
+      "resolved": true
+    },
+    {
+      "name": "gitnexus-refactoring",
+      "targets": [
+        "openclaw"
+      ],
+      "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+      "repo": "https://github.com/abhigyanpatwari/GitNexus",
+      "tree_sha256": [],
+      "resolved": true
+    },
+    {
+      "name": "gitnexus-review",
+      "targets": [
+        "openclaw"
+      ],
+      "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+      "repo": "https://github.com/abhigyanpatwari/GitNexus",
+      "tree_sha256": [],
+      "resolved": true
+    },
+    {
+      "name": "gitnexus-taint-analysis",
+      "targets": [
+        "openclaw"
+      ],
+      "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+      "repo": "https://github.com/abhigyanpatwari/GitNexus",
+      "tree_sha256": [],
+      "resolved": true
+    },
+    {
+      "name": "gitnexus-work",
+      "targets": [
+        "openclaw"
+      ],
+      "ref": "ff922c0a3b0cfc997dfd5b0d35f0c60955f1dc6c",
+      "repo": "https://github.com/abhigyanpatwari/GitNexus",
+      "tree_sha256": [],
+      "resolved": true
+    },
+    {
       "name": "grill-with-docs",
       "targets": [
         "claude",
@@ -394,6 +514,26 @@
       "tree_sha256": [
         "sha256:f10beafaaa4abe92e89ed4cee5f66cea69a569e4fdb33c98e13807ad5c19039b"
       ],
+      "resolved": true
+    },
+    {
+      "name": "open-code-review",
+      "targets": [
+        "openclaw"
+      ],
+      "ref": "fabbdb296b0d97e2140ada8d54ca7d6d6d1d7ad4",
+      "repo": "https://github.com/alibaba/open-code-review",
+      "tree_sha256": [],
+      "resolved": true
+    },
+    {
+      "name": "open-code-review-delegate",
+      "targets": [
+        "openclaw"
+      ],
+      "ref": "fabbdb296b0d97e2140ada8d54ca7d6d6d1d7ad4",
+      "repo": "https://github.com/alibaba/open-code-review",
+      "tree_sha256": [],
       "resolved": true
     },
     {
