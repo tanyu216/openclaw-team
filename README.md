@@ -45,8 +45,9 @@ Options:
 | `--force` | Overwrite existing skills / role files / team docs |
 | `--openclaw-home DIR` | OpenClaw home (default `~/.openclaw`) |
 | `--claude-home DIR` / `--codex-home DIR` | Claude Code / Codex home |
+| `--with-task-panel` | Install the reference task provider (task-panel) |
 | `--task-panel DIR` | Path to the task-panel source checkout |
-| `--no-task-panel` | Skip the task-panel check/install |
+| `--no-task-panel` | Skip the task-provider step |
 | `--skip-skills` `--skip-agents` `--skip-config` `--skip-team` | Skip a stage |
 
 What the installer does (every stage is idempotent; existing items are skipped):
@@ -61,8 +62,9 @@ What the installer does (every stage is idempotent; existing items are skipped):
    agent already exists). An existing `USER.md` is **never** overwritten.
 5. **Config fragments** → `openclaw config patch --file config/*.json5`
    (anything under `config/examples/` is reference-only and not applied).
-6. **task-panel dependency** — checks `~/.openclaw/skills/task-panel`; if missing,
-   runs its `install.sh --target openclaw`.
+6. **Task provider (ACL)** — reports any configured provider
+   (`OPENCLAW_TEAM_TASK_PROVIDER`). Installs the reference provider only with
+   `--with-task-panel`; otherwise prints how to bring your own.
 
 ### Skill install targets
 
@@ -75,18 +77,23 @@ What the installer does (every stage is idempotent; existing items are skipped):
 
 Skill provenance and licenses: [`skills/PROVENANCE.md`](skills/PROVENANCE.md).
 
-## Dependency: task-panel
+## Task system (pluggable, via ACL)
 
-Task management is not bundled here — the team consumes the external
-**task-panel** project (local board + agent claim/heartbeat/dependency tree). The
-installer checks for it and installs it into OpenClaw when missing:
+Task management is **not bundled** and is **not a hard dependency**. The team
+talks to any task system through a small **ACL** contract
+(`team/guides/task-interface.md`): cards, atomic claim + heartbeat, a
+`ready → in_progress → in_review → done | failed` state machine,
+comments/process trail, and a parent/child + dependency DAG.
 
-```bash
-./install.sh --task-panel ~/Documents/task-panel   # explicit source
-```
-
-If no source is found it warns with clone instructions. task-panel provides the
-team's task skill; this repo no longer ships the legacy `task-ops`.
+- **Reference provider** — **task-panel** ships a task skill and a `taskctl` CLI.
+  Install it only if you want it:
+  `./install.sh --with-task-panel [--task-panel DIR]`.
+- **Bring your own** — Jira, Linear, Plane, GitHub Issues, a custom board, …:
+  install that system's connector skill/MCP yourself and point the team at it
+  with `OPENCLAW_TEAM_TASK_PROVIDER=<name>`.
+- **Out of scope** — connector skills/MCP for third-party task systems are not
+  part of this project; the repo ships only the ACL and the team-side
+  adaptation contract.
 
 ## Repository layout
 
