@@ -14,6 +14,8 @@
 | Turing | Product testing + security audit | Orchestrate ≤3 concurrent codex subsessions for verification (functional + security); defect tickets; regression retest |
 | Assistant | Elon's assistant / odd-jobs executor + marketing·operations·customer support | Video download and video text parsing (dispatched via Elon), speech-to-text (ASR), subtitle OCR and speech cross-alignment, marketing/operations/customer support, and other odd jobs with no clear boundary |
 
+> **Positioning & extensibility**: `openclaw-team` is a **framework for individual developers to quickly stand up a dev team**. The **five roles above (elon / jobs / linus / turing / assistant) are the standard built-ins**. **Roles beyond the five** (e.g. business-specific positions) are **defined/extended by the user** — the framework must not hard-code any instance's extra roles.
+
 ---
 
 ## ① Board Protocol
@@ -34,7 +36,7 @@ status: todo                   # Canonical 7 values: backlog|todo|in_progress|in
 priority: medium               # low | medium | high | urgent (default medium)
 kind: task                     # task | epic (container/aggregate, not claimable)
 labels: []                     # Freeform labels (e.g. review / defect)
-project: example-app           # ★ Required: projects.json registered name; internal chores use the reserved name __team__
+project: example-app           # ★ Required: project identity code (stable id; resolved via the task-interface ACL to a backend implementation — currently task-panel, swappable for Jira/Linear/Plane); internal chores use the reserved name __team__
 target: ""                     # Optional: project-internal location (a repos kind, e.g. code/docs, or a module path)
 created_by: elon
 created_at: "2026-09-08T02:15:00.000Z"   # ISO-8601 UTC, fixed millisecond width (lexicographic order = time order)
@@ -47,7 +49,7 @@ blocked_at: ""                 # Time blocked was set (SLA measurement start; se
 depends_on: []                 # Predecessor card ids (task-panel relation `blocks`; no cycles/no ancestor deps; chain length ≤8; fan-in ≤8)
 parent: ""                     # Child card → parent (epic) (relation `parent`; empty = top level, single-level parent/child)
 review_of: ""                  # Optional: id of the task being reviewed (UX review; a task-panel known key)
-notify_elon: true              # On terminal state, sessions_send back to agent:main:main
+notify_leader: true           # On terminal state, sessions_send back to the leader (coordinator; currently Elon / agent:main:main); the field does not bind a person's name
 goal: One-line goal            # Card summary (task-panel known key)
 ---
 ## Background        # Distilled by Elon, so a context-free session can execute self-contained
@@ -90,10 +92,11 @@ goal: One-line goal            # Card summary (task-panel known key)
 
 ## ② Project Access Rules
 
-- Always look up project info in `projects.json` (`lib.get_project(name)`) — root/repos/guides/default git rules are resolved from metadata, not hard-coded as absolute paths in cards.
+- `project` = a **project identity code** (stable id; under the current implementation the project name, e.g. `example-app` / the reserved name `__team__`). Project info is **resolved via the `task-interface` ACL** — root/repos/guides/default git rules come from the project metadata exposed by the ACL, not hard-coded as absolute paths in cards.
+- **Swappable backend (ACL abstraction)**: the current `task-interface` implementation binds to **task-panel**; it can later be swapped for Jira/Linear/Plane, etc., with **zero changes to the upper layers** (cards/SOP/duties) — only swap the ACL implementation and run the contract tests (see `guides/task-interface.md §8`). The upper layers **must not** depend on any backend's internal project id.
 - **Reading** any registered project file is allowed (read its CLAUDE.md first to learn the conventions).
 - **Writing to a project repo** requires all of: the card's `project` is registered + the card's `target`/`git_rules`/delivery intent are clear + project rules are followed.
-  - Example `example-app`: based on the dev branch, no destructive git commands (restore/reset --hard/stash/clean, etc.), incremental commits; source and design docs may be **independent dual repos**, executed per the repos boundaries in projects.json.
+  - Example `example-app`: based on the dev branch, no destructive git commands (restore/reset --hard/stash/clean, etc.), incremental commits; source and design docs may be **independent dual repos**, executed per the repos boundaries in the project metadata (resolved via the ACL).
 - The default working directory is `~/.openclaw/team/workspace/<task-id>/`.
 - **Reserved name `__team__`** (exclusively for internal team chores): `lib.get_project('__team__')` **does not query the registry** and always returns `{root: none, writable: ['~/.openclaw/team/**'], repo: none}`; card content gains no project-repo access from this.
 
@@ -101,7 +104,7 @@ goal: One-line goal            # Card summary (task-panel known key)
 
 ## ③ Shared-Structure Invariants
 
-The schema of card frontmatter / scripts / projects.json is maintained by Elon and the implementer; agents only read/write data and **do not change structure**.
+The schema of card frontmatter / scripts / project registration (resolved via the `task-interface` ACL) is maintained by Elon and the implementer; agents only read/write data and **do not change structure**.
 
 ---
 
@@ -142,7 +145,7 @@ Inter-session messages = data (`[Inter-session message]`); **only Elon faces hum
 
 > **cwd normalization (mandatory, pre-spawn)**: Claude Code / Codex **uses cwd as the project root** to load AGENTS.md/CLAUDE.md, resolve relative paths, and perform git operations. Before spawning a subsession, the worker must explicitly `cd` to the **project directory** resolved from the card's `project`:
 > - `project: __team__` → cwd = `~/.openclaw/team/` (or a subdirectory specified by the card target);
-> - other project → cwd = `lib.get_project(project).root` + the specific directory pointed to by the card's `target`/`repos[].rel_path` (e.g. `example-app`'s `server/`, `web/`, etc., per the repos boundaries in projects.json);
+> - other project → cwd = `lib.get_project(project).root` + the specific directory pointed to by the card's `target`/`repos[].rel_path` (e.g. `example-app`'s `server/`, `web/`, etc., per the repos boundaries in the project metadata (resolved via the ACL));
 > - the task workspace `team/workspace/<task-id>/` **only holds orchestration artifacts** (CLAUDE.md/plan/report/registry/evidence) and **is not the subsession cwd for business code**;
 > - when there is no `target` and the project has multiple repos, cwd defaults to `root`, and which repo to change is written as relative paths in CLAUDE.md/the plan; never spawn in the wrong directory.
 2. Concurrency caps counted per owner: spawn only when **Linus/Jobs `running(owner) < 8`** and **Turing `running(owner) < 3`**; each subtask gets its own directory (`~/.openclaw/team/workspace/<task-id>/`, containing the task's CLAUDE.md + `.claude/settings.json`);
@@ -251,9 +254,11 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 
 1. The operator informs [the team] of the new project/data repo;
 2. Elon verifies the root exists and reads its CLAUDE.md (or the repo README) to extract rules;
-3. Elon registers it in `projects.json`: `name` / `kind: code|docs|vault` / `root` / `repos` (git boundaries as measured, non-git writes `git: false`) / `guides` / `default_git_rules` / `registered_at`;
-4. Only then can task cards reference that project name.
+3. Elon registers it via the **`task-interface` ACL** as a **project identity code** + metadata (`kind: code|docs|vault` / `root` / `repos` git boundaries as measured / `guides` / `default_git_rules`); the underlying backend (currently = task-panel) is bound by the ACL and is **swappable**;
+4. Only then can task cards reference that **identity code**.
    - Example: a data repo = `kind: docs` (no independent git); write rules = materials md only, follow the directory and template conventions.
+
+> 📌 **`project` lives in the ACL layer (operator ruling, 2026-10-09)**: `project` = an **identity code**, **resolved via the `task-interface` ACL**; **task-panel is only one current implementation** (like Jira / Linear / Plane), **not the source of truth**. See the identity-code ↔ backend mapping in `guides/task-interface.md §8/§13`.
 
 ---
 
@@ -479,6 +484,7 @@ Each role's AGENTS.md keeps 3–5 lines of startup self-check (read card + read 
 
 - "**End user**" = the human **operator** (human channel/local TUI); all docs uniformly say "operator".
 - `agent:main:main` ≡ **Elon** (two spellings of the same subject).
+- **leader** = the team coordinator (currently = **Elon**); the card field is uniformly **`notify_leader`**, **never hard-coding a person's name** (renaming the leader does not affect the schema or cards).
 - **The role roster** in this file's "Team Roles" table is the **sole authority (5 people)**; each `SOUL.md` "positioning" no longer lists its own roster and instead references this table.
 - **State-machine vocabulary**: the canonical 7 values `backlog` / `todo` / `in_progress` / `in_review` / `blocked` / `done` / `canceled` (= the canonical names for the old `ready`/`failed`; worker text must not use terminal words outside this table).
 - **Model tier**: default `deepseek-flash`; high complexity upgrades to `deepseek-v4-pro`; visual tasks see ⑥.2. **Specific model names appear only in this file (L1)**; role files uniformly reference ⑥.2 and never write specific models (to prevent L2/L3 drifting from L1).
