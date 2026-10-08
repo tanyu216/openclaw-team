@@ -1,6 +1,5 @@
 {
   "$schema": "openclaw-team/skills-lock@1",
-  "generated_from": "local verified evidence",
   "skills": {
     "antfu": {
       "targets": [
@@ -31,8 +30,10 @@
       "targets": [
         "claude"
       ],
+      "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
+      "version": null,
       "tree_sha256": "sha256:b958beb4e89a524215b7a5b5f2aa3e0d8b49ba516b74b5fcd704b1d48addad67",
-      "resolved": false
+      "resolved": true
     },
     "claude-handoff": {
       "targets": [
@@ -66,8 +67,10 @@
         "claude",
         "agent:jobs"
       ],
+      "ref": "@saadeghi/daisyui/daisyui",
+      "version": null,
       "tree_sha256": "sha256:c3699c095bfc77d88d3f2e41dc5ab7d9c27eb251c66fac6985712f310a1099b9",
-      "resolved": false
+      "resolved": true
     },
     "diagnosing-bugs": {
       "targets": [
@@ -91,8 +94,10 @@
       "targets": [
         "claude"
       ],
+      "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
+      "version": null,
       "tree_sha256": "sha256:2ef8f47d0ef992fc0042b4137f2df1baf402b78c76b76a9c94c130bd5efda0bb",
-      "resolved": false
+      "resolved": true
     },
     "domain-modeling": {
       "targets": [
@@ -107,8 +112,10 @@
       "targets": [
         "agent:turing"
       ],
+      "ref": "@wpank/e2e-testing-patterns",
+      "version": null,
       "tree_sha256": "sha256:c8ff2e7e01e68576807ee65d484342db1ca18e9854bb88451967e36e374e73b6",
-      "resolved": false
+      "resolved": true
     },
     "excel-xlsx": {
       "targets": [
@@ -132,22 +139,28 @@
       "targets": [
         "agent:jobs"
       ],
+      "ref": "139200b884b761da9fca4cc3baaa3d58fd64107c",
+      "version": null,
       "tree_sha256": "sha256:12ded1e5cc31378df368d9ff615656f84498d11101aae5d55faaa15f507cdee7",
-      "resolved": false
+      "resolved": true
     },
     "finesse-ui": {
       "targets": [
         "agent:jobs"
       ],
+      "ref": "5050b6c71e27b829d1b3087d2be889d29c60db00",
+      "version": null,
       "tree_sha256": "sha256:142b22e9a4eeed3a56d8d4bea504324a0d4695dc0eb3da38ec829913273526a0",
-      "resolved": false
+      "resolved": true
     },
     "frame-smith": {
       "targets": [
         "agent:jobs"
       ],
+      "ref": "44b7e716971b46ab801f302d3ba34c5b61442e9f",
+      "version": null,
       "tree_sha256": "sha256:d6326487398a662eb12484aa820a86eb87bdec3eb042cd1bce74701b66da392b",
-      "resolved": false
+      "resolved": true
     },
     "git-guardrails-claude-code": {
       "targets": [
@@ -198,8 +211,10 @@
       "targets": [
         "agent:jobs"
       ],
+      "ref": "778c8a7b71ccd5bfe3ca6ac68c15d9d872d0f87d",
+      "version": null,
       "tree_sha256": "sha256:7b1415cf0b64ce00463a6c75a1ed6aef2afb6a0c2e689fb7b7afef0cb7577625",
-      "resolved": false
+      "resolved": true
     },
     "implement": {
       "targets": [
@@ -246,8 +261,10 @@
       "targets": [
         "agent:turing"
       ],
+      "ref": "@athola/nm-parseltongue-python-testing",
+      "version": null,
       "tree_sha256": "sha256:5943c7f643216e9b98ebea9445883d2e5f02a430a0fa9a510ba9b31ef335cb13",
-      "resolved": false
+      "resolved": true
     },
     "nuxt": {
       "targets": [
@@ -316,15 +333,19 @@
       "targets": [
         "agent:turing"
       ],
+      "ref": "@kokxi/qa-api-testing",
+      "version": null,
       "tree_sha256": "sha256:20ebcc003070d38cb890920618e1ecb5ab112f29d0339f6af6f3038ecb220c14",
-      "resolved": false
+      "resolved": true
     },
     "qa-test-automation-arch": {
       "targets": [
         "agent:turing"
       ],
+      "ref": "@kokxi/qa-test-automation-arch",
+      "version": null,
       "tree_sha256": "sha256:65a6c6195d7c10eb171c53239bc50e3382a96915c91e24a4d20d1cde679ad03e",
-      "resolved": false
+      "resolved": true
     },
     "research": {
       "targets": [
@@ -344,8 +365,10 @@
       "targets": [
         "agent:turing"
       ],
+      "ref": "@gitgoodordietrying/security-audit-toolkit",
+      "version": null,
       "tree_sha256": "sha256:8967201b3d3a793ab1bc49c37072c0a2ab569ee823c043cb650a61ad56f18d8d",
-      "resolved": false
+      "resolved": true
     },
     "setup-matt-pocock-skills": {
       "targets": [
@@ -394,29 +417,37 @@
       "targets": [
         "agent:assistant"
       ],
+      "ref": "@scikkk/subtitle",
+      "version": null,
       "tree_sha256": "sha256:58fdc6196d5c55e310316592dfdc382897ba5cd02888ccdb3849f5b09c973dff",
-      "resolved": false
+      "resolved": true
     },
     "subtitle-extractor": {
       "targets": [
         "agent:assistant"
       ],
+      "ref": "@poltawa/subtitle-extractor",
+      "version": null,
       "tree_sha256": "sha256:d5056337ae790dc48efd16c6985bb36d5c8ec1a0bf96f08a3405ec777021e7fb",
-      "resolved": false
+      "resolved": true
     },
     "taste-skill": {
       "targets": [
         "agent:jobs"
       ],
+      "ref": "b482f7a970abb98c4108d4a9f761e458c64cefc8",
+      "version": null,
       "tree_sha256": "sha256:3e9093443477cbb4d3cde4bbdf027cc0c0f52487aa04bb385f760862c4ca0aab",
-      "resolved": false
+      "resolved": true
     },
     "tavily-best-practices": {
       "targets": [
         "openclaw"
       ],
+      "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
+      "version": null,
       "tree_sha256": "sha256:4d322abac21e9b286e432c9bd1c19aeba0cfd527ecf948f8cc592119b48afc5e",
-      "resolved": false
+      "resolved": true
     },
     "tavily-cli": {
       "targets": [
@@ -431,8 +462,10 @@
       "targets": [
         "openclaw"
       ],
+      "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
+      "version": null,
       "tree_sha256": "sha256:1987f09953dcc1a175a9f7c9d696a62d62093a637e1a6334ec3f1ffa18144507",
-      "resolved": false
+      "resolved": true
     },
     "tavily-dynamic-search": {
       "targets": [
@@ -456,8 +489,10 @@
       "targets": [
         "openclaw"
       ],
+      "ref": "778122e5f9c680f541eeceda5a5b36405eb7980c",
+      "version": null,
       "tree_sha256": "sha256:77cdb043219f652e5dd2b1b9e1336201e0a2ef646a132e125e1b1e2fc90bd939",
-      "resolved": false
+      "resolved": true
     },
     "tavily-research": {
       "targets": [
@@ -526,8 +561,10 @@
       "targets": [
         "agent:jobs"
       ],
+      "ref": "1a2c459b35f26116fd165b0a0f30597f252749ff",
+      "version": null,
       "tree_sha256": "sha256:4432749b6d2be17d47481da73ae5195ad2ce907060171ee1f22e0d5053b95a2a",
-      "resolved": false
+      "resolved": true
     },
     "unocss": {
       "targets": [
@@ -542,8 +579,10 @@
       "targets": [
         "agent:assistant"
       ],
+      "ref": "@jingrongx/video-downloader-skill",
+      "version": null,
       "tree_sha256": "sha256:ec3191225bd071a8f594104087949774c18030eda6521e4db2f2e02942ceddec",
-      "resolved": false
+      "resolved": true
     },
     "vite": {
       "targets": [
@@ -623,8 +662,10 @@
       "targets": [
         "claude"
       ],
+      "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
+      "version": null,
       "tree_sha256": "sha256:acc08a84bfeabc25c65a5c0edb9e26f7167ade2e09aaeff27289d8a428a361ba",
-      "resolved": false
+      "resolved": true
     }
   }
 }
