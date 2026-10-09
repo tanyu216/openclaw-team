@@ -111,16 +111,46 @@ function lightContextOf(j) {
 }
 function scheduleOf(j) {
   if (!j) return "";
-  const s = j.schedule;
-  if (typeof s === "string") return s;
-  if (s && typeof s === "object") return String(s.value ?? s.expression ?? s.interval ?? "");
+  return j.schedule ?? "";
+}
+
+/**
+ * Normalize a runtime `schedule` into a minute-counted interval string (the same
+ * shape the declared jobs use for `interval`), so `intervalMatches` can compare
+ * real runtime shapes (`{kind:"every", everyMs:N}`) against `"2m"`/`"5m"`.
+ *
+ *   - {kind:"every", everyMs:N} → "Nm" (whole minutes), "Ns" (whole seconds) or "Nms"
+ *   - {kind:"cron", expr:…}     → "" (a cron never maps to an interval; --every is only
+ *     ever emitted for interval-kind declared jobs)
+ *   - string                    → the string with any "every" prefix stripped + trimmed
+ *   - {value|expression|interval} → legacy tolerant object shapes (unchanged)
+ */
+function scheduleToInterval(schedule) {
+  if (schedule == null) return "";
+  if (typeof schedule === "string") return stripEvery(schedule);
+  if (typeof schedule === "object") {
+    if (schedule.kind === "every" && typeof schedule.everyMs === "number") {
+      return everyMsToInterval(schedule.everyMs);
+    }
+    if (schedule.kind === "cron") return "";
+    const legacy = schedule.value ?? schedule.expression ?? schedule.interval;
+    if (legacy != null) return stripEvery(String(legacy));
+  }
   return "";
 }
+function stripEvery(v) {
+  return String(v).replace(/\bevery\b/gi, "").trim();
+}
+function everyMsToInterval(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) return "";
+  if (ms % 60000 === 0) return `${ms / 60000}m`;
+  if (ms % 1000 === 0) return `${ms / 1000}s`;
+  return `${ms}ms`;
+}
 function intervalMatches(schedule, interval) {
-  const s = String(schedule || "").trim();
+  const s = scheduleToInterval(schedule).trim();
   if (!s) return false;
-  const norm = s.replace(/\bevery\b/gi, "").trim();
-  return norm === String(interval);
+  return s === stripEvery(interval);
 }
 
 // Run only when invoked as a CLI — importing this module (unit tests) stays side-effect free.

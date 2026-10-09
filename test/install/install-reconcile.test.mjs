@@ -99,3 +99,55 @@ test("declarationKey and declaration_key are both honoured", () => {
   );
   assert.equal(actions.find((a) => a.key === "openclaw-team:poll:linus").action, "skip");
 });
+
+// — real runtime shape: `schedule` is an object, `{kind:"every", everyMs:N}` —
+test("real runtime {kind:every,everyMs:120000} vs declared 2m ⇒ skip (no --every)", () => {
+  const real = job({ schedule: { kind: "every", everyMs: 120000, anchorMs: 1 }, payload: { lightContext: true } });
+  const actions = reconcileAutomations({ jobs: [real] }, DECLARED);
+  const poll = actions.find((a) => a.key === "openclaw-team:poll:linus");
+  assert.equal(poll.action, "skip");
+  assert.deepEqual(poll.editArgs, undefined);
+});
+
+test("real runtime {kind:every,everyMs:300000} (task-patrol) vs declared 5m ⇒ skip", () => {
+  const patrol = {
+    id: "job-patrol",
+    declarationKey: "openclaw-team:task-patrol",
+    name: "task-patrol",
+    schedule: { kind: "every", everyMs: 300000, anchorMs: 1 },
+    payload: { lightContext: true },
+  };
+  const actions = reconcileAutomations({ jobs: [patrol] }, DECLARED);
+  const p = actions.find((a) => a.key === "openclaw-team:task-patrol");
+  assert.equal(p.action, "skip");
+});
+
+test("real runtime {kind:every,everyMs:60000} vs declared 2m ⇒ edit --every 2m", () => {
+  const real = job({ schedule: { kind: "every", everyMs: 60000, anchorMs: 1 }, payload: { lightContext: true } });
+  const actions = reconcileAutomations({ jobs: [real] }, DECLARED);
+  const poll = actions.find((a) => a.key === "openclaw-team:poll:linus");
+  assert.equal(poll.action, "edit");
+  assert.deepEqual(poll.editArgs, ["--every", "2m"]);
+});
+
+test("real runtime {kind:every,everyMs:60000} missing lightContext ⇒ --light-context --every 2m", () => {
+  const real = job({ schedule: { kind: "every", everyMs: 60000, anchorMs: 1 }, payload: { lightContext: false } });
+  const actions = reconcileAutomations({ jobs: [real] }, DECLARED);
+  const poll = actions.find((a) => a.key === "openclaw-team:poll:linus");
+  assert.equal(poll.action, "edit");
+  assert.deepEqual(poll.editArgs, ["--light-context", "--every", "2m"]);
+});
+
+test("real runtime {kind:cron,expr:…} (check-all) missing lightContext ⇒ --light-context only", () => {
+  const checkAll = {
+    id: "job-ca",
+    declarationKey: "openclaw-team:team-check-all",
+    name: "team-check-all",
+    schedule: { kind: "cron", expr: "0 * * * *", tz: "Asia/Shanghai" },
+    payload: { lightContext: false },
+  };
+  const actions = reconcileAutomations({ jobs: [job(), checkAll] }, DECLARED);
+  const ca = actions.find((a) => a.key === "openclaw-team:team-check-all");
+  assert.equal(ca.action, "edit");
+  assert.deepEqual(ca.editArgs, ["--light-context"], "cron must never get --every");
+});
