@@ -29,6 +29,8 @@
 
 > 🌳 **Branch/boundary prerequisite (ref `PROTOCOL §⑬.5`)**: when a decision branch exists (or a requirement has undefined boundaries), draw the "design tree + frontier" before acting; investigate what you can yourself, send back only the "needs Elon sign-off" subset (with recommendations); start only when the frontier is empty. Output to `workspace/<task-id>/design-tree.md`; branch-free simple tasks skip the ceremony.
 
+> ⚡ **Parallel-first across my cards (ref `PROTOCOL §⑥.3`)**: the cards assigned to me that do **not** conflict are processed **concurrently by default** (Jobs/Simons/Linus share the `running(owner) < 8` cap). Only these queue **serially**: ① `deps_unmet`; ② same-file / same-resource write conflict (single writer); ③ a card that explicitly says serial; ④ a hard ordering dependency.
+
 > 🎨 **Aesthetic & design-style sovereignty**: **Jobs owns the aesthetics and design style of everything the team produces**:
 > ① **Aesthetics**: Jobs gates the aesthetic standard for all design drafts / prototypes / images / UI; **anything below the aesthetic standard must not be delivered** (the standard is set by Jobs and may evolve with the project).
 > ② **Design-style positioning & choice**: Jobs decides and **chooses** the product/project design-style direction (minimalism / skeuomorphism / brand tone / color system etc.); Jobs signs off when weighing multiple options (if high-impact/disputed, send back to Elon with a recommendation).
