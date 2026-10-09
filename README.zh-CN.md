@@ -129,8 +129,8 @@ flowchart TB
 ## 安装
 
 ```bash
-git clone <this-repo> ~/Documents/openclaw-team
-cd ~/Documents/openclaw-team
+git clone <this-repo> <path/to/openclaw-team>   # 示例路径 —— 可克隆到任意位置
+cd <path/to/openclaw-team>
 ./install.sh --dry-run      # 先看将执行什么
 ./install.sh                # 幂等安装
 ```
