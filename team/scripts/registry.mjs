@@ -11,7 +11,7 @@
  *   node registry.mjs list               # 打印 loadRegistry 汇总
  *   node registry.mjs active <taskId>    # 打印某卡活跃子会话
  *   node registry.mjs register <taskId> owner=… phase=… pid=… session_id=…   # 登记/更新（写 canonical）
- *   node registry.mjs close <taskId> <sessionId> [status]                   # 置终态
+ *   node registry.mjs close <taskId> <sessionId> [status]                   # 置终态（status ∈ {done,closed,failed,running}，直传值，勿带 `status=` 前缀）
  *   node registry.mjs migrate            # 把 legacy 合并进 canonical 并改名 *.deprecated
  *
  * 写入侧唯一入口 = upsertSessionEntry / setSessionStatus；上层登记经 ACL `task.session-set`
@@ -134,7 +134,16 @@ function writeRegistryFile(entries) {
  */
 export function upsertSessionEntry(entry) {
   if (!entry || !entry.task_id || !entry.session_id) return { ok: false, reason: 'entry_missing_key' };
-  const clean = Object.fromEntries(Object.entries(entry).filter(([, v]) => v !== undefined));
+  let status = entry.status;
+  if (status !== undefined) {
+    const norm = normalizeStatus(status);
+    if (!norm.ok) {
+      console.warn(`[registry] 拒绝写入条目 ${entry.task_id}/${entry.session_id}：非法 status=${JSON.stringify(status)}（允许：${VALID_STATUS.join('|')}）；该条未落盘。`);
+      return { ok: false, reason: 'invalid_status', rejected: status };
+    }
+    status = norm.status;
+  }
+  const clean = Object.fromEntries(Object.entries({ ...entry, status }).filter(([, v]) => v !== undefined));
   const list = readRegistryFile(REGISTRY_PATH);
   const key = dedupeKey(clean);
   const i = list.findIndex((e) => dedupeKey(e) === key);
@@ -144,19 +153,44 @@ export function upsertSessionEntry(entry) {
   return { ok: true, created: i < 0, entry: clean, registryPath: REGISTRY_PATH };
 }
 
+/**
+ * 合法 registry status 白名单（写入侧唯一口径）。
+ * 依据 T-20261009-224500-registrystatusfix：caller 曾把整串 `status=done` 当参数值传入 ⇒ 落盘污染。
+ */
+export const VALID_STATUS = ['done', 'closed', 'failed', 'running'];
+
+/**
+ * 规范化 registry status：`String(raw).trim()` → 剥除误传的首缀 `status=` → 白名单校验。
+ * 合法 ⇒ `{ ok:true, status, normalized }`（`normalized` = 值是否被改动，如剥了首缀/去了空白）；
+ * 非法（含空串、`status=` 后为空）⇒ `{ ok:false, reason:'invalid_status', original }`。
+ */
+export function normalizeStatus(raw) {
+  const before = raw == null ? '' : String(raw);
+  let s = before.trim();
+  if (s.startsWith('status=')) s = s.slice('status='.length).trim();
+  if (VALID_STATUS.includes(s)) return { ok: true, status: s, normalized: s !== before };
+  return { ok: false, reason: 'invalid_status', original: raw };
+}
+
 /** 置某子会话终态（running→done/failed/closed，并记 endedAt）；按 (task_id, session_id) 命中 */
 export function setSessionStatus(taskId, sessionId, status, extra = {}) {
   if (!taskId || !sessionId) return { ok: false, reason: 'missing_key' };
+  const norm = normalizeStatus(status);
+  if (!norm.ok) {
+    // 显式告警 + 拒绝（不静默落错值）：allowed 白名单随附，便于 caller 自纠
+    console.warn(`[registry] 拒绝写入 ${taskId}/${sessionId}：非法 status=${JSON.stringify(status)}（允许：${VALID_STATUS.join('|')}）；未落盘。`);
+    return { ok: false, reason: 'invalid_status', rejected: status };
+  }
   const list = readRegistryFile(REGISTRY_PATH);
   let updated = 0;
   for (const e of list) {
     if (e.task_id === taskId && e.session_id === sessionId) {
-      Object.assign(e, { status }, Object.fromEntries(Object.entries(extra).filter(([, v]) => v !== undefined)));
+      Object.assign(e, { status: norm.status }, Object.fromEntries(Object.entries(extra).filter(([, v]) => v !== undefined)));
       updated++;
     }
   }
   if (updated) writeRegistryFile(list);
-  return { ok: updated > 0, updated, registryPath: REGISTRY_PATH };
+  return { ok: updated > 0, updated, status: norm.status, normalized: norm.normalized, registryPath: REGISTRY_PATH };
 }
 
 /**
@@ -228,7 +262,7 @@ function main() {
   node registry.mjs list               # 打印 loadRegistry 汇总
   node registry.mjs active <taskId>    # 打印某卡活跃子会话
   node registry.mjs register <taskId> owner=<o> phase=<p> pid=<n> session_id=<uuid> [log=<path>] [status=running]
-  node registry.mjs close <taskId> <sessionId> [status=done]
+  node registry.mjs close <taskId> <sessionId> [status]   # status ∈ {done,closed,failed,running}，直传值，勿带 status= 前缀
   node registry.mjs migrate            # 合并 legacy 入 canonical 并改名 *.deprecated
 `);
       process.exit(2);
