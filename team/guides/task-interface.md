@@ -86,10 +86,10 @@ backlog | todo → in_progress → in_review → done | canceled
 - **Ownership**: OpenClaw agent side only (subsessions are unaware of task management; see `PROTOCOL §⑥#7`).
 
 ## 10. Parent/Child Cards and Predecessor Dependencies (DAG)
-- **Split**: a composite task = a `kind:epic` parent card (container/aggregate, **not claimable**) + child cards (`parent=<epic>`, ordinary cards); **hierarchy depth follows the provider base** (task-panel: single parent + chain ≤8, no cycles/self-reference); breakdown granularity ⇒ `PROTOCOL §⑩.3`.
+- **Split**: a composite task = a `kind:epic` parent card (container/aggregate, **not claimable**) + child cards (`parent=<epic>`, ordinary cards); **hierarchy depth follows the provider base** (task-panel: single parent + chain ≤8, no cycles/self-reference); **supports multiple levels; a parent must be an epic (so intermediate nodes are epics)**; breakdown granularity ⇒ `PROTOCOL §⑩.3`.
 - **Dependencies**: child cards `depends_on:[predecessors]` (store predecessors only; successors are derived); cross-parent allowed; no dependency = parallel, with dependency = serial.
 - **Commands**: `task.spawn <epic> title=… assignee=… [depends_on=a,b]` | `task.depend <card> <on…>` | `task.undepend` | `task.children <epic>` | `task.deps <card>` | `task.rollup <epic>`.
-- **Invariants (validated at write time, with reason codes)** : self-reference `self_ref`; parent/child cycle `parent_cycle`; parent must be epic or a card `parent_not_epic`; dependency cycle `dep_cycle`; missing dependency `dep_missing`; dependency on an ancestor forbidden `dep_on_ancestor`; chain length ≤8 `chain_too_long` (**the base limit; the team sets no additional**); fan-in ≤8 `fanin_too_high`; nested epic `nested_epic`.
+- **Invariants (validated at write time, with reason codes)** : self-reference `self_ref`; parent/child cycle `parent_cycle`; parent must be epic or a card `parent_not_epic`; dependency cycle `dep_cycle`; missing dependency `dep_missing`; dependency on an ancestor forbidden `dep_on_ancestor`; chain length ≤8 `chain_too_long` (**the base limit; the team sets no additional**); fan-in ≤8 `fanin_too_high`.
 - **Claim guard**: `epic` ⇒ `epic_container`; `depends_on` not all done ⇒ `deps_unmet` (**no new status added**).
 - **Aggregation**: `task.rollup` derives the parent card's status; parent card `done` = all child cards done **+ integration acceptance**; **with multiple layers, recurse bottom-up** (integration acceptance at every layer).
 - **Patrol**: relation invariants enter the patrol gate; archive reference protection.
