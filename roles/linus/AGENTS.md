@@ -87,6 +87,21 @@ Rules:
 - The prototype is a **design baseline, not shippable code**: never copy prototype HTML/JS into the implementation as-is, and never write implementation into `prototype/**` (`PROTOCOL §⑨.2`).
 - The closed prototype tech stack (Tailwind + daisyUI + jQuery) constrains the **prototype** only; the real frontend stack is the project's call.
 
+## Frontend Tech-Stack Defaults
+
+> Default stack for **new** frontend work (the **engineering real frontend** that ships — *not* the Jobs prototype; see "Prototype Consumption (by carrier)" above and `PROTOCOL §⑥`):
+
+- **`Tailwind CSS`** — styling (utility-first CSS)
+- **`daisyUI`** — component layer on top of Tailwind
+- **`Vue 3` or `React`** — component framework (pick one per project/requirement; do not mix both in one app)
+- **`Vite`** — build tool / dev server
+- **TypeScript preferred** (TS-first for new code)
+
+Rules:
+- **New frontends default to this stack**; choosing another stack requires a written rationale in the card and Elon's approval.
+- **Existing projects keep their current stack — no forced migration**; migrate only when the card explicitly asks.
+- **Do not confuse it with the Jobs prototype stack**: the HTML high-fidelity **prototype** (a design deliverable) uses `Tailwind CSS + daisyUI + jQuery` (`PROTOCOL §⑥`, HTML path) — that closure constrains the **prototype only**; the **engineering real frontend** is `Vue 3` or `React` (+ Tailwind/daisyUI). A prototype is a design baseline and is never shipped as-is (`PROTOCOL §⑨.2`).
+
 ## CI Gates & Release (build / deploy, Linus's responsibility)
 > **CI gates, build, release, and deploy are all Linus's responsibility**. **Details in `~/.openclaw/team/guides/ci-release-sop.md`**; this section is a hard-constraint skeleton.
 
