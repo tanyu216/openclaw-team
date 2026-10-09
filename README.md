@@ -241,11 +241,19 @@ What the installer does (every stage is idempotent; existing items are skipped):
    prints how to bring your own (Jira / Plane / Linear / … via the `task-interface`
    ACL).
 7. **Team automations (scheduling)** — registers the team-level scheduled jobs
-   (`poll-<agent>` every 1m, `task-patrol` every 5m, `team-check-all` hourly),
-   **idempotently** (by `declarationKey`) and **provider-agnostically**: each
-   trigger calls the framework dispatcher `team/automations/dispatch.mjs`, never a
-   provider literal. `--skip-automations` disables it. See
+   (`poll-<agent>` every 2m, `task-patrol` every 5m, `team-check-all` hourly),
+   **declaratively** (by `declarationKey`; `config/reconcile.mjs` emits add/edit/skip
+   so re-runs self-heal drift) and **provider-agnostically**: each trigger calls the
+   framework dispatcher `team/automations/dispatch.mjs`, never a provider literal.
+   `--skip-automations` disables it. See
    [Scheduling & team automations](#scheduling--team-automations).
+8. **Config optimization (providers backfill)** — backfills missing provider
+   optimization fields into `~/.openclaw/openclaw.json` (merge, never a whole-file
+   overwrite): `contextTokens: 200000` for deepseek models, `cost.cacheRead` for the
+   whitelisted deepseek ids, `agents.defaults.compaction/contextPruning/contextLimits`.
+   Existing values are never overwritten; disable with
+   `OPENCLAW_TEAM_OPTIMIZE_PROVIDERS=0` (see
+   [Config optimization & cron slimming](#config-optimization--cron-slimming)).
 
 ### Upgrade / reinstall
 
@@ -332,7 +340,7 @@ delegated to the task provider. `install.sh` registers three kinds of job
 
 | Job | Schedule | Purpose |
 |---|---|---|
-| `poll-<agent>` | every 1m | per-worker board poll (jobs/linus/turing/assistant); fires only when a card is claimed |
+| `poll-<agent>` | every 2m | per-worker board poll (jobs/linus/turing/assistant); fires only when a card is claimed |
 | `task-patrol` | every 5m | stale `in_progress` heartbeat scan |
 | `team-check-all` | hourly (`0 * * * *` @ Asia/Shanghai) | gate patrol; fires only on failure |
 
@@ -349,6 +357,23 @@ jobs**. A missing entry / failure / timeout / unparseable output ⇒ `fire:false
 8000 ms); the `already-running` run lock and stale-run release are platform
 (Gateway scheduler) concerns the framework does not claim to solve.
 Details and ACL gaps: `team/automations/README.md`, `team/AUTOMATIONS.md §3.5`.
+
+### Config optimization & cron slimming
+
+`install.sh` has two opt-out, idempotent hardening stages (both merge/patch —
+`~/.openclaw/openclaw.json` is **never** whole-file replaced):
+
+| Stage | What it does | Opt out |
+|---|---|---|
+| **Providers backfill** (`config/optimization.mjs`) | Fills **missing** `models.providers` optimization fields: `contextTokens: 200000` on deepseek models, `cost.cacheRead` on whitelisted deepseek ids (`deepseek-flash`→`0.006`, `deepseek-v4-pro`→`0.003625`), and the static `agents.defaults` compaction/contextPruning/contextLimits fragment. Existing values are **never** overwritten; the whole `models.providers` array is read-modify-written (a sparse patch would replace arrays). | `OPENCLAW_TEAM_OPTIMIZE_PROVIDERS=0` |
+| **Cron slimming** (`config/reconcile.mjs`) | Declared jobs are the single source of truth; on every run the runtime is aligned (missing ⇒ add, drifted ⇒ edit, matching ⇒ skip). Poll interval thinned **1m → 2m** (`OPENCLAW_TEAM_POLL_INTERVAL`, default `2m`) and every job gets `--light-context`. Cron jobs (`team-check-all`) are **never** given `--every` — only `lightContext` is reconciled. | `--skip-automations` |
+
+Markers & safety: the backfill stage records `optimizationApplied` in
+`~/.openclaw/team/.install-state.json` (read-modify-write) and skips on re-run unless
+`--force`; before patching it backs up the config and validates the patched result,
+rolling back on failure. Roll back the whole stage by restoring the
+`openclaw.json.pre-*` backup, then re-running with `OPENCLAW_TEAM_OPTIMIZE_PROVIDERS=0`.
+Decisions: `team/AUTOMATIONS.md §4`.
 
 ### Extending roles
 

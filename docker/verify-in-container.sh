@@ -28,6 +28,11 @@ bash -n docker/verify.sh
 
 step "node syntax"
 node --check skills/fetch.mjs
+node --check config/optimization.mjs
+node --check config/reconcile.mjs
+
+step "install unit tests (node:test — optimization backfill + reconcile + dry-run)"
+node --test 'test/install/'*.test.mjs
 
 step "manifest + lock integrity (0 unresolved required)"
 node -e '
