@@ -157,6 +157,13 @@ does not restate it.
   (`task-interface.md §6`, `§12`).
 - **Out of scope** — connector skills/MCP for third-party task systems are not part
   of this project; the repo ships only the ACL and the team-side adaptation contract.
+- **Idempotent card creation** — creating cards is **idempotent**: before creating,
+  the creator (LLM) **semantically de-duplicates** against existing non-terminal
+  cards, backed by a mechanical key `idem = <kind>|<assignee>|<source>|<target>`;
+  a same-key non-terminal card ⇒ **reject/reuse** (the repo bundles no create path,
+  so the convention is **guaranteed by the connected provider** + the creator
+  carrying the `idem` key). See `team/PROTOCOL.md §㉙` and
+  `team/guides/task-interface.md §14`.
 
 ### Scheduling & team automations
 

@@ -105,6 +105,7 @@ cd ~/Documents/openclaw-team
 - **默认提供方 —— task-panel**：默认安装（任务 skill + `taskctl` CLI）。`./install.sh --no-task-panel` 可退出；用 `--task-panel DIR` 指定源码。
 - **自备 / 换基座**：Jira / Linear / Plane / GitHub Issues / 自研看板 … —— 自行安装其连接 skill/MCP，并用 `OPENCLAW_TEAM_TASK_PROVIDER=<name>` 指向它。上层（角色 / SOP / 定时任务）**零改动**，因为它们只依赖 ACL；随后跑 ACL 契约测试（`task-interface.md §6`、`§12`）。
 - **范围边界**：第三方任务系统的连接 skill/MCP **不在本项目范围**；本仓库只交付 ACL 与团队侧适配约定。
+- **建卡幂等**：建卡**幂等** —— 建卡前由建卡方（LLM）对既有非终态卡做**语义判重**，另有机械键 `idem = <kind>|<assignee>|<source>|<target>` 兜底；同 key 且非终态 ⇒ **拒建/复用**（本仓库不自带建卡路径，故该约定由**所对接基座保证** + 建卡方须带 `idem` 键）。详见 `team/PROTOCOL.md §㉙`、`team/guides/task-interface.md §14`。
 
 ### 调度与团队定时任务
 

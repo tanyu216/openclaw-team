@@ -108,6 +108,34 @@ backlog | todo → in_progress → in_review → done | canceled
 - **Pass criteria**: after swapping the provider, run the **ACL contract tests** (§6 invariants + §4 command semantics) to judge conformance; failing means unsupported.
 - **Scope boundary**: **the provider's own skill / MCP / authentication is user-supplied and out of this project's scope** (this project delivers only the ACL definitions + team-side adaptation conventions).
 
+## 14. Card-Creation Idempotency (`idem` key)
+
+- **(Main gate · critical) LLM content de-duplication**: before creating a card, the creator (LLM) must **read the `title`/`goal`/`Background` of existing non-terminal cards** and judge whether the intent/content matches; a match ⇒ **do not create** (reuse/merge); the mechanical key is only a **fallback**.
+- **Idempotency key**: `idem = <kind> | <assignee> | <source> | <target>`; `source` = `review_of` if non-empty, otherwise `parent`, otherwise empty. **Not dependent on the title.**
+- **Command**: `task.create <...> [--idem <key>|--allow-dup]` (or derived automatically by `spawn`).
+- **Semantics**: a card with the **same key and a non-terminal state** ⇒ **reject creation** and return the existing card id (idempotent reuse); under concurrency, serialise with a `mkdir` lock.
+- **Weak signal**: same source + highly similar title ⇒ warn (human judgement), **not** a de-duplication basis.
+- **Exemption**: segmented child cards append `#<seg>` to the key, or `--allow-dup` + a `kind=change` rationale.
+
+### 14.1 Landing (**main gate = LLM semantic de-duplication**; mechanical key = fallback)
+
+- **Main gate (LLM semantic de-duplication, a mandatory step)**: before creating a card, the creator (Elon/LLM) fetches the **to-read list** from `task.idemCandidates` (non-terminal cards' `title`/`goal`), and judges them one by one for intent match; a match ⇒ **do not create** (reuse/merge/reassign). The mechanical key only catches "same-key" duplicates; it cannot catch "different key, same intent" (e.g. a different assignee / a different source pointing at the same fix) — **only semantic de-duplication can**.
+- **Commands** (ACL level; implementable by any provider):
+
+| Command | Semantics |
+|---|---|
+| `task.create <k=v …>` | Create a card (idempotent). `idem` may be overridden explicitly; the key = `<kind> \| <assignee> \| <source> \| <target>` (source = `review_of` ‖ `parent` ‖ empty). A card with the **same key and a non-terminal state** ⇒ return `{ok:false, reason:'dup', existing, existingStatus}` (**do not create**; reuse the existing card). Concurrency is serialised by a `mkdir` lock (`tasks/.locks/create.<slug>`), re-checked inside the lock before writing. |
+| `task.idemCheck <k=v …>` | Read-only idempotency check: `{ok, key, dup, existing?, existingStatus?, similar:[{id,title,status}]}`; `allow_dup=true` ⇒ `dup:false` and `bypass:'allow_dup'` (still returns `similar` for the warning). |
+| `task.idemCandidates [project=…] [assignee=…] [source=…]` | **The LLM semantic-de-duplication to-read list**: lists all non-terminal cards (`id`/`status`/`assignee`/`kind`/`target`/`idem`/`title`/`goal`). |
+
+- **`spawn`**: after validating the parent card and before writing, derives the key automatically (`kind='task'`, `source=parent`) and runs the same check; if a same-source child card with the same assignee+target already exists in a non-terminal state ⇒ `{ok:false, reason:'dup'}` (`allow_dup` skips).
+- **Patrol**: `check-idem` scans the board, groups **non-terminal** cards by idem key, and **exits 1** if any group has >1; it is **part of `check-all`** (right after `check-relations`).
+- **Baseline exemption**: the mechanical key necessarily collides for "same-project, same-person sequential milestones" (same `assignee` + same `target`, no `parent`/`review_of`), which are **not true duplicates**. Such **existing benign groups** are registered in `idem-baseline.json` (schema `{groups:[{key, ids, reason, date, by}]}`); the criterion = the same `key` **and** the sorted `ids` **exactly matching** that group's card-id set ⇒ moved to `exempt` (not flagged); **once the id set changes (add/remove/swap) the exemption lapses**, and it warns again (preventing "register once, allow forever"). `--no-baseline` ignores the baseline (everything is treated as duplicates, for checking real duplicates or whether the baseline is stale); a missing baseline file is treated as an empty group list (no error).
+- **Weak signal** (warning only, **not** a de-duplication basis): same source and title similarity (character-bigram Jaccard) ≥ 0.6 ⇒ appears in `similar`.
+- **Unit tests**: an isolated `mkdtemp` test (including 5 concurrent same-key subprocesses ⇒ exactly 1 card).
+- **Engine declaration (this repository)**: `openclaw-team` **bundles no task-create path** — task management is delegated to the connected provider through this ACL. Therefore idempotency is **guaranteed by the connected provider** (`task-panel` by default satisfies this clause; any replacement must implement it and pass the ACL contract tests), and **the card creator must carry the `idem` key** (the ACL derives it, or `--idem` overrides). Both the `md base` (the team-side reference `task-ops` library) and the `task-panel base` implement this clause.
+
 ## 13. Change Record
 - **v1**: initial contract (including **comments/process trail**). Owner: Elon.
 - **v1 (supplement 2)**: added §12 **task-provider integration and switching (ACL binding)**: task-panel is downgraded to an optional reference implementation, supporting replacement by Jira/Linear/Plane, etc.; the change record shifts to §13. Owner: Elon.
+- **v1 (supplement 3)**: added §14 **card-creation idempotency (`idem` key)** — LLM semantic de-duplication as the **main gate** + the mechanical key `<kind>|<assignee>|<source>|<target>` as fallback; ACL commands `task.create` / `task.idemCheck` / `task.idemCandidates`; `spawn` derives the key automatically; `check-idem` patrol with a baseline exemption. Owner: Elon (convention) / Linus (landing).
