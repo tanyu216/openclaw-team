@@ -22,7 +22,9 @@ for (const r of roles) {
   const b = (/<!-- BEGIN REDLINES:v1[\s\S]*?<!-- END REDLINES:v1 -->/.exec(s) || [])[0];
   if (!b) { console.log(`✗ ${r}: 缺红线标记块`); bad++; continue; }
   if (b !== BLOCK) { console.log(`✗ ${r}: 红线块 != canonical（漂移）`); bad++; continue; }
-  if (!/开工硬前置/.test(s)) { console.log(`✗ ${r}: 缺开工硬前置`); bad++; continue; }
+  // 硬前置句：AGENTS.md 已英文化（context 优化），canonical 句为 "Hard prerequisite for starting"；
+  // 兼容旧中文「开工硬前置」（过渡/未迁移角色），两者其一即可。
+  if (!/开工硬前置|Hard prerequisite for starting/.test(s)) { console.log(`✗ ${r}: 缺开工硬前置`); bad++; continue; }
   console.log(`✔ ${r}`);
 }
 console.log(bad ? `\n红线校验失败：${bad} 项` : '\n红线校验通过 ✔');

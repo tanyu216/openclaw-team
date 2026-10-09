@@ -14,7 +14,10 @@ const core = fs.readFileSync(CORE, 'utf8');
 const m = /<!-- BEGIN REDLINES:v1[\s\S]*?<!-- END REDLINES:v1 -->/.exec(core);
 if (!m) { console.error('canonical 缺 REDLINES:v1 标记块'); process.exit(2); }
 const BLOCK = m[0];
-const HARD = '> 🚦 **开工硬前置**：本回合**第一步必读 `team/PROTOCOL.md`（至少 §① 看板 / §⑬ 硬纪律 + 本岗相关 §）；未读不得执行、不得领取任务卡**。读毕在卡 Progress 记一行「已读 PROTOCOL §…」。';
+// 硬前置句：AGENTS.md 已英文化（context 优化）⇒ canonical 用英文句（与 roles/<role>/AGENTS.md 一致）。
+// 旧中文「开工硬前置」行会被就地规范化成该英文句。
+const HARD = '> 🚦 **Hard prerequisite for starting**: the **first step of this turn is to read `team/PROTOCOL.md` (at minimum §① Board / §⑬ Hard Discipline + the sections relevant to this role); do not execute or claim any task card until it is read**. After reading, log one line "read PROTOCOL §…" in the card\'s Progress.';
+const HARD_RE = /开工硬前置|Hard prerequisite for starting/;
 
 const roles = ['elon', 'jobs', 'linus', 'turing', 'simons', 'assistant'];
 let n = 0;
@@ -33,9 +36,12 @@ for (const r of roles) {
     s = s.replace(/^(## 消息来源判定)/m, BLOCK + '\n\n$1');
   }
 
-  // 2) 开工硬前置
-  if (!/开工硬前置/.test(s)) {
-    s = s.replace(/^(## 团队与唯一事实源)/m, HARD + '\n\n$1');
+  // 2) 开工硬前置：canonical 为英文句；旧中文行就地规范化，缺失则插入（锚点兼容中英两版标题）
+  const zhHard = /^> 🚦 \*\*开工硬前置\*\*：.*$/m;
+  if (zhHard.test(s)) {
+    s = s.replace(zhHard, HARD);
+  } else if (!HARD_RE.test(s)) {
+    s = s.replace(/^(## 团队与唯一事实源|## Team & Single Source of Truth)/m, HARD + '\n\n$1');
   }
 
   if (s !== before) { fs.writeFileSync(p, s); n++; console.log('synced:', r); }
