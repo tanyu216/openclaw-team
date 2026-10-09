@@ -47,7 +47,7 @@ claimed_at: ""
 heartbeat_at: ""               # Refreshed every ≤10min while in_progress
 blocked_at: ""                 # Time blocked was set (SLA measurement start; see §⑮)
 depends_on: []                 # Predecessor card ids (task-panel relation `blocks`; no cycles/no ancestor deps; chain length ≤8; fan-in ≤8)
-parent: ""                     # Child card → parent (epic) (relation `parent`; empty = top level; hierarchy depth follows the provider base, task-panel)
+parent: ""                     # Child card → parent (epic) (relation `parent`; empty = top level; hierarchy depth follows the provider base, task-panel; parents must be epics)
 review_of: ""                  # Optional: id of the task being reviewed (UX review; a task-panel known key)
 notify_leader: true           # On terminal state, sessions_send back to the leader (coordinator; currently Elon / agent:main:main); the field does not bind a person's name
 goal: One-line goal            # Card summary (task-panel known key)
@@ -420,7 +420,7 @@ The sole dispatcher = Elon; workers do not dispatch to each other (including def
 - **Claim guard**: `kind:epic` is skipped; if `depends_on` is not all done ⇒ `deps_unmet`, not claimed (no new status added).
 - **Aggregation**: parent card `done` = all child cards done **and integration acceptance passes**; if any child card is blocked/canceled ⇒ the parent card is blocked/canceled (`task.rollup`).
 - **Invariants (I1–I13)**: see the team proposal document; **patrol**: relation invariants enter the patrol gate; **archive protection**: referenced cards cannot be archived.
-- **Hierarchy/shape**: **follows the provider base (task-panel)** — **single parent, no cycles/self-reference, chain length ≤8, fan-in ≤8**; the team sets **no additional depth number** (how deep to split ⇒ see §⑩.3 granularity principle).
+- **Hierarchy/shape**: **follows the provider base (task-panel)** — **single parent, no cycles/self-reference, chain length ≤8, fan-in ≤8**; **supports multiple levels (a parent must be an epic; intermediate nodes are epics)**; the team sets **no additional depth number** (how deep to split ⇒ see §⑩.3 granularity principle).
 
 ### ⑩.3 Carding Granularity & Breakdown Authority (2026-10-09)
 
