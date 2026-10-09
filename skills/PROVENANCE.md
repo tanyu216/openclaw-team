@@ -176,4 +176,4 @@ Two front-end skills resolved to verified GitHub upstreams and installed to
 
 ---
 
-**task-ops / task-panel**: the team's task skill comes from the external [task-panel](https://github.com/) project, installed separately. It is intentionally not vendored here.
+**task-ops / meerkat-taskpanel**: the team's task skill comes from the external [meerkat-taskpanel](https://github.com/) project, installed separately. It is intentionally not vendored here.

@@ -117,7 +117,7 @@ test('entry not configured for the job ⇒ fire:false', () => {
   fs.mkdirSync(path.join(team, 'automations'), { recursive: true });
   fs.copyFileSync(path.join(REPO, 'team/automations/dispatch.mjs'), path.join(team, 'automations/dispatch.mjs'));
   // provider present, but it declares no `poll` entry
-  fs.writeFileSync(path.join(team, 'automations/providers.json'), JSON.stringify({ 'task-panel': { patrol: 'node x' } }), 'utf8');
+  fs.writeFileSync(path.join(team, 'automations/providers.json'), JSON.stringify({ 'meerkat-taskpanel': { patrol: 'node x' } }), 'utf8');
   const out = execFileSync(process.execPath, [path.join(team, 'automations/dispatch.mjs'), 'poll', 'linus'], {
     encoding: 'utf8',
     env: { ...process.env, OPENCLAW_TEAM_POLL_CMD: '' },
@@ -126,6 +126,44 @@ test('entry not configured for the job ⇒ fire:false', () => {
   assert.equal(r.fire, false);
   assert.equal(r.state.reason, 'entry-not-configured');
   assert.equal(r.state.jobKey, 'poll');
+});
+
+// ---- legacy-name-compat: the pre-rebrand provider name/key still resolves -----
+// (bidirectional: an old OPENCLAW_TEAM_TASK_PROVIDER value AND an old providers.json key)
+/** A scratch team dir whose providers.json holds the entry under `key` (a provider name). */
+function scratchTeam(key) {
+  const dir = mkScratch();
+  const team = path.join(dir, 'team');
+  fs.mkdirSync(path.join(team, 'automations'), { recursive: true });
+  fs.copyFileSync(path.join(REPO, 'team/automations/dispatch.mjs'), path.join(team, 'automations/dispatch.mjs'));
+  const cmd = entryCmd(dir, 'entry.mjs', '{"fire":true,"message":"aliased"}\n');
+  fs.writeFileSync(path.join(team, 'automations/providers.json'), JSON.stringify({ [key]: { poll: cmd } }), 'utf8');
+  return { team };
+}
+
+test('legacy provider env value resolves against the renamed providers.json key', () => {
+  const { team } = scratchTeam('meerkat-taskpanel');
+  const out = execFileSync(process.execPath, [path.join(team, 'automations/dispatch.mjs'), 'poll', 'linus'], {
+    encoding: 'utf8',
+    env: { ...process.env, OPENCLAW_TEAM_POLL_CMD: '', OPENCLAW_TEAM_TASK_PROVIDER: 'task-panel' }, // legacy-name-compat env value
+  });
+  const r = JSON.parse(out.trim());
+  assert.equal(r.fire, true);
+  assert.equal(r.message, 'aliased');
+  assert.equal(r.state.provider, 'meerkat-taskpanel'); // resolved to the canonical key
+});
+
+test('renamed default provider resolves against a pre-rebrand providers.json key', () => {
+  const { team } = scratchTeam('task-panel'); // legacy-name-compat key
+  const env = { ...process.env, OPENCLAW_TEAM_POLL_CMD: '' };
+  delete env.OPENCLAW_TEAM_TASK_PROVIDER; // no override ⇒ the (renamed) default provider name
+  const out = execFileSync(process.execPath, [path.join(team, 'automations/dispatch.mjs'), 'poll', 'linus'], {
+    encoding: 'utf8', env,
+  });
+  const r = JSON.parse(out.trim());
+  assert.equal(r.fire, true);
+  assert.equal(r.message, 'aliased');
+  assert.equal(r.state.provider, 'task-panel'); // legacy-name-compat: resolved to the legacy key that exists
 });
 
 test('unparseable provider output ⇒ fire:false', () => {

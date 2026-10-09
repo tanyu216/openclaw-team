@@ -36,7 +36,7 @@ flowchart TB
   Turing["Turing - AI（测试）"]
   Assistant["Assistant - AI（助理）"]
   Extra["用户自扩展角色 - AI（由用户定义）"]
-  Board["任务卡看板 - 卡 + claim + 心跳 + DAG（ACL：task-panel / Jira / ...）"]
+  Board["任务卡看板 - 卡 + claim + 心跳 + DAG（ACL：meerkat-taskpanel / Jira / ...）"]
   Sched["框架调度 - poll / patrol / check-all（provider-agnostic）"]
   Subs["子会话 - Claude Code（Jobs/Linus）/ Codex（Turing）"]
 
@@ -143,14 +143,17 @@ cd <path/to/openclaw-team>
 | `--force` | 覆盖已存在的 skill / 角色文件 / team 文档 |
 | `--openclaw-home DIR` | OpenClaw 家目录（默认 `~/.openclaw`） |
 | `--claude-home DIR` / `--codex-home DIR` | Claude Code / Codex 家目录 |
-| `--task-panel DIR` | 指定 task-panel 源码路径 |
-| `--with-task-panel` | 安装参考任务提供方（**task-panel 默认即安装**） |
-| `--no-task-panel` | 退出 task-panel：自备任务系统（Jira / Plane / Linear …），经 `task-interface` ACL 对接 |
+| `--meerkat-taskpanel DIR` | 指定 meerkat-taskpanel 源码路径 |
+| `--with-meerkat-taskpanel` | 安装参考任务提供方（**meerkat-taskpanel 默认即安装**） |
+| `--no-meerkat-taskpanel` | 退出 meerkat-taskpanel：自备任务系统（Jira / Plane / Linear …），经 `task-interface` ACL 对接 |
 | `--skip-automations` | 不注册团队级定时任务 |
 | `--keep-existing` | 从不覆盖已存在文件（跳过而非升级） |
 | `--skip-skills` `--skip-agents` `--skip-config` `--skip-team` | 跳过对应阶段 |
 | `--vendor` | 从来源快照到 `skills/vendor/` |
 | `--offline` | 从 `skills/vendor/` 快照安装（不联网） |
+
+> **兼容（legacy-name-compat）**：改名前的 `--task-panel` / `--with-task-panel` / `--no-task-panel`
+> 仍被接受为**弃用别名**（各打印一行提示），既有调用方/脚本无需改动。
 
 安装器做这些事（每步幂等，已存在则跳过）：
 
@@ -159,7 +162,7 @@ cd <path/to/openclaw-team>
 3. **技能（声明源）**：逐条解析 `skills/manifest.json` 的上游来源（ClawHub / GitHub / git）并安装到对应目标。无已核上游（`needs_source`）的条目会跳过并告警。`--vendor` 快照到 `skills/vendor/`；`--offline` 从快照安装。
 4. **Agent 与角色工作区**：拷贝 `AGENTS.md`/`SOUL.md`/`IDENTITY.md`，然后 `openclaw agents add <id> --workspace <dir> --non-interactive`；已注册则跳过。**永不覆盖**既有 `USER.md`。
 5. **配置片段** → `openclaw config patch --file config/*.json5`（`config/examples/` 下仅参考，不自动应用）。
-6. **任务提供方（ACL）**：报告已配置的提供方（`OPENCLAW_TEAM_TASK_PROVIDER`，默认 `task-panel`）；**默认安装**参考实现 task-panel。`--no-task-panel` 退出并打印「自备」指引（Jira / Plane / Linear …，经 `task-interface` ACL）。
+6. **任务提供方（ACL）**：报告已配置的提供方（`OPENCLAW_TEAM_TASK_PROVIDER`，默认 `meerkat-taskpanel`）；**默认安装**参考实现 meerkat-taskpanel。`--no-meerkat-taskpanel` 退出并打印「自备」指引（Jira / Plane / Linear …，经 `task-interface` ACL）。
 7. **团队定时任务（调度）**：注册团队级定时任务（`poll-<agent>` 每 2m、`task-patrol` 每 5m、`team-check-all` 每小时），**声明式**（按 `declarationKey`；`config/reconcile.mjs` 产出 add/edit/skip，重跑可自愈漂移）、**provider-agnostic**：每个触发脚本只调用框架派发器 `team/automations/dispatch.mjs`，**不含任何 provider 字面量**。`--skip-automations` 关闭。见 [调度与团队定时任务](#调度与团队定时任务)。
 8. **配置优化（providers 回填）**：把缺失的 provider 优化字段回填进 `~/.openclaw/openclaw.json`（**merge，绝不整文件覆盖**）：`contextWindow` 超过阈值（默认 200000）的模型补 `contextTokens: 200000`、白名单 deepseek id 补 `cost.cacheRead`，以及 `agents.defaults` 的 compaction/contextPruning/contextLimits 静态片段。**永不覆盖已有值**；`OPENCLAW_TEAM_OPTIMIZE_PROVIDERS=0` 关闭（见 [配置优化与定时任务瘦身](#配置优化与定时任务瘦身)）。
 
@@ -204,9 +207,9 @@ cd <path/to/openclaw-team>
 
 ## 任务系统与调度（可切换，经 ACL）
 
-**边界归属**：`openclaw-team` 拥有**调度**与 **ACL 抽象**；任务基座（task-panel / Jira / Plane …）只是 ACL 背后的**被调方**。完整契约见 `team/guides/task-interface.md`（卡、原子领取 + 心跳、`ready → in_progress → in_review → done | failed` 状态机、评论/过程留痕、父子 + 依赖 DAG），本文不复述。
+**边界归属**：`openclaw-team` 拥有**调度**与 **ACL 抽象**；任务基座（meerkat-taskpanel / Jira / Plane …）只是 ACL 背后的**被调方**。完整契约见 `team/guides/task-interface.md`（卡、原子领取 + 心跳、`ready → in_progress → in_review → done | failed` 状态机、评论/过程留痕、父子 + 依赖 DAG），本文不复述。
 
-- **默认提供方 —— task-panel**：默认安装（任务 skill + `taskctl` CLI）。`./install.sh --no-task-panel` 可退出；用 `--task-panel DIR` 指定源码。
+- **默认提供方 —— meerkat-taskpanel**：默认安装（任务 skill + `taskctl` CLI）。`./install.sh --no-meerkat-taskpanel` 可退出；用 `--meerkat-taskpanel DIR` 指定源码。
 - **自备 / 换基座**：Jira / Linear / Plane / GitHub Issues / 自研看板 … —— 自行安装其连接 skill/MCP，并用 `OPENCLAW_TEAM_TASK_PROVIDER=<name>` 指向它。上层（角色 / SOP / 定时任务）**零改动**，因为它们只依赖 ACL；随后跑 ACL 契约测试（`task-interface.md §6`、`§12`）。
 - **范围边界**：第三方任务系统的连接 skill/MCP **不在本项目范围**；本仓库只交付 ACL 与团队侧适配约定。
 - **建卡幂等**：建卡**幂等** —— 建卡前由建卡方（LLM）对既有非终态卡做**语义判重**，另有机械键 `idem = <kind>|<assignee>|<source>|<target>` 兜底；同 key 且非终态 ⇒ **拒建/复用**（本仓库不自带建卡路径，故该约定由**所对接基座保证** + 建卡方须带 `idem` 键）。详见 `team/PROTOCOL.md §㉙`、`team/guides/task-interface.md §14`。
@@ -221,7 +224,7 @@ cd <path/to/openclaw-team>
 | `task-patrol` | 每 5m | 心跳陈旧的 `in_progress` 卡扫描 |
 | `team-check-all` | 每小时（`0 * * * *` @ Asia/Shanghai） | 门禁巡检；仅失败时 fire |
 
-每个触发脚本调用框架派发器 `team/automations/dispatch.mjs <poll|patrol|check-all> [agent]`；派发器解析 provider 的入口命令（`team/automations/providers.json`；provider = `OPENCLAW_TEAM_TASK_PROVIDER`，默认 `task-panel`）并返回 `{"fire":…}`。触发脚本**不含任何 provider 字面量**，故**换基座 = 定时任务零改动**。入口缺失 / 执行失败 / 解析失败 ⇒ `fire:false`（零成本）。详见 `team/automations/README.md`。
+每个触发脚本调用框架派发器 `team/automations/dispatch.mjs <poll|patrol|check-all> [agent]`；派发器解析 provider 的入口命令（`team/automations/providers.json`；provider = `OPENCLAW_TEAM_TASK_PROVIDER`，默认 `meerkat-taskpanel`）并返回 `{"fire":…}`。触发脚本**不含任何 provider 字面量**，故**换基座 = 定时任务零改动**。入口缺失 / 执行失败 / 解析失败 ⇒ `fire:false`（零成本）。详见 `team/automations/README.md`。
 
 ### 配置优化与定时任务瘦身
 

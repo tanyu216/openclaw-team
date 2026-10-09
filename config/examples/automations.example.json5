@@ -6,8 +6,8 @@
 //
 //     team/automations/dispatch.mjs <job> [agent]
 //
-// The provider is a *callee* behind the ACL: `task-panel` is the DEFAULT provider
-// (opt out with `./install.sh --no-task-panel`, then bring your own). Swap it with
+// The provider is a *callee* behind the ACL: `meerkat-taskpanel` is the DEFAULT provider
+// (opt out with `./install.sh --no-meerkat-taskpanel`, then bring your own). Swap it with
 // OPENCLAW_TEAM_TASK_PROVIDER; per-job entry commands live in
 // team/automations/providers.json and are overridable via
 // OPENCLAW_TEAM_POLL_CMD / OPENCLAW_TEAM_PATROL_CMD / OPENCLAW_TEAM_CHECKALL_CMD.

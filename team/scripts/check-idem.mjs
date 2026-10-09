@@ -40,7 +40,7 @@ const TASK_MJS = path.join(TASK_OPS_DIR, 'lib', 'task.mjs');
 if (!fs.existsSync(TASK_MJS)) {
   console.error(
     `provider 未安装：check-idem 依赖 provider ACL 库，缺失 skills/task-ops/lib/task.mjs` +
-    `（查找于 ${TASK_MJS}）。请安装 task-panel 或其它基座，或设 OPENCLAW_TASK_OPS_DIR。`
+    `（查找于 ${TASK_MJS}）。请安装 meerkat-taskpanel 或其它基座，或设 OPENCLAW_TASK_OPS_DIR。`
   );
   process.exit(1);
 }

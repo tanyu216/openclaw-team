@@ -53,10 +53,10 @@ step "skills fetcher dry-run (no network)"
 node skills/fetch.mjs --openclaw-home "$KHOME/.openclaw" --claude-home "$KHOME/.claude" --codex-home "$KHOME/.codex" --dry-run | tail -1
 
 step "installer dry-run (isolated HOME)"
-HOME="$KHOME" ./install.sh --openclaw-home "$KHOME/.openclaw" --claude-home "$KHOME/.claude" --codex-home "$KHOME/.codex" --no-task-panel --skip-skills --no-register --skip-config --dry-run | tail -1
+HOME="$KHOME" ./install.sh --openclaw-home "$KHOME/.openclaw" --claude-home "$KHOME/.claude" --codex-home "$KHOME/.codex" --no-meerkat-taskpanel --skip-skills --no-register --skip-config --dry-run | tail -1
 
 step "installer real run (file deploy; isolated HOME; no network)"
-HOME="$KHOME" ./install.sh --openclaw-home "$KHOME/.openclaw" --claude-home "$KHOME/.claude" --codex-home "$KHOME/.codex" --no-task-panel --skip-skills --no-register --skip-config >/dev/null
+HOME="$KHOME" ./install.sh --openclaw-home "$KHOME/.openclaw" --claude-home "$KHOME/.claude" --codex-home "$KHOME/.codex" --no-meerkat-taskpanel --skip-skills --no-register --skip-config >/dev/null
 for f in .openclaw/team/PROTOCOL.md .openclaw/team/guides/ci-release-sop.md .openclaw/team/guides/task-interface.md .openclaw/team/.install-state.json; do
   [ -f "$KHOME/$f" ] || { echo "missing after install: $f"; exit 1; }
 done
@@ -68,7 +68,7 @@ echo "deployed files ok"
 step "install/upgrade path (idempotent + backup)"
 echo "# local edit" >> "$KHOME/.openclaw/team/PROTOCOL.md"
 echo "my prefs" >> "$KHOME/.openclaw/workspace-elon/USER.md"
-HOME="$KHOME" ./install.sh --openclaw-home "$KHOME/.openclaw" --claude-home "$KHOME/.claude" --codex-home "$KHOME/.codex" --no-task-panel --skip-skills --no-register --skip-config >/dev/null
+HOME="$KHOME" ./install.sh --openclaw-home "$KHOME/.openclaw" --claude-home "$KHOME/.claude" --codex-home "$KHOME/.codex" --no-meerkat-taskpanel --skip-skills --no-register --skip-config >/dev/null
 [ -n "$(find "$KHOME/.openclaw/team/.backups" -name PROTOCOL.md 2>/dev/null)" ] || { echo "no backup written on upgrade"; exit 1; }
 grep -q "local edit" "$KHOME/.openclaw/team/.backups"/*/team/PROTOCOL.md || { echo "backup missing edit"; exit 1; }
 grep -q "my prefs" "$KHOME/.openclaw/workspace-elon/USER.md" || { echo "USER.md was clobbered"; exit 1; }

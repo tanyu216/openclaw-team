@@ -10,13 +10,13 @@
 # preserved unless --force is given. Use --dry-run to preview every action.
 #
 # Task management is NOT bundled here. The team integrates with any task
-# system through a small ACL (see team/guides/task-interface.md); `task-panel`
-# is the DEFAULT reference provider (installed unless --no-task-panel).
+# system through a small ACL (see team/guides/task-interface.md); `meerkat-taskpanel`
+# is the DEFAULT reference provider (installed unless --no-meerkat-taskpanel).
 # Connectors for other systems (Jira, Linear, Plane, ...) are out of scope.
 #
 # Team-level SCHEDULING is FRAMEWORK-OWNED and provider-agnostic: the scheduled
 # jobs (*-poll / task-patrol / team-check-all) are registered here and dispatch
-# to the configured provider through team/automations/dispatch.mjs (task-panel
+# to the configured provider through team/automations/dispatch.mjs (meerkat-taskpanel
 # by default; select another with OPENCLAW_TEAM_TASK_PROVIDER). See
 # --skip-automations.
 #
@@ -41,11 +41,13 @@
 #   --openclaw-home DIR    OpenClaw home            (default: ~/.openclaw)
 #   --claude-home DIR      Claude Code home         (default: ~/.claude)
 #   --codex-home DIR       Codex home               (default: ~/.codex)
-#   --task-panel DIR       Path to the task-panel source checkout
-#   --with-task-panel      Install the reference task provider (task-panel) [default]
-#   --no-task-panel        Opt out: do NOT install task-panel; bring your own
-#                          task system (Jira/Plane/Linear/...) via the
-#                          task-interface ACL
+#   --meerkat-taskpanel DIR       Path to the meerkat-taskpanel source checkout
+#   --with-meerkat-taskpanel      Install the reference task provider (meerkat-taskpanel) [default]
+#   --no-meerkat-taskpanel        Opt out: do NOT install meerkat-taskpanel; bring your own
+#                                 task system (Jira/Plane/Linear/...) via the
+#                                 task-interface ACL
+#                                 (legacy-name-compat: the pre-rebrand --*-task-panel flags are
+#                                  still accepted as deprecated aliases)
 #   --skip-automations     Do not register team-level scheduled jobs
 #   --vendor               Snapshot skills from source into skills/vendor/
 #   --offline              Install skills from skills/vendor/ (no network)
@@ -77,8 +79,8 @@ REPO="$(cd "$(dirname "$0")" && pwd)"
 OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
 CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
-TASK_PANEL_SRC="${TASK_PANEL_SRC:-}"
-WITH_TASK_PANEL=1   # task-panel is the DEFAULT reference provider (opt out: --no-task-panel)
+MEERKAT_TASKPANEL_SRC="${MEERKAT_TASKPANEL_SRC:-}"
+WITH_MEERKAT_TASKPANEL=1   # meerkat-taskpanel is the DEFAULT reference provider (opt out: --no-meerkat-taskpanel)
 KEEP=0            # --keep-existing: never overwrite (legacy install-only behaviour)
 BK_DIR=""        # backup dir for this run (set in preflight)
 VERSION="$(cat "$REPO/VERSION" 2>/dev/null || echo 0.0.0)"
@@ -130,6 +132,13 @@ WORKSPACE=(workspace-elon workspace-jobs workspace-linus workspace-turing worksp
 
 usage() { awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$0"; }
 
+# dep_flag <old> <new> — one-line deprecation note for a legacy-name-compat flag alias.
+# It deliberately does NOT go through warn(): warn() bumps WARNINGS, which flips the
+# installer's exit code to 1 — that would break callers still passing a deprecated
+# alias (the meerkat-taskpanel product repo's docker/verify-in-container.sh runs it
+# under `set -euo pipefail`, where a non-zero installer exit aborts the script).
+dep_flag() { printf '  \033[33m! %s is deprecated (legacy-name-compat); use %s\033[0m\n' "$1" "$2" >&2; }
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --dry-run) DRY_RUN=1 ;;
@@ -140,10 +149,14 @@ while [ "$#" -gt 0 ]; do
     --claude-home=*) CLAUDE_HOME="${1#*=}" ;;
     --codex-home) CODEX_HOME="${2:?}"; shift ;;
     --codex-home=*) CODEX_HOME="${1#*=}" ;;
-    --task-panel) TASK_PANEL_SRC="${2:?}"; shift ;;
-    --task-panel=*) TASK_PANEL_SRC="${1#*=}" ;;
-    --with-task-panel) WITH_TASK_PANEL=1 ;;
-    --no-task-panel) WITH_TASK_PANEL=0 ;;
+    --meerkat-taskpanel) MEERKAT_TASKPANEL_SRC="${2:?}"; shift ;;
+    --meerkat-taskpanel=*) MEERKAT_TASKPANEL_SRC="${1#*=}" ;;
+    --with-meerkat-taskpanel) WITH_MEERKAT_TASKPANEL=1 ;;
+    --no-meerkat-taskpanel) WITH_MEERKAT_TASKPANEL=0 ;;
+    --task-panel) dep_flag --task-panel --meerkat-taskpanel; MEERKAT_TASKPANEL_SRC="${2:?}"; shift ;; # legacy-name-compat
+    --task-panel=*) dep_flag --task-panel --meerkat-taskpanel; MEERKAT_TASKPANEL_SRC="${1#*=}" ;;      # legacy-name-compat
+    --with-task-panel) dep_flag --with-task-panel --with-meerkat-taskpanel; WITH_MEERKAT_TASKPANEL=1 ;; # legacy-name-compat
+    --no-task-panel) dep_flag --no-task-panel --no-meerkat-taskpanel; WITH_MEERKAT_TASKPANEL=0 ;;       # legacy-name-compat
     --skip-automations) DO_AUTOMATIONS=0 ;;
     --skip-skills) DO_SKILLS=0 ;;
     --vendor) VENDOR=1 ;;
@@ -568,43 +581,48 @@ fi
 
 # ---- 5. task provider (ACL) -------------------------------------------------
 # The team talks to ANY task system through the ACL in
-# team/guides/task-interface.md. task-panel is the DEFAULT reference provider
-# (opt out with --no-task-panel); other systems (Jira/Linear/Plane/...) are the
+# team/guides/task-interface.md. meerkat-taskpanel is the DEFAULT reference provider
+# (opt out with --no-meerkat-taskpanel); other systems (Jira/Linear/Plane/...) are the
 # user's own concern. This stage only selects/installs the provider — the
 # framework OWNS scheduling and dispatches through the ACL (see stage 6).
 if [ "$DO_TASKS" = 1 ]; then
   step "task provider (ACL)"
-  provider="${OPENCLAW_TEAM_TASK_PROVIDER:-task-panel}"
+  provider="${OPENCLAW_TEAM_TASK_PROVIDER:-meerkat-taskpanel}"
   info "configured provider: $provider  (ACL: team/guides/task-interface.md)"
-  if [ -e "$OPENCLAW_HOME/skills/task-panel" ] || have_cmd taskctl; then
-    info "reference provider present: task-panel"
+  # legacy-name-compat: detect a pre-rebrand skill dir too, so an existing install is
+  # still recognised instead of being needlessly reinstalled.
+  if [ -e "$OPENCLAW_HOME/skills/meerkat-taskpanel" ] || [ -e "$OPENCLAW_HOME/skills/task-panel" ] || have_cmd taskctl; then # legacy-name-compat
+    info "reference provider present: meerkat-taskpanel"
   fi
-  if [ "$WITH_TASK_PANEL" = 1 ]; then
-    if [ -e "$OPENCLAW_HOME/skills/task-panel" ]; then
-      info "task-panel already installed at $OPENCLAW_HOME/skills/task-panel"
+  if [ "$WITH_MEERKAT_TASKPANEL" = 1 ]; then
+    if [ -e "$OPENCLAW_HOME/skills/meerkat-taskpanel" ]; then
+      info "meerkat-taskpanel already installed at $OPENCLAW_HOME/skills/meerkat-taskpanel"
+    elif [ -e "$OPENCLAW_HOME/skills/task-panel" ]; then # legacy-name-compat
+      info "meerkat-taskpanel already installed (legacy-name-compat dir $OPENCLAW_HOME/skills/task-panel)"
     else
-      src="$TASK_PANEL_SRC"
-      [ -n "$src" ] || for c in "$HOME/Documents/task-panel" "$HOME/task-panel" "$PWD/../task-panel"; do
+      src="$MEERKAT_TASKPANEL_SRC"
+      [ -n "$src" ] || for c in "$HOME/Documents/meerkat-taskpanel" "$HOME/meerkat-taskpanel" "$PWD/../meerkat-taskpanel" \
+                                "$HOME/Documents/task-panel" "$HOME/task-panel" "$PWD/../task-panel"; do # legacy-name-compat
         [ -f "$c/install.sh" ] && { src="$c"; break; }
       done
       if [ -n "$src" ] && [ -f "$src/install.sh" ]; then
-        info "installing reference provider task-panel from $src"
+        info "installing reference provider meerkat-taskpanel from $src"
         args=(--target openclaw --prefix "$HOME")
         [ "$FORCE" = 1 ] && args+=(--force)
         [ "$DRY_RUN" = 1 ] && args+=(--dry-run)
         run bash "$src/install.sh" "${args[@]}"
       else
-        # task-panel is the default provider but its source is an external
+        # meerkat-taskpanel is the default provider but its source is an external
         # checkout; missing source degrades (informational, never fatal).
-        info "task-panel source not found — reference provider NOT installed."
-        info "  provide it:  ./install.sh --task-panel <dir>   (or git clone it)"
-        info "  or opt out:  ./install.sh --no-task-panel      (bring your own below)"
+        info "meerkat-taskpanel source not found — reference provider NOT installed."
+        info "  provide it:  ./install.sh --meerkat-taskpanel <dir>   (or git clone it)"
+        info "  or opt out:  ./install.sh --no-meerkat-taskpanel      (bring your own below)"
         info "  the framework still deploys scheduling; it dispatches through the ACL"
         info "  and degrades to no-fire until a provider entry exists."
       fi
     fi
   else
-    info "task-panel opted out (--no-task-panel)."
+    info "meerkat-taskpanel opted out (--no-meerkat-taskpanel)."
     info "  Scheduling stays framework-owned and provider-agnostic (see stage 6)."
     info "  Bring your own task system — Jira / Plane / Linear / GitHub Issues / …:"
     info "    install its connector skill/MCP, then set OPENCLAW_TEAM_TASK_PROVIDER=<name>"
@@ -618,10 +636,10 @@ fi
 # ---- 6. team automations (framework-owned scheduling, provider-agnostic) ----
 # The framework registers the team's scheduled jobs; each trigger calls the
 # framework dispatcher, which in turn calls the configured provider behind the
-# ACL. No provider literal (task-panel / taskctl) appears in any trigger script.
+# ACL. No provider literal (meerkat-taskpanel / taskctl) appears in any trigger script.
 if [ "$DO_AUTOMATIONS" = 1 ]; then
   step "team automations (provider-agnostic)"
-  auto_provider="${OPENCLAW_TEAM_TASK_PROVIDER:-task-panel}"
+  auto_provider="${OPENCLAW_TEAM_TASK_PROVIDER:-meerkat-taskpanel}"
   info "scheduler: framework-owned  ·  provider: $auto_provider (callee via the ACL)"
   info "dispatcher: $TEAM_DIR/automations/dispatch.mjs"
   info "bounds: trigger-eval ${EVAL_TIMEOUT_MS}ms (OPENCLAW_TEAM_EVAL_TIMEOUT_MS) · poll run ${POLL_RUN_TIMEOUT_S}s (OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S, 0=off)"

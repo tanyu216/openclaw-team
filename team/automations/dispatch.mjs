@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // openclaw-team — provider-agnostic automation dispatcher (framework-owned).
 //
-// The framework owns *scheduling*; a task provider (task-panel by default) is
+// The framework owns *scheduling*; a task provider (meerkat-taskpanel by default) is
 // only a *callee* behind the `task-interface` ACL (see team/guides/task-interface.md).
 // This dispatcher picks the provider's entry command for a job, runs it WITHOUT a
 // shell, and emits a single-line JSON decision on stdout for the Gateway trigger
@@ -12,7 +12,9 @@
 // Usage:  node dispatch.mjs <job> [agent]      job ∈ poll | patrol | check-all
 //
 // Provider resolution:
-//   provider   = $OPENCLAW_TEAM_TASK_PROVIDER              (default: task-panel)
+//   provider   = $OPENCLAW_TEAM_TASK_PROVIDER              (default: meerkat-taskpanel)
+//                (legacy-name-compat: the pre-rebrand `task-panel` name/key still resolves,
+//                 bidirectionally, with a one-line stderr note — see LEGACY_PROVIDER_ALIAS)
 //   entry cmd  = providers.json[provider][<job key>], overridable per job with:
 //                  poll      -> $OPENCLAW_TEAM_POLL_CMD
 //                  patrol    -> $OPENCLAW_TEAM_PATROL_CMD
@@ -41,6 +43,11 @@ import path from "node:path";
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // <TEAM_DIR>/automations
 const TEAM_DIR = path.resolve(HERE, "..");                 // <TEAM_DIR>
 const PROVIDERS_FILE = path.join(HERE, "providers.json");
+
+// legacy-name-compat: the pre-rebrand provider name. Mapped *bidirectionally* so BOTH an old
+// OPENCLAW_TEAM_TASK_PROVIDER value and a providers.json still carrying the old key
+// (e.g. preserved by install.sh --keep-existing) resolve after the rename to meerkat-taskpanel.
+const LEGACY_PROVIDER_ALIAS = { "meerkat-taskpanel": "task-panel", "task-panel": "meerkat-taskpanel" }; // legacy-name-compat
 
 // job -> providers.json key, and -> env override var
 const JOB_KEY = { poll: "poll", patrol: "patrol", "check-all": "checkAll" };
@@ -80,7 +87,7 @@ export function main(argvIn = process.argv.slice(2), env = process.env) {
   EVAL_TIMEOUT_MS = resolveEvalTimeoutMs(env.OPENCLAW_TEAM_EVAL_TIMEOUT_MS);
   if (!JOB_KEY[job]) degrade(job, "unknown-job", { usage: "dispatch.mjs <poll|patrol|check-all> [agent]" });
 
-  const provider = env.OPENCLAW_TEAM_TASK_PROVIDER || "task-panel";
+  let provider = env.OPENCLAW_TEAM_TASK_PROVIDER || "meerkat-taskpanel";
 
   // 1) entry command: env override first, else providers.json
   let template = String(env[JOB_ENV[job]] || "").trim();
@@ -88,7 +95,12 @@ export function main(argvIn = process.argv.slice(2), env = process.env) {
     let providers;
     try { providers = JSON.parse(fs.readFileSync(PROVIDERS_FILE, "utf8")); }
     catch (e) { degrade(job, "providers.json-missing-or-invalid", { provider }); }
-    const p = providers[provider];
+    let p = providers[provider];
+    const alias = LEGACY_PROVIDER_ALIAS[provider];
+    if ((!p || typeof p !== "object") && alias && providers[alias]) {
+      process.stderr.write(`[dispatch] provider "${provider}" 已弃用（legacy-name-compat）：改用 "${alias}"\n`);
+      provider = alias; p = providers[alias];
+    }
     if (!p || typeof p !== "object") degrade(job, "provider-not-found", { provider });
     template = String(p[JOB_KEY[job]] || "").trim();
     if (!template) degrade(job, "entry-not-configured", { provider, jobKey: JOB_KEY[job] });

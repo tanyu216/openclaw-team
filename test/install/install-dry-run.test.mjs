@@ -94,12 +94,28 @@ function setup({ automationsJobs = [], optimizationApplied = false } = {}) {
   return { root, openclawHome, env, log };
 }
 
-const BASE_ARGS = ["--dry-run", "--no-task-panel", "--skip-skills", "--skip-agents"];
+const BASE_ARGS = ["--dry-run", "--no-meerkat-taskpanel", "--skip-skills", "--skip-agents"];
 
 function runInstall(env, extra = []) {
   const r = spawnSync("bash", [INSTALL, ...BASE_ARGS, ...extra], { env, encoding: "utf8" });
   return { out: (r.stdout || "") + (r.stderr || ""), status: r.status };
 }
+
+test("legacy-name-compat: the pre-rebrand --no-task-panel alias still opts out, exit 0, no warning", () => {
+  const { env } = setup();
+  // deliberately NOT BASE_ARGS: exercise the pre-rebrand flag name on its own
+  const r = spawnSync("bash",
+    [INSTALL, "--dry-run", "--no-task-panel", "--skip-skills", "--skip-agents"], // legacy-name-compat
+    { env, encoding: "utf8" });
+  const out = (r.stdout || "") + (r.stderr || "");
+
+  // Exit 0 matters: the meerkat-taskpanel repo's docker/verify-in-container.sh calls the
+  // installer under `set -euo pipefail`, so a warning would abort it.
+  assert.equal(r.status, 0, "the deprecated alias must not flip the installer exit code");
+  assert.ok(out.includes("is deprecated (legacy-name-compat)"), "the alias must announce its deprecation");
+  assert.ok(out.includes("meerkat-taskpanel opted out"), "the alias must still opt out of the provider");
+  assert.ok(out.includes("warnings=0"), "a deprecation note must not be counted as a warning");
+});
 
 test("dry-run previews --light-context on poll/patrol/check-all and --every 2m on poll", () => {
   const { env } = setup();

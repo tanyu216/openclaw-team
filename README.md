@@ -47,7 +47,7 @@ flowchart TB
   Turing["Turing - AI (QA)"]
   Assistant["Assistant - AI (ops / misc)"]
   Extra["user-defined roles - AI (added by the user)"]
-  Board["Task board - cards + claim + heartbeat + DAG (ACL: task-panel / Jira / ...)"]
+  Board["Task board - cards + claim + heartbeat + DAG (ACL: meerkat-taskpanel / Jira / ...)"]
   Sched["Framework scheduler - poll / patrol / check-all (provider-agnostic)"]
   Subs["Subsessions - Claude Code (Jobs/Linus) / Codex (Turing)"]
 
@@ -208,9 +208,9 @@ Options:
 | `--force` | Overwrite existing skills / role files / team docs |
 | `--openclaw-home DIR` | OpenClaw home (default `~/.openclaw`) |
 | `--claude-home DIR` / `--codex-home DIR` | Claude Code / Codex home |
-| `--task-panel DIR` | Path to the task-panel source checkout |
-| `--with-task-panel` | Install the reference task provider (**task-panel is installed by default**) |
-| `--no-task-panel` | Opt out of task-panel; bring your own task system (Jira / Plane / Linear / …) via the `task-interface` ACL |
+| `--meerkat-taskpanel DIR` | Path to the meerkat-taskpanel source checkout |
+| `--with-meerkat-taskpanel` | Install the reference task provider (**meerkat-taskpanel is installed by default**) |
+| `--no-meerkat-taskpanel` | Opt out of meerkat-taskpanel; bring your own task system (Jira / Plane / Linear / …) via the `task-interface` ACL |
 | `--skip-automations` | Do not register the team-level scheduled jobs |
 | `--prototype <carrier>` | Prototype carrier: `static-html` \| `figma` \| `google-stitch` \| `pixso` (default `static-html`); recorded in `~/.openclaw/team/team.config.json` for Jobs/Linus |
 | `--keys` / `--skip-keys` | Force / skip the interactive API-key prompt (default: prompt only on a TTY) |
@@ -218,6 +218,10 @@ Options:
 | `--skip-skills` `--skip-agents` `--skip-config` `--skip-team` | Skip a stage |
 | `--vendor` | Snapshot skills from their sources into `skills/vendor/` |
 | `--offline` | Install skills from `skills/vendor/` (no network) |
+
+`legacy-name-compat`: the pre-rebrand flag names `--task-panel` / `--with-task-panel` / `--no-task-panel`
+are still accepted as deprecated aliases (each prints a one-line note), so existing callers and scripts
+keep working unchanged.
 
 What the installer does (every stage is idempotent; existing items are skipped):
 
@@ -236,8 +240,8 @@ What the installer does (every stage is idempotent; existing items are skipped):
 5. **Config fragments** → `openclaw config patch --file config/*.json5`
    (anything under `config/examples/` is reference-only and not applied).
 6. **Task provider (ACL)** — reports the configured provider
-   (`OPENCLAW_TEAM_TASK_PROVIDER`, default `task-panel`) and installs the
-   reference provider **task-panel by default**. `--no-task-panel` opts out and
+   (`OPENCLAW_TEAM_TASK_PROVIDER`, default `meerkat-taskpanel`) and installs the
+   reference provider **meerkat-taskpanel by default**. `--no-meerkat-taskpanel` opts out and
    prints how to bring your own (Jira / Plane / Linear / … via the `task-interface`
    ACL).
 7. **Team automations (scheduling)** — registers the team-level scheduled jobs
@@ -309,15 +313,15 @@ until resolved. Provenance notes: [`skills/PROVENANCE.md`](skills/PROVENANCE.md)
 ## Task system & scheduling (pluggable, via ACL)
 
 **Ownership boundary**: `openclaw-team` owns the **scheduling** and the **ACL
-abstraction**; the task base (task-panel / Jira / Plane / …) is only a **callee**
+abstraction**; the task base (meerkat-taskpanel / Jira / Plane / …) is only a **callee**
 behind the ACL. The full contract is `team/guides/task-interface.md` (cards, atomic
 claim + heartbeat, the `ready → in_progress → in_review → done | failed` state
 machine, comments/process trail, and a parent/child + dependency DAG); this README
 does not restate it.
 
-- **Default provider — task-panel**: installed by default (task skill + `taskctl`
-  CLI). Opt out with `./install.sh --no-task-panel`; supply a source checkout with
-  `--task-panel DIR`.
+- **Default provider — meerkat-taskpanel**: installed by default (task skill + `taskctl`
+  CLI). Opt out with `./install.sh --no-meerkat-taskpanel`; supply a source checkout with
+  `--meerkat-taskpanel DIR`.
 - **Bring your own / swap the base** — Jira, Linear, Plane, GitHub Issues, a custom
   board, …: install that system's connector skill/MCP and point the team at it with
   `OPENCLAW_TEAM_TASK_PROVIDER=<name>`. The upper layers (roles / SOP / jobs) change
@@ -348,7 +352,7 @@ delegated to the task provider. `install.sh` registers three kinds of job
 Each trigger calls the framework dispatcher
 `team/automations/dispatch.mjs <poll|patrol|check-all> [agent]`, which resolves the
 provider's entry command (`team/automations/providers.json`; provider =
-`OPENCLAW_TEAM_TASK_PROVIDER`, default `task-panel`) and returns `{"fire":…}`. **The
+`OPENCLAW_TEAM_TASK_PROVIDER`, default `meerkat-taskpanel`) and returns `{"fire":…}`. **The
 entry scripts themselves ship with this repository** — `poll.mjs`, `patrol-scan.mjs`,
 `check-all.sh` and their dependency closure live in `team/scripts/**` and are
 installed into `{team}/scripts/**`, so a fresh install has no dangling entry path.

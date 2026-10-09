@@ -10,7 +10,7 @@
 That is: **Linus ensures the gate is red/green, while acceptance is judged independently by Turing/Elon**.
 
 ## 2. Verification Environment: Docker (mandatory)
-> Project convention: **local verification always runs inside the container, never on the host** (consistent with task-panel).
+> Project convention: **local verification always runs inside the container, never on the host** (consistent with meerkat-taskpanel).
 
 - **Sole health source of truth**: `docker/verify-in-container.sh` — CI and the local `docker/verify.sh` call **the same script**, so "local green = CI green".
 - **Entry points**: `docker/verify.sh` (host build+run) · `docker compose -f docker/docker-compose.yml up --build` · CI `.github/workflows/verify.yml`.
