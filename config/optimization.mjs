@@ -78,10 +78,12 @@ export function computeProvidersPatch(providers, opts = {}) {
         applied.push(`${pkey}:${id || "?"}.contextTokens=${contextTokens}`);
       }
 
-      // cost.cacheRead — only whitelisted deepseek ids (missing only).
+      // cost.cacheRead — only whitelisted deepseek ids (missing only). A `cost` that is
+      // present but NOT an object (string/number/null) is left untouched rather than
+      // clobbered into `{cacheRead}` — never overwrite a user value, even a malformed one.
       if (id && cacheRead[id] != null) {
-        const cost = model.cost && typeof model.cost === "object" ? model.cost : (model.cost = {});
-        if (cost.cacheRead == null) {
+        const cost = model.cost === undefined ? (model.cost = {}) : model.cost;
+        if (cost && typeof cost === "object" && cost.cacheRead == null) {
           cost.cacheRead = cacheRead[id];
           applied.push(`${pkey}:${id}.cost.cacheRead=${cacheRead[id]}`);
         }
