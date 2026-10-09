@@ -15,11 +15,15 @@
 //                                            `openclaw config patch --file <tmp>`
 //
 // Backfill rules (owner-verified, T-20261010-040000):
-//   - contextTokens: only for deepseek models (model id or provider key contains
-//     "deepseek") unless OPENCLAW_TEAM_CONTEXT_TOKENS_ALL=1 opts into "all models";
-//     value OPENCLAW_TEAM_CONTEXT_TOKENS (default 200000); only when the field is absent.
+//   - contextTokens: window-gated, NOT vendor-gated. Backfilled only when the model has
+//     NO contextTokens AND its declared `contextWindow` is a finite number strictly greater
+//     than the target threshold (default 200000, from OPENCLAW_TEAM_CONTEXT_TOKENS). An
+//     unknown (missing/non-numeric) or ≤-threshold window is skipped — we never guess.
+//     OPENCLAW_TEAM_CONTEXT_TOKENS_ALL=1 is a wildcard: it ignores the window check and
+//     backfills every model missing contextTokens.
 //   - cost.cacheRead: only for whitelisted deepseek model ids (deepseek-flash=0.006,
-//     deepseek-v4-pro=0.003625) and only when the field is absent.
+//     deepseek-v4-pro=0.003625) and only when the field is absent. Cache-read costs are
+//     model-specific, so this stays a deepseek-only whitelist.
 //   - NEVER overwrite an existing value (contextTokens, cost.cacheRead, or anything else).
 
 import fs from "node:fs";
@@ -40,9 +44,10 @@ export const DEEPSEEK_CACHE_READ = {
  *
  * @param {object|undefined} providers  the value of `models.providers` in openclaw.json
  * @param {object} opts
- *   - contextTokens {number|string} default 200000
+ *   - contextTokens {number|string} target value AND window threshold, default 200000
  *   - cacheRead     {object}        extra/overriding id→cost map (merged onto the whitelist)
- *   - allModels     {boolean}       backfill contextTokens for non-deepseek models too
+ *   - allModels     {boolean}       wildcard: ignore the contextWindow check, backfill
+ *                                   contextTokens on every model missing it
  * @returns {{patch: object, applied: string[]}}
  *   - patch: the COMPLETE models.providers subtree when anything changed, else `{}`.
  *   - applied: human-readable list of the changes made.
@@ -61,14 +66,14 @@ export function computeProvidersPatch(providers, opts = {}) {
 
   for (const [pkey, pval] of Object.entries(out)) {
     if (!pval || typeof pval !== "object" || !Array.isArray(pval.models)) continue;
-    const isDeepseekProvider = /deepseek/i.test(String(pkey));
     for (const model of pval.models) {
       if (!model || typeof model !== "object") continue;
       const id = typeof model.id === "string" ? model.id : "";
-      const isDeepseekModel = isDeepseekProvider || /deepseek/i.test(id);
 
-      // contextTokens — only deepseek models unless allModels opts in (missing only).
-      if (model.contextTokens == null && (allModels || isDeepseekModel)) {
+      // contextTokens — window-gated: the declared contextWindow must exceed the threshold
+      // (unless the allModels wildcard ignores the check). Missing fields only.
+      const windowOverThreshold = Number.isFinite(model.contextWindow) && model.contextWindow > contextTokens;
+      if (model.contextTokens == null && (allModels || windowOverThreshold)) {
         model.contextTokens = contextTokens;
         applied.push(`${pkey}:${id || "?"}.contextTokens=${contextTokens}`);
       }
