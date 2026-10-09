@@ -1,0 +1,22 @@
+// 30-optimization.json5 — context compression lever (team-owned defaults).
+// Applied by install.sh via: openclaw config patch --file config/30-optimization.json5
+// Values = the owner-verified baseline (T-20261010-040000). Idempotent (object merge):
+// re-applying merges the same defaults over themselves, so a repeated run never drifts.
+//
+// These three keys are team-owned *declared defaults* (same convention as the
+// heartbeat/systemAgent defaults in 20-defaults.json5). The "never overwrite a
+// user's custom value" rule is the special concern of the providers array, handled
+// separately by config/optimization.mjs — it does NOT apply here.
+//
+// NOTE: models.providers is intentionally absent from this fragment. `config patch`
+// REPLACES arrays (not element-merge), so a static providers fragment would clobber
+// the host's model list. Providers backfill runs as a read-modify-write step instead.
+{
+  agents: {
+    defaults: {
+      compaction: { enabled: true, keepRecentTokens: 20000, maxActiveTranscriptBytes: "20mb", midTurnPrecheck: { enabled: true } },
+      contextPruning: { mode: "cache-ttl", ttl: "10m", hardClear: { enabled: true } },
+      contextLimits: { postCompactionMaxChars: 8000 },
+    },
+  },
+}

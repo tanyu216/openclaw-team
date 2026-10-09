@@ -1,0 +1,132 @@
+#!/usr/bin/env node
+/**
+ * optimization-backfill.test.mjs — A2: providers backfill merges missing fields only,
+ * never overwrites an existing (customised) value, and re-emits the COMPLETE models
+ * array (config patch replaces arrays, so a sparse element would fail schema).
+ *
+ * Run: node --test test/install/optimization-backfill.test.mjs
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  computeProvidersPatch,
+  DEFAULT_CONTEXT_TOKENS,
+  DEEPSEEK_CACHE_READ,
+} from "../../config/optimization.mjs";
+
+const deepseekProvider = {
+  deepseek: {
+    models: [
+      { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro" },
+      { id: "deepseek-flash", name: "DeepSeek Flash" },
+    ],
+  },
+};
+
+test("missing contextTokens on deepseek models → backfilled 200000 (missing only)", () => {
+  const { patch, applied } = computeProvidersPatch(deepseekProvider);
+  assert.equal(patch.deepseek.models[0].contextTokens, DEFAULT_CONTEXT_TOKENS);
+  assert.equal(patch.deepseek.models[1].contextTokens, DEFAULT_CONTEXT_TOKENS);
+  assert.equal(applied.length, 4); // 2× contextTokens + 2× cacheRead
+});
+
+test("existing custom contextTokens is PRESERVED (A2 counter-example)", () => {
+  const providers = {
+    deepseek: {
+      models: [{ id: "deepseek-v4-pro", name: "Pro", contextTokens: 12345 }],
+    },
+  };
+  const { patch } = computeProvidersPatch(providers);
+  assert.equal(patch.deepseek.models[0].contextTokens, 12345, "custom contextTokens must not be overwritten");
+});
+
+test("deepseek cacheRead whitelist: flash→0.006, v4-pro→0.003625 (missing only)", () => {
+  const { patch } = computeProvidersPatch(deepseekProvider);
+  assert.equal(patch.deepseek.models.find((m) => m.id === "deepseek-flash").cost.cacheRead, DEEPSEEK_CACHE_READ["deepseek-flash"]);
+  assert.equal(patch.deepseek.models.find((m) => m.id === "deepseek-v4-pro").cost.cacheRead, DEEPSEEK_CACHE_READ["deepseek-v4-pro"]);
+});
+
+test("existing custom cost.cacheRead is PRESERVED", () => {
+  const providers = {
+    deepseek: {
+      models: [{ id: "deepseek-flash", name: "Flash", cost: { cacheRead: 0.999, input: 0.1 } }],
+    },
+  };
+  const { patch } = computeProvidersPatch(providers);
+  assert.equal(patch.deepseek.models[0].cost.cacheRead, 0.999, "custom cacheRead must not be overwritten");
+  assert.equal(patch.deepseek.models[0].cost.input, 0.1, "other cost fields must be untouched");
+});
+
+test("non-deepseek model: contextTokens NOT backfilled by default; cacheRead never", () => {
+  const providers = {
+    openai: {
+      models: [{ id: "gpt-4o", name: "GPT-4o" }],
+    },
+  };
+  const { patch, applied } = computeProvidersPatch(providers);
+  assert.deepEqual(patch, {}, "no backfill for a non-deepseek model in default mode");
+  assert.deepEqual(applied, []);
+});
+
+test("non-deepseek model with allModels opt-in: contextTokens backfilled, cacheRead still not", () => {
+  const providers = {
+    openai: {
+      models: [{ id: "gpt-4o", name: "GPT-4o" }],
+    },
+  };
+  const { patch } = computeProvidersPatch(providers, { allModels: true });
+  assert.equal(patch.openai.models[0].contextTokens, DEFAULT_CONTEXT_TOKENS);
+  assert.equal(patch.openai.models[0].cost, undefined, "cacheRead must never be backfilled for non-whitelisted ids");
+});
+
+test("all satisfied ⇒ empty patch / applied=[]", () => {
+  const providers = {
+    deepseek: {
+      models: [
+        { id: "deepseek-v4-pro", name: "Pro", contextTokens: 200000, cost: { cacheRead: 0.003625 } },
+        { id: "deepseek-flash", name: "Flash", contextTokens: 200000, cost: { cacheRead: 0.006 } },
+      ],
+    },
+  };
+  const { patch, applied } = computeProvidersPatch(providers);
+  assert.deepEqual(patch, {});
+  assert.deepEqual(applied, []);
+});
+
+test("contract: the emitted patch preserves EVERY input field (array ⊇ input)", () => {
+  const providers = {
+    deepseek: {
+      name: "DeepSeek",
+      models: [
+        { id: "deepseek-v4-pro", name: "Pro", contextTokens: 12345, cost: { input: 0.1, output: 0.2 } },
+      ],
+    },
+    openai: {
+      models: [{ id: "gpt-4o", name: "GPT-4o", tags: ["a", "b"] }],
+    },
+  };
+  const { patch } = computeProvidersPatch(providers);
+
+  // every field of every input provider/model must survive into the patch
+  assert.equal(patch.deepseek.name, "DeepSeek");
+  assert.equal(patch.deepseek.models.length, 1);
+  assert.equal(patch.deepseek.models[0].id, "deepseek-v4-pro");
+  assert.equal(patch.deepseek.models[0].name, "Pro");
+  assert.equal(patch.deepseek.models[0].contextTokens, 12345, "preserved, not rewritten");
+  assert.deepEqual(patch.deepseek.models[0].cost.input, 0.1);
+  assert.deepEqual(patch.deepseek.models[0].cost.output, 0.2);
+  assert.equal(patch.openai.models[0].id, "gpt-4o");
+  assert.equal(patch.openai.models[0].name, "GPT-4o");
+  assert.deepEqual(patch.openai.models[0].tags, ["a", "b"]);
+
+  // the one missing field (deepseek cacheRead) was filled on top of the preserved cost object
+  assert.equal(patch.deepseek.models[0].cost.cacheRead, DEEPSEEK_CACHE_READ["deepseek-v4-pro"]);
+});
+
+test("missing / non-object providers ⇒ empty patch", () => {
+  assert.deepEqual(computeProvidersPatch(undefined), { patch: {}, applied: [] });
+  assert.deepEqual(computeProvidersPatch(null), { patch: {}, applied: [] });
+  assert.deepEqual(computeProvidersPatch([]), { patch: {}, applied: [] });
+  assert.deepEqual(computeProvidersPatch({}, { allModels: true }), { patch: {}, applied: [] });
+});
