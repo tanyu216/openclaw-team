@@ -234,6 +234,19 @@
       "resolved": true
     },
     {
+      "name": "frontend-design",
+      "targets": [
+        "claude",
+        "agent:linus"
+      ],
+      "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
+      "repo": "https://github.com/anthropics/skills",
+      "tree_sha256": [
+        "sha256:f80bfae34cc4cd662627fb7ba827945f96cdb7a8eb4a782a0adc7484f302a8d6"
+      ],
+      "resolved": true
+    },
+    {
       "name": "git-guardrails-claude-code",
       "targets": [
         "claude",
@@ -654,6 +667,19 @@
       "version": "1.8.0",
       "tree_sha256": [
         "sha256:65a6c6195d7c10eb171c53239bc50e3382a96915c91e24a4d20d1cde679ad03e"
+      ],
+      "resolved": true
+    },
+    {
+      "name": "react-best-practices",
+      "targets": [
+        "claude",
+        "agent:linus"
+      ],
+      "ref": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "repo": "https://github.com/vercel-labs/agent-skills",
+      "tree_sha256": [
+        "sha256:5efa4b9724a7f63bfc42aaaaeff9d685c8da9a5d9e6d3bb38eac1e8837eff125"
       ],
       "resolved": true
     },
