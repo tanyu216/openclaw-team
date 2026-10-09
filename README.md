@@ -194,8 +194,8 @@ and reports back. The whole loop is four steps:
 ## Install
 
 ```bash
-git clone <this-repo> ~/Documents/openclaw-team
-cd ~/Documents/openclaw-team
+git clone <this-repo> <path/to/openclaw-team>   # example path — clone anywhere
+cd <path/to/openclaw-team>
 ./install.sh --dry-run      # preview every action
 ./install.sh                # idempotent install
 ```

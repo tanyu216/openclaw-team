@@ -8,7 +8,7 @@
  * board 落盘与只读适配器 bases/task-panel.mjs 同源（resolveBoardDataDir/DbPath）。
  *
  * 用法：node scripts/seed-projects.mjs   # 可重复执行（幂等）
- * 环境：TASKPANEL_REPO（task-panel 仓根，默认 /Users/tanyu/Documents/task-panel）
+ * 环境：TASKPANEL_REPO（task-panel 仓根；缺省取与 openclaw-team 同级的兄弟目录 ../task-panel）
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -21,7 +21,11 @@ import { PROJECTS_FILE, TASK_OPS_DIR } from './lib.mjs';
 const taskPanelBase = await import(pathToFileURL(path.join(TASK_OPS_DIR, 'bases', 'task-panel.mjs')).href);
 const { resolveBoardDataDir, resolveBoardDbPath } = taskPanelBase;
 
-const DEFAULT_REPO = '/Users/tanyu/Documents/task-panel';
+// task-panel 仓默认位置：与 openclaw-team 同级的兄弟目录 ../task-panel（不硬绑本机绝对路径）。
+// 解析顺序 opts.repo > TASKPANEL_REPO 环境变量 > 本缺省；三者皆无 ⇒ 下方 bootstrap 存在性检查
+// 明确报错退出（沿用既有「task-panel 仓不存在或结构不符…」信息，绝不静默 no-op）。
+const REPO_ROOT = path.resolve(fileURLToPath(import.meta.url), '..', '..', '..'); // <repo>/team/scripts/../../.. = <repo>
+const DEFAULT_REPO = path.resolve(REPO_ROOT, '..', 'task-panel');
 
 /**
  * 幂等登记：逐条 code —— 基座已存在 ⇒ updateProject，否则 ⇒ createProject。
