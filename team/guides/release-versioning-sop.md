@@ -119,6 +119,7 @@
 - [ ] **lint / static checks**: the project's static-check command passes
 - [ ] **Container-form acceptance (`§⑨.3`)**: the critical path is **actually run** in the artifact's real runtime form with evidence (command + output); host-form green does not count
 - [ ] **CI green**: the push/PR-triggered CI pipeline is all green (see `ci-release-sop.md`)
+- [ ] **Dependency CVE scan all green (including SBOM)** (`PROTOCOL §㉖ dependency CVE gate`; `scan-deps`; team check-all runs warn-only unless `SCAN_STRICT=1`)
 - [ ] **Version source updated** (§2.5) and matching the size of this change (§2.1)
 - [ ] **Changelog frozen** (§3.2), `[Unreleased]` → `[X.Y.Z]`
 - [ ] **Documentation impact determined** (`§⑫`: the design docs to sync, or an explicit "no documentation impact" declaration)
