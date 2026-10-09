@@ -67,7 +67,10 @@ into `{team}/scripts/**` — a fresh install has no dangling entry path
 (the former "entry-path coupling" gap, `automations/README.md` gap #2). These
 scripts still link the provider's ACL library at `{team}/skills/task-ops/lib/`
 (provider-owned, intentionally not vendored), so a provider install is still
-required for them to execute.
+required for them to execute. That requirement is now **explicit (startup
+hard-fail)**: absent a provider install the entries print a clear
+`provider 未安装：…` error and exit non-zero (no silent no-op) — see
+`T-20261009-211234-providerdecouple`.
 
 ## 3.5 Run lock: what the framework bounds, and what it cannot (③)
 

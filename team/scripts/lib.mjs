@@ -12,10 +12,34 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+// ── provider 依赖显式化（T-20261009-211234-providerdecouple · 方案②启动期硬失败）──
+// 路径常量与 ACL 项目解析来自 provider ACL 库 skills/task-ops/lib/*（provider 拥有、有意不随仓
+// vendoring，见 skills/PROVENANCE.md）。启动即检测其可用性：缺失 ⇒ 明确错误 + 非零退出，绝不
+// 静默 no-op（与 H1/main-guard 静默失效同类高危故障模式）。查找顺序：
+//   OPENCLAW_TASK_OPS_DIR（指向含 lib/ 的 task-ops 检出目录）→ {team}/skills/task-ops
+export const TASK_OPS_DIR = process.env.OPENCLAW_TASK_OPS_DIR
+  ? path.resolve(process.env.OPENCLAW_TASK_OPS_DIR)
+  : path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'skills', 'task-ops');
+const TASK_OPS_LIB = path.join(TASK_OPS_DIR, 'lib');
+
+const REQUIRED_PROVIDER_LIB = ['team-paths.mjs', 'projects.mjs'];
+const missingProviderLib = REQUIRED_PROVIDER_LIB.filter((f) => !fs.existsSync(path.join(TASK_OPS_LIB, f)));
+if (missingProviderLib.length) {
+  console.error(
+    `provider 未安装：脚本依赖 provider ACL 库，缺失 skills/task-ops/lib/{${missingProviderLib.join(', ')}}` +
+    `（查找于 ${TASK_OPS_LIB}）。请安装 task-panel 或其它基座（./install.sh --task-panel <dir>），` +
+    `或设 OPENCLAW_TASK_OPS_DIR 指向含 lib/ 的 task-ops 检出目录。`
+  );
+  process.exit(1);
+}
 
 // 路径常量单一来源：skills/task-ops/lib/team-paths.mjs（本模块导入并再导出，对外符号不变）
-import { TEAM_ROOT, TASKS_DIR, LOCKS_DIR, PROJECTS_FILE } from '../skills/task-ops/lib/team-paths.mjs';
-import { getProject as aclGetProject } from '../skills/task-ops/lib/projects.mjs';
+const providerPaths = await import(pathToFileURL(path.join(TASK_OPS_LIB, 'team-paths.mjs')).href);
+const providerProjects = await import(pathToFileURL(path.join(TASK_OPS_LIB, 'projects.mjs')).href);
+const { TEAM_ROOT, TASKS_DIR, LOCKS_DIR, PROJECTS_FILE } = providerPaths;
+const { getProject: aclGetProject } = providerProjects;
 export { TEAM_ROOT, TASKS_DIR, LOCKS_DIR, PROJECTS_FILE };
 
 // 时间阈值（毫秒）——与 PROTOCOL.md 看板协议一致

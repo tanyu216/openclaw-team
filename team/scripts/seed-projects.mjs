@@ -13,8 +13,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { PROJECTS_FILE } from '../skills/task-ops/lib/team-paths.mjs';
-import { resolveBoardDataDir, resolveBoardDbPath } from '../skills/task-ops/bases/task-panel.mjs';
+import { PROJECTS_FILE, TASK_OPS_DIR } from './lib.mjs';
+
+// provider 依赖显式化（方案②启动期硬失败）：board 路径解析来自 provider ACL 库
+// skills/task-ops/bases/task-panel.mjs（provider 拥有、有意不随仓）。lib.mjs 已对
+// team-paths/projects 做启动硬失败；此处把 bases/task-panel.mjs 改为显式动态导入。
+const taskPanelBase = await import(pathToFileURL(path.join(TASK_OPS_DIR, 'bases', 'task-panel.mjs')).href);
+const { resolveBoardDataDir, resolveBoardDbPath } = taskPanelBase;
 
 const DEFAULT_REPO = '/Users/tanyu/Documents/task-panel';
 
