@@ -9,6 +9,26 @@ Vendored skills, by source layer. Generated 2026-10-08T17:56Z.
 
 > Third-party skills keep their own licenses. Review each before redistribution.
 
+### Newly registered (2026-10-09) — fetched from upstream, not vendored
+
+Two front-end skills resolved to verified GitHub upstreams and installed to
+`claude` + `agent:linus`:
+
+| skill | upstream | ref (pinned) | path |
+|---|---|---|---|
+| `frontend-design` | `https://github.com/anthropics/skills` | `683bc88e56f3e09ba94f7055977f3d3aa499f202` | `skills/frontend-design` |
+| `react-best-practices` | `https://github.com/vercel-labs/agent-skills` | `063bee94c3f4df8453406c830b0a7df0f2860278` | `skills/react-best-practices` |
+
+- No ClawHub-only fallback was needed: both have a GitHub upstream
+  (`source.kind = github`), so none is registered with `kind = clawhub`.
+- `react-best-practices`: upstream SKILL.md frontmatter `name` is
+  `vercel-react-best-practices`; the manifest/install name stays
+  `react-best-practices` (matches the upstream directory basename). Claude Code
+  lists it as `react-best-practices (vercel-react-best-practices)`.
+- `tree_sha256` in `lock.json` = `shasum -a 256` over the sorted
+  `sha256sum`-style lines of every file under the pinned path
+  (`find <path> -type f | sort | xargs shasum -a 256 | shasum -a 256`).
+
 ### OpenClaw global (`skills/openclaw/` → `~/.openclaw/skills/`)
 
 | skill | license file | source |

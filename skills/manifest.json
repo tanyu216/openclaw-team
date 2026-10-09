@@ -237,6 +237,20 @@
       }
     },
     {
+      "name": "frontend-design",
+      "targets": [
+        "claude",
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/anthropics/skills",
+        "ref": "683bc88e56f3e09ba94f7055977f3d3aa499f202",
+        "path": "skills/frontend-design",
+        "verified": true
+      }
+    },
+    {
       "name": "git-guardrails-claude-code",
       "targets": [
         "claude",
@@ -699,6 +713,20 @@
         "ref": "@kokxi/qa-test-automation-arch",
         "version": "1.8.0",
         "origin_meta": true
+      }
+    },
+    {
+      "name": "react-best-practices",
+      "targets": [
+        "claude",
+        "agent:linus"
+      ],
+      "source": {
+        "kind": "github",
+        "repo": "https://github.com/vercel-labs/agent-skills",
+        "ref": "063bee94c3f4df8453406c830b0a7df0f2860278",
+        "path": "skills/react-best-practices",
+        "verified": true
       }
     },
     {
