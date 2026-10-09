@@ -57,8 +57,33 @@ template substitution) and calls the framework dispatcher:
 `automations/providers.json`; provider = `OPENCLAW_TEAM_TASK_PROVIDER`, default
 `task-panel`), runs it **without a shell**, and returns a one-line
 `{"fire":bool,"message"?,"state"?}`. The Gateway trigger wakes the agent **only on
-`fire:true`**; a missing entry, a failure, or unparseable output ⇒ `fire:false`
-(zero cost). Contract + ACL gaps: `automations/README.md`.
+`fire:true`**; a missing entry, a failure, a timeout, or unparseable output ⇒
+`fire:false` (zero cost). Contract + ACL gaps: `automations/README.md`.
+
+**The entry scripts ship with the framework.** `poll.mjs` / `patrol-scan.mjs` /
+`check-all.sh` (with their runtime dependency closure and the framework test suite)
+live in this repository under `team/scripts/**` and are deployed by `install.sh`
+into `{team}/scripts/**` — a fresh install has no dangling entry path
+(the former "entry-path coupling" gap, `automations/README.md` gap #2). These
+scripts still link the provider's ACL library at `{team}/skills/task-ops/lib/`
+(provider-owned, intentionally not vendored), so a provider install is still
+required for them to execute.
+
+## 3.5 Run lock: what the framework bounds, and what it cannot (③)
+
+Two different clocks are involved; only the first is framework-owned.
+
+| Concern | Owner | Framework behaviour |
+|---|---|---|
+| **Trigger evaluation** (the poll/patrol/check-all *decision*: run the entry, read `{fire}`) | framework | **Bounded.** `dispatch.mjs` runs the entry under `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default **8000 ms**; invalid/absent ⇒ default), and `install.sh` generates each trigger with `exec({ command, timeoutSeconds })`. Both stay under the Gateway's own **30 s** per-evaluation wall-clock budget. A timeout degrades to `{"fire":false,"state":{"reason":"eval-timeout"}}`, exit 0. |
+| **Run lock** (`already-running`: a run already holds the job lock, so the next trigger is skipped; releasing **stale** runs) | **Gateway scheduler (platform)** | **Not addressed here.** The framework neither bounds nor reaps runs holding the lock. This needs owner/OpenClaw platform capability and is **explicitly out of scope** — this repository does not claim to have solved it. |
+
+Poll jobs additionally carry a **run upper bound**: `install.sh` registers them with
+`--timeout-seconds "$OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S"` (default **3600 s**; `0`
+disables). A poll run executes every card claimed in that round (up to the agent's
+concurrency quota), so the bound must cover several cards. This bounds one run's
+lifetime; it does **not** release a lock held by a run that the scheduler never
+reaps.
 
 ## 4. Decision Record
 - **Keep per-worker poll; do not do a "single board scan → dispatch"**: per-worker `*-poll` is an **independent fallback** (each worker atomically claims, so cards already created can still be claimed when Elon/main is stalled). Merging into "main scans → dispatch" would converge to a single Elon point and change the `PROTOCOL §①` "claim timing belongs to poll" semantics; the only gain is a few zero-cost config lines ⇒ not adopted.
@@ -66,6 +91,7 @@ template substitution) and calls the framework dispatcher:
 
 ## 5. Management
 - **Install-time registration**: `./install.sh` registers the jobs above idempotently by `declarationKey` (`openclaw-team:poll:<agent>` / `openclaw-team:task-patrol` / `openclaw-team:team-check-all`); `--skip-automations` disables it. Re-running is safe (an existing key is skipped). The registration is **provider-agnostic** — no `task-panel`/`taskctl` literal appears in any trigger script.
+- **Scheduling bounds** (set at registration; see §3.5): poll jobs get `--timeout-seconds` (run upper bound, `OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S`, default 3600 s); every generated trigger passes `exec({ …, timeoutSeconds })` and the dispatcher applies `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default 8000 ms). Both are install-time overridable env vars.
 - View: `automations list` | Details: `automations get <jobId>` | History: `automations runs <jobId>`
 - Test run: `automations run <jobId> runMode=force`
 - Add/remove/modify: prefer the `automations` tool; **but that tool is read-only in agent/cron turns** (only status/list/get/remove/runs/next_check, no add/update/run) ⇒ to actually change scheduling, use the official CLI: `openclaw automations edit <jobId> --trigger-script <file>` (Gateway WS managed path, not a manual DB edit). Hand-editing sqlite/store is forbidden.

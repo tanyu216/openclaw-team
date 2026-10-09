@@ -180,10 +180,16 @@ delegated to the task provider. `install.sh` registers three kinds of job
 Each trigger calls the framework dispatcher
 `team/automations/dispatch.mjs <poll|patrol|check-all> [agent]`, which resolves the
 provider's entry command (`team/automations/providers.json`; provider =
-`OPENCLAW_TEAM_TASK_PROVIDER`, default `task-panel`) and returns `{"fire":…}`. No
-trigger script contains a provider literal, so **swapping the base changes zero
-jobs**. A missing entry / failure / unparseable output ⇒ `fire:false` (zero cost).
-Details and ACL gaps: `team/automations/README.md`.
+`OPENCLAW_TEAM_TASK_PROVIDER`, default `task-panel`) and returns `{"fire":…}`. **The
+entry scripts themselves ship with this repository** — `poll.mjs`, `patrol-scan.mjs`,
+`check-all.sh` and their dependency closure live in `team/scripts/**` and are
+installed into `{team}/scripts/**`, so a fresh install has no dangling entry path.
+No trigger script contains a provider literal, so **swapping the base changes zero
+jobs**. A missing entry / failure / timeout / unparseable output ⇒ `fire:false`
+(zero cost). Trigger evaluation is bounded (`OPENCLAW_TEAM_EVAL_TIMEOUT_MS`, default
+8000 ms); the `already-running` run lock and stale-run release are platform
+(Gateway scheduler) concerns the framework does not claim to solve.
+Details and ACL gaps: `team/automations/README.md`, `team/AUTOMATIONS.md §3.5`.
 
 ### Extending roles
 
@@ -209,6 +215,7 @@ openclaw-team/
 └─ team/                     # static docs deployed to ~/.openclaw/team/
    ├─ PROTOCOL.md ROLES.md README.md AUTOMATIONS.md
    ├─ automations/           # framework dispatcher + provider entries (scheduling)
+   ├─ scripts/               # framework entry scripts (poll/patrol/check-all) + tests
    └─ guides/
 ```
 

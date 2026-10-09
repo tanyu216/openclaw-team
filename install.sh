@@ -20,6 +20,18 @@
 # by default; select another with OPENCLAW_TEAM_TASK_PROVIDER). See
 # --skip-automations.
 #
+# The provider ENTRY scripts ship WITH the repository (deployed from team/scripts/
+# into $TEAM_DIR/scripts/), so a fresh install has no dangling entry path.
+#
+# Trigger evaluation is BOUNDED (③): the generated Gateway trigger script caps the
+# dispatcher call with `timeoutSeconds`, and dispatch.mjs itself bounds the provider
+# entry with OPENCLAW_TEAM_EVAL_TIMEOUT_MS (default 8000 ms) — both well under the
+# Gateway's own 30 s per-evaluation wall-clock budget. Poll jobs also carry a run
+# upper bound (`--timeout-seconds`, default 3600 s; OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S
+# overrides, 0 disables). NOTE: `already-running` (a run holding the job lock) and
+# stale-run release are GATEWAY-SCHEDULER/platform concerns — this installer does
+# not bound or reap them. See team/AUTOMATIONS.md §3.5.
+#
 # Usage:
 #   ./install.sh [options]
 #
@@ -89,6 +101,22 @@ SKIP_KEYS=""      # --skip-keys: never prompt; --keys: force prompt (default: pr
 
 WARNINGS=0
 STEPS=0
+
+# ---- scheduling bounds (③) --------------------------------------------------
+# Trigger-evaluation bound (ms). It must stay well under the Gateway's 30 s
+# per-evaluation wall clock AND under the exec helper's 10 s default `yieldMs`
+# (above which the call backgrounds and the trigger would read partial output) —
+# so values > 10000 are not useful. Invalid/absent ⇒ 8000.
+EVAL_TIMEOUT_MS="${OPENCLAW_TEAM_EVAL_TIMEOUT_MS:-8000}"
+case "$EVAL_TIMEOUT_MS" in ''|*[!0-9]*) EVAL_TIMEOUT_MS=8000 ;; esac
+[ "$EVAL_TIMEOUT_MS" -gt 0 ] 2>/dev/null || EVAL_TIMEOUT_MS=8000
+# exec() takes SECONDS (verified against the Gateway exec tool schema), so round up.
+EVAL_TIMEOUT_S=$(( (EVAL_TIMEOUT_MS + 999) / 1000 ))
+# Poll RUN upper bound (seconds): a poll run executes every card claimed this round
+# (up to the agent's concurrency quota), so the bound must cover several cards.
+# 0 disables the scheduler timeout (see `openclaw automations add --help`).
+POLL_RUN_TIMEOUT_S="${OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S:-3600}"
+case "$POLL_RUN_TIMEOUT_S" in ''|*[!0-9]*) POLL_RUN_TIMEOUT_S=3600 ;; esac
 
 # role dir  ->  agent id  ->  workspace dir (relative to OPENCLAW_HOME)
 ROLES=(elon jobs linus turing assistant)
@@ -167,6 +195,23 @@ deploy_file() {
   backup_path "$dst"; run cp "$src" "$dst"; info "upgrade  $label"; return 0
 }
 
+# deploy_tree <src> <dst> <label> — deploy a managed file, or recurse into a directory.
+# `deploy_file` copies with plain `cp`, which fails on a directory; managed trees
+# (e.g. team/scripts/ with its tests/) need the recursion so a nested dir deploys
+# instead of erroring.
+deploy_tree() {
+  local src="$1" dst="$2" label="$3" sub
+  if [ -d "$src" ]; then
+    run mkdir -p "$dst"
+    for sub in "$src"/*; do
+      [ -e "$sub" ] || continue
+      deploy_tree "$sub" "$dst/$(basename "$sub")" "$label/$(basename "$sub")"
+    done
+    return 0
+  fi
+  deploy_file "$src" "$dst" "$label"
+}
+
 # install_skills <label> <src_root> <dst_root>
 # Copies each immediate child (file or dir) of <src_root> into <dst_root>,
 # skipping children that already exist unless --force.
@@ -235,13 +280,19 @@ automation_exists() {
 # Absolute paths only; NEVER {{...}} templating (see team/AUTOMATIONS.md §6). The
 # script is a thin adapter over the framework dispatcher: it wakes the agent only
 # when the dispatcher's last JSON line says fire:true.
+#
+# The exec() call carries a BOUNDED timeout (③): `timeoutSeconds` is the exec tool's
+# own parameter (the Gateway exec schema has `timeoutSeconds`, not `timeoutMs`), and
+# the dispatcher applies the matching OPENCLAW_TEAM_EVAL_TIMEOUT_MS bound internally.
+# Both stay under the Gateway's 30 s per-evaluation budget; see team/AUTOMATIONS.md §3.5.
 write_trigger() {
   local dargs="$1" out="$2"
   local cmd="node $TEAM_DIR/automations/dispatch.mjs $dargs"
   cat > "$out" <<EOF
 // OpenClaw cron condition-trigger — openclaw-team framework dispatcher (provider-agnostic).
 // Inline JS executed by the Gateway; no brace-template substitution — absolute paths only.
-const res = await exec({ command: "$cmd" });
+// Bounded evaluation: exec() timeoutSeconds=$EVAL_TIMEOUT_S (dispatcher bound ${EVAL_TIMEOUT_MS}ms).
+const res = await exec({ command: "$cmd", timeoutSeconds: $EVAL_TIMEOUT_S });
 const out = String(res?.aggregated ?? res?.stdout ?? res?.output ?? "").trim();
 let r = null; try { r = JSON.parse(out.split("\n").pop().trim()); } catch (e) { r = null; }
 if (!r || r.fire !== true) { json({ fire: false, state: (r && r.state) || { checkedAt: Date.now() } }); }
@@ -256,10 +307,15 @@ register_automation() {
   local name="$1" agent="$2" key="$3" job="$4"; shift 4
   local sched=("$@")
   if automation_exists "$key"; then info "exists   $name  ($key)"; return 0; fi
-  local dargs="$job" msg tmp
-  [ "$job" = poll ] && dargs="poll $agent"
+  local dargs="$job" msg tmp run_extra=""
   case "$job" in
-    poll)      msg="[openclaw-team] Scheduled poll for $agent: if the dispatcher claimed a card, execute it via the task-interface ACL and PROTOCOL.md; otherwise reply NO_REPLY." ;;
+    poll)
+      dargs="poll $agent"
+      # Run upper bound (③): a poll run executes every card claimed this round.
+      # `--timeout-seconds` is the scheduler's agent/command-job run timeout
+      # (verified in `openclaw automations add --help`); 0 disables it.
+      run_extra="--timeout-seconds $POLL_RUN_TIMEOUT_S"
+      msg="[openclaw-team] Scheduled poll for $agent: if the dispatcher claimed a card, execute it via the task-interface ACL and PROTOCOL.md; otherwise reply NO_REPLY." ;;
     patrol)    msg="[openclaw-team] Stale in_progress card(s) detected by task-patrol: recover per the PROTOCOL recovery rules." ;;
     check-all) msg="[openclaw-team] Team gate patrol failed: run the team gate checks and handle per the PROTOCOL gates/archiving rules." ;;
     *)         msg="[openclaw-team] Scheduled job $name." ;;
@@ -268,7 +324,7 @@ register_automation() {
   write_trigger "$dargs" "$tmp"
   info "add      $name  ($key)"
   run "${OCL[@]}" automations add "$name" --agent "$agent" "${sched[@]}" \
-      --session isolated --wake now --trigger-script "$tmp" --declaration-key "$key" --message "$msg"
+      $run_extra --session isolated --wake now --trigger-script "$tmp" --declaration-key "$key" --message "$msg"
   rm -f "$tmp"
 }
 
@@ -304,11 +360,7 @@ if [ "$DO_TEAM" = 1 ]; then
     name="$(basename "$f")"
     case "$name" in tasks|workspace|memory) continue ;; esac   # runtime dirs (user-owned)
     if [ -d "$f" ]; then
-      run mkdir -p "$TEAM_DIR/$name"
-      for sub in "$f"/*; do
-        [ -e "$sub" ] || continue
-        deploy_file "$sub" "$TEAM_DIR/$name/$(basename "$sub")" "$name/$(basename "$sub")"
-      done
+      deploy_tree "$f" "$TEAM_DIR/$name" "$name"
     else
       deploy_file "$f" "$TEAM_DIR/$name" "$name"
     fi
@@ -514,6 +566,7 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
   auto_provider="${OPENCLAW_TEAM_TASK_PROVIDER:-task-panel}"
   info "scheduler: framework-owned  ·  provider: $auto_provider (callee via the ACL)"
   info "dispatcher: $TEAM_DIR/automations/dispatch.mjs"
+  info "bounds: trigger-eval ${EVAL_TIMEOUT_MS}ms (OPENCLAW_TEAM_EVAL_TIMEOUT_MS) · poll run ${POLL_RUN_TIMEOUT_S}s (OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S, 0=off)"
   # built-in workers only for poll (skip main/elon), derived from ROLES/AGENT_ID
   auto_agents=()
   for i in "${!ROLES[@]}"; do
@@ -522,7 +575,7 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
   done
   if [ "$DRY_RUN" = 1 ]; then
     for a in "${auto_agents[@]}"; do
-      printf '  [dry-run] %s\n' "openclaw automations add poll-$a --agent $a --every 1m --session isolated --wake now --trigger-script <tmp> --declaration-key openclaw-team:poll:$a"
+      printf '  [dry-run] %s\n' "openclaw automations add poll-$a --agent $a --every 1m --timeout-seconds $POLL_RUN_TIMEOUT_S --session isolated --wake now --trigger-script <tmp> --declaration-key openclaw-team:poll:$a"
     done
     printf '  [dry-run] %s\n' "openclaw automations add task-patrol --agent main --every 5m --session isolated --wake now --trigger-script <tmp> --declaration-key openclaw-team:task-patrol"
     printf '  [dry-run] %s\n' "openclaw automations add team-check-all --agent main --cron \"0 * * * *\" --tz Asia/Shanghai --session isolated --wake now --trigger-script <tmp> --declaration-key openclaw-team:team-check-all"
