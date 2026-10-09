@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-all.sh — 日常巡检门禁聚合（PROTOCOL §⑳.1）
 # 用法：bash check-all.sh
-# 聚合：红线一致 / 术语抽象 / §引用可解析 / 卡 schema / 契约测试 / 原型门禁(可选) / 归档(dry)
+# 聚合：红线一致 / 术语抽象 / §引用可解析 / 依赖 CVE 扫描(warn) / 卡 schema / 契约测试 / 原型门禁(可选) / 归档(dry)
 # 输出信封：末行 JSON {"ok":true|false,...} —— dispatcher 按 ok 归一（ok:false ⇒ fire:true，失败才唤醒模型）。
 set -u
 TEAM="$HOME/.openclaw/team"
@@ -24,6 +24,14 @@ fi
 run "红线块一致性 check-redlines"        node "$S/check-redlines.mjs"
 run "术语抽象 lint-impl-names"           node "$S/lint-impl-names.mjs"
 run "§引用可解析 lint-refs"              node "$S/lint-refs.mjs"
+
+# 依赖 CVE 扫描（team/guides/dependency-cve-gate.md §3.2；告警档）：
+# 默认 warn-only，绝不因缺扫描器/离线/命中而使 check-all 变红；仅显式 SCAN_STRICT=1
+# 时按 §4.1 阈值（Critical/High，CVSS>=7.0）计入 fail。不走 run()（避免非零即置红）。
+echo "── 依赖 CVE 扫描 scan-deps (warn; SCAN_STRICT=1 才按阈值阻断)"
+if ! node "$S/scan-deps.mjs"; then
+  if [ "${SCAN_STRICT:-0}" = 1 ]; then echo "   ↑ FAIL (strict)"; fail=1; fi
+fi
 
 if [ "$provider_missing" = 0 ]; then
   run "卡 schema/状态机 check-card"        node "$S/check-card.mjs"
