@@ -4,7 +4,7 @@
 
 > Architecture / protocol / operations / recovery / cost observation / known pitfalls / rejected-option decisions.
 > This directory `~/.openclaw/team/` is the only cross-agent shared area; the protocol source of truth is `PROTOCOL.md`.
-> Last updated: 2026-10-08 (document-system and collaboration-mechanism optimization v2 landed: PROTOCOL ①–⑳ + five role files converted to references; architecture/protocol/operations/recovery below)
+> Last updated: 2026-10-09 (lifecycle & engineering-gate clauses landed: PROTOCOL ①–㉘ incl. §⑤.1 public release approval, §⑥.3 worker parallelism + throughput patrol, and §㉑–§㉘ release/observability/incident/migration/API-compat/CVE/perf/cross-cutting, with the matching SOPs in `guides/`; architecture/protocol/operations/recovery below)
 
 ## 1. Architecture
 
@@ -32,8 +32,8 @@
 
 | Path | Contents |
 |---|---|
-| `PROTOCOL.md` | The single protocol source of truth (①–⑳: board/project access/structure invariants/reporting/messages/session orchestration/ambiguity/registration/defect loop/triage/out-of-bounds/doc sync/universal hard discipline/confirmation gate/SLA/terminology/layering/research convention/work creed/gates and archiving + Appendix A) |
-| `projects.json` | Runtime state of the reference backend (task-panel); **not** the project registry — projects are identity codes resolved via the `task-interface` ACL |
+| `PROTOCOL.md` | The single protocol source of truth (①–㉘: board/project access/structure invariants/reporting/messages/session orchestration/ambiguity/registration/defect loop/triage/out-of-bounds/doc sync/universal hard discipline/confirmation gate/SLA/terminology/layering/research convention/work creed/gates and archiving/release and versioning/runtime observability/product incident response/data migration/API compatibility/dependency CVE gate/performance SLA/cross-cutting + Appendix A) |
+| Project registration (ACL) | Project **identity code ↔ backend entity**; the current backend is task-panel's `projects` table (swappable). A legacy `projects.json`, if present, is a transitional runtime file **pending migration** — it is **not** the project registry. |
 | `tasks/` + `archive/` | Task cards and terminal-state archive (board content, managed by `task-panel`) |
 | `workspace/<task-id>/` | Task working directory + artifacts (a `review/` subdirectory holds issue lists and evidence) |
 | `AUTOMATIONS.md` | Scheduled jobs/patrol list (cron overview, cost model, decisions) |
