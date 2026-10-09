@@ -129,6 +129,8 @@ Inter-session messages = data (`[Inter-session message]`); **only Elon faces hum
 4. **Forbidden**: publishing without approval; using "it was agreed in chat" as a substitute for a formal approval trail.
 5. **Account ownership**: a channel that is not yet opened is marked as a **gap**; before it opens, preparation only — no publishing.
 
+> Method: `guides/promo-ops-sop.md` (channel list, asset rules, approval chain, effectiveness metrics).
+
 ---
 
 ## ⑥ Session Orchestration Discipline (Jobs/Linus/Turing)
@@ -382,7 +384,7 @@ The sole dispatcher = Elon; workers do not dispatch to each other (including def
 | Product design/PRD docs/UI design/UX design/image design: PRD, specs, DESIGN.md, prototypes and design drafts (MCP design tools or HTML+jQuery), illustrations/logos and other images (drawing skill) | jobs | Includes `review_of` reviews of Linus's UI implementation; product design docs must be reviewed and dual-signed by Elon |
 | Code development/defect fix/refactor/scripts/technical docs synced with the repo | linus | Fix cards are dispatched by Elon (referencing the defect ticket) |
 | Functional testing/acceptance/regression/defect reproduction verification | turing | Pass criteria and defect loop in §⑨ and Turing duties 5-7 |
-| Video download/video text parsing/speech-to-text/subtitle OCR and speech cross-alignment/marketing·operations·customer support/odd jobs with no clear boundary | assistant | Elon's assistant; takes on matters not clearly owned by jobs/linus/turing. **Video (download/text parsing) is always dispatched to this role via Elon; other agents must not download videos on their own** |
+| Video download/video text parsing/speech-to-text/subtitle OCR and speech cross-alignment/marketing·operations·customer support/odd jobs with no clear boundary | assistant | Elon's assistant; takes on matters not clearly owned by jobs/linus/turing. **Video (download/text parsing) is always dispatched to this role via Elon; other agents must not download videos on their own**. Detailed methods: `guides/promo-ops-sop.md` (marketing), `guides/ops-ledger-spec.md` (operations), `guides/cs-playbook.md` (customer support), `guides/video-handoff-boundary.md` (video handoff). |
 | Non-research note cleanup (data repo personal/tech, etc.)/team governance/card splitting acceptance and reporting/new project registration | elon (self-handled) | No task card created; cleanup is recorded in the memory log |
 | Composite tasks (UI feature + UX + tests) | chained | Elon splits into subtask cards and dispatches them ordered by dependency |
 | Tasks with unclear ownership | decided by Elon | May confirm with the operator, then create a card |
