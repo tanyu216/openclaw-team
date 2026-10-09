@@ -20,10 +20,11 @@ path — **no brace templating**) calls the dispatcher and reads its **last stdo
 line**:
 
 ```js
-const res = await exec({ command: "node <TEAM_DIR>/automations/dispatch.mjs poll linus" });
+const res = await exec({ command: "node <TEAM_DIR>/automations/dispatch.mjs poll linus", timeoutSeconds: 8 });
 const r = JSON.parse(String(res?.aggregated ?? res?.stdout ?? res?.output ?? "").trim().split("\n").pop());
 // r.fire === true  ⇒ wake the agent (the run turn does the work)
 // r.fire === false ⇒ zero-cost idle
+// timeoutSeconds bounds the evaluation (exec's own parameter; see "Trigger-evaluation bounds").
 ```
 
 The provider entry must print a JSON object on its **last stdout line**; the
@@ -64,19 +65,50 @@ The ACL (`guides/task-interface.md` §4) defines the **card operations** the upp
 layers use (`task.claim`, `task.heartbeat`, `task.setStatus`, `task.query`, …).
 It does **not** define the scheduling/trigger-evaluation entry points, so the
 `poll` / `patrol` / `check-all` entries in `providers.json` are a **framework-side
-convention** over the provider's own runtime scripts, not part of the ACL v1
-command set. Known gaps:
+convention**, not part of the ACL v1 command set. Those entry scripts are
+framework-owned and now ship with this repository (`team/scripts/**`); the provider
+is reached through the ACL. Known gaps:
 
 1. **No `poll` operation in the ACL.** "Claim timing belongs to poll"
    (`PROTOCOL §①`) but the ACL exposes no `poll` command — `poll` is the
    provider's trigger-evaluation entry point, referenced here by path only.
-2. **Entry-path coupling.** `task-panel` entries assume the base runtime deploys
-   `team/scripts/{poll.mjs,patrol-scan.mjs,check-all.sh}`. If they are absent the
-   dispatcher degrades (fire:false) — scheduling keeps working, nothing fires.
+2. **Entry-path coupling — RESOLVED (shipped with the repository).** The
+   `task-panel` entries resolve to `{team}/scripts/{poll.mjs,patrol-scan.mjs,check-all.sh}`,
+   and those scripts — with their runtime dependency closure (`lib.mjs`,
+   `registry.mjs`, the `check-*`/`lint-*` checks that `check-all.sh` aggregates,
+   `archive.mjs`, `prototype-guard.sh`, `idem-baseline.json`) and the framework's
+   own test suite — now **ship in this repository** under `team/scripts/**` and are
+   deployed by `install.sh` into `{team}/scripts/**`. A fresh install no longer has
+   a dangling entry path.
+   **Residual (provider-side, not a framework entry-path gap):** those scripts
+   import the provider's ACL library from `{team}/skills/task-ops/lib/`, which is
+   owned by the task provider and **intentionally not vendored here**
+   (`skills/PROVENANCE.md`). Without a provider install the entries degrade
+   (`fire:false`) — scheduling keeps working, nothing fires. Likewise the
+   `check-all.sh` aggregate also calls the provider's contract tests under
+   `{team}/skills/task-ops/tests/`.
 3. **Envelope conformance.** Entries should print the `{fire}` envelope; the
    legacy `patrol`/`checkAll` scripts print `{stale:[…]}` / plain text. The
    dispatcher normalizes the former; a plain-text `checkAll` cannot be classified
    and degrades to `fire:false` until the base emits the envelope.
+
+## Trigger-evaluation bounds (framework) vs. run lock (platform)
+
+The dispatcher bounds **trigger evaluation only** — it is not, and cannot be, a
+run-lock fix:
+
+- `dispatch.mjs` runs the provider entry synchronously under
+  `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default **8000 ms**; invalid/absent ⇒ default),
+  and `install.sh` generates each Gateway trigger with
+  `exec({ command, timeoutSeconds })`. Both sit well under the Gateway's own
+  **30 s** per-evaluation wall-clock budget.
+- A timed-out evaluation degrades to `{"fire":false,"state":{"reason":"eval-timeout",…}}`
+  (exit 0) — a broken provider never burns a model turn.
+- **Out of scope — platform-level:** `already-running` (a run already holding the
+  job lock, so the next trigger is skipped) and the release of **stale runs** are
+  **Gateway-scheduler behaviour**. The framework cannot bound or reap them; doing
+  so needs owner/OpenClaw platform capability. This repository deliberately does
+  **not** claim to have solved it. See `../AUTOMATIONS.md` §3.5.
 
 See also: `../AUTOMATIONS.md` (job list / cost model) and
 `../guides/task-interface.md` (the ACL itself).
