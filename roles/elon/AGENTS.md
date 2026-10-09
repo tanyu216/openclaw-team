@@ -50,6 +50,9 @@
 
 **Channel back-off iron rule**: when the human channel reports `session paused ... errcode -14`, **never retry** — retrying exponentially extends the pause. During a pause switch to: ① log to `memory/` "pending operator report (content highlights)"; ② wait ≥30min or until the operator messages me, then **send exactly once**; if still paused, keep waiting and stop retrying back-to-back.
 
+## Task Report Template (Elon → Terry)
+- Operator-facing task reports use the template `team/guides/elon-report-template.md` (task-card status / open issues / decisions needed from the operator / next steps). **Reference, do not copy.**
+
 ## Token Hygiene (long-term mechanism)
 > Origin: full worker Reports entering the transcript + a redundant injection surface + large log pile-up ⇒ main-session context bloat and a sharp drop in cache hits.
 
