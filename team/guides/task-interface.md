@@ -2,27 +2,27 @@
 
 > **Ownership**: the task-management **base** (an independent layer). Normative text = `PROTOCOL §①`; this file is **the base's sole access contract to the upper layers** (= the **task-provider ACL**).
 > **Purpose**: the upper layers (collaboration / roles / SOP / redlines) **depend only on this contract, not on the underlying implementation** ⇒ when swapping the task system, **the upper layers change zero** (only swap the provider implementation + run the contract tests).
-> **Provider**: **not mandatory, swappable**. `task-panel` is the **reference implementation** (task skill + `taskctl` CLI); any system satisfying this contract works (Jira / Linear / Plane / GitHub Issues / custom …).
+> **Provider**: **not mandatory, swappable**. `meerkat-taskpanel` is the **reference implementation** (task skill + `taskctl` CLI); any system satisfying this contract works (Jira / Linear / Plane / GitHub Issues / custom …).
 > **Scope**: this project delivers only this ACL and the team-side adaptation conventions; **each task system's own skill / MCP / authentication is user-supplied and out of this project's scope**.
 > **Version**: `v1`; changes go through a separate card + dual-signing, with the version number recorded in §13.
 
 ---
 
 ## 1. Layering and Access Point
-- **Provider (replaceable)**: reference implementation = the external project **task-panel** (task skill + `taskctl` CLI); card content persistence + session registry + trigger evaluation. Other systems (Jira/Linear/Plane…) integrate through the same ACL.
-- **Sole access point**: task-panel's task interface (`taskctl` / the task skill) — it exposes only the following **commands/events/data** externally.
+- **Provider (replaceable)**: reference implementation = the external project **meerkat-taskpanel** (task skill + `taskctl` CLI); card content persistence + session registry + trigger evaluation. Other systems (Jira/Linear/Plane…) integrate through the same ACL.
+- **Sole access point**: meerkat-taskpanel's task interface (`taskctl` / the task skill) — it exposes only the following **commands/events/data** externally.
 - **Constraint**: the upper layers **must not** directly read/write card files or bypass the interface; **everything goes through that access point** (command names in §4).
 
 ## 2. Data Model (minimal required set)
 | Entity | Fields |
 |---|---|
-| **Card** | `id` `title` `assignee` `assignee_kind` `status` `priority` `kind` `labels` `project` `target` `writes` `created_by` `created_at` `updated_at` `status_changed_at` `claimed_by` `claimed_at` `heartbeat_at` `blocked_at` `depends_on` `parent` `review_of` `notify_leader` `goal` (= task-panel `KNOWN_CARD_KEYS`; unrecognized keys are preserved verbatim in `meta.legacy`) |
+| **Card** | `id` `title` `assignee` `assignee_kind` `status` `priority` `kind` `labels` `project` `target` `writes` `created_by` `created_at` `updated_at` `status_changed_at` `claimed_by` `claimed_at` `heartbeat_at` `blocked_at` `depends_on` `parent` `review_of` `notify_leader` `goal` (= meerkat-taskpanel `KNOWN_CARD_KEYS`; unrecognized keys are preserved verbatim in `meta.legacy`) |
 | **Comment** | `{ id, task_id, body, kind, author_kind, author_id, refs, created_at }` (append-only, lands in the card's `## Comments` section; `kind ∈ discuss\|decision\|confirm\|change\|note\|defect`) |
 | **AgentSession** | `{ task_id, seg, owner, backend, session_id, phase, pid, status, ts }` (`status ∈ running\|closed\|failed`; lands in the card's `## Sessions` section) |
 | **Relation** | `{ relation_type, source_task_id, target_task_id }` (`relation_type ∈ parent\|blocks\|related`; the `related` direction is normalized to source<target; single-parent constraint) |
 
 > The implementation's private fields are isolated inside the access point and do not enter the upper layers.
-> **`project` = a project identity code** (ACL layer; a stable id — under the current implementation the project name, e.g. `example-app` / the reserved `__team__`). It is **resolved via this ACL to a backend implementation** (currently task-panel, **swappable** for Jira/Linear/Plane, …); the upper layers **must not** depend on any backend's internal project id.
+> **`project` = a project identity code** (ACL layer; a stable id — under the current implementation the project name, e.g. `example-app` / the reserved `__team__`). It is **resolved via this ACL to a backend implementation** (currently meerkat-taskpanel, **swappable** for Jira/Linear/Plane, …); the upper layers **must not** depend on any backend's internal project id.
 > **`writes` (optional)**: a card declares the set of files/resources it will modify (comma-separated paths; defaults to `target` when absent). This feeds the **same-file concurrency warning** — before starting, a worker compares this card's write set against the other in-flight cards; an overlap means serialize first (or isolate via `git worktree`).
 
 ## 3. State Machine
@@ -88,7 +88,7 @@ backlog | todo → in_progress → in_review → done | canceled
 - **Ownership**: OpenClaw agent side only (subsessions are unaware of task management; see `PROTOCOL §⑥#7`).
 
 ## 10. Parent/Child Cards and Predecessor Dependencies (DAG)
-- **Split**: a composite task = a `kind:epic` parent card (container/aggregate, **not claimable**) + child cards (`parent=<epic>`, ordinary cards); **hierarchy depth follows the provider base** (task-panel: single parent + chain ≤8, no cycles/self-reference); **supports multiple levels; a parent must be an epic (so intermediate nodes are epics)**; breakdown granularity ⇒ `PROTOCOL §⑩.3`.
+- **Split**: a composite task = a `kind:epic` parent card (container/aggregate, **not claimable**) + child cards (`parent=<epic>`, ordinary cards); **hierarchy depth follows the provider base** (meerkat-taskpanel: single parent + chain ≤8, no cycles/self-reference); **supports multiple levels; a parent must be an epic (so intermediate nodes are epics)**; breakdown granularity ⇒ `PROTOCOL §⑩.3`.
 - **Dependencies**: child cards `depends_on:[predecessors]` (store predecessors only; successors are derived); cross-parent allowed; no dependency = parallel, with dependency = serial.
 - **Commands**: `task.spawn <epic> title=… assignee=… [depends_on=a,b]` | `task.depend <card> <on…>` | `task.undepend` | `task.children <epic>` | `task.deps <card>` | `task.rollup <epic>`.
 - **Invariants (validated at write time, with reason codes)** : self-reference `self_ref`; parent/child cycle `parent_cycle`; parent must be epic or a card `parent_not_epic`; dependency cycle `dep_cycle`; missing dependency `dep_missing`; dependency on an ancestor forbidden `dep_on_ancestor`; chain length ≤8 `chain_too_long` (**the base limit; the team sets no additional**); fan-in ≤8 `fanin_too_high`.
@@ -99,15 +99,15 @@ backlog | todo → in_progress → in_review → done | canceled
 ## 11. frontmatter Serialization Invariants and Write Guardrail
 - **Invariant (idempotence)**: escaping/unescaping of card frontmatter field values **must be idempotent** — `parse→serialize→parse` is stable, and repeatedly "read→write back" the same value (via any of heartbeat / comment / status / report) **does not grow the byte count**.
 - **List fields (always array form)**: list fields — `depends_on` / `subsession_ids` / `labels` (see §15) and any future list field — serialize **always as an array** (empty = `[]`; non-empty = `[a, b]`, elements quoted only when needed, plain ids unquoted); a bare space-joined string is never written. Readers stay backward-compatible with legacy bare/space strings (`a b`) and bracketed strings (`[a, b]`). `labels` follows exactly this path (array form, same as `depends_on`), so it does not grow the card (§11 idempotence invariant).
-- **Status values (aligned with task-panel)**: canonical 7 values `backlog|todo|in_progress|in_review|blocked|done|canceled`; compatible aliases `ready→todo`, `failed→canceled` (and `in-review`/`in-progress`/`cancelled`) are **resolved only at the boundary and never persisted**; export restores the original word (old cards stay byte-stable). Priority `low|medium|high|urgent` (default `medium`). kind only `task|epic`.
+- **Status values (aligned with meerkat-taskpanel)**: canonical 7 values `backlog|todo|in_progress|in_review|blocked|done|canceled`; compatible aliases `ready→todo`, `failed→canceled` (and `in-review`/`in-progress`/`cancelled`) are **resolved only at the boundary and never persisted**; export restores the original word (old cards stay byte-stable). Priority `low|medium|high|urgent` (default `medium`). kind only `task|epic`.
 - **Write guardrail**: writes are **serialized first, then validated**; if the target card already exists and the new output exceeds the previous file size **× 4 (K=4)**, **reject the write** and throw, avoiding partial writes and silent growth; **a new card (no existing file) is not limited**.
 - **Regression tests**: the idempotence matrix / old-format compatibility / real-card read-only regression / guardrail, executed with the patrol gate.
 
 ## 12. Task-Provider Integration and Switching (ACL binding)
-- **Roles**: this project defines the ACL (this file's commands/events/data/invariants); the **provider** implements it. `task-panel` is only the **reference implementation**, **not a mandatory dependency**.
+- **Roles**: this project defines the ACL (this file's commands/events/data/invariants); the **provider** implements it. `meerkat-taskpanel` is only the **reference implementation**, **not a mandatory dependency**.
 - **Swappable**: any task system satisfying this contract works — e.g. Jira / Linear / Plane / GitHub Issues / a custom board. The team's upper layers interact only through the access point (§4 commands / §5 events), **decoupled from the concrete provider**.
 - **Binding method**: set the environment variable **`OPENCLAW_TEAM_TASK_PROVIDER=<name>`** (or an equivalent team config), and install that provider's skill / CLI / MCP. When unconfigured, the team falls back to "no task system" mode (local card files only, no cross-session board).
-- **Reference provider**: `task-panel` (installed via `./install.sh --with-task-panel`; not the default/mandatory).
+- **Reference provider**: `meerkat-taskpanel` (installed via `./install.sh --with-meerkat-taskpanel`; not the default/mandatory).
 - **Pass criteria**: after swapping the provider, run the **ACL contract tests** (§6 invariants + §4 command semantics) to judge conformance; failing means unsupported.
 - **Scope boundary**: **the provider's own skill / MCP / authentication is user-supplied and out of this project's scope** (this project delivers only the ACL definitions + team-side adaptation conventions).
 
@@ -136,11 +136,11 @@ backlog | todo → in_progress → in_review → done | canceled
 - **Baseline exemption**: the mechanical key necessarily collides for "same-project, same-person sequential milestones" (same `assignee` + same `target`, no `parent`/`review_of`), which are **not true duplicates**. Such **existing benign groups** are registered in `idem-baseline.json` (schema `{groups:[{key, ids, reason, date, by}]}`); the criterion = the same `key` **and** the sorted `ids` **exactly matching** that group's card-id set ⇒ moved to `exempt` (not flagged); **once the id set changes (add/remove/swap) the exemption lapses**, and it warns again (preventing "register once, allow forever"). `--no-baseline` ignores the baseline (everything is treated as duplicates, for checking real duplicates or whether the baseline is stale); a missing baseline file is treated as an empty group list (no error).
 - **Weak signal** (warning only, **not** a de-duplication basis): same source and title similarity (character-bigram Jaccard) ≥ 0.6 ⇒ appears in `similar`.
 - **Unit tests**: an isolated `mkdtemp` test (including 5 concurrent same-key subprocesses ⇒ exactly 1 card).
-- **Engine declaration (this repository)**: `openclaw-team` **bundles no task-create path** — task management is delegated to the connected provider through this ACL. Therefore idempotency is **guaranteed by the connected provider** (`task-panel` by default satisfies this clause; any replacement must implement it and pass the ACL contract tests), and **the card creator must carry the `idem` key** (the ACL derives it, or `--idem` overrides). Both the `md base` (the team-side reference `task-ops` library) and the `task-panel base` implement this clause.
+- **Engine declaration (this repository)**: `openclaw-team` **bundles no task-create path** — task management is delegated to the connected provider through this ACL. Therefore idempotency is **guaranteed by the connected provider** (`meerkat-taskpanel` by default satisfies this clause; any replacement must implement it and pass the ACL contract tests), and **the card creator must carry the `idem` key** (the ACL derives it, or `--idem` overrides). Both the `md base` (the team-side reference `task-ops` library) and the `meerkat-taskpanel base` implement this clause.
 
 ## 15. Label Taxonomy (issue labels)
 
-> **A team-side convention layer, not a base feature.** `labels` is a **free-form string list** on the card (array form — see §11); the base (task-panel) does **not** enforce any type on it. This section defines a **namespaced prefix convention** (`<ns>:<value>`) on top of free-form labels, so a card's class / dev sub-area / bug environment is greppable and machine-checkable **without adding new enum fields and without changing the base**.
+> **A team-side convention layer, not a base feature.** `labels` is a **free-form string list** on the card (array form — see §11); the base (meerkat-taskpanel) does **not** enforce any type on it. This section defines a **namespaced prefix convention** (`<ns>:<value>`) on top of free-form labels, so a card's class / dev sub-area / bug environment is greppable and machine-checkable **without adding new enum fields and without changing the base**.
 
 **Namespaces**
 
@@ -172,11 +172,11 @@ backlog | todo → in_progress → in_review → done | canceled
 - a card carries `category:bug` but no `env:*`.
 A warning is advisory. A hard block is **not** applied — it would break free-form-label compatibility.
 
-**Base compatibility**: this is a **team-side convention only**; the base (task-panel) keeps `labels` as a free-form list and **is not forced to change**. Because it is a prefix convention, cards and the base stay valid whether or not the checker runs.
+**Base compatibility**: this is a **team-side convention only**; the base (meerkat-taskpanel) keeps `labels` as a free-form list and **is not forced to change**. Because it is a prefix convention, cards and the base stay valid whether or not the checker runs.
 
 ## 13. Change Record
 - **v1**: initial contract (including **comments/process trail**). Owner: Elon.
-- **v1 (supplement 2)**: added §12 **task-provider integration and switching (ACL binding)**: task-panel is downgraded to an optional reference implementation, supporting replacement by Jira/Linear/Plane, etc.; the change record shifts to §13. Owner: Elon.
+- **v1 (supplement 2)**: added §12 **task-provider integration and switching (ACL binding)**: meerkat-taskpanel is downgraded to an optional reference implementation, supporting replacement by Jira/Linear/Plane, etc.; the change record shifts to §13. Owner: Elon.
 - **v1 (supplement 3)**: added §14 **card-creation idempotency (`idem` key)** — LLM semantic de-duplication as the **main gate** + the mechanical key `<kind>|<assignee>|<source>|<target>` as fallback; ACL commands `task.create` / `task.idemCheck` / `task.idemCandidates`; `spawn` derives the key automatically; `check-idem` patrol with a baseline exemption. Owner: Elon (convention) / Linus (landing).
-- **v1 (supplement 4)**: added §15 **Label Taxonomy (issue labels)** — namespaced prefix labels `category:` / `area:` / `env:` / `sev:` over the free-form `labels` list (required rules, examples, soft machine-check criteria); §11 now names `labels` among the array-form list fields; base (task-panel) unchanged (prefix convention). Owner: Elon (convention) / Linus (landing).
+- **v1 (supplement 4)**: added §15 **Label Taxonomy (issue labels)** — namespaced prefix labels `category:` / `area:` / `env:` / `sev:` over the free-form `labels` list (required rules, examples, soft machine-check criteria); §11 now names `labels` among the array-form list fields; base (meerkat-taskpanel) unchanged (prefix convention). Owner: Elon (convention) / Linus (landing).
 - **v1 (supplement 5)**: concurrency hardening — §2 Card gains optional `writes` (same-file concurrency-warning source); §4 gains `task.pollCandidates` (read-only, zero-side-effect candidate query; claiming still only via `task.claim`). Owner: Linus.

@@ -88,6 +88,6 @@
 
 ## 7. Open Items / Gaps
 
-1. Whether the ledger needs task-panel integration (currently a file ledger).
+1. Whether the ledger needs meerkat-taskpanel integration (currently a file ledger).
 2. Degree of systematisation of data sources (if the channel backend is not open, data collection is limited — see `promo-ops-sop.md §6` gaps).
 3. Whether to set a formal "monthly operations review" as a regular meeting-style action (currently only a weekly report).

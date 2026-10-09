@@ -3,14 +3,14 @@
 > The framework (`openclaw-team`) **owns team-level scheduling**. Every scheduled
 > job is registered by `install.sh` and evaluated by the framework dispatcher
 > `dispatch.mjs`; the task provider is only a **callee**. Swapping the provider
-> (task-panel → Jira / Plane / Linear / …) does **not** change any scheduled job.
+> (meerkat-taskpanel → Jira / Plane / Linear / …) does **not** change any scheduled job.
 
 ## Files
 
 | File | Role |
 |---|---|
 | `dispatch.mjs` | Framework dispatcher: `node dispatch.mjs <poll\|patrol\|check-all> [agent]` → prints one line `{"fire":bool, "message"?, "state"?}`. Runs the provider entry **without a shell** and never throws. |
-| `providers.json` | Per-provider entry command templates (`{team}` = the deployed team dir, `{agent}` = the agent arg). Ships `task-panel` as the default provider. |
+| `providers.json` | Per-provider entry command templates (`{team}` = the deployed team dir, `{agent}` = the agent arg). Ships `meerkat-taskpanel` as the default provider. |
 | `README.md` | This file. |
 
 ## The dispatch contract
@@ -41,12 +41,17 @@ and exit 0** — a broken provider must never burn a model turn.
 ## Selecting / swapping the provider
 
 ```bash
-OPENCLAW_TEAM_TASK_PROVIDER=task-panel   # default
+OPENCLAW_TEAM_TASK_PROVIDER=meerkat-taskpanel   # default
 # per-job entry override (no providers.json edit needed):
 OPENCLAW_TEAM_POLL_CMD="node /path/to/poll.mjs {agent}"
 OPENCLAW_TEAM_PATROL_CMD="node /path/to/patrol.mjs"
 OPENCLAW_TEAM_CHECKALL_CMD="bash /path/to/check-all.sh"
 ```
+
+> **Compatibility (`legacy-name-compat`)**: the pre-rebrand provider name/key `task-panel` still
+> resolves — bidirectionally (an old `OPENCLAW_TEAM_TASK_PROVIDER` value *and* a `providers.json`
+> still carrying the old key), with a one-line stderr note. The pre-rebrand opt-out flag is likewise
+> still accepted as a deprecated alias of `--no-meerkat-taskpanel`.
 
 To add a provider, add an entry to `providers.json`:
 
@@ -56,8 +61,8 @@ To add a provider, add an entry to `providers.json`:
                    "checkAll": "bash {team}/bin/gates.sh" } }
 ```
 
-Install-time provider choice: `./install.sh` installs **task-panel** by default;
-`--no-task-panel` opts out (bring your own via the ACL).
+Install-time provider choice: `./install.sh` installs **meerkat-taskpanel** by default;
+`--no-meerkat-taskpanel` opts out (bring your own via the ACL).
 
 ## ACL coverage & gaps (important)
 
@@ -73,7 +78,7 @@ is reached through the ACL. Known gaps:
    (`PROTOCOL §①`) but the ACL exposes no `poll` command — `poll` is the
    provider's trigger-evaluation entry point, referenced here by path only.
 2. **Entry-path coupling — RESOLVED (shipped with the repository).** The
-   `task-panel` entries resolve to `{team}/scripts/{poll.mjs,patrol-scan.mjs,check-all.sh}`,
+   `meerkat-taskpanel` entries resolve to `{team}/scripts/{poll.mjs,patrol-scan.mjs,check-all.sh}`,
    and those scripts — with their runtime dependency closure (`lib.mjs`,
    `registry.mjs`, the `check-*`/`lint-*` checks that `check-all.sh` aggregates,
    `archive.mjs`, `prototype-guard.sh`, `idem-baseline.json`) and the framework's

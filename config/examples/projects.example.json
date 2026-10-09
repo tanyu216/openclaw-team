@@ -1,5 +1,5 @@
 {
-  "$schema_note": "Project metadata entries are `project identity codes`: task cards reference a project by identity code, and resolution goes through the `task-interface` ACL (the backend — reference implementation task-panel — is swappable). Maintained by the coordinator (leader); agents are read-only.",
+  "$schema_note": "Project metadata entries are `project identity codes`: task cards reference a project by identity code, and resolution goes through the `task-interface` ACL (the backend — reference implementation meerkat-taskpanel — is swappable). Maintained by the coordinator (leader); agents are read-only.",
   "projects": {
     "example-app": {
       "kind": "code",

@@ -29,7 +29,7 @@ const missingProviderLib = REQUIRED_PROVIDER_LIB.filter((f) => !fs.existsSync(pa
 if (missingProviderLib.length) {
   console.error(
     `provider 未安装：脚本依赖 provider ACL 库，缺失 skills/task-ops/lib/{${missingProviderLib.join(', ')}}` +
-    `（查找于 ${TASK_OPS_LIB}）。请安装 task-panel 或其它基座（./install.sh --task-panel <dir>），` +
+    `（查找于 ${TASK_OPS_LIB}）。请安装 meerkat-taskpanel 或其它基座（./install.sh --meerkat-taskpanel <dir>），` +
     `或设 OPENCLAW_TASK_OPS_DIR 指向含 lib/ 的 task-ops 检出目录。`
   );
   process.exit(1);
@@ -358,7 +358,7 @@ export function claimCard(cardArg, assignee) {
  * get_project(name) → 项目 metadata（identity code）。
  *
  * 经 ACL 解析（skills/task-ops/lib/projects.mjs，见 guides/task-interface.md §8）：
- *   __team__（内置）→ 基座（当前 task-panel `projects` 表）→ 只读回退 projects.json → 未注册抛错。
+ *   __team__（内置）→ 基座（当前 meerkat-taskpanel `projects` 表）→ 只读回退 projects.json → 未注册抛错。
  * 保留名 __team__ 不查基座/回退：团队内部杂务专用，仅可写 ~/.openclaw/team/**。
  */
 export function getProject(name) {

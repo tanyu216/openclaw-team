@@ -1,31 +1,42 @@
 #!/usr/bin/env node
 /**
- * seed-projects.mjs — 把现役 identity code 幂等登记进 task-panel 基座 board
+ * seed-projects.mjs — 把现役 identity code 幂等登记进 meerkat-taskpanel 基座 board
  *
  * 契约：guides/task-interface.md §8；规范：PROTOCOL.md §⑧。
  * 来源：`~/.openclaw/team/projects.json`（过渡期权威快照，只读）；跳过保留名 `__team__`。
- * 基座：用 task-panel 官方引导 `openBoard()` 建/迁移 DB（**不手抄 SQL**）。
- * board 落盘与只读适配器 bases/task-panel.mjs 同源（resolveBoardDataDir/DbPath）。
+ * 基座：用 meerkat-taskpanel 官方引导 `openBoard()` 建/迁移 DB（**不手抄 SQL**）。
+ * board 落盘与下方只读适配器（provider 拥有，见动态导入处）同源（resolveBoardDataDir/DbPath）。
  *
  * 用法：node scripts/seed-projects.mjs   # 可重复执行（幂等）
- * 环境：TASKPANEL_REPO（task-panel 仓根；缺省取与 openclaw-team 同级的兄弟目录 ../task-panel）
+ * 环境：MEERKAT_TASKPANEL_REPO（meerkat-taskpanel 仓根；缺省取与 openclaw-team 同级的兄弟目录 ../meerkat-taskpanel）
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { PROJECTS_FILE, TASK_OPS_DIR } from './lib.mjs';
 
-// provider 依赖显式化（方案②启动期硬失败）：board 路径解析来自 provider ACL 库
-// skills/task-ops/bases/task-panel.mjs（provider 拥有、有意不随仓）。lib.mjs 已对
-// team-paths/projects 做启动硬失败；此处把 bases/task-panel.mjs 改为显式动态导入。
-const taskPanelBase = await import(pathToFileURL(path.join(TASK_OPS_DIR, 'bases', 'task-panel.mjs')).href);
+// provider 依赖显式化（方案②启动期硬失败）：board 路径解析来自 provider ACL 库 skills/task-ops/
+// （provider 拥有、有意不随仓）。lib.mjs 已对 team-paths/projects 做启动硬失败；此处把其中的
+// board 基座适配器改为显式动态导入。**该适配器文件名随 provider 发布**（skills/task-ops，既非本仓、
+// 也非 meerkat-taskpanel 产品仓），未随本次改名 ⇒ 保留旧名，避免跨仓破坏 provider ACL 库导入。
+const taskPanelBase = await import(pathToFileURL(path.join(TASK_OPS_DIR, 'bases', 'task-panel.mjs')).href); // legacy-name-compat(provider-owned ACL adapter filename; not renamed upstream)
 const { resolveBoardDataDir, resolveBoardDbPath } = taskPanelBase;
 
-// task-panel 仓默认位置：与 openclaw-team 同级的兄弟目录 ../task-panel（不硬绑本机绝对路径）。
-// 解析顺序 opts.repo > TASKPANEL_REPO 环境变量 > 本缺省；三者皆无 ⇒ 下方 bootstrap 存在性检查
-// 明确报错退出（沿用既有「task-panel 仓不存在或结构不符…」信息，绝不静默 no-op）。
+// meerkat-taskpanel 仓默认位置：与 openclaw-team 同级的兄弟目录（不硬绑本机绝对路径）。
+// 解析顺序 opts.repo > MEERKAT_TASKPANEL_REPO（旧名仍接受，一次性告警，legacy-name-compat）环境变量 >
+// 兄弟目录探测（新名优先，兼容尚未改名的旧检出）> 下方 bootstrap 存在性检查明确报错退出
+// （沿用既有「…仓不存在或结构不符」信息，绝不静默 no-op）。
 const REPO_ROOT = path.resolve(fileURLToPath(import.meta.url), '..', '..', '..'); // <repo>/team/scripts/../../.. = <repo>
-const DEFAULT_REPO = path.resolve(REPO_ROOT, '..', 'task-panel');
+const SIBLING_REPO_DIRS = ['meerkat-taskpanel', 'task-panel']; // legacy-name-compat(pre-rebrand sibling checkout dir)
+const DEFAULT_REPO = SIBLING_REPO_DIRS.map((n) => path.resolve(REPO_ROOT, '..', n)).find((p) => fs.existsSync(p))
+  || path.resolve(REPO_ROOT, '..', SIBLING_REPO_DIRS[0]);
+
+// 旧 env 名仍接受（新名优先；见 naming map §4.2 兼容条款，legacy-name-compat）。
+function legacyRepoEnv(env) {
+  const v = env['TASKPANEL_REPO']; // legacy-name-compat(pre-rebrand env var name)
+  if (v) process.stderr.write('[seed-projects] TASKPANEL_REPO 已弃用：请改用 MEERKAT_TASKPANEL_REPO\n'); // legacy-name-compat
+  return v || '';
+}
 
 /**
  * 幂等登记：逐条 code —— 基座已存在 ⇒ updateProject，否则 ⇒ createProject。
@@ -70,14 +81,14 @@ export function registerIdentityCodes(board, registry) {
  * @param {{repo?: string, projectsFile?: string, dataDir?: string, dbPath?: string, logger?: Console}} [opts]
  */
 export async function seedProjects(opts = {}) {
-  const repo = opts.repo || process.env.TASKPANEL_REPO || DEFAULT_REPO;
+  const repo = opts.repo || process.env.MEERKAT_TASKPANEL_REPO || legacyRepoEnv(process.env) || DEFAULT_REPO;
   const projectsFile = opts.projectsFile || PROJECTS_FILE;
   const logger = opts.logger || console;
 
   const bootstrap = path.join(repo, 'src', 'core', 'bootstrap.mjs');
   if (!fs.existsSync(bootstrap)) {
     throw new Error(
-      `task-panel 仓不存在或结构不符: ${bootstrap}（设 TASKPANEL_REPO=<task-panel 仓根> 后重试）`,
+      `meerkat-taskpanel 仓不存在或结构不符: ${bootstrap}（设 MEERKAT_TASKPANEL_REPO=<meerkat-taskpanel 仓根> 后重试）`,
     );
   }
   if (!fs.existsSync(projectsFile)) {

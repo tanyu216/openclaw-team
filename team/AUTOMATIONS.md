@@ -10,8 +10,8 @@
   provider. The framework registers the team-level jobs and evaluates each trigger
   through its own dispatcher (`automations/dispatch.mjs`).
 - **The provider is only a *callee*** behind the `task-interface` ACL
-  (`guides/task-interface.md`). **`task-panel` is the DEFAULT provider** (installed
-  by default; opt out with `./install.sh --no-task-panel`) and **is replaceable**
+  (`guides/task-interface.md`). **`meerkat-taskpanel` is the DEFAULT provider** (installed
+  by default; opt out with `./install.sh --no-meerkat-taskpanel`) and **is replaceable**
   (Jira / Plane / Linear / …) with **zero change to these jobs** — swap the provider
   via `OPENCLAW_TEAM_TASK_PROVIDER` and the entry commands in
   `automations/providers.json` (or `OPENCLAW_TEAM_POLL_CMD` /
@@ -55,7 +55,7 @@ template substitution) and calls the framework dispatcher:
 
 `dispatch.mjs` selects the provider's entry command (from
 `automations/providers.json`; provider = `OPENCLAW_TEAM_TASK_PROVIDER`, default
-`task-panel`), runs it **without a shell**, and returns a one-line
+`meerkat-taskpanel`), runs it **without a shell**, and returns a one-line
 `{"fire":bool,"message"?,"state"?}`. The Gateway trigger wakes the agent **only on
 `fire:true`**; a missing entry, a failure, a timeout, or unparseable output ⇒
 `fire:false` (zero cost). Contract + ACL gaps: `automations/README.md`.
@@ -94,7 +94,7 @@ reaps.
 - **Cron slimming (`T-20261010-040000-configoptim-cronslim`)**: per-worker poll was thinned **1m → 2m** (override `OPENCLAW_TEAM_POLL_INTERVAL`, default `2m`), and every framework job now runs with **`--light-context`** so scheduler triggers stay cheap. The trigger decision is still an atomic claim check — 2m keeps the "claim timing belongs to poll" fallback (§①) while halving scheduler wake-ups.
 
 ## 5. Management
-- **Install-time registration (declarative reconcile)**: `./install.sh` is the declaration source; `config/reconcile.mjs` aligns the runtime to it by `declarationKey` (`openclaw-team:poll:<agent>` / `openclaw-team:task-patrol` / `openclaw-team:team-check-all`); `--skip-automations` disables it. Re-running is safe and **self-healing**: a missing key ⇒ `add`; a present key that drifts ⇒ `edit`; a present key that already matches ⇒ `skip`. **Drift** = `payload.lightContext !== true`, or (interval jobs only) a schedule mismatch with the declared interval. **Cron jobs (`team-check-all`) are never given `--every`** — only `lightContext` is reconciled, so the cron expression is left untouched. The registration is **provider-agnostic** — no `task-panel`/`taskctl` literal appears in any trigger script.
+- **Install-time registration (declarative reconcile)**: `./install.sh` is the declaration source; `config/reconcile.mjs` aligns the runtime to it by `declarationKey` (`openclaw-team:poll:<agent>` / `openclaw-team:task-patrol` / `openclaw-team:team-check-all`); `--skip-automations` disables it. Re-running is safe and **self-healing**: a missing key ⇒ `add`; a present key that drifts ⇒ `edit`; a present key that already matches ⇒ `skip`. **Drift** = `payload.lightContext !== true`, or (interval jobs only) a schedule mismatch with the declared interval. **Cron jobs (`team-check-all`) are never given `--every`** — only `lightContext` is reconciled, so the cron expression is left untouched. The registration is **provider-agnostic** — no `meerkat-taskpanel`/`taskctl` literal appears in any trigger script.
 - **Scheduling bounds** (set at registration; see §3.5): poll jobs get `--timeout-seconds` (run upper bound, `OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S`, default 3600 s); every generated trigger passes `exec({ …, timeoutSeconds })` and the dispatcher applies `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default 8000 ms). Both are install-time overridable env vars.
 - View: `automations list` | Details: `automations get <jobId>` | History: `automations runs <jobId>`
 - Test run: `automations run <jobId> runMode=force`

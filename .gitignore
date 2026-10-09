@@ -13,7 +13,7 @@ team/memory/*
 !team/memory/.gitkeep
 team/*sessions*.json
 team/*runs*.json
-team/projects.json   # reference-backend (task-panel) runtime state; not the project registry
+team/projects.json   # reference-backend (meerkat-taskpanel) runtime state; not the project registry
 
 # Local / secrets
 .env

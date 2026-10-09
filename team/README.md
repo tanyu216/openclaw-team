@@ -1,4 +1,4 @@
-<!-- NOTE: this file is a v0 document derived from a reference instance. Task management is provider-agnostic (ACL); `task-panel` is the reference provider and is optional. -->
+<!-- NOTE: this file is a v0 document derived from a reference instance. Task management is provider-agnostic (ACL); `meerkat-taskpanel` is the reference provider and is optional. -->
 
 # OpenClaw Five-Agent Team — Handover Document (README)
 
@@ -23,9 +23,9 @@
 ```
 
 **Source-of-truth split**:
-- Task **content** (Goal/Acceptance/Background/Report) → task cards (managed by the task provider; reference implementation `task-panel`, swappable via ACL)
+- Task **content** (Goal/Acceptance/Background/Report) → task cards (managed by the task provider; reference implementation `meerkat-taskpanel`, swappable via ACL)
 - Task **dispatch/status/communication** → OpenClaw native (sessions_send/spawn, background tasks, automations)
-- Project metadata (paths/git boundaries/rules) → project **identity codes resolved via the `task-interface` ACL** (the backend — currently task-panel — is swappable)
+- Project metadata (paths/git boundaries/rules) → project **identity codes resolved via the `task-interface` ACL** (the backend — currently meerkat-taskpanel — is swappable)
 - Session registry (claude/codex subprocesses) → `claude-sessions.json` / `turing-runs.json`
 
 ## 2. Directory Overview
@@ -33,8 +33,8 @@
 | Path | Contents |
 |---|---|
 | `PROTOCOL.md` | The single protocol source of truth (①–㉘: board/project access/structure invariants/reporting/messages/session orchestration/ambiguity/registration/defect loop/triage/out-of-bounds/doc sync/universal hard discipline/confirmation gate/SLA/terminology/layering/research convention/work creed/gates and archiving/release and versioning/runtime observability/product incident response/data migration/API compatibility/dependency CVE gate/performance SLA/cross-cutting + Appendix A) |
-| Project registration (ACL) | Project **identity code ↔ backend entity**; the current backend is task-panel's `projects` table (swappable). A legacy `projects.json`, if present, is a transitional runtime file **pending migration** — it is **not** the project registry. |
-| `tasks/` + `archive/` | Task cards and terminal-state archive (board content, managed by `task-panel`) |
+| Project registration (ACL) | Project **identity code ↔ backend entity**; the current backend is meerkat-taskpanel's `projects` table (swappable). A legacy `projects.json`, if present, is a transitional runtime file **pending migration** — it is **not** the project registry. |
+| `tasks/` + `archive/` | Task cards and terminal-state archive (board content, managed by `meerkat-taskpanel`) |
 | `workspace/<task-id>/` | Task working directory + artifacts (a `review/` subdirectory holds issue lists and evidence) |
 | `AUTOMATIONS.md` | Scheduled jobs/patrol list (cron overview, cost model, decisions) |
 | `ROLES.md` | Role duties/boundaries/handoffs reconciliation table (anti-GAP) |
@@ -52,7 +52,7 @@ OCL="$OPENCLAW_HOME/bin/openclaw"   # OpenClaw CLI (adjust the path to the local
 $OCL gateway status | $OCL agents list --bindings | $OCL automations list | $OCL tasks list
 $OCL automations runs <jobId> --limit 20      # inspect poll spin/claim history
 $OCL sessions list --all-agents --json        # session overview
-# Board (task-panel provides the task skill + taskctl CLI)
+# Board (meerkat-taskpanel provides the task skill + taskctl CLI)
 taskctl list                                  # board overview
 taskctl show <card>                           # a single card (including Report)
 taskctl poll <agent>                          # manually run one trigger evaluation (claim drill/troubleshooting)
@@ -92,7 +92,7 @@ $OCL automations disable <jobId>    # restore: automations enable <jobId>
 8. **Trigger-script evaluation phase and run turn are separate**: the claim happens during poll evaluation (fire:true ⇔ already claimed); the run turn finds `claimed_by=self`+fresh heartbeat → skip claiming and execute directly, and only runs `taskctl claim` if the card is still todo.
 9. **heartbeat exists only for main** (30m, defaults config); workers have no heartbeat and run idle; Dreaming (03:00) ingests only the main session.
 10. **Deep-troubleshooting experience**: gateway logs `/tmp/openclaw/openclaw-*.log` (JSON lines); model requests/fallbacks/reasoning overflow all have subsystem markers (`model-fallback/decision`, `agent/embedded` reasoning-only, etc.); grep runId first.
-11. **Task management is installed only on the OpenClaw team side**: task management (board/cards/ACL) is provided by the external `task-panel` and **faces OpenClaw team agents only** (`PROTOCOL §⑥` clause 7); **Claude Code / codex subsessions do not install or reference task management**, and the needed card info and constraints are transcribed by the agent into its prompt/`CLAUDE.md`.
+11. **Task management is installed only on the OpenClaw team side**: task management (board/cards/ACL) is provided by the external `meerkat-taskpanel` and **faces OpenClaw team agents only** (`PROTOCOL §⑥` clause 7); **Claude Code / codex subsessions do not install or reference task management**, and the needed card info and constraints are transcribed by the agent into its prompt/`CLAUDE.md`.
 
 ## 7. Rejected-Option Decision Record
 

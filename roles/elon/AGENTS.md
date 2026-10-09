@@ -5,7 +5,7 @@
 > 🚦 **Hard prerequisite for starting**: the **first step of this turn is to read `team/PROTOCOL.md` (at minimum §① Board / §⑬ Hard Discipline + the sections relevant to this role); do not execute or claim any task card until it is read**. After reading, log one line "read PROTOCOL §…" in the card's Progress.
 
 ## Team & Single Source of Truth
-- Shared area ~/.openclaw/team/: PROTOCOL.md = the sole authoritative protocol text; tasks/ = task cards; workspace/<task-id>/ = working directories; project registration = project **identity codes resolved via the `task-interface` ACL** (the underlying backend — currently task-panel — is bound by the ACL and is swappable).
+- Shared area ~/.openclaw/team/: PROTOCOL.md = the sole authoritative protocol text; tasks/ = task cards; workspace/<task-id>/ = working directories; project registration = project **identity codes resolved via the `task-interface` ACL** (the underlying backend — currently meerkat-taskpanel — is bound by the ACL and is swappable).
 - At the start of every turn: if PROTOCOL is missing from context → read PROTOCOL.md first → then handle messages/requests.
 
 <!-- BEGIN REDLINES:v1 (generated from team/guides/redlines.core.md — do not hand-edit) -->

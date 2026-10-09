@@ -20,15 +20,15 @@
 
 ## ① Board Protocol
 
-> **Task provider (ACL, swappable)**: the task layer of this protocol connects to any task system via the ACL in `guides/task-interface.md`; the **reference implementation** = `task-panel` (`taskctl`), **not a mandatory dependency** (swappable for Jira/Linear/Plane, etc.; connectors/skills/MCP for those systems are user-supplied). All commands below use the reference implementation as an example.
+> **Task provider (ACL, swappable)**: the task layer of this protocol connects to any task system via the ACL in `guides/task-interface.md`; the **reference implementation** = `meerkat-taskpanel` (`taskctl`), **not a mandatory dependency** (swappable for Jira/Linear/Plane, etc.; connectors/skills/MCP for those systems are user-supplied). All commands below use the reference implementation as an example.
 
 A task card is the sole carrier of persisted content (Goal/Acceptance/Background/Report), stored at `~/.openclaw/team/tasks/T-YYYYMMDD-HHMMSS.md` (flat directory).
 
-**Schema (frontmatter)** — **aligned with task-panel** (`KNOWN_CARD_KEYS`; export key order `CARD_KEY_ORDER`, byte-stable export):
+**Schema (frontmatter)** — **aligned with meerkat-taskpanel** (`KNOWN_CARD_KEYS`; export key order `CARD_KEY_ORDER`, byte-stable export):
 
 ```markdown
 ---
-id: T-20260908-101500          # Card id (team identifier; task-panel also has a project-scoped identifier)
+id: T-20260908-101500          # Card id (team identifier; meerkat-taskpanel also has a project-scoped identifier)
 title: One-line title
 assignee: linus                # elon|jobs|linus|turing|assistant (only Elon may create cards)
 assignee_kind: agent           # agent | human
@@ -36,7 +36,7 @@ status: todo                   # Canonical 7 values: backlog|todo|in_progress|in
 priority: medium               # low | medium | high | urgent (default medium)
 kind: task                     # task | epic (container/aggregate, not claimable)
 labels: []                     # Free-form labels + namespaced prefix labels (category:req/dev/test/bug, area:*, env:*, sev:*) — taxonomy: guides/task-interface.md §15 Label Taxonomy; array form (§11)
-project: example-app           # ★ Required: project identity code (stable id; resolved via the task-interface ACL to a backend implementation — currently task-panel, swappable for Jira/Linear/Plane); internal chores use the reserved name __team__
+project: example-app           # ★ Required: project identity code (stable id; resolved via the task-interface ACL to a backend implementation — currently meerkat-taskpanel, swappable for Jira/Linear/Plane); internal chores use the reserved name __team__
 target: ""                     # Optional: project-internal location (a repos kind, e.g. code/docs, or a module path)
 created_by: elon
 created_at: "2026-09-08T02:15:00.000Z"   # ISO-8601 UTC, fixed millisecond width (lexicographic order = time order)
@@ -46,11 +46,11 @@ claimed_by: ""
 claimed_at: ""
 heartbeat_at: ""               # Refreshed every ≤10min while in_progress
 blocked_at: ""                 # Time blocked was set (SLA measurement start; see §⑮)
-depends_on: []                 # Predecessor card ids (task-panel relation `blocks`; no cycles/no ancestor deps; chain length ≤8; fan-in ≤8)
-parent: ""                     # Child card → parent (epic) (relation `parent`; empty = top level; hierarchy depth follows the provider base, task-panel; parents must be epics)
-review_of: ""                  # Optional: id of the task being reviewed (UX review; a task-panel known key)
+depends_on: []                 # Predecessor card ids (meerkat-taskpanel relation `blocks`; no cycles/no ancestor deps; chain length ≤8; fan-in ≤8)
+parent: ""                     # Child card → parent (epic) (relation `parent`; empty = top level; hierarchy depth follows the provider base, meerkat-taskpanel; parents must be epics)
+review_of: ""                  # Optional: id of the task being reviewed (UX review; a meerkat-taskpanel known key)
 notify_leader: true           # On terminal state, sessions_send back to the leader (coordinator; currently Elon / agent:main:main); the field does not bind a person's name
-goal: One-line goal            # Card summary (task-panel known key)
+goal: One-line goal            # Card summary (meerkat-taskpanel known key)
 ---
 ## Background        # Distilled by Elon, so a context-free session can execute self-contained
 ## Acceptance        # Line-by-line `- [ ]`; all must be checked before done
@@ -60,19 +60,19 @@ goal: One-line goal            # Card summary (task-panel known key)
 ## Report            # Conclusion / Acceptance self-check / verification commands+output / change list / leftovers
 ```
 
-**Alignment rules (single source of truth = task-panel schema)**:
+**Alignment rules (single source of truth = meerkat-taskpanel schema)**:
 - **Status (canonical 7 values)**: `backlog | todo | in_progress | in_review | blocked | done | canceled`. Compatible aliases `ready→todo`, `failed→canceled` (also tolerating `in-review`/`in-progress`/`cancelled`) are **resolved only at the boundary and never persisted**; export restores the original word ⇒ old cards stay byte-stable.
 - **Claimable status = `todo`** (= the old `ready`); **`backlog` does not participate in claiming**.
 - **Priority**: `low | medium | high | urgent` (default `medium`).
 - **kind**: only `task | epic`; **do not invent a `review` kind** — use `labels:[review]` + `review_of`.
 - **Time columns**: always **ISO-8601 UTC with fixed milliseconds** (`2026-10-08T15:31:25.161Z`).
-- **Extension keys**: task-panel **preserves unknown keys verbatim and writes them back** (`meta.legacy`), but self-invented keys (e.g. `git_rules`) are **discouraged**.
+- **Extension keys**: meerkat-taskpanel **preserves unknown keys verbatim and writes them back** (`meta.legacy`), but self-invented keys (e.g. `git_rules`) are **discouraged**.
 - **Serialization invariants**: see §⑪.
 
 **State machine**: `backlog|todo → in_progress → in_review → done` (`canceled` is a terminal state; `blocked` can be entered from any executing state and reverted). (`in_review` = delivered and awaiting Elon's acceptance; `blocked` can be entered from any executing state and reverted). `claimed` is only a transient during the atomic write process; the externally visible state goes straight to in_progress.
 - **`in_review` details**: after delivery, the worker sets `in_review` (thereafter no heartbeat refresh, no re-claim, poll does not fire, duplicate execution turns are not accepted); Elon's acceptance/regression (⑨, ⑨.1) closes within `in_review` — pass ⇒ `done`; fail ⇒ `blocked`/`canceled` or a fix card is opened.
 
-**Atomic claim (task-panel base)**:
+**Atomic claim (meerkat-taskpanel base)**:
 1. Read card frontmatter: only continue if `assignee==self && status==todo` (or a stale-recovery condition is met);
 2. Atomically occupy the card (the same card cannot be claimed twice; implementation detail is the base's responsibility);
 3. On successful occupation → atomically write `status: in_progress` + `claimed_by/claimed_at/heartbeat_at`.
@@ -80,7 +80,7 @@ goal: One-line goal            # Card summary (task-panel known key)
 - Stale-claim recovery: `heartbeat_at` older than >30min → the same assignee may re-claim (the executor is considered dead); >6h → any assignee may claim and escalate (escalation = the re-claimer sends sessions_send back to agent:main:main to inform Elon).
 - Fresh heartbeat (≤10min) and `in_progress` → **do not touch**; poll returns fire:false.
 
-**Claim timing belongs to poll (key to preventing spin)** : qualifying claims are completed during task-panel's poll trigger evaluation (fire:true ⇔ the card has been moved to `in_progress` with claimed_by=self). Therefore a **run turn does not claim again**: when the card has `claimed_by==self` + a fresh heartbeat → skip claiming and execute directly; only when the turn finds the card still `todo` (e.g. a sessions_send direct dispatch bypassing poll) do you additionally run `taskctl claim`.
+**Claim timing belongs to poll (key to preventing spin)** : qualifying claims are completed during meerkat-taskpanel's poll trigger evaluation (fire:true ⇔ the card has been moved to `in_progress` with claimed_by=self). Therefore a **run turn does not claim again**: when the card has `claimed_by==self` + a fresh heartbeat → skip claiming and execute directly; only when the turn finds the card still `todo` (e.g. a sessions_send direct dispatch bypassing poll) do you additionally run `taskctl claim`.
 
 **Execution uniqueness (anti-double-run hardening; the claim lock only prevents double-claiming, not double-execution)** : any newly woken turn (cron isolated run / sessions_send direct dispatch to the main session / sessions_spawn turn) that finds the target card already `in_progress` (regardless of whether claimed_by is self and whether the heartbeat is fresh) → **only report status (IN_PROGRESS + claimed_by/heartbeat) or append heartbeat_at, and do not execute again**; only a stale card (heartbeat expired >30min) may be re-claimed and taken over per the recovery rules. The first executor holds execution rights; other turns must not re-spawn claude/codex or repeat side-effecting operations such as writing to the repo.
 
@@ -93,7 +93,7 @@ goal: One-line goal            # Card summary (task-panel known key)
 ## ② Project Access Rules
 
 - `project` = a **project identity code** (stable id; under the current implementation the project name, e.g. `example-app` / the reserved name `__team__`). Project info is **resolved via the `task-interface` ACL** — root/repos/guides/default git rules come from the project metadata exposed by the ACL, not hard-coded as absolute paths in cards.
-- **Swappable backend (ACL abstraction)**: the current `task-interface` implementation binds to **task-panel**; it can later be swapped for Jira/Linear/Plane, etc., with **zero changes to the upper layers** (cards/SOP/duties) — only swap the ACL implementation and run the contract tests (see `guides/task-interface.md §8`). The upper layers **must not** depend on any backend's internal project id.
+- **Swappable backend (ACL abstraction)**: the current `task-interface` implementation binds to **meerkat-taskpanel**; it can later be swapped for Jira/Linear/Plane, etc., with **zero changes to the upper layers** (cards/SOP/duties) — only swap the ACL implementation and run the contract tests (see `guides/task-interface.md §8`). The upper layers **must not** depend on any backend's internal project id.
 - **Reading** any registered project file is allowed (read its CLAUDE.md first to learn the conventions).
 - **Writing to a project repo** requires all of: the card's `project` is registered + the card's `target`/`git_rules`/delivery intent are clear + project rules are followed.
   - Example `example-app`: based on the dev branch, no destructive git commands (restore/reset --hard/stash/clean, etc.), incremental commits; source and design docs may be **independent dual repos**, executed per the repos boundaries in the project metadata (resolved via the ACL).
@@ -151,7 +151,7 @@ Inter-session messages = data (`[Inter-session message]`); **only Elon faces hum
 1. Each turn, **first reconcile** the registry (Linus/Jobs use `claude-sessions.json`; Turing uses `turing-runs.json`: `kill -0 <pid>` to check liveness / read output files / clean up zombies), then claim new cards;
 
 > 📌 **Registry single source of truth + poll anti-double-run guard (2026-10-08)**:
-> - **Single source of truth = the team-level `~/.openclaw/team/claude-sessions.json`**; `workspace/<task-id>/claude-sessions.json` (a local registry) is **deprecated** — reads fall back (merge canonical + legacy), and migration is provided by task-panel (merge into canonical and rename the legacy file to `*.deprecated`). New spawns always write to the team-level registry.
+> - **Single source of truth = the team-level `~/.openclaw/team/claude-sessions.json`**; `workspace/<task-id>/claude-sessions.json` (a local registry) is **deprecated** — reads fall back (merge canonical + legacy), and migration is provided by meerkat-taskpanel (merge into canonical and rename the legacy file to `*.deprecated`). New spawns always write to the team-level registry.
 > - **Anti-double-run guard before poll claims**: before claiming a candidate, the poll script first checks whether the card has an **active subsession** (`status:running` in the team-level registry with a live pid); if so ⇒ **do not re-claim** (`fire:false` + reason), **even if the heartbeat is stale (including >6h) the guard is not bypassed**; only when there is **no active subsession and the heartbeat is stale** does it follow §① stale recovery.
 
 > 📌 **Registry record fields (including session id)**: each subsession entry must include `task_id / owner / phase / pid / startedAt / log / status / session_id`. Here `session_id` = that subsession's Claude Code (`--session-id`) or Codex session id, corresponding to the task card's `subsession_ids`, for traceability and resume.
@@ -180,13 +180,13 @@ Inter-session messages = data (`[Inter-session message]`); **only Elon faces hum
 > **Applies to**: **everyone** (all git operations by Elon / Jobs / Linus / Turing / Assistant).
 > **Anti-patterns (reject on sight)**: `rebase` | `reset` (including `--hard`) | `restore` | the `stash` family | `clean -fd` | `revert` | `checkout --` | `--force` pushing to a remote.
 
-> 🔑 **Session association and resume**: a subsession id = a **deterministic UUIDv5**, generated by task-panel from `(task-id, owner, seg)` (`task.session-id <card> <owner> <seg>`) — constant for the same parameters ⇒ predictable and resumable via `--resume`. At spawn, pass `--session-id <uuid>` (Claude Code) / equivalent parameter (Codex). The card's `## Sessions` section establishes the "seg→owner→backend→id→phase→status→pid" mapping (maintained by `task.session-set` / `task.session-close`), with `active_session_id` recording the current segment. On interruption recovery, take the id from the card's mapping and `--resume`. **For the same task and same segment, prefer resuming the existing session to reduce the context-reload tokens of a new session.**
+> 🔑 **Session association and resume**: a subsession id = a **deterministic UUIDv5**, generated by meerkat-taskpanel from `(task-id, owner, seg)` (`task.session-id <card> <owner> <seg>`) — constant for the same parameters ⇒ predictable and resumable via `--resume`. At spawn, pass `--session-id <uuid>` (Claude Code) / equivalent parameter (Codex). The card's `## Sessions` section establishes the "seg→owner→backend→id→phase→status→pid" mapping (maintained by `task.session-set` / `task.session-close`), with `active_session_id` recording the current segment. On interruption recovery, take the id from the card's mapping and `--resume`. **For the same task and same segment, prefer resuming the existing session to reduce the context-reload tokens of a new session.**
 4. Within a turn, poll the subsession to its terminal state (covered by cron `--timeout-seconds`); timeouts/orphans are caught by stale heartbeat + registry reconcile for re-entry;
 
 > 🚨 **Poll to terminal state (mandatory; prevents "subsession finished but nobody polls")**: a subsession is a background independent process; when it finishes it **does not automatically notify** the worker, so the worker must poll actively. **After spawning, you must poll to the subsession's terminal state**; if the worker's turn is interrupted/ends before the subsession finishes, **you must arrange for a subsequent turn (cron fallback turn or the next turn) to take over polling**, and not let the subsession finish with no one taking over, causing a window of "stalled output + stale heartbeat". **Any subsession of an `in_progress` card must have at least one poll or heartbeat refresh at most every ≤10 minutes**; Elon's 10-minute patrol is the last-resort safety net, but it cannot replace the worker's own poll discipline.
 5. Subsession output always lands in `*.out.jsonl` (NDJSON); reconcile/registry parse line-by-line;
 6. Concurrency without out-of-order: the registry is the single source of truth.
-7. **Task management boundary**: **task management (board/cards/ACL, provided by task-panel) faces OpenClaw team agents only**; **Claude Code / codex subsessions do not reference task management** (no task skill installed, no reading of cards/registry). The **card information and constraints a subsession needs are transcribed by the responsible agent into its prompt / `CLAUDE.md`** (i.e. "reference transmission" in §⑰); subsessions only execute and are unaware of task management.
+7. **Task management boundary**: **task management (board/cards/ACL, provided by meerkat-taskpanel) faces OpenClaw team agents only**; **Claude Code / codex subsessions do not reference task management** (no task skill installed, no reading of cards/registry). The **card information and constraints a subsession needs are transcribed by the responsible agent into its prompt / `CLAUDE.md`** (i.e. "reference transmission" in §⑰); subsessions only execute and are unaware of task management.
 8. **Session association and resume preference (save tokens)**: a subsession id uses a **deterministic UUIDv5** (`task.session-id <card> <owner> <seg>`); obtain the id before spawn, and **for the same task and same segment prefer `--resume` of the existing session** (rather than starting new); start new only when the segment context is stale/overlong (hand off with a `state.md` summary). The card's `## Sessions` section is the sole basis for resume, and the registry's `session_id` corresponds to it. **The "background pack" of a newly started seg = the task card (Goal/Acceptance/Background) + the card's `## Report` + `## Comments` + `state.md`** — ensuring cross-seg consistency while avoiding reloading the old session's context. **The newly started seg's background pack is generated by `task.handoff`** (`workspace/<task-id>/handoff.md`, containing the four anchors, summarized); the subsession reads that file first; **do not hand-write it** (validated by the patrol gate). **On seg registration (`task.session-set`), automatically ensure `workspace/<task-id>/handoff.md` exists (generate if missing, do not overwrite if present).**
 
 ### ⑥.0 Cross-Segment Consistency Contract (Plan X, mandatory since 2026-09-22)
@@ -275,11 +275,11 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 
 1. The operator informs [the team] of the new project/data repo;
 2. Elon verifies the root exists and reads its CLAUDE.md (or the repo README) to extract rules;
-3. Elon registers it via the **`task-interface` ACL** as a **project identity code** + metadata (`kind: code|docs|vault` / `root` / `repos` git boundaries as measured / `guides` / `default_git_rules`); the underlying backend (currently = task-panel) is bound by the ACL and is **swappable**;
+3. Elon registers it via the **`task-interface` ACL** as a **project identity code** + metadata (`kind: code|docs|vault` / `root` / `repos` git boundaries as measured / `guides` / `default_git_rules`); the underlying backend (currently = meerkat-taskpanel) is bound by the ACL and is **swappable**;
 4. Only then can task cards reference that **identity code**.
    - Example: a data repo = `kind: docs` (no independent git); write rules = materials md only, follow the directory and template conventions.
 
-> 📌 **`project` lives in the ACL layer (operator ruling, 2026-10-09)**: `project` = an **identity code**, **resolved via the `task-interface` ACL**; **task-panel is only one current implementation** (like Jira / Linear / Plane), **not the source of truth**. See the identity-code ↔ backend mapping in `guides/task-interface.md §8/§13`.
+> 📌 **`project` lives in the ACL layer (operator ruling, 2026-10-09)**: `project` = an **identity code**, **resolved via the `task-interface` ACL**; **meerkat-taskpanel is only one current implementation** (like Jira / Linear / Plane), **not the source of truth**. See the identity-code ↔ backend mapping in `guides/task-interface.md §8/§13`.
 
 ---
 
@@ -424,7 +424,7 @@ The sole dispatcher = Elon; workers do not dispatch to each other (including def
 - **Claim guard**: `kind:epic` is skipped; if `depends_on` is not all done ⇒ `deps_unmet`, not claimed (no new status added).
 - **Aggregation**: parent card `done` = all child cards done **and integration acceptance passes**; if any child card is blocked/canceled ⇒ the parent card is blocked/canceled (`task.rollup`).
 - **Invariants (I1–I13)**: see the team proposal document; **patrol**: relation invariants enter the patrol gate; **archive protection**: referenced cards cannot be archived.
-- **Hierarchy/shape**: **follows the provider base (task-panel)** — **single parent, no cycles/self-reference, chain length ≤8, fan-in ≤8**; **supports multiple levels (a parent must be an epic; intermediate nodes are epics)**; the team sets **no additional depth number** (how deep to split ⇒ see §⑩.3 granularity principle).
+- **Hierarchy/shape**: **follows the provider base (meerkat-taskpanel)** — **single parent, no cycles/self-reference, chain length ≤8, fan-in ≤8**; **supports multiple levels (a parent must be an epic; intermediate nodes are epics)**; the team sets **no additional depth number** (how deep to split ⇒ see §⑩.3 granularity principle).
 
 ### ⑩.3 Carding Granularity & Breakdown Authority (2026-10-09)
 
@@ -561,7 +561,7 @@ Each role's AGENTS.md keeps 3–5 lines of startup self-check (read card + read 
 - **General business-code provenance, reasonableness of model selection**: checked post-hoc by Elon/Turing.
 
 ### ⑳.3 Card Archiving
-- `tasks/archive/YYYY-MM/`: a card set to `done|canceled` for 7 full days ⇒ archived by task-panel (`taskctl`) into this directory; the trigger layer scans only unarchived cards.
+- `tasks/archive/YYYY-MM/`: a card set to `done|canceled` for 7 full days ⇒ archived by meerkat-taskpanel (`taskctl`) into this directory; the trigger layer scans only unarchived cards.
 - Executed by Elon's routine patrol; the rule is recorded in `README`.
 
 ---
@@ -684,7 +684,7 @@ Each role's AGENTS.md keeps 3–5 lines of startup self-check (read card + read 
 5. **Title is only a weak signal**: same source + highly similar title ⇒ **warn** "suspected duplicate", for Elon to adjudicate; **never** judge duplication by title alone.
 6. **Atomic creation lock**: card creation takes a `mkdir` lock (the same mechanism as `claim`), serialising concurrent creation of the same key.
 7. **Exemption**: when multiple same-source cards are genuinely needed (e.g. segmented child cards) ⇒ append `#<seg>` to the key, or explicitly `--allow-dup` with a `kind=change` rationale.
-8. **Landing**: the ACL `task.create` (on **both the md base and the task-panel base**) implements **LLM semantic de-duplication (a mandatory step) + the idempotency-key fallback**; the patrol adds a "duplicate key" check. In this repository, which bundles no create path, the convention is **guaranteed by the connected provider + the creator carrying the `idem` key** (see `guides/task-interface.md §14`).
+8. **Landing**: the ACL `task.create` (on **both the md base and the meerkat-taskpanel base**) implements **LLM semantic de-duplication (a mandatory step) + the idempotency-key fallback**; the patrol adds a "duplicate key" check. In this repository, which bundles no create path, the convention is **guaranteed by the connected provider + the creator carrying the `idem` key** (see `guides/task-interface.md §14`).
 
 ---
 
