@@ -17,7 +17,6 @@ import assert from "node:assert/strict";
 import {
   computeProvidersPatch,
   DEFAULT_CONTEXT_TOKENS,
-  DEEPSEEK_CACHE_READ,
 } from "../../config/optimization.mjs";
 
 const deepseekProvider = {
@@ -53,9 +52,17 @@ test("contextWindow == threshold (200000) ⇒ skipped, e.g. minimax", () => {
       models: [{ id: "minimax-m2", name: "MiniMax M2", contextWindow: 200000 }],
     },
   };
+  // pre-red: the fixture sits EXACTLY on the boundary, so the skip only holds if the gate
+  // is strictly greater (`>=` would wrongly backfill here) — a vacuous "never backfills"
+  // implementation cannot satisfy this precondition.
+  assert.equal(providers.minimax.models[0].contextWindow, DEFAULT_CONTEXT_TOKENS, "fixture must sit exactly on the threshold");
   const { patch, applied } = computeProvidersPatch(providers);
-  assert.equal(patch.minimax?.models?.[0]?.contextTokens, undefined, "window ≤ threshold must not be backfilled");
+  assert.equal(patch.minimax?.models?.[0]?.contextTokens, undefined, "window == threshold must not be backfilled");
   assert.deepEqual(applied, []);
+  // positive control: threshold+1 IS backfilled — the skip above is discriminating, not a
+  // blanket refusal.
+  const above = computeProvidersPatch({ m: { models: [{ id: "m-1", name: "M1", contextWindow: DEFAULT_CONTEXT_TOKENS + 1 }] } });
+  assert.equal(above.patch.m.models[0].contextTokens, DEFAULT_CONTEXT_TOKENS, "threshold+1 must be backfilled");
 });
 
 test("contextWindow unknown (field absent) ⇒ skipped, never guess", () => {
@@ -64,9 +71,16 @@ test("contextWindow unknown (field absent) ⇒ skipped, never guess", () => {
       models: [{ id: "acme-1", name: "Acme 1" }],
     },
   };
+  // pre-red: the window is genuinely ABSENT (not 0/NaN) — the skip must come from
+  // "unknown", and this model must still be eligible under the wildcard.
+  assert.equal("contextWindow" in providers.acme.models[0], false, "fixture must have NO contextWindow");
   const { patch, applied } = computeProvidersPatch(providers);
   assert.equal(patch.acme?.models?.[0]?.contextTokens, undefined, "unknown window must not be backfilled");
   assert.deepEqual(applied, []);
+  // positive control: the wildcard DOES backfill this same model — the default-mode skip is
+  // due to the unknown window, not a function that refuses the model outright.
+  const wild = computeProvidersPatch(providers, { allModels: true });
+  assert.equal(wild.patch.acme.models[0].contextTokens, DEFAULT_CONTEXT_TOKENS, "wildcard must backfill the unknown-window model");
 });
 
 test("existing custom contextTokens is PRESERVED even when window > threshold", () => {
@@ -95,8 +109,10 @@ test("allModels wildcard ignores the window check: unknown/≤threshold also bac
 
 test("deepseek cacheRead whitelist: flash→0.006, v4-pro→0.003625 (missing only)", () => {
   const { patch } = computeProvidersPatch(deepseekProvider);
-  assert.equal(patch.deepseek.models.find((m) => m.id === "deepseek-flash").cost.cacheRead, DEEPSEEK_CACHE_READ["deepseek-flash"]);
-  assert.equal(patch.deepseek.models.find((m) => m.id === "deepseek-v4-pro").cost.cacheRead, DEEPSEEK_CACHE_READ["deepseek-v4-pro"]);
+  // literal values, not the module's own DEEPSEEK_CACHE_READ constant — asserting against
+  // the same export would self-certify a wrong constant.
+  assert.equal(patch.deepseek.models.find((m) => m.id === "deepseek-flash").cost.cacheRead, 0.006);
+  assert.equal(patch.deepseek.models.find((m) => m.id === "deepseek-v4-pro").cost.cacheRead, 0.003625);
 });
 
 test("existing custom cost.cacheRead is PRESERVED", () => {
@@ -108,6 +124,26 @@ test("existing custom cost.cacheRead is PRESERVED", () => {
   const { patch } = computeProvidersPatch(providers);
   assert.equal(patch.deepseek.models[0].cost.cacheRead, 0.999, "custom cacheRead must not be overwritten");
   assert.equal(patch.deepseek.models[0].cost.input, 0.1, "other cost fields must be untouched");
+});
+
+test("malformed non-object cost (string/number/null) ⇒ NOT clobbered into {cacheRead}", () => {
+  // bb139ff edge: `cost` present but non-object. Backfill must leave it untouched rather
+  // than replace it with `{cacheRead}` — overwriting even a malformed user value is wrong.
+  for (const badCost of ["oops", 5, null]) {
+    const providers = {
+      deepseek: {
+        models: [{ id: "deepseek-flash", name: "Flash", contextWindow: 1000000, cost: badCost }],
+      },
+    };
+    const { patch, applied } = computeProvidersPatch(providers);
+    assert.deepEqual(patch.deepseek.models[0].cost, badCost, `cost ${JSON.stringify(badCost)} must be left untouched`);
+    assert.equal(patch.deepseek.models[0].contextTokens, DEFAULT_CONTEXT_TOKENS, "unrelated contextTokens backfill still happens");
+    assert.equal(
+      applied.some((a) => a.includes("cacheRead")),
+      false,
+      `no cacheRead written onto a malformed cost ${JSON.stringify(badCost)}`,
+    );
+  }
 });
 
 test("non-deepseek model, window unknown: contextTokens NOT backfilled; cacheRead never", () => {
@@ -174,7 +210,7 @@ test("contract: the emitted patch preserves EVERY input field (array ⊇ input)"
   assert.deepEqual(patch.openai.models[0].tags, ["a", "b"]);
 
   // the one missing field (deepseek cacheRead) was filled on top of the preserved cost object
-  assert.equal(patch.deepseek.models[0].cost.cacheRead, DEEPSEEK_CACHE_READ["deepseek-v4-pro"]);
+  assert.equal(patch.deepseek.models[0].cost.cacheRead, 0.003625);
 });
 
 test("missing / non-object providers ⇒ empty patch", () => {
