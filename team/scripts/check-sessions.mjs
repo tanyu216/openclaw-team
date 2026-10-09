@@ -1,0 +1,130 @@
+#!/usr/bin/env node
+/**
+ * check-sessions.mjs — 卡↔registry 子会话一致性守卫（spawn 登记一致性）
+ *
+ * 背景（T-20261009-211234-concurrencyharden 追加实证 m7）：某卡 `## Sessions` 为空，registry 却有
+ * 2 条 running（pid 存活）⇒ 登记只走了 registry、未走 `task.session-set`（卡 + registry 同写）。
+ * 本守卫双向比对，把这类不一致作为**门禁**报出（check-all 接入）：
+ *
+ *   硬失败（不一致，exit 1）——「活跃但另一侧缺失」才判硬：
+ *     - registry_only：registry running+pid 存活，卡内无对应 running Sessions 行（m7 主例）；
+ *     - card_only：卡内 Sessions running 行且卡行 pid 存活，registry 无对应条目（spawn 漏写 registry）。
+ *   软告警（note，不影响退出码）：
+ *     - zombie_registry：registry running 但 pid 不存活（reconcile 的职责，非 spawn 缺陷）；
+ *     - stale_card_line：卡 running 行但卡行 pid 不存活（陈旧行，reconcile 清理）；
+ *     - status_mismatch：卡 running 行 vs registry 终态不一致。
+ * 只读：绝不写卡 / 写 registry。扫描 OPENCLAW_TEAM_ROOT（import 期读取；隔离测试在 import 前设该环境变量）。
+ * 用法：node check-sessions.mjs
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import { TASKS_DIR, CARD_ID_RE, readCard } from './lib.mjs';
+import { loadRegistry, isPidAlive, REGISTRY_PATH } from './registry.mjs';
+
+/** 解析卡 body 内 `## Sessions` 段（行首 `- seg:`）的 running 会话行 */
+function sessionsOf(cardPath) {
+  const { body } = readCard(cardPath);
+  const lines = body.split('\n');
+  const out = [];
+  let inSessions = false;
+  for (const line of lines) {
+    if (/^##\s/.test(line)) { inSessions = line.trim() === '## Sessions'; continue; }
+    if (!inSessions) continue;
+    if (!line.trim().startsWith('- seg:')) continue;
+    const id = /id:(\S+)/.exec(line);
+    const status = /status:(\S+)/.exec(line);
+    const seg = /seg:(\S+)/.exec(line);
+    const pid = /pid:(\S+)/.exec(line);
+    out.push({ id: id ? id[1] : '', status: status ? status[1] : '', seg: seg ? seg[1] : '', pid: pid ? pid[1] : '' });
+  }
+  return out;
+}
+
+function scanCards() {
+  const cards = [];
+  if (!fs.existsSync(TASKS_DIR)) return cards;
+  for (const f of fs.readdirSync(TASKS_DIR)) {
+    if (!f.endsWith('.md') || !CARD_ID_RE.test(f.slice(0, -3))) continue;
+    const p = path.join(TASKS_DIR, f);
+    try {
+      const { fm } = readCard(p);
+      const id = fm.id || f.slice(0, -3);
+      cards.push({ id, path: p, sessions: sessionsOf(p) });
+    } catch {
+      /* 不可读卡跳过 */
+    }
+  }
+  return cards;
+}
+
+export function checkSessions({ registry = null } = {}) {
+  const entries = registry == null ? loadRegistry({ includeLegacy: false }) : registry;
+  const running = entries.filter((e) => e.status === 'running');
+  const cards = scanCards();
+  const byId = new Map(cards.map((c) => [c.id, c]));
+
+  const inconsistencies = [];
+  const notes = [];
+
+  // 方向 1：registry running → 卡内 Sessions 行
+  for (const e of running) {
+    const card = byId.get(e.task_id);
+    const line = card && card.sessions.find((s) => s.id && s.id === e.session_id);
+    if (!isPidAlive(e.pid)) {
+      notes.push({ type: 'zombie_registry', task: e.task_id, session: e.session_id, pid: e.pid });
+      continue;
+    }
+    if (!card || !line) {
+      inconsistencies.push({
+        type: 'registry_only',
+        task: e.task_id,
+        session: e.session_id,
+        pid: e.pid,
+        cardExists: !!card,
+      });
+    }
+    // 有行且 registry running ⇒ 一致（含 pid 存活）→ 无需处理
+  }
+
+  // 方向 2：卡内 Sessions running 行 → registry 条目
+  // 口径：卡行 pid 存活 ⇒ 真实活跃会话缺 registry 条目（spawn 漏写 registry）⇒ 硬失败；
+  //       卡行 pid 已死 ⇒ 陈旧 running 行（reconcile 职责）⇒ 软告警。
+  for (const card of cards) {
+    for (const line of card.sessions.filter((s) => s.status === 'running')) {
+      if (!line.id) continue; // 无 session id 的行不参与判定（无法对齐）
+      const e = entries.find((x) => x.task_id === card.id && x.session_id === line.id);
+      if (!e) {
+        const nPid = Number(line.pid);
+        if (Number.isInteger(nPid) && nPid > 0 && isPidAlive(nPid)) {
+          inconsistencies.push({ type: 'card_only', task: card.id, session: line.id, pid: nPid });
+        } else {
+          notes.push({ type: 'stale_card_line', task: card.id, session: line.id, pid: line.pid });
+        }
+      } else if (e.status !== 'running') {
+        notes.push({ type: 'status_mismatch', task: card.id, session: line.id, card: line.status, registry: e.status });
+      }
+      // e.status === 'running' 已在方向 1 处理（一致或 zombie note）
+    }
+  }
+
+  return {
+    ok: inconsistencies.length === 0,
+    registryPath: REGISTRY_PATH,
+    checked: { cards: cards.length, registryRunning: running.length },
+    inconsistencies,
+    notes,
+  };
+}
+
+function main() {
+  const r = checkSessions();
+  console.log(JSON.stringify(r, null, 2));
+  process.exit(r.ok ? 0 : 1);
+}
+
+// main-guard：realpath 归一（与 lib.mjs 同口径）
+try {
+  const self = fs.realpathSync(new URL(import.meta.url));
+  const arg = fs.realpathSync(path.resolve(process.argv[1]));
+  if (arg === self) main();
+} catch { /* realpath 失败 ⇒ 不执行 main */ }

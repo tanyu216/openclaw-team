@@ -174,6 +174,7 @@ export function refreshHeartbeat(cardPath, assignee) {
   if (fm.claimed_by !== assignee) return { ok: false, reason: `claimed_by=${fm.claimed_by}` };
   fm.heartbeat_at = nowIso();
   writeCardAtomic(cardPath, fm, body);
+  touchTurnLock(turnLockPath(cardPath)); // 心跳续锁（跨回合锁与心跳同步保鲜）
   return { ok: true, heartbeat_at: fm.heartbeat_at };
 }
 
@@ -181,6 +182,43 @@ export function refreshHeartbeat(cardPath, assignee) {
 function lockPath(cardPath, assignee) {
   const id = path.basename(cardPath, '.md');
   return path.join(LOCKS_DIR, `${id}.claim.${assignee}`);
+}
+
+// ---------- 同卡跨回合锁（provider/round 锁；T-20261009-211234-concurrencyharden） ----------
+// 一个**与 registry 无关**的持久互斥锁：claim 成功 / heartbeat 刷新时 touch，terminal（done/failed）
+// 或 session-close 时释放。作用 = 即便 claude-sessions.json 缺席/不一致（m7 类故障）也能拦下跨回合重领。
+// 锁新鲜窗口 = STALE_LOCK_MS（15min，略长于心跳新鲜 10min ⇒ 心跳可正常续锁）。
+function turnLockPath(cardPath) {
+  const id = path.basename(cardPath, '.md');
+  return path.join(LOCKS_DIR, `${id}.turn`);
+}
+
+/** 锁龄（ms）；锁不存在 ⇒ Infinity */
+function turnLockAgeMs(turnPath) {
+  try {
+    return nowMs() - fs.statSync(turnPath).mtimeMs;
+  } catch {
+    return Infinity;
+  }
+}
+
+/** 刷新（无则创建）跨回合锁：写时间戳占位文件（mtime 即新鲜度依据） */
+function touchTurnLock(turnPath) {
+  try {
+    fs.mkdirSync(LOCKS_DIR, { recursive: true });
+  } catch {
+    /* LOCKS_DIR 已存在或不可建（写锁时再暴露） */
+  }
+  fs.writeFileSync(turnPath, String(nowMs()), 'utf8');
+}
+
+/** 释放跨回合锁（幂等；锁不存在/已清理不报错） */
+export function releaseTurnLock(cardArg) {
+  try {
+    fs.unlinkSync(turnLockPath(cardPathOf(cardArg)));
+  } catch {
+    /* 无锁可释放 ⇒ 忽略 */
+  }
 }
 
 function mkdirLock(lockDir) {
@@ -228,6 +266,11 @@ export function claimCard(cardArg, assignee) {
   if (!AGENTS.includes(assignee)) return { ok: false, reason: `unknown_assignee:${assignee}` };
   const cardPath = cardPathOf(cardArg);
   if (!fs.existsSync(cardPath)) return { ok: false, reason: 'not_found' };
+  try {
+    fs.mkdirSync(LOCKS_DIR, { recursive: true }); // 直派路径无 poll main 预建锁目录，此处兜底
+  } catch {
+    /* 锁目录已存在或不可建（mkdirLock 会再暴露具体错误） */
+  }
 
   const now = nowMs();
   let { fm, body } = readCard(cardPath);
@@ -258,6 +301,22 @@ export function claimCard(cardArg, assignee) {
     return { ok: false, reason: `status=${fm.status}`, card: fm };
   }
 
+  // 同卡跨回合锁：领取前查持久锁（与 registry 无关的兜底互斥，见 turnLockPath 注释）。
+  //  - new（ready）⇒ 残留锁清除（无持有者，不应阻塞领取）；
+  //  - 恢复（recover_same/recover_any）⇒ 新鲜锁（≤ STALE_LOCK_MS）仍被持有 ⇒ 不领（turn_locked）；
+  //    陈旧锁 ⇒ 清除后走恢复。
+  const turnPath = turnLockPath(cardPath);
+  if (mode === 'new') {
+    if (turnLockAgeMs(turnPath) !== Infinity) {
+      try { fs.unlinkSync(turnPath); } catch { /* 竞态清理，忽略 */ }
+    }
+  } else {
+    if (turnLockAgeMs(turnPath) <= STALE_LOCK_MS) {
+      return { ok: false, reason: 'turn_locked', card: fm };
+    }
+    try { fs.unlinkSync(turnPath); } catch { /* 无锁/已清理，忽略 */ }
+  }
+
   const lockDir = lockPath(cardPath, assignee);
   if (!mkdirLock(lockDir)) {
     // 锁存在：陈旧则清理后重试一次
@@ -283,6 +342,7 @@ export function claimCard(cardArg, assignee) {
     fm.claimed_at = ts;
     fm.heartbeat_at = ts;
     writeCardAtomic(cardPath, fm, body);
+    touchTurnLock(turnPath); // 领取成功 ⇒ 持有跨回合锁
     return { ok: true, mode, card: fm, cardPath };
   } finally {
     try {

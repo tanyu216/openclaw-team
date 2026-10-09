@@ -30,6 +30,7 @@ if [ "$provider_missing" = 0 ]; then
   run "新 seg 背景包 check-handoff"        node "$S/check-handoff.mjs"
   run "关系不变量 check-relations"         node "$S/check-relations.mjs"
   run "建卡幂等(同 idem 非终态>1)"          node "$S/check-idem.mjs"
+  run "卡↔registry session 一致性 check-sessions" node "$S/check-sessions.mjs"
   run "契约测试（task-interface v1）"      node "$TEAM/skills/task-ops/tests/contract.test.mjs"
   run "ACL 项目解析（identity code）"      node --test "$TEAM/skills/task-ops/tests/projects.test.mjs"
   run "ACL 调度求值（provider-agnostic）"  node --test "$TEAM/skills/task-ops/tests/schedule.test.mjs"
