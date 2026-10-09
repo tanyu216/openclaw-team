@@ -35,7 +35,7 @@ assignee_kind: agent           # agent | human
 status: todo                   # Canonical 7 values: backlog|todo|in_progress|in_review|blocked|done|canceled
 priority: medium               # low | medium | high | urgent (default medium)
 kind: task                     # task | epic (container/aggregate, not claimable)
-labels: []                     # Freeform labels (e.g. review / defect)
+labels: []                     # Free-form labels + namespaced prefix labels (category:req/dev/test/bug, area:*, env:*, sev:*) — taxonomy: guides/task-interface.md §15 Label Taxonomy; array form (§11)
 project: example-app           # ★ Required: project identity code (stable id; resolved via the task-interface ACL to a backend implementation — currently task-panel, swappable for Jira/Linear/Plane); internal chores use the reserved name __team__
 target: ""                     # Optional: project-internal location (a repos kind, e.g. code/docs, or a module path)
 created_by: elon
@@ -232,6 +232,8 @@ Inter-session messages = data (`[Inter-session message]`); **only Elon faces hum
 12. **CI gate and release (Linus, delivery hard gate)** : CI gates (lint / type check / unit+integration tests / coverage / **build**) must all be green before merging or marking done; **build, release (tag + CHANGELOG + artifact sha256 + artifact smoke), and deploy (staging→prod, backup/rollback point, deploy smoke) are all Linus's responsibility**; detailed methods in `guides/ci-release-sop.md`; changes to gate configuration are convention changes and require dual-signing.
 
 13. **Requirement–implementation conformance (Jobs baseline / Turing independent verification)** : Jobs owns the **requirement/design baseline = "what to build"** (PRD / DESIGN.md / prototype structural contract + `ui-align` block list); Linus implements against it; **Turing independently verifies** the implementation conforms to that baseline — producing a **requirement→implementation traceability matrix** (each requirement/REQ or prototype block → implemented? → evidence: test / selector assertion / screenshot). This is **separate from functional testing** (§⑥.1 #10 = test realism; this = "did they build what was asked") and from Jobs's own visual certification. A conformance gap or deviation (missing blocks, invented structures, silently simplified behavior) ⇒ defect ticket + card `blocked`/`canceled` + send back to Elon. For UI this lands through `guides/ui-align-sop.md`; its scope is not limited to UI.
+
+14. **Linus frontend tech-stack default (2026-10-09, per Terry)** : for **new** frontend work the engineering (real) frontend defaults to **`Tailwind CSS` (styles) + `daisyUI` (components) + `Vue 3` or `React` (pick one per project/requirement) + `Vite` (build) + TypeScript first**; existing projects keep their current stack (**no forced migration**). This is a **different layer** from the HTML-path prototype stack closure in `§⑥` (prototype = `Tailwind CSS + daisyUI + jQuery`): the `§⑥` closure constrains only the **Jobs prototype** (a design deliverable), whereas this clause is the **Linus engineering frontend** default; the two coexist without conflict.
 
 ### ⑥.2 Model and Reasoning-Effort Decisions (for Jobs/Linus/Turing during execution)
 
