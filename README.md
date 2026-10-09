@@ -32,6 +32,165 @@ You  ──►  Elon (main, coordinator)  ──►  Jobs (design) · Linus (dev
 > does not hard-code any instance's extra roles.
 
 
+## Team architecture
+
+The team is **one human user plus five AI agents**. In the diagram below the top
+layer — **Terry — is the human user (you)**, *not* an agent; **every layer below is
+AI**.
+
+```mermaid
+flowchart TB
+  Terry["Terry - the human user (you)"]
+  Elon["Elon - AI lead / coordinator (sole dispatcher)"]
+  Jobs["Jobs - AI (design)"]
+  Linus["Linus - AI (engineering)"]
+  Turing["Turing - AI (QA)"]
+  Assistant["Assistant - AI (ops / misc)"]
+  Extra["user-defined roles - AI (added by the user)"]
+  Board["Task board - cards + claim + heartbeat + DAG (ACL: task-panel / Jira / ...)"]
+  Sched["Framework scheduler - poll / patrol / check-all (provider-agnostic)"]
+  Subs["Subsessions - Claude Code (Jobs/Linus) / Codex (Turing)"]
+
+  Terry -->|"goal + acceptance criteria"| Elon
+  Elon -->|"creates cards"| Board
+  Elon -->|"sole dispatcher"| Jobs
+  Elon -->|"sole dispatcher"| Linus
+  Elon -->|"sole dispatcher"| Turing
+  Elon -->|"sole dispatcher"| Assistant
+  Elon -.->|"user extends the roster"| Extra
+  Sched -->|"poll / dispatch"| Jobs
+  Sched -->|"poll / dispatch"| Linus
+  Sched -->|"poll / dispatch"| Turing
+  Sched -->|"poll / dispatch"| Assistant
+  Jobs -->|"task.claim"| Board
+  Linus -->|"task.claim"| Board
+  Turing -->|"task.claim"| Board
+  Assistant -->|"task.claim"| Board
+  Jobs -->|"design"| Subs
+  Linus -->|"implementation"| Subs
+  Turing -->|"tests"| Subs
+  Board -->|"in_review -> acceptance"| Elon
+  Elon -->|"progress + epic rollup"| Terry
+```
+
+**Layers**
+
+1. **Terry — the human user (you).** Sets the goal and the acceptance criteria;
+   receives progress and epic rollups; makes the few decisions only a human can make.
+2. **Elon — AI lead / coordinator.** The **sole card creator and sole dispatcher**:
+   breaks requirements into cards, dispatches, accepts, and reports.
+3. **Jobs · Linus · Turing · Assistant — AI specialists.** Design / engineering /
+   QA / ops.
+4. **User-defined roles (AI).** Beyond the five built-ins, roles are **extended by
+   the user** (see [Roles](#roles)).
+
+The **task board**, **framework scheduler**, and **subsessions** in the diagram are
+the plumbing detailed in [How the team collaborates](#how-the-team-collaborates) and
+[Scheduling & team automations](#scheduling--team-automations).
+
+## Roles, scope & SOP
+
+**Scope** = what the role owns; **Not** = what it must *not* do. This is a summary —
+the authoritative per-role SOP is each role's own file, and the boundary
+reconciliation lives in `team/ROLES.md`.
+
+| Role | Scope (owns) | Not (excluded) | Key outputs | Role SOP |
+|---|---|---|---|---|
+| 🧠 **Elon** (AI lead) | Intake · carding · dispatch · acceptance · reporting · team health; release & destructive-migration approval | Business code · design drafts · test execution | Task cards · dispatches · acceptance conclusions · reports | [`roles/elon/AGENTS.md`](roles/elon/AGENTS.md) |
+| 🎨 **Jobs** (AI design) | Product design · PRD · UI · UX · image design · aesthetic ownership · UX/UI review · requirement/design baseline | Backend & business code · functional test execution | PRD · DESIGN · prototypes · images · issue list | [`roles/jobs/AGENTS.md`](roles/jobs/AGENTS.md) |
+| ⚙️ **Linus** (AI engineering) | Code · fixes · refactor · build & self-test · CI gates · release/deploy | Product/UI design decisions · UX acceptance · functional acceptance | Code + tests · Report (with coverage) · CI/release evidence | [`roles/linus/AGENTS.md`](roles/linus/AGENTS.md) |
+| 🧪 **Turing** (AI QA) | Functional testing · acceptance · regression · defect reproduction · security audit · requirement-conformance verification | Writing fixes/implementation · UI design | Test reports · defect tickets · traceability matrix | [`roles/turing/AGENTS.md`](roles/turing/AGENTS.md) |
+| 🧹 **Assistant** (AI ops) | Video download & text parsing · ASR · subtitle OCR · marketing · operations · support · unbounded misc | Business code · UX design · functional testing | Video text/alignments · marketing/ops/support content | [`roles/assistant/AGENTS.md`](roles/assistant/AGENTS.md) |
+
+Each role file holds that role's **standing orders (SOP)**. Cross-role rules are
+**referenced, not copied**:
+
+- **Routing / who gets what** — `team/PROTOCOL.md` **§⑩ Task Triage Matrix**.
+- **Boundaries & handoffs (reconciliation)** — `team/ROLES.md`.
+- **Universal hard discipline (all roles)** — `team/PROTOCOL.md` **§⑬ Universal Hard Discipline**.
+
+## How the team collaborates
+
+- **Task-card board.** Work lives on a **task-card board**, not in chat; a card
+  carries Goal / Acceptance / Background and a state machine
+  `backlog | todo → in_progress → in_review → done` (`blocked` / `canceled` are side
+  and terminal states). The card is the single carrier of persisted content.
+  `team/PROTOCOL.md` **§① Board Protocol**.
+- **Claim · heartbeat · the three end-of-segment items.** A worker takes a card with
+  an **atomic claim** (`task.claim`) and refreshes a **heartbeat every ≤10 min** while
+  working. Every segment ends with **three closing items**: ① refresh the heartbeat →
+  ② set the terminal state (`in_review` / `done` / `canceled` / `blocked`) → ③ send
+  Elon a Report (conclusion + card path + commit hash). A fresh heartbeat on an
+  `in_progress` card means "someone is already on it — do not re-run".
+  `team/PROTOCOL.md` **§①** and **§⑬.2 The Three End-of-Segment Closing Items**.
+- **Dependencies & parent/child (DAG).** A large job is one **`kind: epic`** parent —
+  a container, **not claimable** — with **child cards** (`parent=<epic>`). Ordering
+  uses **`depends_on`** (a child with unmet deps is not claimed). The epic reaches
+  `done` only when **all its children are done and integration acceptance passes**
+  (epic rollup). `team/PROTOCOL.md` **§⑩.2 Composite Task = Subtask Cards + Dependency Graph (DAG)**.
+- **One dispatcher: Elon.** **Elon alone creates cards and dispatches**; Jobs /
+  Linus / Turing / Assistant **do not hand work to each other — they only request a
+  card from Elon** (stating the need or the gap found). One owner per decision, one
+  intake path. `team/PROTOCOL.md` **§⑩** and **§⑩.3 Carding Granularity**.
+- **Defect loop.** A defect found in QA is written up as a defect ticket → **Elon
+  creates a fix card** for Linus → the fix returns to Elon for acceptance → Turing
+  runs a **regression retest**; the original card reaches `done` only when regression
+  fully passes. `team/PROTOCOL.md` **§⑨ Defect Fix and Regression Loop**.
+- **Delivery gates.** Nothing is marked `done` before it passes its gates:
+  engineering quality (TDD, coverage ≥80 %, integration tests, self-proof), UI
+  fidelity (the prototype is the contract), documentation sync, and the
+  **machine-checkable gates** run by CI / `check-all`. `team/PROTOCOL.md`
+  **§⑥.1 Engineering Quality Standards** and **§⑳ Gates and Archiving**.
+- **Parallelism first.** Workers run **in parallel by default**; only a
+  **write-resource conflict** (same file, non-isolatable resource), an unmet
+  `depends_on`, or an explicit "must serialize" serialises them. Elon's patrol pushes
+  parallelism and chases stale cards. `team/PROTOCOL.md` **§⑥.3 Worker Parallelism-First**.
+
+The scheduler that wakes workers (`poll-<agent>`, `task-patrol`, `team-check-all`) is
+described in [Scheduling & team automations](#scheduling--team-automations).
+
+## AI-Agent Collaboration Guide (for non-programmers)
+
+You do **not** need to write code, run agents, or understand the internals. You
+describe the outcome in plain language; the team turns it into work items, executes,
+and reports back. The whole loop is four steps:
+
+1. **You describe the requirement — goal + acceptance criteria.** Say what you want
+   in one line *and* what "done" looks like (the acceptance criteria). The clearer
+   the "done" line, the better the result.
+2. **Elon breaks it into cards (an epic + child cards).** A large requirement becomes
+   one **epic** with **child cards** (design / development / testing), ordered by
+   dependency.
+3. **Agents execute — design, development, testing.** Jobs designs, Linus builds (and
+   runs CI/release), Turing verifies; a defect automatically goes back through the
+   defect loop.
+4. **You only watch the task status and the epic progress.** You do **not** follow
+   subsessions or logs — you look at each card's state
+   (`todo → in_progress → in_review → done`) and the epic rollup. Elon reports
+   milestones to you and escalates only the decisions that need you.
+
+### Best practices
+
+- **Write the goal and "what done looks like".** A one-line goal plus explicit
+  acceptance criteria is what makes the work checkable instead of guesswork.
+- **Give direction, don't micromanage.** Hand over the objective and let the team
+  decide *how*; step-by-step instructions slow it down.
+- **Watch progress; confirm key decisions.** Follow card status / epic progress; only
+  a few decisions come back to you — design disagreement, security & data safety,
+  architecture direction — answer those and let the team handle the rest.
+- **Reuse templates.** Reuse the requirement/acceptance template and existing card
+  patterns; a consistent, complete brief is faster to intake and less likely to be
+  sent back.
+
+### Minimal example
+
+| Step | What happens | What you see |
+|---|---|---|
+| **You** | "Add a dark-mode toggle to the settings page." | — |
+| **Elon** | Creates the epic **Dark-mode toggle** + child cards *design toggle + mockup* → *implement theme switch* → *verify all pages* (with `depends_on`) | cards appear as `todo` |
+| **Agents** | Jobs designs → Linus builds (CI green) → Turing verifies | cards move `in_progress → in_review` |
+| **You** | Watch status; answer any escalated decision | cards turn `done`; the epic rolls up; Elon reports "complete" |
+
 ## Install
 
 ```bash

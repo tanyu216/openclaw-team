@@ -23,6 +23,109 @@
 > **定位与角色扩展**：`openclaw-team` 是**面向个人开发者快速搭建研发团队的框架**。上表**五个角色（elon / jobs / linus / turing / assistant）是标准内置角色**。**五角色之外的岗位**（如业务特有职位）由**用户自行定义/扩展**——框架不把任何实例的额外角色写死。
 
 
+## 团队架构
+
+团队 = **一个人类用户 + 五个 AI agent**。下图中**最上层 Terry 是「人类用户（你）」，不是 agent**；**其下每一层都是 AI**。
+
+```mermaid
+flowchart TB
+  Terry["Terry - 人类用户（你）"]
+  Elon["Elon - AI 统筹 / 协调者（唯一派单人）"]
+  Jobs["Jobs - AI（设计）"]
+  Linus["Linus - AI（开发）"]
+  Turing["Turing - AI（测试）"]
+  Assistant["Assistant - AI（助理）"]
+  Extra["用户自扩展角色 - AI（由用户定义）"]
+  Board["任务卡看板 - 卡 + claim + 心跳 + DAG（ACL：task-panel / Jira / ...）"]
+  Sched["框架调度 - poll / patrol / check-all（provider-agnostic）"]
+  Subs["子会话 - Claude Code（Jobs/Linus）/ Codex（Turing）"]
+
+  Terry -->|"目标 + 验收标准"| Elon
+  Elon -->|"建卡"| Board
+  Elon -->|"唯一派单"| Jobs
+  Elon -->|"唯一派单"| Linus
+  Elon -->|"唯一派单"| Turing
+  Elon -->|"唯一派单"| Assistant
+  Elon -.->|"用户扩展编制"| Extra
+  Sched -->|"poll / dispatch"| Jobs
+  Sched -->|"poll / dispatch"| Linus
+  Sched -->|"poll / dispatch"| Turing
+  Sched -->|"poll / dispatch"| Assistant
+  Jobs -->|"task.claim"| Board
+  Linus -->|"task.claim"| Board
+  Turing -->|"task.claim"| Board
+  Assistant -->|"task.claim"| Board
+  Jobs -->|"设计"| Subs
+  Linus -->|"实现"| Subs
+  Turing -->|"测试"| Subs
+  Board -->|"in_review → 验收"| Elon
+  Elon -->|"进展 + epic 汇总"| Terry
+```
+
+**层级说明**
+
+1. **Terry —— 人类用户（你）**：给出目标与验收标准；接收进展与 epic 汇总；只做少数非人不可的决策。
+2. **Elon —— AI 统筹 / 协调者**：**唯一建卡人 + 唯一派单人** —— 拆卡、派单、验收、汇报。
+3. **Jobs · Linus · Turing · Assistant —— AI 专家**：设计 / 开发 / 测试 / 助理。
+4. **用户自扩展角色（AI）**：五个内置角色之外，岗位由**用户自行扩展**（见 [角色](#角色)）。
+
+图中的**任务卡看板**、**框架调度**与**子会话**，其机制见 [团队协作方式](#团队协作方式) 与 [调度与团队定时任务](#调度与团队定时任务)。
+
+## 角色职责与 SOP
+
+**职责范围** = 该角色负责的事项；**不做** = 明确排除的事项。下表为摘要 —— 各角色的权威 SOP 在各自角色文件里，边界对账见 `team/ROLES.md`。
+
+| 角色 | 职责范围 | 不做 | 关键产出 | 角色 SOP |
+|---|---|---|---|---|
+| 🧠 **Elon**（AI 统筹） | 需求入口 · 建卡 · 派单 · 验收 · 汇报 · 团队健康；发布与破坏性迁移审批 | 业务代码 · 设计稿 · 测试执行 | 任务卡 · 派单 · 验收结论 · 汇报 | [`roles/elon/AGENTS.md`](roles/elon/AGENTS.md) |
+| 🎨 **Jobs**（AI 设计） | 产品设计 · PRD · UI · UX · 图像设计 · 美学把关 · UX/UI 评审 · 需求/设计基线 | 后端与业务代码 · 功能测试执行 | PRD · DESIGN · 原型 · 图像 · 问题清单 | [`roles/jobs/AGENTS.md`](roles/jobs/AGENTS.md) |
+| ⚙️ **Linus**（AI 开发） | 代码开发 · 缺陷修复 · 重构 · 构建与自测 · CI 门禁 · 构建/发版/部署 | 产品/UI 设计决策 · UX 验收 · 功能验收与回归 | 代码 + 测试 · Report（含覆盖率）· CI/发版证据 | [`roles/linus/AGENTS.md`](roles/linus/AGENTS.md) |
+| 🧪 **Turing**（AI 测试） | 功能测试 · 验收 · 回归 · 缺陷复现 · 安全审计 · 需求符合性核验 | 写修复/实现 · UI 设计 | 测试报告 · 缺陷单 · 需求→实现追溯矩阵 | [`roles/turing/AGENTS.md`](roles/turing/AGENTS.md) |
+| 🧹 **Assistant**（AI 助理） | 视频下载与文本解析 · ASR · 字幕 OCR · 运营 · 市场 · 客服 · 无明确边界的杂活 | 业务代码 · UX 设计 · 功能测试 | 视频文本/对齐 · 市场·运营·客服内容 | [`roles/assistant/AGENTS.md`](roles/assistant/AGENTS.md) |
+
+各角色文件内含该角色**标准作业指令（SOP）**。跨角色规则**只引用、不复制正文**：
+
+- **分流 / 什么活派给谁** —— `team/PROTOCOL.md` **§⑩ 任务分流矩阵**。
+- **边界与交接（对账）** —— `team/ROLES.md`。
+- **全员硬纪律** —— `team/PROTOCOL.md` **§⑬ 通用硬纪律**。
+
+## 团队协作方式
+
+- **任务卡看板**：工作活在**任务卡看板**上，而非聊天里；一张卡承载 Goal / Acceptance / Background，并走状态机 `backlog | todo → in_progress → in_review → done`（`blocked` / `canceled` 为旁路与终态）。卡是持久化内容的唯一载体。`team/PROTOCOL.md` **§① 看板协议**。
+- **claim · 心跳 · 段收尾三件**：worker 以**原子领取**（`task.claim`）接卡，执行期间**每 ≤10min 刷新心跳**。每个段结束都要做**三件收尾**：① 刷新心跳 → ② 落终态（`in_review` / `done` / `canceled` / `blocked`）→ ③ 给 Elon 发 Report（结论 + 卡路径 + commit hash）。`in_progress` 且心跳新鲜 = "已有人在跑，勿重复执行"。`team/PROTOCOL.md` **§①** 与 **§⑬.2 段收尾三件**。
+- **依赖与父子（DAG）**：一大块需求 = 一张 **`kind: epic`** 父卡（容器，**不可领取**）+ 若干**子卡**（`parent=<epic>`）。先后关系用 **`depends_on`** 表达（依赖未满足的子卡不被领取）。父卡只有在**所有子卡完成且集成验收通过**后才 `done`（epic rollup 汇总）。`team/PROTOCOL.md` **§⑩.2 复合任务 = 子任务卡 + 依赖图（DAG）**。
+- **唯一派单人 Elon**：**建卡与派单只有 Elon**；Jobs / Linus / Turing / Assistant **互不派单 —— 只向 Elon 提要求**（说明需求或发现的缺口）。决策单一 owner、入口单一通路。`team/PROTOCOL.md` **§⑩** 与 **§⑩.3 建卡粒度**。
+- **缺陷回环**：QA 发现的缺陷写成缺陷单 → **Elon 建修复卡**派给 Linus → 修复回到 Elon 验收 → Turing 做**回归复测**；回归完全通过，原卡才 `done`。`team/PROTOCOL.md` **§⑨ 缺陷修复与回归回环**。
+- **交付门禁**：任何东西被标 `done` 前必须过门禁：工程质量（TDD、覆盖率 ≥80%、集成测试、自证）、UI 保真（原型即契约）、文档同步，以及 CI / `check-all` 跑的**机器可检门禁**。`team/PROTOCOL.md` **§⑥.1 工程质量标准** 与 **§⑳ 门禁与归档**。
+- **并行优先**：worker **默认并行**；只有**写资源冲突**（同文件、不可隔离资源）、`depends_on` 未满足、或卡上明确「必须串行」时才串行。Elon 的巡检会推动并行、追陈旧卡。`team/PROTOCOL.md` **§⑥.3 worker 并行优先**。
+
+唤醒 worker 的调度（`poll-<agent>`、`task-patrol`、`team-check-all`）见 [调度与团队定时任务](#调度与团队定时任务)。
+
+## AI Agents 协作实践指南（面向非程序员）
+
+你**不需要**写代码、跑 agent，也不需要懂内部细节。你只用大白话说清要什么；团队把它变成工作项、执行、再回报。整个循环就四步：
+
+1. **你描述需求 —— 目标 + 验收标准。** 用一句话说清你要什么，**并且**说清"完成长什么样"（验收标准）。"完成"这条线越清楚，结果越好。
+2. **Elon 拆卡（epic + 子卡）。** 一个大需求变成一张 **epic** + 若干**子卡**（设计 / 开发 / 测试），按依赖排序。
+3. **Agents 执行 —— 设计、开发、测试。** Jobs 做设计，Linus 实现（并跑 CI/发版），Turing 验证；发现问题自动走缺陷回环。
+4. **你只需看任务状态与 epic 进展。** 你**不用**盯子会话或日志 —— 看每张卡的状态（`todo → in_progress → in_review → done`）和 epic 汇总即可。Elon 会把里程碑报给你，只有需要你拍板的决策才会升级到你。
+
+### 最佳实践
+
+- **写清目标与「完成长什么样」。** 一句话目标 + 明确的验收标准，才能让工作可验收，而不是靠猜。
+- **给方向，少干预。** 交出去的是目标，怎么做交给团队；逐步下达指令反而更慢。
+- **看进度、确认关键决策。** 跟卡状态 / epic 进展即可。回到你手上的只有少数决策 —— 设计分歧、安全与数据安全、架构方向 —— 答这些，其余交给团队。
+- **复用模板。** 复用需求/验收模板与既有卡式；一份完整一致的 brief 接收更快、更少被退回。
+
+### 最小示例
+
+| 步骤 | 发生什么 | 你看到什么 |
+|---|---|---|
+| **你** | "给设置页加一个深色模式开关。" | — |
+| **Elon** | 建 epic **深色模式开关** + 子卡 *设计开关与稿* → *实现主题切换* → *验证所有页面*（带 `depends_on`） | 卡片以 `todo` 出现 |
+| **Agents** | Jobs 设计 → Linus 实现（CI 绿）→ Turing 验证 | 卡片走 `in_progress → in_review` |
+| **你** | 看状态；答复被升级的决策 | 卡片转 `done`；epic 汇总；Elon 报「完成」 |
+
 ## 安装
 
 ```bash
