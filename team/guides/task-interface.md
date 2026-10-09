@@ -96,6 +96,7 @@ backlog | todo → in_progress → in_review → done | canceled
 
 ## 11. frontmatter Serialization Invariants and Write Guardrail
 - **Invariant (idempotence)**: escaping/unescaping of card frontmatter field values **must be idempotent** — `parse→serialize→parse` is stable, and repeatedly "read→write back" the same value (via any of heartbeat / comment / status / report) **does not grow the byte count**.
+- **List fields (always array form)**: list fields — `depends_on` / `subsession_ids` / `labels` (see §15) and any future list field — serialize **always as an array** (empty = `[]`; non-empty = `[a, b]`, elements quoted only when needed, plain ids unquoted); a bare space-joined string is never written. Readers stay backward-compatible with legacy bare/space strings (`a b`) and bracketed strings (`[a, b]`). `labels` follows exactly this path (array form, same as `depends_on`), so it does not grow the card (§11 idempotence invariant).
 - **Status values (aligned with task-panel)**: canonical 7 values `backlog|todo|in_progress|in_review|blocked|done|canceled`; compatible aliases `ready→todo`, `failed→canceled` (and `in-review`/`in-progress`/`cancelled`) are **resolved only at the boundary and never persisted**; export restores the original word (old cards stay byte-stable). Priority `low|medium|high|urgent` (default `medium`). kind only `task|epic`.
 - **Write guardrail**: writes are **serialized first, then validated**; if the target card already exists and the new output exceeds the previous file size **× 4 (K=4)**, **reject the write** and throw, avoiding partial writes and silent growth; **a new card (no existing file) is not limited**.
 - **Regression tests**: the idempotence matrix / old-format compatibility / real-card read-only regression / guardrail, executed with the patrol gate.
@@ -135,7 +136,44 @@ backlog | todo → in_progress → in_review → done | canceled
 - **Unit tests**: an isolated `mkdtemp` test (including 5 concurrent same-key subprocesses ⇒ exactly 1 card).
 - **Engine declaration (this repository)**: `openclaw-team` **bundles no task-create path** — task management is delegated to the connected provider through this ACL. Therefore idempotency is **guaranteed by the connected provider** (`task-panel` by default satisfies this clause; any replacement must implement it and pass the ACL contract tests), and **the card creator must carry the `idem` key** (the ACL derives it, or `--idem` overrides). Both the `md base` (the team-side reference `task-ops` library) and the `task-panel base` implement this clause.
 
+## 15. Label Taxonomy (issue labels)
+
+> **A team-side convention layer, not a base feature.** `labels` is a **free-form string list** on the card (array form — see §11); the base (task-panel) does **not** enforce any type on it. This section defines a **namespaced prefix convention** (`<ns>:<value>`) on top of free-form labels, so a card's class / dev sub-area / bug environment is greppable and machine-checkable **without adding new enum fields and without changing the base**.
+
+**Namespaces**
+
+| Namespace | Meaning | Values | Presence rule |
+|---|---|---|---|
+| `category:` | card class | `req` (requirement) / `dev` (development) / `test` (testing) / `bug` (defect); optional `design` / `docs` / `chore` / `research` | every card **SHOULD** carry ≥1 |
+| `area:` | development sub-area | `api` / `core` / `ui` / `cli` / `mcp` / `db` / `infra` / … (open set) | a `category:dev` card **SHOULD** carry ≥1 |
+| `env:` | bug environment | `test` / `prod` / `staging` / `dev` | a `category:bug` card **MUST** carry ≥1 |
+| `sev:` | severity | `blocker` / `critical` / `major` / `minor` | optional; recommended for `category:bug` |
+
+**Rules**
+- A card may carry any mix of namespaced and free-form labels; namespaced labels are additive. Only the four prefixes `category:` / `area:` / `env:` / `sev:` are reserved by this section.
+- Free-form labels (e.g. `review`) stay valid and are unaffected.
+- `kind:epic` cards follow the same convention (usually `category:req`).
+- Values are lower-case and one value per label (`category:dev` — never `category:dev,ui`).
+- Default audience: every card; `env:*` is bug-specific and `area:*` is dev-specific.
+
+**Examples**
+- Requirement card: `labels: [category:req]`
+- Development card: `labels: [category:dev, area:api]`
+- Bug card: `labels: [category:bug, env:prod, sev:major]`
+- Mixed (still valid): `labels: [category:dev, area:ui, review]`
+
+**Serialization**: `labels` is a **list field** and serializes in **array form** exactly like `depends_on` (§11): `[]` when empty, `[category:dev, area:api]` when not — never a bare space-joined string. This preserves the §11 idempotence / no-growth invariant.
+
+**Machine check (soft — warn, never hard-block)**: the card / patrol gate **warns** (exit stays 0; the card is still valid) when:
+- a card carries no `category:*`; or
+- a card carries `category:dev` but no `area:*`; or
+- a card carries `category:bug` but no `env:*`.
+A warning is advisory. A hard block is **not** applied — it would break free-form-label compatibility.
+
+**Base compatibility**: this is a **team-side convention only**; the base (task-panel) keeps `labels` as a free-form list and **is not forced to change**. Because it is a prefix convention, cards and the base stay valid whether or not the checker runs.
+
 ## 13. Change Record
 - **v1**: initial contract (including **comments/process trail**). Owner: Elon.
 - **v1 (supplement 2)**: added §12 **task-provider integration and switching (ACL binding)**: task-panel is downgraded to an optional reference implementation, supporting replacement by Jira/Linear/Plane, etc.; the change record shifts to §13. Owner: Elon.
 - **v1 (supplement 3)**: added §14 **card-creation idempotency (`idem` key)** — LLM semantic de-duplication as the **main gate** + the mechanical key `<kind>|<assignee>|<source>|<target>` as fallback; ACL commands `task.create` / `task.idemCheck` / `task.idemCandidates`; `spawn` derives the key automatically; `check-idem` patrol with a baseline exemption. Owner: Elon (convention) / Linus (landing).
+- **v1 (supplement 4)**: added §15 **Label Taxonomy (issue labels)** — namespaced prefix labels `category:` / `area:` / `env:` / `sev:` over the free-form `labels` list (required rules, examples, soft machine-check criteria); §11 now names `labels` among the array-form list fields; base (task-panel) unchanged (prefix convention). Owner: Elon (convention) / Linus (landing).
