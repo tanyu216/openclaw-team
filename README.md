@@ -369,6 +369,15 @@ Details and ACL gaps: `team/automations/README.md`, `team/AUTOMATIONS.md §3.5`.
 | **Providers backfill** (`config/optimization.mjs`) | Fills **missing** `models.providers` optimization fields: `contextTokens: 200000` on models with `contextWindow` above the threshold (default 200000), `cost.cacheRead` on whitelisted deepseek ids (`deepseek-flash`→`0.006`, `deepseek-v4-pro`→`0.003625`), and the static `agents.defaults` compaction/contextPruning/contextLimits fragment. Existing values are **never** overwritten; the whole `models.providers` array is read-modify-written (a sparse patch would replace arrays). | `OPENCLAW_TEAM_OPTIMIZE_PROVIDERS=0` |
 | **Cron slimming** (`config/reconcile.mjs`) | Declared jobs are the single source of truth; on every run the runtime is aligned (missing ⇒ add, drifted ⇒ edit, matching ⇒ skip). Poll interval thinned **1m → 2m** (`OPENCLAW_TEAM_POLL_INTERVAL`, default `2m`) and every job gets `--light-context`. Cron jobs (`team-check-all`) are **never** given `--every` — only `lightContext` is reconciled. | `--skip-automations` |
 
+Providers-backfill tuning (mirrors `config/examples/model.example.json5`):
+
+- `OPENCLAW_TEAM_CONTEXT_TOKENS` — the backfilled `contextTokens` value **and** the window
+  threshold (default `200000`; a missing/non-positive/non-numeric value falls back to the
+  default). Only models whose declared `contextWindow` is **strictly greater** are
+  backfilled; unknown/≤-threshold windows are skipped.
+- `OPENCLAW_TEAM_CONTEXT_TOKENS_ALL=1` — wildcard: ignore the window check and backfill
+  `contextTokens` on **every** model missing it.
+
 Markers & safety: the backfill stage records `optimizationApplied` in
 `~/.openclaw/team/.install-state.json` (read-modify-write) and skips on re-run unless
 `--force`; before patching it backs up the config and validates the patched result,

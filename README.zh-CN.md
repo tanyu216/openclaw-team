@@ -232,6 +232,11 @@ cd <path/to/openclaw-team>
 | **Providers 回填**（`config/optimization.mjs`） | 回填**缺失**的 `models.providers` 优化字段：`contextWindow` 超阈值（默认 200000）的模型补 `contextTokens: 200000`，白名单 deepseek id 补 `cost.cacheRead`（`deepseek-flash`→`0.006`、`deepseek-v4-pro`→`0.003625`），另加 `agents.defaults` 的 compaction/contextPruning/contextLimits 静态片段。**永不覆盖已有值**；整个 `models.providers` 数组读改写（稀疏 patch 会整体替换数组）。 | `OPENCLAW_TEAM_OPTIMIZE_PROVIDERS=0` |
 | **定时任务瘦身**（`config/reconcile.mjs`） | 声明式任务为唯一事实源；每次运行对齐运行时（缺失⇒add、漂移⇒edit、一致⇒skip）。poll 间隔 **1m → 2m**（`OPENCLAW_TEAM_POLL_INTERVAL`，默认 `2m`），所有任务加 `--light-context`。cron 任务（`team-check-all`）**绝不**加 `--every`——只对齐 `lightContext`。 | `--skip-automations` |
 
+providers 回填调参（与 `config/examples/model.example.json5` 一致）：
+
+- `OPENCLAW_TEAM_CONTEXT_TOKENS` —— 回填的 `contextTokens` 值**兼**窗口阈值（默认 `200000`；缺失/非正/非数值回落到默认值）。仅当模型声明的 `contextWindow` **严格大于**阈值时才回填；未知/≤阈值窗口跳过。
+- `OPENCLAW_TEAM_CONTEXT_TOKENS_ALL=1` —— 通配：忽略窗口判定，给**所有**缺失 `contextTokens` 的模型回填。
+
 标记与安全：回填阶段把 `optimizationApplied` 写入
 `~/.openclaw/team/.install-state.json`（读改写），重跑时跳过，除非 `--force`；patch 前先备份配置、patch 后校验，失败自动回滚。整阶段回滚 = 恢复
 `openclaw.json.pre-*` 备份后，以 `OPENCLAW_TEAM_OPTIMIZE_PROVIDERS=0` 重跑。决策见 `team/AUTOMATIONS.md §4`。
