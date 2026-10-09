@@ -47,7 +47,7 @@ claimed_at: ""
 heartbeat_at: ""               # Refreshed every ≤10min while in_progress
 blocked_at: ""                 # Time blocked was set (SLA measurement start; see §⑮)
 depends_on: []                 # Predecessor card ids (task-panel relation `blocks`; no cycles/no ancestor deps; chain length ≤8; fan-in ≤8)
-parent: ""                     # Child card → parent (epic) (relation `parent`; empty = top level, single-level parent/child)
+parent: ""                     # Child card → parent (epic) (relation `parent`; empty = top level; hierarchy depth follows the provider base, task-panel)
 review_of: ""                  # Optional: id of the task being reviewed (UX review; a task-panel known key)
 notify_leader: true           # On terminal state, sessions_send back to the leader (coordinator; currently Elon / agent:main:main); the field does not bind a person's name
 goal: One-line goal            # Card summary (task-panel known key)
@@ -418,7 +418,13 @@ The sole dispatcher = Elon; workers do not dispatch to each other (including def
 - **Claim guard**: `kind:epic` is skipped; if `depends_on` is not all done ⇒ `deps_unmet`, not claimed (no new status added).
 - **Aggregation**: parent card `done` = all child cards done **and integration acceptance passes**; if any child card is blocked/canceled ⇒ the parent card is blocked/canceled (`task.rollup`).
 - **Invariants (I1–I13)**: see the team proposal document; **patrol**: relation invariants enter the patrol gate; **archive protection**: referenced cards cannot be archived.
-- **Limits**: single-level parent/child; chain length ≤8; fan-in ≤8; ≤12 children per parent; no deep trees (within a child card, segment with **subsessions**, not further child cards).
+- **Hierarchy/shape**: **follows the provider base (task-panel)** — **single parent, no cycles/self-reference, chain length ≤8, fan-in ≤8**; the team sets **no additional depth number** (how deep to split ⇒ see §⑩.3 granularity principle).
+
+### ⑩.3 Carding Granularity & Breakdown Authority (2026-10-09)
+
+- **Card creation / breakdown is unified in Elon** (the sole card creator); **Jobs/Linus/Turing/Simons/Assistant may only "request a card from Elon"** (state the need / the gap found) — they **must not create or split cards themselves**.
+- **Granularity principle (anti-over-split)**: one card = **one "independently acceptable delivery unit"** (clear Goal/Acceptance, assignable to a single person, closable on its own). If one card contains **multiple independently acceptable units** ⇒ **it should be split**; if a split-out child is **too small to have independent acceptance value** ⇒ **it should not be split** (merge it). **How deep to split = adjudicated by Elon under this principle.**
+- **Soft guardrails (alert, not hard block)**: patrol **warns** on "**deep chains** (chain length approaching the base limit, e.g. ≥5)" and "**fragmented cards** (too many child cards / granularity too small)", for Elon's manual review.
 
 ---
 
