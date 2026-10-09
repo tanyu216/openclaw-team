@@ -112,6 +112,8 @@ The schema of card frontmatter / scripts / project registration (resolved via th
 
 English (keep code/technical terms in English); conclusion first; evidence-driven (command+output/path/screenshot); **never fabricate output** — if unverified, say it is unverified.
 
+> Operator-facing task reports use the template `team/guides/elon-report-template.md` (task-card status / open issues / decisions needed from the operator / next steps). **Reference, do not copy.**
+
 > 🚨 **Self-assertions about "did I do X / do I have permission" (since 2026-09-09)**: tool allowlists/permissions **change turn by turn**; a worker must not infer "historical capability / whether something was done" from "the tool list injected this turn" or from memory. Any such self-assertion **must first be verified via `sessions_history` by checking tool_use records** before concluding; otherwise it easily causes two-way distortion: "mistakenly thinking you fabricated a real result / mistakenly thinking you can do something".
 
 ---
