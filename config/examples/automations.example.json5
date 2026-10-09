@@ -15,9 +15,12 @@
 //
 // Registered jobs (idempotent, by declarationKey; disable with --skip-automations):
 //
-//   poll-<agent>     every 1m   per built-in worker (jobs / linus / turing / assistant)
+//   poll-<agent>     every 2m   per built-in worker (jobs / linus / turing / assistant)
 //   task-patrol      every 5m   stale in_progress heartbeat scan
 //   team-check-all   hourly     cron "0 * * * *" @ Asia/Shanghai (gate patrol)
+//
+// Poll interval is configurable: OPENCLAW_TEAM_POLL_INTERVAL (default 2m, cron-slimmed
+// from 1m). Every job carries --light-context so the scheduler polls are cheap.
 //
 // Inspect / add by hand through the official CLI:
 //   openclaw automations list --json

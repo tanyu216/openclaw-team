@@ -24,10 +24,10 @@
 
 | Name | Agent | Frequency | Trigger | Delivery | Purpose |
 |---|---|---|---|---|---|
-| `jobs-poll` | jobs | every 1m | ✅ | none | Board poll fallback: atomically claim jobs's todo/stale cards |
-| `linus-poll` | linus | every 1m | ✅ | none | Same (linus) |
-| `turing-poll` | turing | every 1m | ✅ | none | Same (turing) |
-| `assistant-poll` | assistant | every 1m | ✅ | none | Same (assistant) |
+| `jobs-poll` | jobs | every 2m | ✅ | none | Board poll fallback: atomically claim jobs's todo/stale cards |
+| `linus-poll` | linus | every 2m | ✅ | none | Same (linus) |
+| `turing-poll` | turing | every 2m | ✅ | none | Same (turing) |
+| `assistant-poll` | assistant | every 2m | ✅ | none | Same (assistant) |
 | `task-patrol` | main | every 5m | ✅ | none | in_progress cards with stale heartbeat (>30min) → wake/recover |
 | `team-check-all` | main | **hourly** | ✅ | none | Gate patrol; wakes the model only on failure |
 | `heartbeat-main` | main | every 30m | — | none | Main-session heartbeat |
@@ -91,9 +91,10 @@ reaps.
 ## 4. Decision Record
 - **Keep per-worker poll; do not do a "single board scan → dispatch"**: per-worker `*-poll` is an **independent fallback** (each worker atomically claims, so cards already created can still be claimed when Elon/main is stalled). Merging into "main scans → dispatch" would converge to a single Elon point and change the `PROTOCOL §①` "claim timing belongs to poll" semantics; the only gain is a few zero-cost config lines ⇒ not adopted.
 - **Patrol frequency**: the gate patrol `team-check-all` is set to **hourly**; because it triggers the model only on failure, a higher frequency adds no cost.
+- **Cron slimming (`T-20261010-040000-configoptim-cronslim`)**: per-worker poll was thinned **1m → 2m** (override `OPENCLAW_TEAM_POLL_INTERVAL`, default `2m`), and every framework job now runs with **`--light-context`** so scheduler triggers stay cheap. The trigger decision is still an atomic claim check — 2m keeps the "claim timing belongs to poll" fallback (§①) while halving scheduler wake-ups.
 
 ## 5. Management
-- **Install-time registration**: `./install.sh` registers the jobs above idempotently by `declarationKey` (`openclaw-team:poll:<agent>` / `openclaw-team:task-patrol` / `openclaw-team:team-check-all`); `--skip-automations` disables it. Re-running is safe (an existing key is skipped). The registration is **provider-agnostic** — no `task-panel`/`taskctl` literal appears in any trigger script.
+- **Install-time registration (declarative reconcile)**: `./install.sh` is the declaration source; `config/reconcile.mjs` aligns the runtime to it by `declarationKey` (`openclaw-team:poll:<agent>` / `openclaw-team:task-patrol` / `openclaw-team:team-check-all`); `--skip-automations` disables it. Re-running is safe and **self-healing**: a missing key ⇒ `add`; a present key that drifts ⇒ `edit`; a present key that already matches ⇒ `skip`. **Drift** = `payload.lightContext !== true`, or (interval jobs only) a schedule mismatch with the declared interval. **Cron jobs (`team-check-all`) are never given `--every`** — only `lightContext` is reconciled, so the cron expression is left untouched. The registration is **provider-agnostic** — no `task-panel`/`taskctl` literal appears in any trigger script.
 - **Scheduling bounds** (set at registration; see §3.5): poll jobs get `--timeout-seconds` (run upper bound, `OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S`, default 3600 s); every generated trigger passes `exec({ …, timeoutSeconds })` and the dispatcher applies `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default 8000 ms). Both are install-time overridable env vars.
 - View: `automations list` | Details: `automations get <jobId>` | History: `automations runs <jobId>`
 - Test run: `automations run <jobId> runMode=force`

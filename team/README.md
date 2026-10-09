@@ -18,7 +18,7 @@
         (orchestrates claude subsessions, (orchestrates ≤8 claude  (orchestrates ≤3 codex
          personally reviews and certifies   subsessions, reconcile   subsessions)
          interactions)                      registry first)
-                     └──────────── one cron per worker (every 1m + trigger) as fallback ────────────┘
+                     └──────────── one cron per worker (every 2m + trigger) as fallback ────────────┘
                      poll read-only scan + atomic claim → fire:true wakes execution
 ```
 
@@ -68,14 +68,14 @@ $OCL automations disable <jobId>    # restore: automations enable <jobId>
 |---|---|
 | Worker stuck (heartbeat >30min) | The same assignee re-claims and takes over on the next poll; after >6h any agent may claim and report to Elon |
 | Double-run risk | Atomic claim prevents double-claiming; `in_progress`+fresh heartbeat = execution uniqueness (a new turn only reports, does not re-execute); only stale takes over |
-| Gateway restart loses dispatch | Cards persist in tasks/; each worker's cron sweeps todo/stale cards every minute as a fallback re-dispatch |
+| Gateway restart loses dispatch | Cards persist in tasks/; each worker's cron sweeps todo/stale cards every 2 minutes as a fallback re-dispatch |
 | Config broken | `cp ~/.openclaw/openclaw.json.pre-*` (chained backups); platform `.last-good`/`.bak` rotation; `doctor --fix` can recover |
 | main workspace accident | Back up `~/.openclaw/workspace.bak-persona-*` (pre-migration snapshot) |
 | Human channel route broken | Check `agents list --bindings` bindings; restore the pre-team config + restart |
 
 ## 5. Cost Observation Guide
 
-- The 5 poll crons evaluate every minute but **fire:false costs nothing** (no run produced, no model consumed); a turn is triggered only when a card is claimed.
+- The 5 poll crons evaluate every 2 minutes but **fire:false costs nothing** (no run produced, no model consumed); a turn is triggered only when a card is claimed.
 - Model strategy: **all agents (Elon/Jobs/Linus/Turing/Assistant) have `deepseek-flash` as the unified default tier**, with both primary and fallback set to it; `deepseek-v4-pro` is no longer any agent's default and is instead upgraded temporarily by task complexity; visual tasks use `deepseek-flash` (details in PROTOCOL ⑥.2).
 - Orchestrated subsessions (claude/codex) are the main cost source: watch `claude-sessions.json` concurrency and orphan reclamation (reconcile discipline).
 - Observation: `$OCL automations runs` counts only fired runs; spins are not counted — cost is directly tied to run count.
@@ -100,7 +100,8 @@ $OCL automations disable <jobId>    # restore: automations enable <jobId>
 - **managed TaskFlow** (requires a self-built plugin controller to drive) → do not build a bespoke message/scheduling system; task persistence uses a minimal patch (task cards + atomic claim), everything else goes native.
 - **ACP** (external harness channel, not built into the agent team) → not introduced.
 - **Do not put anyone on the claude-cli runtime**: the claude CLI is a backend depending on the local login state; Jobs/Linus = coordinator + exec-driven claude subprocess, unchanged.
-- **Single "board scan" dispatch (merging per-worker poll) → not adopted**: per-worker `*-poll` (every 1m + trigger, zero-cost when idle) is an **independent fallback** — each worker atomically claims when woken, so cards already created can still be claimed even when Elon (main) is stalled. Merging into "main scans → dispatch" would converge the wake chain to a single Elon point and change the `PROTOCOL §①` "claim timing belongs to poll" semantics. The only gain is a few zero-cost config lines, **so the status quo is kept**.
+- **Single "board scan" dispatch (merging per-worker poll) → not adopted**: per-worker `*-poll` (every 2m + trigger, zero-cost when idle) is an **independent fallback** — each worker atomically claims when woken, so cards already created can still be claimed even when Elon (main) is stalled. Merging into "main scans → dispatch" would converge the wake chain to a single Elon point and change the `PROTOCOL §①` "claim timing belongs to poll" semantics. The only gain is a few zero-cost config lines, **so the status quo is kept**.
+- **Cron slimming (`T-20261010-040000-configoptim-cronslim`) → adopted**: per-worker poll thinned **1m → 2m** (`OPENCLAW_TEAM_POLL_INTERVAL`, default `2m`) and every framework job now runs with `--light-context`; the poll/patrol/check-all decision is unchanged (atomic claim check), so the fallback semantics survive at half the scheduler wake-ups.
 
 ## 8. Phase Status
 
