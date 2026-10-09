@@ -146,6 +146,33 @@ test("malformed non-object cost (string/number/null) ⇒ NOT clobbered into {cac
   }
 });
 
+test("array cost ([]/[1]) ⇒ NOT clobbered into {cacheRead}; no false applied report", () => {
+  // Turing observation on T-20261010-051200: `typeof [] === "object"` slipped arrays past the
+  // object guard — the backfill wrote a non-index `cacheRead` property onto the array.
+  // JSON.stringify drops non-index array properties, so on the JSON CLI path the patch would
+  // silently OMIT the change while `applied`/stderr claimed it was made. No data harm, but the
+  // report was a lie. The guard must exclude arrays alongside other non-objects.
+  for (const arrCost of [[], [1]]) {
+    const providers = {
+      deepseek: {
+        models: [{ id: "deepseek-flash", name: "Flash", contextWindow: 1000000, cost: structuredClone(arrCost) }],
+      },
+    };
+    const { patch, applied } = computeProvidersPatch(providers);
+    assert.deepEqual(patch.deepseek.models[0].cost, arrCost, `cost ${JSON.stringify(arrCost)} must be left untouched`);
+    assert.equal(patch.deepseek.models[0].contextTokens, DEFAULT_CONTEXT_TOKENS, "unrelated contextTokens backfill still happens");
+    assert.equal(
+      applied.some((a) => a.includes("cacheRead")),
+      false,
+      `no cacheRead written onto an array cost ${JSON.stringify(arrCost)}`,
+    );
+    // discriminating: JSON.stringify of the emitted patch must round-trip the array unchanged —
+    // a hidden non-index property would vanish here, making applied a phantom change.
+    const roundTripped = JSON.parse(JSON.stringify(patch.deepseek.models[0].cost));
+    assert.deepEqual(roundTripped, arrCost, `array cost ${JSON.stringify(arrCost)} must survive the JSON round-trip unchanged`);
+  }
+});
+
 test("non-deepseek model, window unknown: contextTokens NOT backfilled; cacheRead never", () => {
   const providers = {
     openai: {
