@@ -90,6 +90,30 @@ export function scanCandidates(assignee) {
   return cards;
 }
 
+/**
+ * 只读候选查询（**零副作用**）：供守卫/诊断，绝不领取、不写卡、不抢锁。
+ * 契约（task-interface §4.1）：领取仍唯一走 pollEvaluate/runPoll；本函数仅返回 poll **会考虑**的
+ * 候选（ready 优先 + 陈旧恢复），不含并发额度削减与防双跑守卫的过滤（那是 pollEvaluate 的职责）。
+ * @returns {{ok:true, candidates:Array<{cardPath,id,assignee,status,title,reason,rank,claimed_by,heartbeat_at}>}}
+ */
+export function pollCandidates(assignee, { registry = null } = {}) {
+  const candidates = scanCandidates(assignee);
+  return {
+    ok: true,
+    candidates: candidates.map((c) => ({
+      cardPath: c.filePath,
+      id: c.fm.id,
+      assignee: c.fm.assignee,
+      status: c.fm.status,
+      title: c.fm.title ?? '',
+      reason: c.reason,
+      rank: c.rank,
+      claimed_by: c.fm.claimed_by ?? '',
+      heartbeat_at: c.fm.heartbeat_at ?? '',
+    })),
+  };
+}
+
 /** 读 turing-runs.json（Turing 的 codex 子会话 registry）；缺失/损坏/非数组 ⇒ [] */
 export function readTuringRuns() {
   try {

@@ -16,13 +16,14 @@
 ## 2. Data Model (minimal required set)
 | Entity | Fields |
 |---|---|
-| **Card** | `id` `title` `assignee` `assignee_kind` `status` `priority` `kind` `labels` `project` `target` `created_by` `created_at` `updated_at` `status_changed_at` `claimed_by` `claimed_at` `heartbeat_at` `blocked_at` `depends_on` `parent` `review_of` `notify_leader` `goal` (= task-panel `KNOWN_CARD_KEYS`; unrecognized keys are preserved verbatim in `meta.legacy`) |
+| **Card** | `id` `title` `assignee` `assignee_kind` `status` `priority` `kind` `labels` `project` `target` `writes` `created_by` `created_at` `updated_at` `status_changed_at` `claimed_by` `claimed_at` `heartbeat_at` `blocked_at` `depends_on` `parent` `review_of` `notify_leader` `goal` (= task-panel `KNOWN_CARD_KEYS`; unrecognized keys are preserved verbatim in `meta.legacy`) |
 | **Comment** | `{ id, task_id, body, kind, author_kind, author_id, refs, created_at }` (append-only, lands in the card's `## Comments` section; `kind ∈ discuss\|decision\|confirm\|change\|note\|defect`) |
 | **AgentSession** | `{ task_id, seg, owner, backend, session_id, phase, pid, status, ts }` (`status ∈ running\|closed\|failed`; lands in the card's `## Sessions` section) |
 | **Relation** | `{ relation_type, source_task_id, target_task_id }` (`relation_type ∈ parent\|blocks\|related`; the `related` direction is normalized to source<target; single-parent constraint) |
 
 > The implementation's private fields are isolated inside the access point and do not enter the upper layers.
 > **`project` = a project identity code** (ACL layer; a stable id — under the current implementation the project name, e.g. `example-app` / the reserved `__team__`). It is **resolved via this ACL to a backend implementation** (currently task-panel, **swappable** for Jira/Linear/Plane, …); the upper layers **must not** depend on any backend's internal project id.
+> **`writes` (optional)**: a card declares the set of files/resources it will modify (comma-separated paths; defaults to `target` when absent). This feeds the **same-file concurrency warning** — before starting, a worker compares this card's write set against the other in-flight cards; an overlap means serialize first (or isolate via `git worktree`).
 
 ## 3. State Machine
 ```
@@ -42,6 +43,7 @@ backlog | todo → in_progress → in_review → done | canceled
 | `task.writeReport <card> <text>` | Overwrite the Report section (one delivery conclusion per card) |
 | `task.registerSubsession <card> <sessionId>` | Register a subsession (append + active) |
 | `task.query <filter>` | Read-only query (by assignee/status) |
+| `task.pollCandidates [assignee]` | **Read-only candidate query (zero side effects)**: returns the claimable candidates for guards/diagnostics; changes no card/registry state; a candidate result is **not** a claim — claiming still goes only through `task.claim` |
 
 ## 5. Events (subscribed to by the collaboration layer)
 `onReady` · `onClaimed` · `onDelivered(in_review)` · `onBlocked` · `onComment` · `onTerminal(done|canceled)`
@@ -177,3 +179,4 @@ A warning is advisory. A hard block is **not** applied — it would break free-f
 - **v1 (supplement 2)**: added §12 **task-provider integration and switching (ACL binding)**: task-panel is downgraded to an optional reference implementation, supporting replacement by Jira/Linear/Plane, etc.; the change record shifts to §13. Owner: Elon.
 - **v1 (supplement 3)**: added §14 **card-creation idempotency (`idem` key)** — LLM semantic de-duplication as the **main gate** + the mechanical key `<kind>|<assignee>|<source>|<target>` as fallback; ACL commands `task.create` / `task.idemCheck` / `task.idemCandidates`; `spawn` derives the key automatically; `check-idem` patrol with a baseline exemption. Owner: Elon (convention) / Linus (landing).
 - **v1 (supplement 4)**: added §15 **Label Taxonomy (issue labels)** — namespaced prefix labels `category:` / `area:` / `env:` / `sev:` over the free-form `labels` list (required rules, examples, soft machine-check criteria); §11 now names `labels` among the array-form list fields; base (task-panel) unchanged (prefix convention). Owner: Elon (convention) / Linus (landing).
+- **v1 (supplement 5)**: concurrency hardening — §2 Card gains optional `writes` (same-file concurrency-warning source); §4 gains `task.pollCandidates` (read-only, zero-side-effect candidate query; claiming still only via `task.claim`). Owner: Linus.
