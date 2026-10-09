@@ -117,6 +117,11 @@ EVAL_TIMEOUT_S=$(( (EVAL_TIMEOUT_MS + 999) / 1000 ))
 # 0 disables the scheduler timeout (see `openclaw automations add --help`).
 POLL_RUN_TIMEOUT_S="${OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S:-3600}"
 case "$POLL_RUN_TIMEOUT_S" in ''|*[!0-9]*) POLL_RUN_TIMEOUT_S=3600 ;; esac
+# Poll cadence (②): the interval between per-worker poll triggers. 2m halves the trigger
+# frequency vs the former 1m while keeping the worst-case claim latency ≤2m (claim timing
+# belongs to poll, PROTOCOL §①). Override with OPENCLAW_TEAM_POLL_INTERVAL (e.g. 3m).
+POLL_INTERVAL="${OPENCLAW_TEAM_POLL_INTERVAL:-2m}"
+case "$POLL_INTERVAL" in [0-9]*[smhd]) ;; *) POLL_INTERVAL=2m ;; esac
 
 # role dir  ->  agent id  ->  workspace dir (relative to OPENCLAW_HOME)
 ROLES=(elon jobs linus turing assistant)
@@ -184,6 +189,24 @@ backup_path() {
   case "$p" in "$OPENCLAW_HOME"/*) rel="${p#$OPENCLAW_HOME/}" ;; *) rel="$(basename "$p")" ;; esac
   run mkdir -p "$BK_DIR/$(dirname "$rel")"
   run cp -R "$p" "$BK_DIR/$rel"
+}
+
+# write_install_state <key=value ...> — read-modify-write $TEAM_DIR/.install-state.json.
+# Replaces the former whole-file overwrite so extra fields (optimizationApplied) survive
+# a later version refresh. Keys are simple identifiers; values true/false/numbers/strings.
+# No-op under --dry-run (state must not be written when previewing).
+write_install_state() {
+  [ "$DRY_RUN" = 1 ] && return 0
+  mkdir -p "$TEAM_DIR"
+  node -e '
+    const fs=require("fs");const p=process.argv[1];const kv=process.argv.slice(2);
+    let d={};try{d=JSON.parse(fs.readFileSync(p,"utf8"))}catch(e){d={}}
+    for(const t of kv){const i=t.indexOf("=");if(i<0)continue;
+      const k=t.slice(0,i),v=t.slice(i+1);
+      if(v==="true")d[k]=true;else if(v==="false")d[k]=false;
+      else if(/^-?\d+(\.\d+)?$/.test(v))d[k]=Number(v);else d[k]=v;}
+    fs.writeFileSync(p,JSON.stringify(d,null,2)+"\n");
+  ' "$TEAM_DIR/.install-state.json" "$@"
 }
 
 # deploy_file <src> <dst> <label> — install / upgrade / keep a single managed file
@@ -266,15 +289,8 @@ automations_json_ok() {
     });'
 }
 
-# automation_exists <declarationKey> — true when a job with that key already exists
-automation_exists() {
-  printf '%s' "$AUTOMATIONS_JSON" | node -e '
-    let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
-      try{const j=JSON.parse(s);const a=Array.isArray(j)?j:(j.jobs||j.items||[]);
-      const keys=a.map(x=>x.declarationKey||x.declaration_key||"");
-      process.exit(keys.includes(process.argv[1])?0:1);}catch(e){process.exit(2);}
-    });' "$1"
-}
+# (existence/reconcile decisions moved to config/reconcile.mjs — the declaration source
+#  is the single source of truth and a drifted job is edited, not skipped.)
 
 # write_trigger <dispatch-args> <outfile> — generate the Gateway inline-JS trigger.
 # Absolute paths only; NEVER {{...}} templating (see team/AUTOMATIONS.md §6). The
@@ -306,7 +322,6 @@ EOF
 register_automation() {
   local name="$1" agent="$2" key="$3" job="$4"; shift 4
   local sched=("$@")
-  if automation_exists "$key"; then info "exists   $name  ($key)"; return 0; fi
   local dargs="$job" msg tmp run_extra=""
   case "$job" in
     poll)
@@ -323,8 +338,10 @@ register_automation() {
   tmp="$(mktemp "${TMPDIR:-/tmp}/openclaw-trigger.XXXXXX")"
   write_trigger "$dargs" "$tmp"
   info "add      $name  ($key)"
+  # `--light-context` is the cron-slimming lever (④): a lighter bootstrap context for
+  # trigger-script decision jobs (poll/patrol/check-all) — see team/AUTOMATIONS.md §4.
   run "${OCL[@]}" automations add "$name" --agent "$agent" "${sched[@]}" \
-      $run_extra --session isolated --wake now --trigger-script "$tmp" --declaration-key "$key" --message "$msg"
+      $run_extra --light-context --session isolated --wake now --trigger-script "$tmp" --declaration-key "$key" --message "$msg"
   rm -f "$tmp"
 }
 
@@ -508,6 +525,47 @@ elif [ "$DO_CONFIG" = 1 ]; then
   warn "skip config patch (openclaw CLI missing)"
 fi
 
+# ---- 4b. config optimization (providers backfill, idempotent) ----------------
+# Providers backfill is a read-modify-write over the FULL models array (config patch
+# REPLACES arrays, so a sparse element would fail schema). It only fills MISSING fields
+# (never overwrites a user's custom value) and runs once per install unless --force.
+if [ "$DO_CONFIG" = 1 ] && [ -n "${OCL[*]:-}" ] && [ "${OPENCLAW_TEAM_OPTIMIZE_PROVIDERS:-1}" = 1 ]; then
+  step "config optimization (providers backfill)"
+  OPT_MARKER="$(node -e 'try{process.stdout.write(String(require(process.argv[1]).optimizationApplied||""))}catch(e){}' "$TEAM_DIR/.install-state.json" 2>/dev/null || true)"
+  if [ -n "$OPT_MARKER" ] && [ "$FORCE" != 1 ]; then
+    info "optimization already applied (marker set; --force to re-run)"
+  else
+    CFG_FILE="$OPENCLAW_HOME/openclaw.json"
+    if [ ! -e "$CFG_FILE" ]; then
+      info "no openclaw.json present — nothing to optimize"
+    else
+      backup_path "$CFG_FILE"
+      PATCH_FILE="$(mktemp "${TMPDIR:-/tmp}/openclaw-opt.XXXXXX")"
+      node "$REPO/config/optimization.mjs" "$CFG_FILE" > "$PATCH_FILE"
+      if node -e 'const fs=require("fs");let o;try{o=JSON.parse(fs.readFileSync(process.argv[1],"utf8"))}catch(e){process.exit(1)}process.exit(Object.keys(o).length?1:0)' "$PATCH_FILE"; then
+        info "providers already optimized (no missing fields)"
+      else
+        info "apply providers backfill (missing fields only)"
+        if [ "$DRY_RUN" = 1 ]; then
+          run "${OCL[@]}" config patch --file "$PATCH_FILE" --dry-run
+        else
+          run "${OCL[@]}" config patch --file "$PATCH_FILE"
+          if "${OCL[@]}" config validate; then
+            info "config validate ok"
+            write_install_state optimizationApplied=true
+          else
+            warn "config validate FAILED after optimization — restoring $CFG_FILE from backup"
+            if [ -n "$BK_DIR" ] && [ -e "$BK_DIR/openclaw.json" ]; then run cp "$BK_DIR/openclaw.json" "$CFG_FILE"; fi
+          fi
+        fi
+      fi
+      rm -f "$PATCH_FILE"
+    fi
+  fi
+elif [ "$DO_CONFIG" = 1 ] && [ -n "${OCL[*]:-}" ] && [ "${OPENCLAW_TEAM_OPTIMIZE_PROVIDERS:-1}" != 1 ]; then
+  info "providers optimization disabled (OPENCLAW_TEAM_OPTIMIZE_PROVIDERS=0)"
+fi
+
 # ---- 5. task provider (ACL) -------------------------------------------------
 # The team talks to ANY task system through the ACL in
 # team/guides/task-interface.md. task-panel is the DEFAULT reference provider
@@ -567,20 +625,14 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
   info "scheduler: framework-owned  ·  provider: $auto_provider (callee via the ACL)"
   info "dispatcher: $TEAM_DIR/automations/dispatch.mjs"
   info "bounds: trigger-eval ${EVAL_TIMEOUT_MS}ms (OPENCLAW_TEAM_EVAL_TIMEOUT_MS) · poll run ${POLL_RUN_TIMEOUT_S}s (OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S, 0=off)"
+  info "poll: every $POLL_INTERVAL (OPENCLAW_TEAM_POLL_INTERVAL) · --light-context on poll/patrol/check-all"
   # built-in workers only for poll (skip main/elon), derived from ROLES/AGENT_ID
   auto_agents=()
   for i in "${!ROLES[@]}"; do
     id="${AGENT_ID[$i]}"; [ "$id" = main ] && continue
     auto_agents+=("$id")
   done
-  if [ "$DRY_RUN" = 1 ]; then
-    for a in "${auto_agents[@]}"; do
-      printf '  [dry-run] %s\n' "openclaw automations add poll-$a --agent $a --every 1m --timeout-seconds $POLL_RUN_TIMEOUT_S --session isolated --wake now --trigger-script <tmp> --declaration-key openclaw-team:poll:$a"
-    done
-    printf '  [dry-run] %s\n' "openclaw automations add task-patrol --agent main --every 5m --session isolated --wake now --trigger-script <tmp> --declaration-key openclaw-team:task-patrol"
-    printf '  [dry-run] %s\n' "openclaw automations add team-check-all --agent main --cron \"0 * * * *\" --tz Asia/Shanghai --session isolated --wake now --trigger-script <tmp> --declaration-key openclaw-team:team-check-all"
-    info "idempotent: a job is skipped when its declarationKey already exists"
-  elif [ -z "${OCL[*]:-}" ]; then
+  if [ -z "${OCL[*]:-}" ]; then
     info "openclaw CLI not found — skipping automation registration (npm i -g openclaw)"
     info "  re-run ./install.sh once the CLI + Gateway are up; registration is idempotent"
   else
@@ -589,20 +641,42 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
       info "Gateway/automations API unreachable — skipping registration (no changes made)"
       info "  re-run when the Gateway is up; registration is idempotent (declarationKey)"
     else
-      for a in "${auto_agents[@]}"; do
-        register_automation "poll-$a" "$a" "openclaw-team:poll:$a" poll --every 1m
-      done
-      register_automation "task-patrol" main "openclaw-team:task-patrol" patrol --every 5m
-      register_automation "team-check-all" main "openclaw-team:team-check-all" check-all --cron "0 * * * *" --tz Asia/Shanghai
+      # Declared jobs are the single source of truth; config/reconcile.mjs aligns the
+      # runtime to them (add missing / edit drifted / skip matching). This is what makes
+      # an upgrade backfill --light-context onto jobs that already exist (B5/B7).
+      DECLARED_FILE="$(mktemp "${TMPDIR:-/tmp}/openclaw-declared.XXXXXX")"
+      node -e '
+        const fs=require("fs");
+        const agents=process.argv[1].split(",").filter(Boolean);
+        const pollInterval=process.argv[2];
+        const jobs=[];
+        for(const a of agents) jobs.push({key:"openclaw-team:poll:"+a,name:"poll-"+a,agent:a,job:"poll",kind:"interval",interval:pollInterval,lightContext:true});
+        jobs.push({key:"openclaw-team:task-patrol",name:"task-patrol",agent:"main",job:"patrol",kind:"interval",interval:"5m",lightContext:true});
+        jobs.push({key:"openclaw-team:team-check-all",name:"team-check-all",agent:"main",job:"check-all",kind:"cron",lightContext:true});
+        fs.writeFileSync(process.argv[3], JSON.stringify(jobs));
+      ' "$(IFS=,; echo "${auto_agents[*]}")" "$POLL_INTERVAL" "$DECLARED_FILE"
+      ACTIONS="$(printf '%s' "$AUTOMATIONS_JSON" | node "$REPO/config/reconcile.mjs" "$DECLARED_FILE")"
+      rm -f "$DECLARED_FILE"
+      while IFS='|' read -r act key name agent job id eargs; do
+        case "$act" in
+          add)
+            case "$job" in
+              poll)      register_automation "$name" "$agent" "$key" poll --every "$POLL_INTERVAL" ;;
+              patrol)    register_automation "$name" "$agent" "$key" patrol --every 5m ;;
+              check-all) register_automation "$name" "$agent" "$key" check-all --cron "0 * * * *" --tz Asia/Shanghai ;;
+            esac ;;
+          edit) info "edit     $name  ($key)"; run "${OCL[@]}" automations edit "$id" $eargs ;;
+          skip) info "ok       $name  ($key)" ;;
+        esac
+      done <<< "$ACTIONS"
     fi
   fi
 fi
 
 # ---- summary ----------------------------------------------------------------
-if [ "$DRY_RUN" != 1 ]; then
-  run mkdir -p "$TEAM_DIR"
-  printf '{\n  "version": "%s",\n  "installedAt": "%s"\n}\n' "$VERSION" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$TEAM_DIR/.install-state.json"
-fi
+# State is written read-modify-write so the optimizationApplied marker set in §4b
+# survives the version/installedAt refresh (A3).
+write_install_state version="$VERSION" installedAt="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 # ---- closing summary: API keys ---------------------------------------------
 if [ -f "$REPO/config/api-keys.json" ]; then
   say ""
