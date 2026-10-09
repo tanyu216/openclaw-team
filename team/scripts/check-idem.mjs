@@ -4,17 +4,28 @@
  * 依据：PROTOCOL §㉙.8「巡检加『重复 key』校验」；guides/task-interface.md §14。
  *
  * 口径：按 `idem = <kind> | <assignee> | <source> | <target>`（source = review_of ‖ parent）
- * 对**非终态**（ready/in_progress/in_review/blocked）卡分组，仅报组内 >1 的组。
+ * 对**非终态**（ready/in_progress/in_review/blocked）卡分组，仅处理组内 >1 的组。
  *
  * **无 source（无 review_of 且无 parent）⇒ 不产键**（`idemKey` 返回空串）⇒ 不参与机械判重、
  * 扫描时直接跳过（同项目同人不再误撞）；机械判重仅对「有 source」的卡兜底（review_of/子卡）。
  *
+ * 判重路由（T-20261010-064006-2 收口）——机械键对「同 parent + 同 assignee + 空 target」的**兄弟卡**
+ * 不含任何区分信息（三者相同恰是子卡常态），必然撞键（本轮 Elon 建 meerkat 改名卡实测触发）。故组内 >1
+ * 时按「键是否携带真实区分信号」分两档：
+ *   - duplicates（红，阻断）：组内**任一**卡有非空 `review_of`（显式复核同一张卡）或非空 `target`
+ *     （同人同目标）⇒ 键有实义，判真重复，置退出码 1。
+ *   - hints（非阻断）：组内**全部**卡由 parent 派键（review_of 空）且 target 空 ⇒ 兄弟卡弱信号，
+ *     仅打印提示、**不影响退出码**（主闸仍是 LLM 语义判重；机械键只兜底，不该对子卡常态误报）。
+ * 注：显式 idem 口径（把卡面 `idem` 并入键）需 create 路径写回卡面，属 provider（skills/task-ops/lib/task.mjs）
+ * 职责；本脚本不改 provider，故取「子卡降级提示」一档。判据为 review_of/target 自身字段，不解析键字符串。
+ *
  * 基线豁免（**机制保留、当前空/退役**）：`scripts/idem-baseline.json` 现为 `{ "groups": [] }`。
  * 机制：判据 = `key` 相同 **且** `ids` 排序后与该组卡 id 集合**完全一致** ⇒ 移入 `exempt`（不判红）；
  * 集合一旦变化（增卡/删卡/换卡）即**豁免失效**，重新报警（防「登记一次、永久放行」）。
+ * 豁免仅对 duplicates（真重复档）生效；hints 本身已非阻断，无需登记。
  * 新增豁免须人工核对后追加；`--no-baseline` 可忽略基线（全部按 duplicates）。
  *
- * 退出码：0 无非豁免重复；1 有非豁免重复（报警）。
+ * 退出码：0 无非豁免重复（含仅有 hints）；1 有非豁免 duplicates（报警）。
  * 隔离：OPENCLAW_TEAM_ROOT 覆盖（与 team-paths.mjs 同源），便于单测用 mkdtemp。
  */
 import fs from 'node:fs';
@@ -37,6 +48,9 @@ const { idemKey, NON_TERMINAL } = await import(pathToFileURL(TASK_MJS).href);
 
 export const BASELINE_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), 'idem-baseline.json');
 
+/** 兄弟卡降级理由（hints 的 reason 文案，单测/复核按此核对口径） */
+export const SIBLING_HINT_REASON = '同 parent 兄弟卡（review_of/target 均空）⇒ 机械键无区分信息，降级为非阻断提示';
+
 /** 读基线文件：缺失/损坏/形状不对 ⇒ 视为空组列表（**不报错**，退化为全量判红）。 */
 export function loadBaseline(file = BASELINE_PATH) {
   try {
@@ -52,8 +66,13 @@ function sameIdSet(a, b) {
   return x.length === y.length && x.every((v, i) => v === y[i]);
 }
 
+/** frontmatter 值归一为去空白字符串（undefined/null/数字安全）。 */
+function str(v) {
+  return v == null ? '' : String(v).trim();
+}
+
 export function scanIdem(tasksDir = TASKS_DIR, { baseline } = {}) {
-  const groups = new Map();
+  const groups = new Map(); // key -> { cards: [...], genuine: boolean }
   if (fs.existsSync(tasksDir)) {
     for (const f of fs.readdirSync(tasksDir)) {
       if (!f.endsWith('.md')) continue;
@@ -64,8 +83,11 @@ export function scanIdem(tasksDir = TASKS_DIR, { baseline } = {}) {
       if (!NON_TERMINAL.has(fm.status)) continue;
       const key = idemKey({ ...fm, id });
       if (!key) continue; // 无 source ⇒ 不产键，跳过（不参与机械判重）
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push({ id, status: fm.status, assignee: fm.assignee || '', title: fm.title || '' });
+      if (!groups.has(key)) groups.set(key, { cards: [], genuine: false });
+      const g = groups.get(key);
+      g.cards.push({ id, status: fm.status, assignee: fm.assignee || '', title: fm.title || '' });
+      // 区分信号：显式复核同一卡（review_of）或同人同目标（target）⇒ 键有实义；二者全空 ⇒ 兄弟卡弱信号
+      if (str(fm.review_of) || str(fm.target)) g.genuine = true;
     }
   }
   const base = baseline === undefined
@@ -74,14 +96,17 @@ export function scanIdem(tasksDir = TASKS_DIR, { baseline } = {}) {
 
   const duplicates = [];
   const exempt = [];
-  for (const [key, cards] of groups.entries()) {
+  const hints = [];
+  for (const [key, g] of groups.entries()) {
+    const { cards } = g;
     if (cards.length <= 1) continue;
+    if (!g.genuine) { hints.push({ idem: key, cards, reason: SIBLING_HINT_REASON }); continue; }
     const ids = cards.map((c) => c.id);
     const hit = base.find((b) => b && b.key === key && sameIdSet(b.ids || [], ids));
     if (hit) exempt.push({ key, cards, reason: hit.reason || '' });
     else duplicates.push({ idem: key, cards });
   }
-  return { ok: true, duplicates, exempt };
+  return { ok: true, duplicates, exempt, hints };
 }
 
 // main-guard：经 realpath 归一后比较，符号链接调用亦能命中（与其它 scripts/* 同风格）
@@ -97,6 +122,13 @@ try {
       console.error(`建卡幂等违例：${r.duplicates.length} 组同 idem 的非终态卡（>1）—— 机械键兜底命中，需人工裁定（LLM 语义判重为主闸）`);
       for (const g of r.duplicates) {
         console.error(`  · ${g.idem}`);
+        for (const c of g.cards) console.error(`      ${c.id} [${c.status}] ${c.title}`);
+      }
+    }
+    if (r.hints.length) {
+      console.error(`建卡幂等提示：${r.hints.length} 组同 parent 兄弟卡（review_of/target 均空）—— 机械键无区分信息，非阻断、不置退出码（需区分请补 target 或经 LLM 语义判重）`);
+      for (const g of r.hints) {
+        console.error(`  · hint ${g.idem}`);
         for (const c of g.cards) console.error(`      ${c.id} [${c.status}] ${c.title}`);
       }
     }
