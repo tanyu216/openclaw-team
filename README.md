@@ -249,7 +249,8 @@ What the installer does (every stage is idempotent; existing items are skipped):
    [Scheduling & team automations](#scheduling--team-automations).
 8. **Config optimization (providers backfill)** — backfills missing provider
    optimization fields into `~/.openclaw/openclaw.json` (merge, never a whole-file
-   overwrite): `contextTokens: 200000` for deepseek models, `cost.cacheRead` for the
+   overwrite): `contextTokens: 200000` on models whose declared `contextWindow` exceeds
+   the threshold (default 200000), `cost.cacheRead` for the
    whitelisted deepseek ids, `agents.defaults.compaction/contextPruning/contextLimits`.
    Existing values are never overwritten; disable with
    `OPENCLAW_TEAM_OPTIMIZE_PROVIDERS=0` (see
@@ -365,7 +366,7 @@ Details and ACL gaps: `team/automations/README.md`, `team/AUTOMATIONS.md §3.5`.
 
 | Stage | What it does | Opt out |
 |---|---|---|
-| **Providers backfill** (`config/optimization.mjs`) | Fills **missing** `models.providers` optimization fields: `contextTokens: 200000` on deepseek models, `cost.cacheRead` on whitelisted deepseek ids (`deepseek-flash`→`0.006`, `deepseek-v4-pro`→`0.003625`), and the static `agents.defaults` compaction/contextPruning/contextLimits fragment. Existing values are **never** overwritten; the whole `models.providers` array is read-modify-written (a sparse patch would replace arrays). | `OPENCLAW_TEAM_OPTIMIZE_PROVIDERS=0` |
+| **Providers backfill** (`config/optimization.mjs`) | Fills **missing** `models.providers` optimization fields: `contextTokens: 200000` on models with `contextWindow` above the threshold (default 200000), `cost.cacheRead` on whitelisted deepseek ids (`deepseek-flash`→`0.006`, `deepseek-v4-pro`→`0.003625`), and the static `agents.defaults` compaction/contextPruning/contextLimits fragment. Existing values are **never** overwritten; the whole `models.providers` array is read-modify-written (a sparse patch would replace arrays). | `OPENCLAW_TEAM_OPTIMIZE_PROVIDERS=0` |
 | **Cron slimming** (`config/reconcile.mjs`) | Declared jobs are the single source of truth; on every run the runtime is aligned (missing ⇒ add, drifted ⇒ edit, matching ⇒ skip). Poll interval thinned **1m → 2m** (`OPENCLAW_TEAM_POLL_INTERVAL`, default `2m`) and every job gets `--light-context`. Cron jobs (`team-check-all`) are **never** given `--every` — only `lightContext` is reconciled. | `--skip-automations` |
 
 Markers & safety: the backfill stage records `optimizationApplied` in

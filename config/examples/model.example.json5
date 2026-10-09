@@ -36,6 +36,9 @@
   //     },
   //   },
   //
-  // contextTokens=200000 is backfilled only for deepseek ids; cost.cacheRead only for
-  // the whitelisted deepseek ids above. Existing values are never overwritten.
+  // contextTokens=200000 is backfilled for models whose declared contextWindow exceeds
+  // the threshold (default 200000, OPENCLAW_TEAM_CONTEXT_TOKENS) and that lack
+  // contextTokens (unknown/≤threshold skipped); OPENCLAW_TEAM_CONTEXT_TOKENS_ALL=1 forces
+  // all missing; cost.cacheRead only for the whitelisted deepseek ids above. Existing
+  // values are never overwritten.
 }
