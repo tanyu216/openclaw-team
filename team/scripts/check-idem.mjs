@@ -19,9 +19,21 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parseFrontmatter, TASKS_DIR } from './lib.mjs';
-import { idemKey, NON_TERMINAL } from '../skills/task-ops/lib/task.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { parseFrontmatter, TASKS_DIR, TASK_OPS_DIR } from './lib.mjs';
+
+// provider 依赖显式化（方案②启动期硬失败）：idemKey/NON_TERMINAL 来自 provider ACL 库
+// skills/task-ops/lib/task.mjs（provider 拥有、有意不随仓）。缺失 ⇒ 明确错误 + 非零退出。
+// 注：lib.mjs 已对 team-paths/projects 做启动硬失败；此处补齐 task.mjs（同族文件）的显式化。
+const TASK_MJS = path.join(TASK_OPS_DIR, 'lib', 'task.mjs');
+if (!fs.existsSync(TASK_MJS)) {
+  console.error(
+    `provider 未安装：check-idem 依赖 provider ACL 库，缺失 skills/task-ops/lib/task.mjs` +
+    `（查找于 ${TASK_MJS}）。请安装 task-panel 或其它基座，或设 OPENCLAW_TASK_OPS_DIR。`
+  );
+  process.exit(1);
+}
+const { idemKey, NON_TERMINAL } = await import(pathToFileURL(TASK_MJS).href);
 
 export const BASELINE_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), 'idem-baseline.json');
 

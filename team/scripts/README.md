@@ -29,14 +29,19 @@ prerequisites). They are deployed alongside the scripts, which is also what
 
 `lib.mjs` imports the provider-owned ACL library from `{team}/skills/task-ops/lib/`
 (installed by the task provider; **intentionally not vendored here** — see
-`skills/PROVENANCE.md`). Consequences:
+`skills/PROVENANCE.md`). The dependency is **explicit (startup hard-fail, option ②)**:
+at import time `lib.mjs` checks the library is present, and if it is missing it prints
+a clear `provider 未安装：…` error and **exits non-zero** — it never silently no-ops
+(the H1/main-guard silent-failure class is what this kills).
 
 - the entries can only **execute** in a deployed layout that also has the provider
-  installed; without it they fail to import and the dispatcher degrades to
-  `fire:false` (scheduling keeps working, nothing fires);
+  installed; without it they **hard-fail** (clear error + non-zero exit), so the
+  dispatcher degrades to `fire:false` but its `state.stderr` carries the missing-provider
+  cause (no longer a cryptic `ERR_MODULE_NOT_FOUND`);
 - `tests/sched-vendored-poll.test.mjs` therefore materialises a deployed layout and
   **skips** (with a reason) when no provider install is present. Point
-  `OPENCLAW_TASK_OPS_DIR` at a provider checkout to run it.
+  `OPENCLAW_TASK_OPS_DIR` at a provider checkout (a dir containing `lib/`) to run it,
+  or symlink one at `{team}/skills/task-ops`.
 
 See `team/AUTOMATIONS.md` §3.5 for the trigger-evaluation bounds and for what is
 platform-level (the `already-running` run lock and stale-run release).

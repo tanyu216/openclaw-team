@@ -80,17 +80,19 @@ is reached through the ACL. Known gaps:
    own test suite — now **ship in this repository** under `team/scripts/**` and are
    deployed by `install.sh` into `{team}/scripts/**`. A fresh install no longer has
    a dangling entry path.
-   **Residual (provider-side, not a framework entry-path gap):** those scripts
-   import the provider's ACL library from `{team}/skills/task-ops/lib/`, which is
-   owned by the task provider and **intentionally not vendored here**
-   (`skills/PROVENANCE.md`). Without a provider install the entries degrade
-   (`fire:false`) — scheduling keeps working, nothing fires. Likewise the
-   `check-all.sh` aggregate also calls the provider's contract tests under
-   `{team}/skills/task-ops/tests/`.
-3. **Envelope conformance.** Entries should print the `{fire}` envelope; the
-   legacy `patrol`/`checkAll` scripts print `{stale:[…]}` / plain text. The
-   dispatcher normalizes the former; a plain-text `checkAll` cannot be classified
-   and degrades to `fire:false` until the base emits the envelope.
+   **Residual (provider-side, not a framework entry-path gap) — now EXPLICIT
+   (T-20261009-211234-providerdecouple):** those scripts import the provider's ACL
+   library from `{team}/skills/task-ops/lib/`, which is owned by the task provider
+   and **intentionally not vendored here** (`skills/PROVENANCE.md`). Without a
+   provider install the entries **hard-fail** — a clear `provider 未安装：…` error
+   plus non-zero exit — instead of silently degrading, so the dispatcher's
+   `fire:false` now carries the cause in `state.stderr`. Likewise the `check-all.sh`
+   aggregate calls the provider's contract tests under `{team}/skills/task-ops/tests/`.
+3. **Envelope conformance — RESOLVED for `checkAll`.** Entries should print the
+   `{fire}` envelope; `patrol-scan.mjs` prints `{stale:[…]}` (normalized) and
+   `check-all.sh` now prints a `{ok:true|false}` envelope on its last line, which
+   the dispatcher normalizes (`ok:false ⇒ fire:true`). No entry degrades to
+   `fire:false` solely because its output is plain text.
 
 ## Trigger-evaluation bounds (framework) vs. run lock (platform)
 
