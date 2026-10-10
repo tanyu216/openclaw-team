@@ -78,7 +78,9 @@ is reached through the ACL. Known gaps:
    (`PROTOCOL §①`) but the ACL exposes no `poll` command — `poll` is the
    provider's trigger-evaluation entry point, referenced here by path only.
 2. **Entry-path coupling — RESOLVED (shipped with the repository).** The
-   `meerkat-taskpanel` entries resolve to `{team}/scripts/{poll.mjs,patrol-scan.mjs,check-all.sh}`,
+   `meerkat-taskpanel` entries resolve to `{team}/scripts/{poll.mjs,patrol.mjs,check-all.sh}`
+   (`patrol.mjs` is patrol's decision module `patrol-scan.mjs` plus the pre-emit re-check — see
+   `AUTOMATIONS.md` §3/§3.6),
    and those scripts — with their runtime dependency closure (`lib.mjs`,
    `registry.mjs`, the `check-*`/`lint-*` checks that `check-all.sh` aggregates,
    `archive.mjs`, `prototype-guard.sh`, `idem-baseline.json`) and the framework's
@@ -94,7 +96,7 @@ is reached through the ACL. Known gaps:
    `fire:false` now carries the cause in `state.stderr`. Likewise the `check-all.sh`
    aggregate calls the provider's contract tests under `{team}/skills/task-ops/tests/`.
 3. **Envelope conformance — RESOLVED for `checkAll`.** Entries should print the
-   `{fire}` envelope; `patrol-scan.mjs` prints `{stale:[…]}` (normalized) and
+   `{fire}` envelope; `patrol.mjs` prints `{stale:[…],"dropped":[…]}` (normalized) and
    `check-all.sh` now prints a `{ok:true|false}` envelope on its last line, which
    the dispatcher normalizes (`ok:false ⇒ fire:true`). No entry degrades to
    `fire:false` solely because its output is plain text.
