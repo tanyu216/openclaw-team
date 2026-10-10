@@ -6,7 +6,8 @@
 // declaration. For every declared job it emits one of three actions:
 //
 //   add   — no job with the declarationKey exists yet       → install.sh registers it
-//   edit  — the job exists but drifts (lightContext / interval) → `automations edit …`
+//   edit  — the job exists but drifts (lightContext / interval / trigger body)
+//           → `automations edit …`
 //   skip  — the job exists and already matches              → nothing to do
 //
 // Drift rules:
@@ -15,6 +16,12 @@
 //     drift ⇒ append `--every <interval>`.
 //   - cron (team-check-all): only lightContext is reconciled — the cron expression is
 //     NEVER rewritten (a `--every` would silently turn a cron into an interval job).
+//   - trigger-script body (T-20261010-092547): when a declared job carries
+//     `triggerScriptPath`, the live `trigger.script` must byte-match that file's content
+//     (trailing-newline tolerant); drift ⇒ append `--trigger-script <triggerScriptPath>`.
+//     This is what makes trigger-body drift self-heal on a re-run of install.sh. If the
+//     declared path is missing/unreadable the rule is SKIPPED (fail-safe: never emit a
+//     `--trigger-script` pointing at a file we could not read).
 //
 // CLI contract (used by install.sh §6):
 //   printf '%s' "$AUTOMATIONS_JSON" | node config/reconcile.mjs <declared-jobs.json>
@@ -26,7 +33,11 @@
 //
 // Declared job shape:
 //   { key, name, agent, job: "poll"|"patrol"|"check-all",
-//     kind: "interval"|"cron", interval?: "2m", lightContext: true }
+//     kind: "interval"|"cron", interval?: "2m", lightContext: true,
+//     triggerScriptPath?: "/abs/path/to/expected-trigger.js" }
+//
+// `editArgs` is word-split by install.sh (`automations edit <id> $editArgs`), so a
+// trigger-script edit emits two tokens: `--trigger-script` + the absolute path.
 
 import fs from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -61,6 +72,19 @@ export function reconcileAutomations(list, declaredJobs) {
       reasons.push(`interval drift (want ${d.interval})`);
     }
     // cron jobs: never append --every — the cron expression is left untouched.
+
+    // trigger-script body: compare the live inline script to the declared expected file.
+    // Unreadable/missing declared file ⇒ skip (fail-safe; never point --trigger-script at
+    // a path we could not read — that would let install.sh write an empty/garbage trigger).
+    if (d.triggerScriptPath) {
+      let want;
+      try { want = fs.readFileSync(d.triggerScriptPath, "utf8"); }
+      catch { want = null; }
+      if (want != null && normalizeScript(triggerScriptOf(existing)) !== normalizeScript(want)) {
+        editArgs.push("--trigger-script", d.triggerScriptPath);
+        reasons.push("trigger-script drift");
+      }
+    }
 
     if (editArgs.length) {
       actions.push({ action: "edit", key: d.key, name: d.name, id, editArgs, reasons });
@@ -112,6 +136,25 @@ function lightContextOf(j) {
 function scheduleOf(j) {
   if (!j) return "";
   return j.schedule ?? "";
+}
+
+/** The live inline condition script (the Gateway stores it at `trigger.script`). */
+function triggerScriptOf(j) {
+  if (!j) return "";
+  const t = j.trigger;
+  if (t && typeof t === "object" && typeof t.script === "string") return t.script;
+  if (typeof j.triggerScript === "string") return j.triggerScript;
+  if (typeof j.trigger_script === "string") return j.trigger_script;
+  return "";
+}
+
+/**
+ * Normalize a trigger body for comparison: CRLF→LF and drop a trailing newline run.
+ * `write_trigger` emits a heredoc-style trailing "\n", but the Gateway strips it on
+ * round-trip — a strict compare would re-edit the same job on every install (非幂等).
+ */
+function normalizeScript(s) {
+  return String(s ?? "").replace(/\r\n?/g, "\n").trimEnd();
 }
 
 /**

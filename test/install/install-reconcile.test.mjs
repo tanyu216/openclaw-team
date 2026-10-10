@@ -7,10 +7,23 @@
  *
  * Run: node --test test/install/install-reconcile.test.mjs
  */
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 import { reconcileAutomations } from "../../config/reconcile.mjs";
+
+const tmpDirs = [];
+after(() => { for (const d of tmpDirs) fs.rmSync(d, { recursive: true, force: true }); });
+/** Write an "expected trigger" file in a scratch dir and return its absolute path. */
+function expectedTrigger(content) {
+  const dir = tmpDirs[0] || (tmpDirs[0] = fs.mkdtempSync(path.join(os.tmpdir(), "reconcile-trigger-")));
+  const p = path.join(dir, `t-${Math.random().toString(36).slice(2)}.js`);
+  fs.writeFileSync(p, content);
+  return p;
+}
 
 const DECLARED = [
   { key: "openclaw-team:poll:linus", name: "poll-linus", agent: "linus", job: "poll", kind: "interval", interval: "2m", lightContext: true },
@@ -150,4 +163,56 @@ test("real runtime {kind:cron,expr:…} (check-all) missing lightContext ⇒ --l
   const ca = actions.find((a) => a.key === "openclaw-team:team-check-all");
   assert.equal(ca.action, "edit");
   assert.deepEqual(ca.editArgs, ["--light-context"], "cron must never get --every");
+});
+
+// — trigger-script body reconciliation (T-20261010-092547) —
+// RED before the feature: a job whose live `trigger.script` drifts from the declared
+// expected file was reported `skip` (the body was never reconciled). GREEN now: it emits
+// `--trigger-script <declaredPath>` so a re-run of install.sh repairs the drift.
+test("trigger body drift ⇒ edit --trigger-script <path> (red→green)", () => {
+  const p = expectedTrigger("// EXPECTED TRIGGER BODY\n");
+  const declared = [{ ...DECLARED[0], triggerScriptPath: p }];
+  const live = job({ trigger: { script: "// DRIFTED LEGACY TRIGGER\n" } });
+  const actions = reconcileAutomations({ jobs: [live] }, declared);
+  const poll = actions.find((a) => a.key === "openclaw-team:poll:linus");
+  assert.equal(poll.action, "edit");
+  assert.deepEqual(poll.editArgs, ["--trigger-script", p]);
+  assert.ok(poll.reasons.includes("trigger-script drift"));
+});
+
+test("trigger body already matching ⇒ skip (idempotent; trailing newline tolerated)", () => {
+  const p = expectedTrigger("// EXPECTED TRIGGER BODY\n");
+  const declared = [{ ...DECLARED[0], triggerScriptPath: p }];
+  // Gateway strips the heredoc trailing newline on round-trip ⇒ must still be a match.
+  const live = job({ trigger: { script: "// EXPECTED TRIGGER BODY" } });
+  const actions = reconcileAutomations({ jobs: [live] }, declared);
+  const poll = actions.find((a) => a.key === "openclaw-team:poll:linus");
+  assert.equal(poll.action, "skip");
+});
+
+test("trigger body drift combines with lightContext/interval drift (order: light-context, every, trigger-script)", () => {
+  const p = expectedTrigger("// EXPECTED\n");
+  const declared = [{ ...DECLARED[0], triggerScriptPath: p }];
+  const live = job({ schedule: { kind: "every", everyMs: 60000 }, payload: { lightContext: false }, trigger: { script: "// OLD\n" } });
+  const actions = reconcileAutomations({ jobs: [live] }, declared);
+  const poll = actions.find((a) => a.key === "openclaw-team:poll:linus");
+  assert.equal(poll.action, "edit");
+  assert.deepEqual(poll.editArgs, ["--light-context", "--every", "2m", "--trigger-script", p]);
+});
+
+test("declared triggerScriptPath unreadable ⇒ rule skipped, never emits a bad path (fail-safe)", () => {
+  const declared = [{ ...DECLARED[0], triggerScriptPath: path.join(os.tmpdir(), "definitely-missing-trigger-xyz.js") }];
+  const live = job({ trigger: { script: "// anything\n" } });
+  const actions = reconcileAutomations({ jobs: [live] }, declared);
+  const poll = actions.find((a) => a.key === "openclaw-team:poll:linus");
+  assert.equal(poll.action, "skip");
+});
+
+test("run twice on the same input ⇒ identical actions (pure/deterministic, 幂等)", () => {
+  const p = expectedTrigger("// EXPECTED\n");
+  const declared = [{ ...DECLARED[0], triggerScriptPath: p }];
+  const live = job({ trigger: { script: "// OLD\n" } });
+  const a1 = reconcileAutomations({ jobs: [live] }, declared);
+  const a2 = reconcileAutomations({ jobs: [live] }, declared);
+  assert.deepEqual(a1, a2);
 });
