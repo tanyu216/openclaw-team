@@ -8,6 +8,10 @@
  *
  * 风格：核心逻辑直接 import `scanIdem(dir)`（注入 mkdtemp 隔离目录）取行/分支覆盖；退出码/输出另
  * spawn 子进程验证（OPENCLAW_TEAM_ROOT 指向隔离 root，**绝不碰真实看板**）。
+ *
+ * provider 依赖：`check-idem.mjs` 与 `skills/task-ops/lib/task.mjs` 均属 provider（有意不随仓，见
+ * skills/PROVENANCE.md），只能在**已部署**布局下执行。缺 provider 时**整体 SKIP**（与
+ * sched-vendored-poll.test.mjs 同契约），而非 import 期 ERR_MODULE_NOT_FOUND 硬红。
  */
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,13 +19,38 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-
-import { scanIdem, SIBLING_HINT_REASON } from '../check-idem.mjs';
-import { idemKey } from '../../skills/task-ops/lib/task.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CHECK_IDEM = path.join(HERE, '..', 'check-idem.mjs');
+
+/** 定位携带 ACL 库的 provider 安装目录（与 sched-vendored-poll.test.mjs 同口径）。 */
+function resolveProviderRoot() {
+  const candidates = [
+    process.env.OPENCLAW_TASK_OPS_DIR,
+    path.join(os.homedir(), '.openclaw', 'team', 'skills', 'task-ops'),
+    path.join(os.homedir(), '.openclaw', 'skills', 'task-ops'),
+  ].filter(Boolean);
+  for (const c of candidates) {
+    if (fs.existsSync(path.join(c, 'lib', 'team-paths.mjs'))) return c;
+  }
+  return null;
+}
+const PROVIDER = resolveProviderRoot();
+const SKIP = PROVIDER
+  ? false
+  : 'provider ACL library not installed (task-ops is intentionally not vendored); set OPENCLAW_TASK_OPS_DIR to run';
+
+// provider 依赖为**条件动态 import**：仓内 team/skills 有意不 vendor，静态相对导入在缺 provider 时
+// import 期即 ERR_MODULE_NOT_FOUND 硬红。仅当 PROVIDER 存在时加载，缺则保持 undefined（对应测试
+// 全部 { skip: SKIP }，不会执行到）。顶层 await 合法（ESM）。
+let scanIdem, SIBLING_HINT_REASON, idemKey;
+if (PROVIDER) {
+  // 先设 env：check-idem.mjs → lib.mjs 经 OPENCLAW_TASK_OPS_DIR 解析 provider，须在 import 前就位。
+  process.env.OPENCLAW_TASK_OPS_DIR = PROVIDER;
+  ({ scanIdem, SIBLING_HINT_REASON } = await import('../check-idem.mjs'));
+  ({ idemKey } = await import(pathToFileURL(path.join(PROVIDER, 'lib', 'task.mjs')).href));
+}
 
 const TMP = [];
 after(() => { for (const r of TMP) fs.rmSync(r, { recursive: true, force: true }); });
@@ -59,7 +88,7 @@ const card = (id, extra = {}) => ({
 function runCli(root, args = []) {
   const r = spawnSync(process.execPath, [CHECK_IDEM, ...args], {
     encoding: 'utf8',
-    env: { ...process.env, OPENCLAW_TEAM_ROOT: root },
+    env: { ...process.env, OPENCLAW_TEAM_ROOT: root, OPENCLAW_TASK_OPS_DIR: PROVIDER },
   });
   return { code: r.status, out: r.stdout, err: r.stderr };
 }
@@ -86,7 +115,7 @@ const SIBLINGS = [
 
 // ---- 红→绿：同 parent 同 assignee 空 target 的兄弟卡 ----
 
-test('红→绿：兄弟卡（同 parent/assignee、空 target）旧口径误报、新口径不判 duplicates', () => {
+test('红→绿：兄弟卡（同 parent/assignee、空 target）旧口径误报、新口径不判 duplicates', { skip: SKIP }, () => {
   // 旧口径复现：两卡机械键相同 ⇒ 旧代码会判 1 组 duplicates（= 误报的「红」）
   const red = oldDuplicates(SIBLINGS);
   assert.equal(red.length, 1, '旧口径应按机械键撞车判红（红条件复现）');
@@ -104,7 +133,7 @@ test('红→绿：兄弟卡（同 parent/assignee、空 target）旧口径误报
   assert.deepEqual(r.hints[0].cards.map((c) => c.id).sort(), ['T-20260101-100000-a', 'T-20260101-100001-b']);
 });
 
-test('红→绿：CLI 对兄弟卡退出 0（无违例报文），stdout 含 hints 明细', () => {
+test('红→绿：CLI 对兄弟卡退出 0（无违例报文），stdout 含 hints 明细', { skip: SKIP }, () => {
   const root = mkRoot(SIBLINGS);
   const { code, out, err } = runCli(root);
   assert.equal(code, 0, `兄弟卡不应置退出码 1；stderr=${err}`);
@@ -116,7 +145,7 @@ test('红→绿：CLI 对兄弟卡退出 0（无违例报文），stdout 含 hin
   assert.doesNotMatch(err, /建卡幂等违例/, '不应打印违例');
 });
 
-test('兄弟卡数量扩充（3 张空 target）仍仅提示、不判红', () => {
+test('兄弟卡数量扩充（3 张空 target）仍仅提示、不判红', { skip: SKIP }, () => {
   const r = scanIdem(tasksOf(mkRoot([
     ...SIBLINGS,
     card('T-20260101-100002-c', { parent: 'T-20260101-090000-epic', status: 'blocked' }),
@@ -128,7 +157,7 @@ test('兄弟卡数量扩充（3 张空 target）仍仅提示、不判红', () =>
 
 // ---- 真重复（红）必须保持 ----
 
-test('真重复：同 review_of + 同 assignee + 同 target ⇒ 仍判 duplicates（退出 1）', () => {
+test('真重复：同 review_of + 同 assignee + 同 target ⇒ 仍判 duplicates（退出 1）', { skip: SKIP }, () => {
   const dup = [
     card('T-20260101-110000-a', { review_of: 'T-20260101-000000-src', target: '/x' }),
     card('T-20260101-110001-b', { review_of: 'T-20260101-000000-src', target: '/x', status: 'in_review' }),
@@ -152,7 +181,7 @@ test('真重复：同 review_of + 同 assignee + 同 target ⇒ 仍判 duplicate
 // 同一 idem 键 ⇒ 同一 target 字符串；非空且相同 target = 「同人同目标」真实区分信号 ⇒ 维持 duplicates（红）。
 // 口径见 check-idem.mjs 头注「非空 target 的兄弟卡」。
 
-test('D3 裁定：同 parent + 同**非空** target 的兄弟卡 ⇒ duplicates（红，不降级为 hints）', () => {
+test('D3 裁定：同 parent + 同**非空** target 的兄弟卡 ⇒ duplicates（红，不降级为 hints）', { skip: SKIP }, () => {
   const root = mkRoot([
     card('T-20260101-120000-a', { parent: 'T-20260101-090000-epic', target: '/repo/meerkat' }),
     card('T-20260101-120001-b', { parent: 'T-20260101-090000-epic', target: '/repo/meerkat' }),
@@ -172,7 +201,7 @@ test('D3 裁定：同 parent + 同**非空** target 的兄弟卡 ⇒ duplicates�
   assert.doesNotMatch(err, /建卡幂等提示/, '不得打印 hints 提示');
 });
 
-test('D3 边界：同 parent 但**不同**非空 target ⇒ 键不同、不分组（区分信号生效的另一面）', () => {
+test('D3 边界：同 parent 但**不同**非空 target ⇒ 键不同、不分组（区分信号生效的另一面）', { skip: SKIP }, () => {
   const r = scanIdem(tasksOf(mkRoot([
     card('T-20260101-121000-a', { parent: 'T-20260101-090000-epic', target: '/repo/meerkat' }),
     card('T-20260101-121001-b', { parent: 'T-20260101-090000-epic', target: '/repo/other' }),
@@ -181,7 +210,7 @@ test('D3 边界：同 parent 但**不同**非空 target ⇒ 键不同、不分�
   assert.equal(r.duplicates.length, 0, '不同 target ⇒ 键不同 ⇒ 根本不分组');
 });
 
-test('边界：兄弟卡组内一张带 review_of ⇒ 整组升为真重复（任一卡有信号即红）', () => {
+test('边界：兄弟卡组内一张带 review_of ⇒ 整组升为真重复（任一卡有信号即红）', { skip: SKIP }, () => {
   const r = scanIdem(tasksOf(mkRoot([
     card('T-20260101-130000-a', { parent: 'T-20260101-090000-epic' }),
     card('T-20260101-130001-b', { parent: 'T-20260101-090000-epic', review_of: 'T-20260101-090000-epic' }),
@@ -190,7 +219,7 @@ test('边界：兄弟卡组内一张带 review_of ⇒ 整组升为真重复（�
   assert.equal(r.duplicates.length, 1);
 });
 
-test('边界：同 assignee/空 target 但 parent 不同 ⇒ 键不同、不分组（既有无 source 口径不回退）', () => {
+test('边界：同 assignee/空 target 但 parent 不同 ⇒ 键不同、不分组（既有无 source 口径不回退）', { skip: SKIP }, () => {
   const r = scanIdem(tasksOf(mkRoot([
     card('T-20260101-140000-a', { parent: 'T-20260101-090000-e1' }),
     card('T-20260101-140001-b', { parent: 'T-20260101-090000-e2' }),
@@ -199,7 +228,7 @@ test('边界：同 assignee/空 target 但 parent 不同 ⇒ 键不同、不分�
   assert.equal(r.hints.length, 0);
 });
 
-test('回归：无 source（无 review_of 且无 parent）不产键 ⇒ 同人同 target 两张也不判重', () => {
+test('回归：无 source（无 review_of 且无 parent）不产键 ⇒ 同人同 target 两张也不判重', { skip: SKIP }, () => {
   const cards = [
     card('T-20260101-150000-a', { target: '/x' }),
     card('T-20260101-150001-b', { target: '/x' }),
@@ -212,7 +241,7 @@ test('回归：无 source（无 review_of 且无 parent）不产键 ⇒ 同人�
 
 // ---- 基线豁免机制不受收口影响 ----
 
-test('基线：review_of 真重复组注入匹配基线 ⇒ exempt、不判红（机制保留）', () => {
+test('基线：review_of 真重复组注入匹配基线 ⇒ exempt、不判红（机制保留）', { skip: SKIP }, () => {
   const root = mkRoot([
     card('T-20260101-160000-a', { review_of: 'T-20260101-000000-bsrc', target: '/x' }),
     card('T-20260101-160001-b', { review_of: 'T-20260101-000000-bsrc', target: '/x', status: 'in_review' }),
@@ -230,7 +259,7 @@ test('基线：review_of 真重复组注入匹配基线 ⇒ exempt、不判红�
   assert.equal(drift.duplicates.length, 1);
 });
 
-test('基线/hints 解耦：兄弟卡组不消耗基线豁免；同 root 内真重复组照常红', () => {
+test('基线/hints 解耦：兄弟卡组不消耗基线豁免；同 root 内真重复组照常红', { skip: SKIP }, () => {
   const root = mkRoot([
     ...SIBLINGS,
     card('T-20260101-170000-a', { review_of: 'T-20260101-000000-csrc', target: '/y' }),
@@ -251,7 +280,7 @@ test('基线/hints 解耦：兄弟卡组不消耗基线豁免；同 root 内真�
 
 // ---- 终态卡不参与分组 ----
 
-test('终态卡不入组：两张兄弟卡其中一张 done ⇒ 不产 hint、不判红', () => {
+test('终态卡不入组：两张兄弟卡其中一张 done ⇒ 不产 hint、不判红', { skip: SKIP }, () => {
   const r = scanIdem(tasksOf(mkRoot([
     card('T-20260101-180000-a', { parent: 'T-20260101-090000-epic' }),
     card('T-20260101-180001-b', { parent: 'T-20260101-090000-epic', status: 'done' }),
