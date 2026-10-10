@@ -245,7 +245,7 @@ What the installer does (every stage is idempotent; existing items are skipped):
    prints how to bring your own (Jira / Plane / Linear / … via the `task-interface`
    ACL).
 7. **Team automations (scheduling)** — registers the team-level scheduled jobs
-   (`poll-<agent>` every 2m, `task-patrol` every 5m, `team-check-all` hourly),
+   (`poll-<agent>` every 5m, `task-patrol` every 15m, `team-check-all` hourly),
    **declaratively** (by `declarationKey`; `config/reconcile.mjs` emits add/edit/skip
    so re-runs self-heal drift) and **provider-agnostically**: each trigger calls the
    framework dispatcher `team/automations/dispatch.mjs`, never a provider literal.
@@ -345,8 +345,8 @@ delegated to the task provider. `install.sh` registers three kinds of job
 
 | Job | Schedule | Purpose |
 |---|---|---|
-| `poll-<agent>` | every 2m | per-worker board poll (jobs/linus/turing/assistant); fires only when a card is claimed |
-| `task-patrol` | every 5m | stale `in_progress` heartbeat scan |
+| `poll-<agent>` | every 5m | per-worker board poll (jobs/linus/turing/assistant); fires only when a card is claimed |
+| `task-patrol` | every 15m | stale `in_progress` heartbeat scan |
 | `team-check-all` | hourly (`0 * * * *` @ Asia/Shanghai) | gate patrol; fires only on failure |
 
 Each trigger calls the framework dispatcher
@@ -371,7 +371,7 @@ Details and ACL gaps: `team/automations/README.md`, `team/AUTOMATIONS.md §3.5`.
 | Stage | What it does | Opt out |
 |---|---|---|
 | **Providers backfill** (`config/optimization.mjs`) | Fills **missing** `models.providers` optimization fields: `contextTokens: 200000` on models with `contextWindow` above the threshold (default 200000), `cost.cacheRead` on whitelisted deepseek ids (`deepseek-flash`→`0.006`, `deepseek-v4-pro`→`0.003625`), and the static `agents.defaults` compaction/contextPruning/contextLimits fragment. Existing values are **never** overwritten; the whole `models.providers` array is read-modify-written (a sparse patch would replace arrays). | `OPENCLAW_TEAM_OPTIMIZE_PROVIDERS=0` |
-| **Cron slimming** (`config/reconcile.mjs`) | Declared jobs are the single source of truth; on every run the runtime is aligned (missing ⇒ add, drifted ⇒ edit, matching ⇒ skip). Poll interval thinned **1m → 2m** (`OPENCLAW_TEAM_POLL_INTERVAL`, default `2m`) and every job gets `--light-context`. Cron jobs (`team-check-all`) are **never** given `--every` — only `lightContext` is reconciled. | `--skip-automations` |
+| **Cron slimming** (`config/reconcile.mjs`) | Declared jobs are the single source of truth; on every run the runtime is aligned (missing ⇒ add, drifted ⇒ edit, matching ⇒ skip). Poll interval thinned **1m → 2m → 5m** (`OPENCLAW_TEAM_POLL_INTERVAL`, default `5m`) and every job gets `--light-context`. Cron jobs (`team-check-all`) are **never** given `--every` — only `lightContext` is reconciled. | `--skip-automations` |
 
 Providers-backfill tuning (mirrors `config/examples/model.example.json5`):
 

@@ -18,7 +18,7 @@
         (orchestrates claude subsessions, (orchestrates ≤8 claude  (orchestrates ≤3 codex
          personally reviews and certifies   subsessions, reconcile   subsessions)
          interactions)                      registry first)
-                     └──────────── one cron per worker (every 2m + trigger) as fallback ────────────┘
+                     └──────────── one cron per worker (every 5m + trigger) as fallback ────────────┘
                      poll read-only scan + atomic claim → fire:true wakes execution
 ```
 
@@ -100,8 +100,8 @@ $OCL automations disable <jobId>    # restore: automations enable <jobId>
 - **managed TaskFlow** (requires a self-built plugin controller to drive) → do not build a bespoke message/scheduling system; task persistence uses a minimal patch (task cards + atomic claim), everything else goes native.
 - **ACP** (external harness channel, not built into the agent team) → not introduced.
 - **Do not put anyone on the claude-cli runtime**: the claude CLI is a backend depending on the local login state; Jobs/Linus = coordinator + exec-driven claude subprocess, unchanged.
-- **Single "board scan" dispatch (merging per-worker poll) → not adopted**: per-worker `*-poll` (every 2m + trigger, zero-cost when idle) is an **independent fallback** — each worker atomically claims when woken, so cards already created can still be claimed even when Elon (main) is stalled. Merging into "main scans → dispatch" would converge the wake chain to a single Elon point and change the `PROTOCOL §①` "claim timing belongs to poll" semantics. The only gain is a few zero-cost config lines, **so the status quo is kept**.
-- **Cron slimming (`T-20261010-040000-configoptim-cronslim`) → adopted**: per-worker poll thinned **1m → 2m** (`OPENCLAW_TEAM_POLL_INTERVAL`, default `2m`) and every framework job now runs with `--light-context`; the poll/patrol/check-all decision is unchanged (atomic claim check), so the fallback semantics survive at half the scheduler wake-ups.
+- **Single "board scan" dispatch (merging per-worker poll) → not adopted**: per-worker `*-poll` (every 5m + trigger, zero-cost when idle) is an **independent fallback** — each worker atomically claims when woken, so cards already created can still be claimed even when Elon (main) is stalled. Merging into "main scans → dispatch" would converge the wake chain to a single Elon point and change the `PROTOCOL §①` "claim timing belongs to poll" semantics. The only gain is a few zero-cost config lines, **so the status quo is kept**.
+- **Cron slimming (`T-20261010-040000-configoptim-cronslim`) → adopted**: per-worker poll thinned **1m → 2m → 5m** (`OPENCLAW_TEAM_POLL_INTERVAL`, default `5m`) and `task-patrol` widened to **15m**, and every framework job now runs with `--light-context`; the poll/patrol/check-all decision is unchanged (atomic claim check), so the fallback semantics survive at the wider scheduler cadence.
 
 ## 8. Phase Status
 

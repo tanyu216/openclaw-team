@@ -6,7 +6,8 @@
  * isolated OPENCLAW_HOME, so the real CLI and the real ~/.openclaw deployment are
  * never touched. Asserts the declarative source produces the intended preview:
  *   - poll/patrol/check-all add commands all carry `--light-context`
- *   - poll carries `--every 2m` (not `--every 1m`)
+ *   - poll carries `--every 5m` (not the retired `--every 2m`/`--every 1m`)
+ *   - task-patrol carries `--every 15m`
  *   - a job that already exists but drifts (lightContext missing) previews an `edit`
  *   - an already-optimised install (optimizationApplied marker) previews NO backfill
  *
@@ -130,20 +131,26 @@ test("legacy-name-compat: the pre-rebrand --no-task-panel alias still opts out, 
   assert.ok(out.includes("warnings=0"), "a deprecation note must not be counted as a warning");
 });
 
-test("dry-run previews --light-context on poll/patrol/check-all and --every 2m on poll", () => {
+test("dry-run previews --light-context on poll/patrol/check-all and --every 5m on poll", () => {
   const { env } = setup();
   const { out } = runInstall(env);
 
-  assert.ok(out.includes("--every 2m"), "poll must preview the new 2m interval");
+  assert.ok(out.includes("--every 5m"), "poll must preview the new 5m interval");
   assert.ok(!out.includes("--every 1m"), "the old 1m interval must be gone from the declaration source");
+  assert.ok(!out.includes("--every 2m"), "the retired 2m interval must be gone from the declaration source");
 
   const pollAdd = out.split("\n").find((l) => l.includes("automations add poll-linus"));
   assert.ok(pollAdd, "poll add preview must be present");
-  assert.ok(pollAdd.includes("--every 2m"));
+  assert.ok(pollAdd.includes("--every 5m"));
   assert.ok(pollAdd.includes("--light-context"));
 
   assert.ok(out.split("\n").some((l) => l.includes("automations add task-patrol") && l.includes("--light-context")),
     "task-patrol add must carry --light-context");
+  // pin the DECLARED patrol cadence here (this is the only test that actually executes
+  // install.sh): the reconcile suite's DECLARED is a hand-written fixture, so without this
+  // a patrol 15m → 5m reversion in install.sh would be invisible to the whole suite.
+  const patrolAdd = out.split("\n").find((l) => l.includes("automations add task-patrol"));
+  assert.ok(patrolAdd.includes("--every 15m"), "task-patrol must preview the widened 15m interval");
   assert.ok(out.split("\n").some((l) => l.includes("automations add team-check-all") && l.includes("--light-context")),
     "team-check-all add must carry --light-context");
 });
@@ -161,7 +168,7 @@ test("existing poll missing lightContext ⇒ edit --light-context preview; match
     id: "job-1",
     declarationKey: "openclaw-team:poll:linus",
     name: "poll-linus",
-    schedule: "every 2m",
+    schedule: "every 5m",
     payload: { lightContext: false },
   };
   const { env } = setup({ automationsJobs: [drifted] });
@@ -193,7 +200,7 @@ test("drifted live trigger.script ⇒ edit --trigger-script preview (red→green
     id: "job-1",
     declarationKey: "openclaw-team:poll:linus",
     name: "poll-linus",
-    schedule: "every 2m",
+    schedule: "every 5m",
     payload: { lightContext: true },
     trigger: { script: "// OLD inline poll trigger (pre-dispatcher)\n" },
   };

@@ -24,11 +24,11 @@
 
 | Name | Agent | Frequency | Trigger | Delivery | Purpose |
 |---|---|---|---|---|---|
-| `jobs-poll` | jobs | every 2m | ✅ | none | Board poll fallback: atomically claim jobs's todo/stale cards |
-| `linus-poll` | linus | every 2m | ✅ | none | Same (linus) |
-| `turing-poll` | turing | every 2m | ✅ | none | Same (turing) |
-| `assistant-poll` | assistant | every 2m | ✅ | none | Same (assistant) |
-| `task-patrol` | main | every 5m | ✅ | none | in_progress cards with stale heartbeat (>30min) → wake/recover |
+| `jobs-poll` | jobs | every 5m | ✅ | none | Board poll fallback: atomically claim jobs's todo/stale cards |
+| `linus-poll` | linus | every 5m | ✅ | none | Same (linus) |
+| `turing-poll` | turing | every 5m | ✅ | none | Same (turing) |
+| `assistant-poll` | assistant | every 5m | ✅ | none | Same (assistant) |
+| `task-patrol` | main | every 15m | ✅ | none | in_progress cards with stale heartbeat (>30min) → wake/recover |
 | `team-check-all` | main | **hourly** | ✅ | none | Gate patrol; wakes the model only on failure |
 | `heartbeat-main` | main | every 30m | — | none | Main-session heartbeat |
 | `memory-dreaming-promotion` | main | 03:00 (Asia/Shanghai) | — | none | memory-core short-term memory promotion (managed) |
@@ -182,7 +182,8 @@ close it — the residual is the Gateway transport backlog above.
 ## 4. Decision Record
 - **Keep per-worker poll; do not do a "single board scan → dispatch"**: per-worker `*-poll` is an **independent fallback** (each worker atomically claims, so cards already created can still be claimed when Elon/main is stalled). Merging into "main scans → dispatch" would converge to a single Elon point and change the `PROTOCOL §①` "claim timing belongs to poll" semantics; the only gain is a few zero-cost config lines ⇒ not adopted.
 - **Patrol frequency**: the gate patrol `team-check-all` is set to **hourly**; because it triggers the model only on failure, a higher frequency adds no cost.
-- **Cron slimming (`T-20261010-040000-configoptim-cronslim`)**: per-worker poll was thinned **1m → 2m** (override `OPENCLAW_TEAM_POLL_INTERVAL`, default `2m`), and every framework job now runs with **`--light-context`** so scheduler triggers stay cheap. The trigger decision is still an atomic claim check — 2m keeps the "claim timing belongs to poll" fallback (§①) while halving scheduler wake-ups.
+- **Cron slimming (`T-20261010-040000-configoptim-cronslim`)**: per-worker poll was thinned **1m → 2m → 5m** (override `OPENCLAW_TEAM_POLL_INTERVAL`, default `5m`) and `task-patrol` widened to **15m**, and every framework job now runs with **`--light-context`** so scheduler triggers stay cheap. The trigger decision is still an atomic claim check — 5m keeps the "claim timing belongs to poll" fallback (§①) while cutting scheduler wake-ups (worst-case claim latency ≤5m; worker crash recovery window ≈ patrol 15m + poll 5m).
+- **Fallback cadence widened (`T-20261010-224144`)**: per-worker poll **2m → 5m** (`OPENCLAW_TEAM_POLL_INTERVAL`) and `task-patrol` **5m → 15m**. The dispatch mainline is Elon assigning via `sessions_send` (push); poll only fires when that push did not land, so the accepted worst-case claim latency is now ≤5m and the accepted worker crash recovery window ≈ patrol 15m + poll 5m. Nothing else moves: the trigger decision stays an atomic claim check (§①), `task-patrol` stays **light-context only**, and its stale threshold (>30min) is unchanged.
 
 ## 5. Management
 - **Install-time registration (declarative reconcile)**: `./install.sh` is the declaration source; `config/reconcile.mjs` aligns the runtime to it by `declarationKey` (`openclaw-team:poll:<agent>` / `openclaw-team:task-patrol` / `openclaw-team:team-check-all`); `--skip-automations` disables it. Re-running is safe and **self-healing**: a missing key ⇒ `add`; a present key that drifts ⇒ `edit`; a present key that already matches ⇒ `skip`. **Drift** = `payload.lightContext !== true`; (interval jobs only) a schedule mismatch with the declared interval; or a live `trigger.script` body that differs from the declared `triggerScriptPath` file (⇒ `--trigger-script <path>`, §3.6). **Cron jobs (`team-check-all`) are never given `--every`** — only `lightContext`/trigger are reconciled, so the cron expression is left untouched. The registration is **provider-agnostic** — no `meerkat-taskpanel`/`taskctl` literal appears in any trigger script. The expected trigger body comes from the single template `team/automations/trigger-template.mjs`.

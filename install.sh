@@ -119,11 +119,12 @@ EVAL_TIMEOUT_S=$(( (EVAL_TIMEOUT_MS + 999) / 1000 ))
 # 0 disables the scheduler timeout (see `openclaw automations add --help`).
 POLL_RUN_TIMEOUT_S="${OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S:-3600}"
 case "$POLL_RUN_TIMEOUT_S" in ''|*[!0-9]*) POLL_RUN_TIMEOUT_S=3600 ;; esac
-# Poll cadence (②): the interval between per-worker poll triggers. 2m halves the trigger
-# frequency vs the former 1m while keeping the worst-case claim latency ≤2m (claim timing
+# Poll cadence (②): the interval between per-worker poll triggers. Poll is the FALLBACK —
+# the mainline is Elon dispatching with sessions_send (push); poll only wakes a worker when
+# that push did not land, and it keeps the worst-case claim latency ≤5m (claim timing
 # belongs to poll, PROTOCOL §①). Override with OPENCLAW_TEAM_POLL_INTERVAL (e.g. 3m).
-POLL_INTERVAL="${OPENCLAW_TEAM_POLL_INTERVAL:-2m}"
-case "$POLL_INTERVAL" in [0-9]*[smhd]) ;; *) POLL_INTERVAL=2m ;; esac
+POLL_INTERVAL="${OPENCLAW_TEAM_POLL_INTERVAL:-5m}"
+case "$POLL_INTERVAL" in [0-9]*[smhd]) ;; *) POLL_INTERVAL=5m ;; esac
 
 # role dir  ->  agent id  ->  workspace dir (relative to OPENCLAW_HOME)
 ROLES=(elon jobs linus turing assistant)
@@ -691,8 +692,10 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
         write_trigger "poll $id" "$tp"
         printf '%s|%s|%s|%s|%s|%s|%s\n' "openclaw-team:poll:$id" "poll-$id" "$id" "poll" "interval" "$POLL_INTERVAL" "$tp" >> "$MANIFEST"
       done
+      # task-patrol cadence: a stale in_progress heartbeat recovery scan (NOT a claim path);
+      # 15m widens the wake cadence — worker crash recovery window ≈ patrol 15m + poll 5m.
       tp="$DECLARED_DIR/trigger-task-patrol.js"; write_trigger "patrol" "$tp"
-      printf '%s|%s|%s|%s|%s|%s|%s\n' "openclaw-team:task-patrol" "task-patrol" "main" "patrol" "interval" "5m" "$tp" >> "$MANIFEST"
+      printf '%s|%s|%s|%s|%s|%s|%s\n' "openclaw-team:task-patrol" "task-patrol" "main" "patrol" "interval" "15m" "$tp" >> "$MANIFEST"
       tp="$DECLARED_DIR/trigger-team-check-all.js"; write_trigger "check-all" "$tp"
       printf '%s|%s|%s|%s|%s|%s|%s\n' "openclaw-team:team-check-all" "team-check-all" "main" "check-all" "cron" "" "$tp" >> "$MANIFEST"
       node -e '
@@ -712,7 +715,7 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
           add)
             case "$job" in
               poll)      register_automation "$name" "$agent" "$key" poll --every "$POLL_INTERVAL" ;;
-              patrol)    register_automation "$name" "$agent" "$key" patrol --every 5m ;;
+              patrol)    register_automation "$name" "$agent" "$key" patrol --every 15m ;;
               check-all) register_automation "$name" "$agent" "$key" check-all --cron "0 * * * *" --tz Asia/Shanghai ;;
             esac ;;
           edit) info "edit     $name  ($key)"; run "${OCL[@]}" automations edit "$id" $eargs ;;
