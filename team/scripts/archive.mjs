@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 // archive.mjs — 归档终态任务卡（PROTOCOL §⑳.3）
-// 用法: node archive.mjs [--days N]   默认 N=7
+// 用法: node archive.mjs [--days N] [--dry-run]   默认 N=7
 // 规则: status ∈ {done, failed} 且 mtime 早于 N 天 → 移到 tasks/archive/YYYY-MM/
+// 模式（T-20261010-055607）：
+//   默认 = 写操作（真移动文件，mkdir + rename）。
+//   --dry-run = 真只读：只统计“将归档”的卡，绝不 mkdir / rename / 改 mtime（可安全用于巡检门禁）。
+// 输出契约：
+//   默认    archived=<n> (days=<N>)
+//   dry-run dry-run (no files moved): would-archive=<n> (days=<N>)
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseFrontmatter, TASKS_DIR } from './lib.mjs';
@@ -9,6 +15,7 @@ import { parseFrontmatter, TASKS_DIR } from './lib.mjs';
 const TASKS = TASKS_DIR;
 const i = process.argv.indexOf('--days');
 const DAYS = i >= 0 ? Number(process.argv[i + 1] || 7) : 7;
+const DRY = process.argv.includes('--dry-run');
 const cutoff = Date.now() - DAYS * 86400 * 1000;
 
 // depends_on 列表解析（与 check-relations / lib.parseDeps 口径一致）
@@ -18,7 +25,10 @@ function parseList(raw) {
   return s.split(/[\s,]+/).filter(Boolean);
 }
 
-if (!fs.existsSync(TASKS)) { console.log('archived=0 (no tasks dir)'); process.exit(0); }
+if (!fs.existsSync(TASKS)) {
+  console.log(DRY ? 'dry-run (no files moved): would-archive=0 (no tasks dir)' : 'archived=0 (no tasks dir)');
+  process.exit(0);
+}
 let moved = 0;
 for (const f of fs.readdirSync(TASKS)) {
   if (!f.endsWith('.md')) continue;
@@ -42,11 +52,12 @@ for (const f of fs.readdirSync(TASKS)) {
     if (parentOf === id || deps.includes(id)) { referenced = true; break; }
   }
   if (referenced) continue;
+  moved++;
+  if (DRY) continue; // 真只读：不建目录、不 rename、不触碰任何文件
   const d = new Date(st.mtimeMs);
   const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   const dest = path.join(TASKS, 'archive', ym);
   fs.mkdirSync(dest, { recursive: true });
   fs.renameSync(p, path.join(dest, f));
-  moved++;
 }
-console.log(`archived=${moved} (days=${DAYS})`);
+console.log(DRY ? `dry-run (no files moved): would-archive=${moved} (days=${DAYS})` : `archived=${moved} (days=${DAYS})`);
