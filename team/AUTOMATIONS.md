@@ -120,17 +120,28 @@ does not read `providers.json`. It carries its **own** inline trigger script.
   `scripts/triggers/patrol-main.js` — which *does* carry `--recheck` — was referenced by
   **no** live automation. A fix that only lands in the repo/instance files therefore
   does **not** take effect until the live trigger is re-pointed.
-- **Reconcile gap (residual, needs its own card).** `config/reconcile.mjs` also runs at
-  install time, but it reconciles **only** `payload.lightContext` and (for interval jobs)
-  the **schedule/interval**. **Trigger-script *content* is not reconciled** — so
-  `install.sh` re-runs do not repair drift in the trigger body. Repairing that mismatch
-  is deliberately **out of scope here** (do not touch `reconcile.mjs` / `install.sh`
-  semantics as part of a fix like this); it is recorded as a separate follow-up.
-- **Operating rule**: when a patrol decision-path fix must take effect, land it in
-  `team/scripts/**` **and** re-point the live trigger
-  (`openclaw automations edit <id> --trigger-script <file>`), then verify with
-  `openclaw automations get <id>` that the deployed script actually contains the new
-  entry. Repo-green ≠ live-green.
+- **Reconcile now covers the trigger body (T-20261010-092547).** `config/reconcile.mjs`
+  reconciles `payload.lightContext`, the (interval) **schedule**, **and** the live
+  `trigger.script` **content**. The declaration source (`install.sh` §6) writes each job's
+  byte-exact expected trigger body — from the single template
+  `team/automations/trigger-template.mjs` via `write_trigger()` — to a `triggerScriptPath`,
+  and reconcile emits `--trigger-script <path>` whenever the live body drifts (trailing
+  newline tolerated). So re-running `install.sh` **self-heals** a drifted/stale trigger body
+  instead of leaving it to a manual `automations edit`. If the declared path is
+  missing/unreadable the rule is skipped (fail-safe: never point `--trigger-script` at a
+  file that could not be read).
+- **Attribution / scope (Gateway store writes)**: the *decision* is repo-side
+  (`config/reconcile.mjs` + its tests); the *write* to the Gateway automations store still
+  happens only at install time through the official CLI
+  (`openclaw automations edit <id> --trigger-script <file>`, §4/§6). The agent/cron
+  `automations` tool remains **read-only** (§4 caveat), so an agent turn cannot apply it —
+  a live repair requires an install run (or an operator-scope CLI call).
+- **Operating rule**: land decision-path fixes in `team/scripts/**`; the trigger body is
+  generated from `team/automations/trigger-template.mjs`, so a re-run of `install.sh`
+  re-points the live trigger to the current expected body (verify with
+  `openclaw automations get <id>`). To hot-fix without a full install, use
+  `openclaw automations edit <id> --trigger-script <file>` directly. Repo-green ≠
+  live-green until reconcile/install has run against the store.
 
 ## 3.7 Inter-session delivery latency (item 2 — a correct verdict can still arrive stale)
 
@@ -171,7 +182,7 @@ close it — the residual is the Gateway transport backlog above.
 - **Cron slimming (`T-20261010-040000-configoptim-cronslim`)**: per-worker poll was thinned **1m → 2m** (override `OPENCLAW_TEAM_POLL_INTERVAL`, default `2m`), and every framework job now runs with **`--light-context`** so scheduler triggers stay cheap. The trigger decision is still an atomic claim check — 2m keeps the "claim timing belongs to poll" fallback (§①) while halving scheduler wake-ups.
 
 ## 5. Management
-- **Install-time registration (declarative reconcile)**: `./install.sh` is the declaration source; `config/reconcile.mjs` aligns the runtime to it by `declarationKey` (`openclaw-team:poll:<agent>` / `openclaw-team:task-patrol` / `openclaw-team:team-check-all`); `--skip-automations` disables it. Re-running is safe and **self-healing**: a missing key ⇒ `add`; a present key that drifts ⇒ `edit`; a present key that already matches ⇒ `skip`. **Drift** = `payload.lightContext !== true`, or (interval jobs only) a schedule mismatch with the declared interval. **Cron jobs (`team-check-all`) are never given `--every`** — only `lightContext` is reconciled, so the cron expression is left untouched. The registration is **provider-agnostic** — no `meerkat-taskpanel`/`taskctl` literal appears in any trigger script.
+- **Install-time registration (declarative reconcile)**: `./install.sh` is the declaration source; `config/reconcile.mjs` aligns the runtime to it by `declarationKey` (`openclaw-team:poll:<agent>` / `openclaw-team:task-patrol` / `openclaw-team:team-check-all`); `--skip-automations` disables it. Re-running is safe and **self-healing**: a missing key ⇒ `add`; a present key that drifts ⇒ `edit`; a present key that already matches ⇒ `skip`. **Drift** = `payload.lightContext !== true`; (interval jobs only) a schedule mismatch with the declared interval; or a live `trigger.script` body that differs from the declared `triggerScriptPath` file (⇒ `--trigger-script <path>`, §3.6). **Cron jobs (`team-check-all`) are never given `--every`** — only `lightContext`/trigger are reconciled, so the cron expression is left untouched. The registration is **provider-agnostic** — no `meerkat-taskpanel`/`taskctl` literal appears in any trigger script. The expected trigger body comes from the single template `team/automations/trigger-template.mjs`.
 - **Scheduling bounds** (set at registration; see §3.5): poll jobs get `--timeout-seconds` (run upper bound, `OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S`, default 3600 s); every generated trigger passes `exec({ …, timeoutSeconds })` and the dispatcher applies `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default 8000 ms). Both are install-time overridable env vars.
 - View: `automations list` | Details: `automations get <jobId>` | History: `automations runs <jobId>`
 - Test run: `automations run <jobId> runMode=force`

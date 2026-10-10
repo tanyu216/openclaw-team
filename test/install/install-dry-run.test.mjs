@@ -20,6 +20,8 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { renderTrigger } from "../../team/automations/trigger-template.mjs";
+
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // <repo>/test/install
 const REPO = path.resolve(HERE, "..", "..");               // <repo>
 const INSTALL = path.join(REPO, "install.sh");
@@ -45,7 +47,7 @@ function writeFakeOpenclaw(bin) {
   return shim;
 }
 
-function setup({ automationsJobs = [], optimizationApplied = false } = {}) {
+function setup({ automationsJobs = [], jobsFn = null, optimizationApplied = false } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "oc-install-dryrun-"));
   scratchDirs.push(root);
   const openclawHome = path.join(root, ".openclaw");
@@ -54,7 +56,8 @@ function setup({ automationsJobs = [], optimizationApplied = false } = {}) {
   fs.mkdirSync(openclawHome, { recursive: true });
 
   const automationsFixture = path.join(root, "automations.json");
-  fs.writeFileSync(automationsFixture, JSON.stringify({ jobs: automationsJobs }));
+  const jobs = jobsFn ? jobsFn(openclawHome) : automationsJobs;
+  fs.writeFileSync(automationsFixture, JSON.stringify({ jobs }));
 
   const log = path.join(root, "fake-openclaw.log");
   writeFakeOpenclaw(bin);
@@ -95,6 +98,16 @@ function setup({ automationsJobs = [], optimizationApplied = false } = {}) {
 }
 
 const BASE_ARGS = ["--dry-run", "--no-meerkat-taskpanel", "--skip-skills", "--skip-agents"];
+
+/** byte-exact expected poll trigger for an isolated OPENCLAW_HOME (matches install.sh write_trigger). */
+function expectedPollTrigger(openclawHome, agent = "linus") {
+  return renderTrigger({
+    teamDir: path.join(openclawHome, "team"),
+    dargs: `poll ${agent}`,
+    evalTimeoutS: 8,
+    evalTimeoutMs: 8000,
+  });
+}
 
 function runInstall(env, extra = []) {
   const r = spawnSync("bash", [INSTALL, ...BASE_ARGS, ...extra], { env, encoding: "utf8" });
@@ -156,11 +169,37 @@ test("existing poll missing lightContext ⇒ edit --light-context preview; match
 
   assert.ok(out.includes("automations edit job-1 --light-context"),
     "a drifted poll must preview an edit --light-context");
+  assert.ok(out.includes("--trigger-script"),
+    "a job with no/drifted trigger body must also preview --trigger-script (T-20261010-092547)");
   assert.ok(!out.includes("automations add poll-linus"), "an existing poll must not be re-added");
 
-  const matching = { ...drifted, payload: { lightContext: true } };
-  const { env: env2 } = setup({ automationsJobs: [matching] });
-  const { out: out2 } = runInstall(env2);
+  // fully matching job: lightContext present AND the live trigger body byte-matches the
+  // declared expected file ⇒ NO edit (idempotent re-run). The trigger must be rendered
+  // against the SAME isolated home install.sh will use (TEAM_DIR = OPENCLAW_HOME/team).
+  const { env: env3 } = setup({
+    jobsFn: (home) => [{
+      ...drifted,
+      payload: { lightContext: true },
+      trigger: { script: expectedPollTrigger(home, "linus") },
+    }],
+  });
+  const { out: out2 } = runInstall(env3);
   assert.ok(!out2.includes("automations edit"), "an already-matching poll must not be edited");
   assert.ok(out2.includes("automations add task-patrol"), "other (missing) jobs still preview an add");
+});
+
+test("drifted live trigger.script ⇒ edit --trigger-script preview (red→green)", () => {
+  const drifted = {
+    id: "job-1",
+    declarationKey: "openclaw-team:poll:linus",
+    name: "poll-linus",
+    schedule: "every 2m",
+    payload: { lightContext: true },
+    trigger: { script: "// OLD inline poll trigger (pre-dispatcher)\n" },
+  };
+  const { env } = setup({ automationsJobs: [drifted] });
+  const { out } = runInstall(env);
+  const edit = out.split("\n").find((l) => l.includes("automations edit job-1"));
+  assert.ok(edit, "trigger drift must preview an edit");
+  assert.ok(edit.includes("--trigger-script"), "the edit must carry --trigger-script <expected path>");
 });
