@@ -90,7 +90,18 @@ function runPollCli(root, agent = 'linus') {
 
 test('vendored poll.mjs exposes the multi-claim API surface', { skip: SKIP }, async () => {
   const root = mkLayout();
-  const poll = await import(pathToFileURL(path.join(root, 'scripts', 'poll.mjs')).href);
+  // 隔离：poll.mjs 的 TEAM_ROOT 在 import 时由 OPENCLAW_TEAM_ROOT 决定（缺省读真实 ~/.openclaw/team）。
+  // 必须在 import 前指向本布局，否则会读到真实 turing-runs.json（存在活跃 Turing 会话 ⇒ 额度被扣减），
+  // 使本断言依赖宿主运行状态、非确定性失败。
+  const prevTeamRoot = process.env.OPENCLAW_TEAM_ROOT;
+  process.env.OPENCLAW_TEAM_ROOT = root;
+  let poll;
+  try {
+    poll = await import(pathToFileURL(path.join(root, 'scripts', 'poll.mjs')).href);
+  } finally {
+    if (prevTeamRoot === undefined) delete process.env.OPENCLAW_TEAM_ROOT;
+    else process.env.OPENCLAW_TEAM_ROOT = prevTeamRoot;
+  }
 
   assert.deepEqual(poll.CONCURRENCY_QUOTA, { linus: 8, jobs: 8, simons: 8, turing: 3 });
   for (const fn of ['runningCount', 'concurrencyQuota', 'claimBudget', 'conflictKey', 'scanCandidates', 'runPoll']) {
