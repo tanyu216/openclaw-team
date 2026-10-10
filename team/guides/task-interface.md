@@ -37,7 +37,7 @@ backlog | todo → in_progress → in_review → done | canceled
 |---|---|
 | `task.claim <card> <assignee>` | Atomic claim (idempotent; fresh in_progress ⇒ no re-claim) |
 | `task.heartbeat <card> <assignee>` | Refresh heartbeat (only by the in_progress owner) |
-| `task.setStatus <card> <status>` | Set status (maintains `status_changed_at`; entering `blocked` records `blocked_at`) |
+| `task.setStatus <card> <status> [actor=<a>]` | Set status (maintains `status_changed_at`; entering `blocked` records `blocked_at`). **`done` actor gate**: the terminal `done` may be set **only** by Elon (`actor=elon`) or an explicitly privileged management path (internal ACL callers that pass no `actor` key ⇒ sentinel `lib`); a worker / unknown actor setting `done` is **refused** (`ok:false, reason:done_requires_elon`, no card write) with a hint to close out as `in_review`. The CLI always passes `actor` explicitly (default `''`) and exits non-zero on refusal — so a direct-run `status <card> done` (no `actor=elon`) is rejected (`T-20261010-073931`) |
 | `task.appendProgress <card> <line>` | Append one line to Progress |
 | `task.comment <card> <author> <kind> <text> [refs]` | Append a **process trail** entry (see §7) |
 | `task.writeReport <card> <text>` | Overwrite the Report section (one delivery conclusion per card) |
@@ -55,6 +55,7 @@ backlog | todo → in_progress → in_review → done | canceled
 4. **Comments are append-only**: cannot be edited or deleted.
 5. **Human decisions are trailed**: a comment with `author=operator` is a "user decision/confirmation".
 6. **Terminal states are archivable**: `done|canceled` after 7 full days may be archived.
+7. **`done` actor gate**: only `elon` (Elon's final acceptance) or a privileged internal management path (ACL-internal callers that pass no `actor` key ⇒ sentinel `lib`) may set the terminal `done`; a worker / unknown actor is refused (`done_requires_elon`) and told to close out as `in_review`. See §4 `task.setStatus` (`T-20261010-073931`).
 
 ## 7. Comments / Process Trail
 - **Use**: record **team collaboration discussions, operator decisions and confirmations, dual-signs, and anomaly-handling notes**.
