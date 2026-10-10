@@ -1191,6 +1191,15 @@
         "path": "skills/xlsx",
         "verified": true
       }
+    },
+    {
+      "name": "openclaw-token-optimization",
+      "targets": [
+        "agent:assistant"
+      ],
+      "source": {
+        "kind": "local"
+      }
     }
   ]
 }
