@@ -166,8 +166,17 @@ test("array cost ([]/[1]) ⇒ NOT clobbered into {cacheRead}; no false applied r
       false,
       `no cacheRead written onto an array cost ${JSON.stringify(arrCost)}`,
     );
-    // discriminating: JSON.stringify of the emitted patch must round-trip the array unchanged —
-    // a hidden non-index property would vanish here, making applied a phantom change.
+    // NON-discriminating sanity check — the JSON round-trip assertion below does NOT fail pre-fix
+    // (measured), so it must not be read as this guard's proof. `patch…cost` is the array produced
+    // by `deepClone` (arrays via `v.map(deepClone)`), and `JSON.stringify` drops non-index array
+    // properties on BOTH sides, so the hidden `cacheRead` the pre-fix code wrote vanishes before the
+    // comparison and the assertion passes with or without the fix.
+    // The assertions in this test that DO have discriminating power (i.e. fail pre-fix) are the two
+    // above, not this one:
+    //   · `assert.deepEqual(patch.deepseek.models[0].cost, arrCost)` — deepStrictEqual compares own
+    //     enumerable keys, so it sees the stray non-index `cacheRead` the weak guard let through;
+    //   · `assert.equal(applied.some((a) => a.includes("cacheRead")), false)` — pre-fix the code
+    //     reported a change the JSON CLI patch never carried (the phantom `applied`).
     const roundTripped = JSON.parse(JSON.stringify(patch.deepseek.models[0].cost));
     assert.deepEqual(roundTripped, arrCost, `array cost ${JSON.stringify(arrCost)} must survive the JSON round-trip unchanged`);
   }

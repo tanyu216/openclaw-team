@@ -148,14 +148,37 @@ test('真重复：同 review_of + 同 assignee + 同 target ⇒ 仍判 duplicate
   assert.equal(runCli(root, ['--no-baseline']).code, 1);
 });
 
-test('边界：同 parent 但同**非空** target ⇒ 键有区分信号，仍判 duplicates', () => {
-  const r = scanIdem(tasksOf(mkRoot([
+// ---- D3（T-20261010-081140 裁定）：非空 target 的兄弟卡**不**降级 ----
+// 同一 idem 键 ⇒ 同一 target 字符串；非空且相同 target = 「同人同目标」真实区分信号 ⇒ 维持 duplicates（红）。
+// 口径见 check-idem.mjs 头注「非空 target 的兄弟卡」。
+
+test('D3 裁定：同 parent + 同**非空** target 的兄弟卡 ⇒ duplicates（红，不降级为 hints）', () => {
+  const root = mkRoot([
     card('T-20260101-120000-a', { parent: 'T-20260101-090000-epic', target: '/repo/meerkat' }),
     card('T-20260101-120001-b', { parent: 'T-20260101-090000-epic', target: '/repo/meerkat' }),
-  ])));
-  assert.equal(r.hints.length, 0);
+  ]);
+  const r = scanIdem(tasksOf(root));
+  assert.equal(r.hints.length, 0, '非空同 target 有区分信号 ⇒ 不得降级为 hints');
   assert.equal(r.duplicates.length, 1, '同人同目标（非空）仍属真重复档');
   assert.equal(r.duplicates[0].idem, 'task | linus | T-20260101-090000-epic | /repo/meerkat');
+
+  // 退出码契约：duplicates ⇒ 1（只有 hints 才是不置码的非阻断档）
+  const { code, out, err } = runCli(root);
+  assert.equal(code, 1, `非空同 target 兄弟卡应置退出码 1；stderr=${err}`);
+  const parsed = JSON.parse(out);
+  assert.equal(parsed.duplicates.length, 1);
+  assert.equal(parsed.hints.length, 0);
+  assert.match(err, /建卡幂等违例/, '应打印违例（而非提示）');
+  assert.doesNotMatch(err, /建卡幂等提示/, '不得打印 hints 提示');
+});
+
+test('D3 边界：同 parent 但**不同**非空 target ⇒ 键不同、不分组（区分信号生效的另一面）', () => {
+  const r = scanIdem(tasksOf(mkRoot([
+    card('T-20260101-121000-a', { parent: 'T-20260101-090000-epic', target: '/repo/meerkat' }),
+    card('T-20260101-121001-b', { parent: 'T-20260101-090000-epic', target: '/repo/other' }),
+  ])));
+  assert.equal(r.hints.length, 0);
+  assert.equal(r.duplicates.length, 0, '不同 target ⇒ 键不同 ⇒ 根本不分组');
 });
 
 test('边界：兄弟卡组内一张带 review_of ⇒ 整组升为真重复（任一卡有信号即红）', () => {
