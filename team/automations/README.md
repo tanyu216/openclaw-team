@@ -35,8 +35,18 @@ dispatcher normalizes it generically:
 - `ok: <bool>` → `fire = !ok` (health-check convention).
 
 Anything else (missing/invalid `providers.json`, unknown provider, unrunnable or
-failing entry, unparseable output) **degrades to `{"fire":false, "state":{…}}`
-and exit 0** — a broken provider must never burn a model turn.
+failing entry, unparseable output) **degrades and exits 0** — a broken provider
+must never burn a model turn. What a degrade *says* depends on what the job is
+for (T-20261010-190039):
+
+- **action jobs** (`poll` / `patrol`) → `{"fire":false, "state":{…}}` — a failed
+  evaluation should simply not wake anyone;
+- **the health gate** (`check-all`) → `{"fire":true, "message":…, "state":{…}}` —
+  the gate exists to surface failure, so an UNCONFIRMED gate must alarm. Reporting
+  `fire:false` there would read "unknown" as "green" and silently drop the warning.
+  A non-zero exit is not the gate's verdict on its own: an `{"ok":false}` envelope on
+  stdout is recovered first (reason `gate-failed`), because `check-all.sh` prints
+  exactly that envelope and then `exit $fail`. A confirmed `ok:true` stays `fire:false`.
 
 ## Selecting / swapping the provider
 
@@ -111,8 +121,15 @@ run-lock fix:
   and `install.sh` generates each Gateway trigger with
   `exec({ command, timeoutSeconds })`. Both sit well under the Gateway's own
   **30 s** per-evaluation wall-clock budget.
-- A timed-out evaluation degrades to `{"fire":false,"state":{"reason":"eval-timeout",…}}`
-  (exit 0) — a broken provider never burns a model turn.
+- The entry gets that budget **minus `EVAL_EMIT_RESERVE_MS`** (500 ms). `install.sh`
+  sizes the trigger's `timeoutSeconds` at `ceil(budget/1000)` — only ever *equal* to
+  the inner bound, never larger — so a dispatcher that spent the whole budget on the
+  entry would be killed by the outer `exec` before it could print anything (measured:
+  empty stdout at 8008 ms). The reserve keeps the decision observable.
+- A timed-out evaluation degrades (exit 0) — a broken provider never burns a model
+  turn: `{"fire":false,"state":{"reason":"eval-timeout",…}}` for `poll` / `patrol`,
+  and `{"fire":true,"message":…,"state":{"reason":"eval-timeout",…}}` for the
+  `check-all` gate (an unconfirmed gate must alarm — see above).
 - **Out of scope — platform-level:** `already-running` (a run already holding the
   job lock, so the next trigger is skipped) and the release of **stale runs** are
   **Gateway-scheduler behaviour**. The framework cannot bound or reap them; doing

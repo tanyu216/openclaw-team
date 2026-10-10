@@ -57,8 +57,11 @@ template substitution) and calls the framework dispatcher:
 `automations/providers.json`; provider = `OPENCLAW_TEAM_TASK_PROVIDER`, default
 `meerkat-taskpanel`), runs it **without a shell**, and returns a one-line
 `{"fire":bool,"message"?,"state"?}`. The Gateway trigger wakes the agent **only on
-`fire:true`**; a missing entry, a failure, a timeout, or unparseable output ⇒
-`fire:false` (zero cost). Contract + ACL gaps: `automations/README.md`.
+`fire:true`**; a missing entry, a failure, a timeout, or unparseable output degrades
+(exit 0), and what a degrade says depends on the job: **`poll`/`patrol` ⇒ `fire:false`
+(zero cost)**, but the **`check-all` gate ⇒ `fire:true`** — an unconfirmed gate must
+alarm, never report green (T-20261010-190039). Contract + ACL gaps:
+`automations/README.md`.
 
 So `task-patrol` → `dispatch.mjs patrol` → `providers.json` **`patrol` =
 `node {team}/scripts/patrol.mjs`** — a **scan + re-check before emit**: `patrol.mjs`
@@ -93,7 +96,7 @@ Two different clocks are involved; only the first is framework-owned.
 
 | Concern | Owner | Framework behaviour |
 |---|---|---|
-| **Trigger evaluation** (the poll/patrol/check-all *decision*: run the entry, read `{fire}`) | framework | **Bounded.** `dispatch.mjs` runs the entry under `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default **8000 ms**; invalid/absent ⇒ default), and `install.sh` generates each trigger with `exec({ command, timeoutSeconds })`. Both stay under the Gateway's own **30 s** per-evaluation wall-clock budget. A timeout degrades to `{"fire":false,"state":{"reason":"eval-timeout"}}`, exit 0. |
+| **Trigger evaluation** (the poll/patrol/check-all *decision*: run the entry, read `{fire}`) | framework | **Bounded.** `dispatch.mjs` runs the entry under `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default **8000 ms**; invalid/absent ⇒ default) **minus `EVAL_EMIT_RESERVE_MS`** (500 ms of emission headroom — `install.sh` sizes the trigger's `timeoutSeconds` at `ceil(budget/1000)`, i.e. only ever *equal* to the inner bound, so without the reserve the outer `exec` would kill the dispatcher before it could print), and `install.sh` generates each trigger with `exec({ command, timeoutSeconds })`. Both stay under the Gateway's own **30 s** per-evaluation wall-clock budget. A degrade exits 0 and **fails safe**: `poll`/`patrol` → `{"fire":false,"state":{"reason":"eval-timeout"}}`, but the `check-all` **gate** → `{"fire":true,"message":…,…}` (an unconfirmed gate must alarm, never report green — T-20261010-190039). |
 | **Run lock** (`already-running`: a run already holds the job lock, so the next trigger is skipped; releasing **stale** runs) | **Gateway scheduler (platform)** | **Not addressed here.** The framework neither bounds nor reaps runs holding the lock. This needs owner/OpenClaw platform capability and is **explicitly out of scope** — this repository does not claim to have solved it. |
 
 Poll jobs additionally carry a **run upper bound**: `install.sh` registers them with

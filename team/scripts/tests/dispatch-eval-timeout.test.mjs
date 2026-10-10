@@ -251,6 +251,9 @@ test('a hung entry degrades to eval-timeout instead of stalling the evaluation',
   const elapsed = Date.now() - t0;
   assert.equal(r.fire, false);
   assert.equal(r.state.reason, 'eval-timeout');
-  assert.equal(r.state.timeoutMs, 300);
+  // the entry gets the budget minus the emission reserve (T-20261010-190039): a 300 ms budget
+  // leaves the entry 150 ms, so the verdict still lands inside the caller's own 300 ms bound.
+  assert.equal(r.state.timeoutMs, 150);
+  assert.equal(r.state.evalTimeoutMs, 300);
   assert.ok(elapsed < 10000, `must return promptly, took ${elapsed}ms`);
 });
