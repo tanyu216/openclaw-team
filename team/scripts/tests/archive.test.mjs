@@ -6,6 +6,11 @@
  *   `status: "done"`（带引号）时取到 `"done"`（含引号），`!== 'done'` ⇒ 静默不归档。
  * 本套件不 mock 内部函数：只真实读写临时目录，通过真实 CLI 子进程跑 archive.mjs。
  * 运行：node --test scripts/tests/archive.test.mjs
+ *
+ * provider 依赖：archive.mjs 与 lib.mjs 均依赖 provider ACL 库 skills/task-ops/lib/*（provider 拥有、
+ * 有意不随仓，见 skills/PROVENANCE.md）；lib.mjs 启动即检测其可用性，缺失 ⇒ process.exit(1)。故对
+ * `../lib.mjs` 的静态相对导入在缺 provider 时 import 期即硬红（整文件 fail，非单例失败）。缺 provider
+ * 时依赖它的用例整体 SKIP（与 check-idem.test.mjs / sched-vendored-poll.test.mjs 同契约），而非硬红。
  */
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,10 +20,35 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { serializeFrontmatter } from '../lib.mjs';
-
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ARCHIVE = path.join(HERE, '..', 'archive.mjs');
+
+/** 定位携带 ACL 库的 provider 安装目录（与 check-idem.test.mjs / sched-vendored-poll.test.mjs 同口径）。 */
+function resolveProviderRoot() {
+  const candidates = [
+    process.env.OPENCLAW_TASK_OPS_DIR,
+    path.join(os.homedir(), '.openclaw', 'team', 'skills', 'task-ops'),
+    path.join(os.homedir(), '.openclaw', 'skills', 'task-ops'),
+  ].filter(Boolean);
+  for (const c of candidates) {
+    if (fs.existsSync(path.join(c, 'lib', 'team-paths.mjs'))) return c;
+  }
+  return null;
+}
+const PROVIDER = resolveProviderRoot();
+const SKIP = PROVIDER
+  ? false
+  : 'provider ACL library not installed (task-ops is intentionally not vendored); set OPENCLAW_TASK_OPS_DIR to run';
+
+// provider 依赖为**条件动态 import**：仓内 team/skills 有意不 vendor，静态相对导入在缺 provider 时
+// import 期即 process.exit(1) 硬红。仅当 PROVIDER 存在时加载，缺则保持 undefined（对应用例全部
+// { skip: SKIP }，不会执行到）。顶层 await 合法（ESM）。
+let serializeFrontmatter;
+if (PROVIDER) {
+  // 先设 env：archive.mjs / lib.mjs 经 OPENCLAW_TASK_OPS_DIR 解析 provider，须在 import 前就位。
+  process.env.OPENCLAW_TASK_OPS_DIR = PROVIDER;
+  ({ serializeFrontmatter } = await import('../lib.mjs'));
+}
 
 const scratchDirs = [];
 /** 建临时 team-root（含 tasks/），返回 { root, tasks } */
@@ -59,7 +89,7 @@ function ageCard(card) {
 /** 以独立进程跑真实 archive CLI，返回 stdout */
 function runArchive(root, args = ['--days', '0']) {
   return execFileSync('node', [ARCHIVE, ...args], {
-    env: { ...process.env, OPENCLAW_TEAM_ROOT: root },
+    env: { ...process.env, OPENCLAW_TEAM_ROOT: root, OPENCLAW_TASK_OPS_DIR: PROVIDER },
     encoding: 'utf8',
   });
 }
@@ -83,7 +113,7 @@ function findArchived(tasks, id) {
 }
 
 // ---- 用例 1（回归核心）：status 带双引号 ------------------------------------
-test('回归核心：status:"done"（带双引号）+ 旧 mtime ⇒ archived=1 且移到 archive/', () => {
+test('回归核心：status:"done"（带双引号）+ 旧 mtime ⇒ archived=1 且移到 archive/', { skip: SKIP }, () => {
   const { root, tasks } = mkTeam();
   const id = 'T-20260101-000001-quoted';
   const card = writeCard(tasks, id, 'done');
@@ -102,7 +132,7 @@ test('回归核心：status:"done"（带双引号）+ 旧 mtime ⇒ archived=1 �
 });
 
 // ---- 用例 2（基线）：status 不带引号 ----------------------------------------
-test('基线：status: done（不带引号）⇒ archived=1', () => {
+test('基线：status: done（不带引号）⇒ archived=1', { skip: SKIP }, () => {
   const { root, tasks } = mkTeam();
   const id = 'T-20260101-000002-plain';
   const card = writeCard(tasks, id, 'done');
@@ -114,7 +144,7 @@ test('基线：status: done（不带引号）⇒ archived=1', () => {
 });
 
 // ---- 用例 3：非终态不归档 ---------------------------------------------------
-test('status: in_progress ⇒ archived=0 且仍在 tasks/', () => {
+test('status: in_progress ⇒ archived=0 且仍在 tasks/', { skip: SKIP }, () => {
   const { root, tasks } = mkTeam();
   const id = 'T-20260101-000003-wip';
   const card = writeCard(tasks, id, 'in_progress');
@@ -126,7 +156,7 @@ test('status: in_progress ⇒ archived=0 且仍在 tasks/', () => {
 });
 
 // ---- 用例 4：引用保护 -------------------------------------------------------
-test('引用保护：被 parent / depends_on 引用的终态卡 ⇒ archived=0', () => {
+test('引用保护：被 parent / depends_on 引用的终态卡 ⇒ archived=0', { skip: SKIP }, () => {
   // (a) parent 引用
   const a = mkTeam();
   const epicId = 'T-20260101-000010-epic';
@@ -153,7 +183,7 @@ test('引用保护：被 parent / depends_on 引用的终态卡 ⇒ archived=0',
 });
 
 // ---- 用例 5（T-20261010-055607）：--dry-run 必须真只读 ----------------------
-test('--dry-run：真只读——报 would-archive=1 但不移动、不建 archive/、不改 mtime', () => {
+test('--dry-run：真只读——报 would-archive=1 但不移动、不建 archive/、不改 mtime', { skip: SKIP }, () => {
   const { root, tasks } = mkTeam();
   const id = 'T-20260101-000030-dry';
   const card = writeCard(tasks, id, 'done');
@@ -171,7 +201,7 @@ test('--dry-run：真只读——报 would-archive=1 但不移动、不建 archi
 });
 
 // ---- 用例 6：dry-run 与真实归档同规则同计数（口径一致） --------------------
-test('--dry-run 计数与默认（写）模式一致——同规则、只差是否落盘', () => {
+test('--dry-run 计数与默认（写）模式一致——同规则、只差是否落盘', { skip: SKIP }, () => {
   const a = mkTeam();
   const card = writeCard(a.tasks, 'T-20260101-000040-parity', 'done');
   ageCard(card);
@@ -182,6 +212,7 @@ test('--dry-run 计数与默认（写）模式一致——同规则、只差是�
 });
 
 // ---- 用例 7（防回归核心）：check-all 不得退回写模式 -------------------------
+// 纯静态读取仓内 check-all.sh，不触 provider ⇒ 无需 SKIP，缺 provider 环境仍真跑。
 test('防回归：check-all.sh 的归档步骤必须显式 --dry-run（不得退化为真移动）', () => {
   const sh = fs.readFileSync(path.join(HERE, '..', 'check-all.sh'), 'utf8');
   const line = sh.split('\n').find((l) => l.includes('archive.mjs'));
