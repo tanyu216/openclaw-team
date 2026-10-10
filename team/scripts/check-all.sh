@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # check-all.sh — 日常巡检门禁聚合（PROTOCOL §⑳.1）
 # 用法：bash check-all.sh
-# 聚合：红线一致 / 术语抽象 / §引用可解析 / 依赖 CVE 扫描(warn) / 卡 schema / 契约测试 / 原型门禁(可选) / 归档(dry)
+# 聚合：红线一致 / 术语抽象 / §引用可解析 / 依赖 CVE 扫描(warn) / 卡 schema / 契约测试 / 原型门禁(可选) / 归档预览(dry-run 只读)
+# 本脚本为「只读巡检门禁」：任何步骤都不得写 tasks/。归档步骤必须带 --dry-run（真只读，不移动文件）；
+# 真实归档由 meerkat-taskpanel(taskctl)/Elon 例行巡检执行（PROTOCOL §⑳.3），不由此门禁代劳。
 # 输出信封：末行 JSON {"ok":true|false,...} —— dispatcher 按 ok 归一（ok:false ⇒ fire:true，失败才唤醒模型）。
 set -u
 TEAM="$HOME/.openclaw/team"
@@ -44,7 +46,8 @@ if [ "$provider_missing" = 0 ]; then
   run "ACL 调度求值（provider-agnostic）"  node --test "$TEAM/skills/task-ops/tests/schedule.test.mjs"
   run "frontmatter 幂等/写卡护栏 测试"     node --test "$S/tests/"*.test.mjs
   [ -n "${PROTOTYPE_DIR:-}" ] && run "原型禁写实现原型门禁" bash "$S/prototype-guard.sh" "$PROTOTYPE_DIR"
-  echo "── 归档 dry-run（--days 7）"; node "$S/archive.mjs" --days 7
+  # 只读预览（--dry-run）：只报「将归档」计数，不 mkdir / 不 rename（门禁不得产生写副作用）
+  echo "── 归档预览 dry-run（--days 7 · 只读，不移动文件）"; node "$S/archive.mjs" --days 7 --dry-run
 fi
 
 echo
