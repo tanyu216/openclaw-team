@@ -7,6 +7,11 @@
  * 被误报 stale（误触发 cron、误唤醒健康 worker）。本套件锁定修复。
  *
  * 全部合成卡写入 os.tmpdir() 临时目录，绝不触碰真实 tasks/。运行：node --test scripts/tests/
+ *
+ * provider 依赖：patrol-scan.mjs 静态依赖 ./lib.mjs；lib.mjs 启动即检测 provider ACL 库
+ * skills/task-ops/lib/*（provider 拥有、有意不随仓，见 skills/PROVENANCE.md），缺失 ⇒ process.exit(1)。
+ * 故对 `../patrol-scan.mjs` 的静态导入在缺 provider 时 import 期即硬红（整文件 fail，非单例失败）。
+ * 缺 provider 时依赖它的用例整体 SKIP（与 archive.test.mjs / check-idem.test.mjs 同契约），而非硬红。
  */
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,10 +21,39 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { scanStale } from '../patrol-scan.mjs';
-
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SCANNER = path.join(HERE, '..', 'patrol-scan.mjs');
+
+/** 定位携带 ACL 库的 provider 安装目录（与 archive.test.mjs / check-idem.test.mjs / sched-vendored-poll.test.mjs 同口径）。 */
+function resolveProviderRoot() {
+  const candidates = [
+    process.env.OPENCLAW_TASK_OPS_DIR,
+    path.join(os.homedir(), '.openclaw', 'team', 'skills', 'task-ops'),
+    path.join(os.homedir(), '.openclaw', 'skills', 'task-ops'),
+  ].filter(Boolean);
+  for (const c of candidates) {
+    if (fs.existsSync(path.join(c, 'lib', 'team-paths.mjs'))) return c;
+  }
+  return null;
+}
+const PROVIDER = resolveProviderRoot();
+const SKIP = PROVIDER
+  ? false
+  : 'provider ACL library not installed (task-ops is intentionally not vendored); set OPENCLAW_TASK_OPS_DIR to run';
+
+// provider 依赖为**条件动态 import**：patrol-scan.mjs 静态依赖 ./lib.mjs，lib.mjs 启动即检测 provider
+// ACL 库、缺失即 process.exit(1) —— 故对 patrol-scan.mjs 的静态导入在缺 provider 时 import 期即硬红
+// （整文件 fail）。仅当 PROVIDER 存在时加载，缺则保持 undefined（对应用例全部 { skip: SKIP }，不会执行
+// 到）。先设 env 再 import：patrol-scan.mjs / lib.mjs 经 OPENCLAW_TASK_OPS_DIR 解析 provider。顶层 await
+// 合法（ESM）。
+let scanStale;
+let patrol;
+if (PROVIDER) {
+  process.env.OPENCLAW_TASK_OPS_DIR = PROVIDER;
+  patrol = await import('../patrol-scan.mjs');
+  scanStale = patrol.scanStale;
+}
+
 const MIN = 60 * 1000;
 const STALE_MS = 30 * MIN;
 
@@ -49,7 +83,7 @@ function writeCard(tasks, name, { id, status = 'in_progress', claimed_by = 'linu
 
 const NOW = Date.parse('2026-10-08T16:00:00.000Z');
 
-test('quoted heartbeat + fresh(<30min) in_progress → NOT stale', () => {
+test('quoted heartbeat + fresh(<30min) in_progress → NOT stale', { skip: SKIP }, () => {
   const { tasks } = mkRoot();
   writeCard(tasks, 'T-20260101-000001-fresh', {
     id: 'T-20260101-000001-fresh',
@@ -59,7 +93,7 @@ test('quoted heartbeat + fresh(<30min) in_progress → NOT stale', () => {
   assert.deepEqual(stale, [], '新鲜卡不应出现在 stale');
 });
 
-test('quoted heartbeat + old(>30min) in_progress → stale with numeric correct ageMin', () => {
+test('quoted heartbeat + old(>30min) in_progress → stale with numeric correct ageMin', { skip: SKIP }, () => {
   const { tasks } = mkRoot();
   writeCard(tasks, 'T-20260101-000002-old', {
     id: 'T-20260101-000002-old',
@@ -74,7 +108,7 @@ test('quoted heartbeat + old(>30min) in_progress → stale with numeric correct 
   assert.equal(stale[0].reason, undefined, '真·陈旧卡不应带 unparseable reason');
 });
 
-test('unparseable heartbeat → stale with ageMin:null and reason:"unparseable"', () => {
+test('unparseable heartbeat → stale with ageMin:null and reason:"unparseable"', { skip: SKIP }, () => {
   const { tasks } = mkRoot();
   writeCard(tasks, 'T-20260101-000003-bad', { id: 'T-20260101-000003-bad', heartbeat: 'not-a-date' });
   writeCard(tasks, 'T-20260101-000004-empty', { id: 'T-20260101-000004-empty', heartbeat: '' });
@@ -87,7 +121,7 @@ test('unparseable heartbeat → stale with ageMin:null and reason:"unparseable"'
   }
 });
 
-test('non-in_progress statuses (done/ready) → never stale', () => {
+test('non-in_progress statuses (done/ready) → never stale', { skip: SKIP }, () => {
   const { tasks } = mkRoot();
   writeCard(tasks, 'T-20260101-000006-done', { id: 'T-20260101-000006-done', status: 'done', heartbeat: iso(999 * MIN, NOW) });
   writeCard(tasks, 'T-20260101-000007-ready', { id: 'T-20260101-000007-ready', status: 'ready', heartbeat: iso(999 * MIN, NOW) });
@@ -96,7 +130,7 @@ test('non-in_progress statuses (done/ready) → never stale', () => {
   assert.deepEqual(stale, [], '非 in_progress 一律忽略，即使心跳陈旧/不可解析');
 });
 
-test('no frontmatter + non-.md file → ignored, no throw', () => {
+test('no frontmatter + non-.md file → ignored, no throw', { skip: SKIP }, () => {
   const { tasks } = mkRoot();
   fs.writeFileSync(path.join(tasks, 'T-20260101-000009-nofm.md'), 'plain markdown, no frontmatter\n', 'utf8');
   fs.writeFileSync(path.join(tasks, 'notes.txt'), 'not a card\n', 'utf8');
@@ -108,7 +142,7 @@ test('no frontmatter + non-.md file → ignored, no throw', () => {
   assert.deepEqual(out.stale, [], '无 frontmatter / 非 .md 应被忽略');
 });
 
-test('regression: unquoted heartbeat behaves same as quoted', () => {
+test('regression: unquoted heartbeat behaves same as quoted', { skip: SKIP }, () => {
   const { tasks } = mkRoot();
   const fresh = iso(10 * MIN, NOW);
   const old = iso(90 * MIN, NOW);
@@ -122,13 +156,13 @@ test('regression: unquoted heartbeat behaves same as quoted', () => {
   for (const s of stale) assert.equal(s.ageMin, 90, '两种写法 ageMin 都应正确');
 });
 
-test('missing tasksDir → empty stale, no throw', () => {
+test('missing tasksDir → empty stale, no throw', { skip: SKIP }, () => {
   const { root } = mkRoot();
   const out = scanStale({ tasksDir: path.join(root, 'nope'), now: NOW, staleMs: STALE_MS });
   assert.deepEqual(out.stale, []);
 });
 
-test('direct-run stdout is a single valid JSON line (OPENCLAW_TEAM_ROOT honored)', () => {
+test('direct-run stdout is a single valid JSON line (OPENCLAW_TEAM_ROOT honored)', { skip: SKIP }, () => {
   const { root, tasks } = mkRoot();
   // 一张新鲜卡 + 一张陈旧卡：验证 CLI 输出形态 + 新鲜卡不被报出
   writeCard(tasks, 'T-20260101-000020-clifresh', { id: 'T-20260101-000020-clifresh', heartbeat: new Date(Date.now() - 5 * MIN).toISOString() });
@@ -151,7 +185,6 @@ test('direct-run stdout is a single valid JSON line (OPENCLAW_TEAM_ROOT honored)
 // 现态二次核对（T-20261010-061248）：告警前按卡**现态**核对，消除对已终结卡的陈旧告警
 // 变更面：scripts/patrol-scan.mjs（新增 recheckStale + 现态门禁）
 // ═════════════════════════════════════════════════════════════════════════════
-import * as patrol from '../patrol-scan.mjs';
 
 const SESS_BODY = [
   '## Background', 'x', '## Acceptance', '- [ ] a', '## Progress', '## Comments',
@@ -176,7 +209,7 @@ function writeFullCard(tasks, name, fm, bodyLines) {
 }
 const wsOf = (root) => path.join(root, 'workspace');
 
-test('现态二次核对：快照陈旧但现态已 done ⇒ 改前误报、改后静默（红→绿）', () => {
+test('现态二次核对：快照陈旧但现态已 done ⇒ 改前误报、改后静默（红→绿）', { skip: SKIP }, () => {
   const { root, tasks } = mkRoot();
   const id = 'T-20260101-000030-livedone';
   // 现态：已 done（status_changed_at 晚于快照），心跳仍是很旧的快照值
@@ -201,7 +234,7 @@ test('现态二次核对：快照陈旧但现态已 done ⇒ 改前误报、改�
   assert.deepEqual(patrol.scanStale({ tasksDir: tasks, workspaceDir: wsOf(root), now: NOW }).stale, []);
 });
 
-test('现态二次核对：done/in_review/blocked 一律不告警', () => {
+test('现态二次核对：done/in_review/blocked 一律不告警', { skip: SKIP }, () => {
   const { root, tasks } = mkRoot();
   const snap = [];
   for (const st of ['done', 'in_review', 'blocked']) {
@@ -217,7 +250,7 @@ test('现态二次核对：done/in_review/blocked 一律不告警', () => {
   );
 });
 
-test('现态二次核对：现态仍 in_progress 且心跳确实陈旧 ⇒ 保留告警并携带现态证据', () => {
+test('现态二次核对：现态仍 in_progress 且心跳确实陈旧 ⇒ 保留告警并携带现态证据', { skip: SKIP }, () => {
   const { root, tasks } = mkRoot();
   const id = 'T-20260101-000050-livestale';
   writeFullCard(tasks, id, {
@@ -239,7 +272,7 @@ test('现态二次核对：现态仍 in_progress 且心跳确实陈旧 ⇒ 保�
   assert.deepEqual(r.dropped, []);
 });
 
-test('现态证据：`## Sessions` 有条目/workspace 存在 ⇒ has_* 为真（陈旧仍告警，不误抑制）', () => {
+test('现态证据：`## Sessions` 有条目/workspace 存在 ⇒ has_* 为真（陈旧仍告警，不误抑制）', { skip: SKIP }, () => {
   const { root, tasks } = mkRoot();
   const id = 'T-20260101-000060-hassess';
   writeFullCard(tasks, id, {
@@ -254,7 +287,7 @@ test('现态证据：`## Sessions` 有条目/workspace 存在 ⇒ has_* 为真�
   assert.equal(stale[0].stale_kind, 'heartbeat', '有开工证据的陈旧 ⇒ 分类 heartbeat');
 });
 
-test('现态证据：卡模板空 `## Sessions`（仅注释）不算开工 ⇒ has_sessions:false', () => {
+test('现态证据：卡模板空 `## Sessions`（仅注释）不算开工 ⇒ has_sessions:false', { skip: SKIP }, () => {
   const { root, tasks } = mkRoot();
   const id = 'T-20260101-000061-commentonly';
   writeFullCard(tasks, id, { id, status: 'in_progress', claimed_by: 'linus', claimed_at: iso(60 * MIN, NOW), heartbeat_at: iso(45 * MIN, NOW) }, COMMENT_SESS_BODY);
@@ -264,7 +297,7 @@ test('现态证据：卡模板空 `## Sessions`（仅注释）不算开工 ⇒ h
   assert.equal(stale[0].stale_kind, 'unstarted');
 });
 
-test('claim→spawn 窗口（claim 后数分钟、尚无 Sessions/workspace）⇒ 不误报', () => {
+test('claim→spawn 窗口（claim 后数分钟、尚无 Sessions/workspace）⇒ 不误报', { skip: SKIP }, () => {
   const { root, tasks } = mkRoot();
   // (a) claim 后 3min：心跳尚新，无 Sessions/workspace
   writeFullCard(tasks, 'T-20260101-000070-window', {
@@ -280,7 +313,7 @@ test('claim→spawn 窗口（claim 后数分钟、尚无 Sessions/workspace）�
   assert.deepEqual(stale, [], 'claim→spawn 窗口内（含心跳未写出）不得告警');
 });
 
-test('fail-safe 不回归：心跳缺失/无法解析且 claim 已陈旧（或缺失）⇒ 仍告警 reason:unparseable', () => {
+test('fail-safe 不回归：心跳缺失/无法解析且 claim 已陈旧（或缺失）⇒ 仍告警 reason:unparseable', { skip: SKIP }, () => {
   const { root, tasks } = mkRoot();
   // 缺心跳 + claim 已 60min 陈旧
   writeFullCard(tasks, 'T-20260101-000080-nohb-old', { id: 'T-20260101-000080-nohb-old', status: 'in_progress', claimed_by: 'linus', claimed_at: iso(60 * MIN, NOW) });
@@ -296,7 +329,7 @@ test('fail-safe 不回归：心跳缺失/无法解析且 claim 已陈旧（或�
   }
 });
 
-test('recheckStale：无 id 的快照条目 ⇒ 归入 dropped(missing_id)（绝不静默丢弃）', () => {
+test('recheckStale：无 id 的快照条目 ⇒ 归入 dropped(missing_id)（绝不静默丢弃）', { skip: SKIP }, () => {
   const { root, tasks } = mkRoot();
   const r = patrol.recheckStale([{ claimed_by: 'linus', ageMin: 70 }, null], { tasksDir: tasks, workspaceDir: wsOf(root), now: NOW });
   assert.deepEqual(r.stale, [], '无 id 无法定位 ⇒ 不告警');
@@ -304,7 +337,7 @@ test('recheckStale：无 id 的快照条目 ⇒ 归入 dropped(missing_id)（绝
   assert.deepEqual(r.dropped.map((d) => d.dropped_reason), ['missing_id', 'missing_id']);
 });
 
-test('CLI --recheck：对快照按现态重核，done 卡静默（exit 0，单行 JSON）', () => {
+test('CLI --recheck：对快照按现态重核，done 卡静默（exit 0，单行 JSON）', { skip: SKIP }, () => {
   const { root, tasks } = mkRoot();
   const id = 'T-20260101-000090-clidone';
   writeFullCard(tasks, id, { id, status: 'done', claimed_by: 'linus', claimed_at: iso(90 * MIN, NOW), heartbeat_at: iso(90 * MIN, NOW) }, SESS_BODY);
@@ -323,7 +356,7 @@ test('CLI --recheck：对快照按现态重核，done 卡静默（exit 0，单�
   assert.equal(parsed.dropped[0].dropped_reason, 'live_status:done');
 });
 
-test('CLI --recheck：快照文件不可读 ⇒ 非零退出（退出码可辨）', () => {
+test('CLI --recheck：快照文件不可读 ⇒ 非零退出（退出码可辨）', { skip: SKIP }, () => {
   const { root } = mkRoot();
   const res = spawnSync(process.execPath, [SCANNER, '--recheck', path.join(root, 'nope.json')], {
     env: { ...process.env, OPENCLAW_TEAM_ROOT: root },
