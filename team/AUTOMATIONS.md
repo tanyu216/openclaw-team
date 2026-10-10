@@ -60,8 +60,23 @@ template substitution) and calls the framework dispatcher:
 `fire:true`**; a missing entry, a failure, a timeout, or unparseable output ⇒
 `fire:false` (zero cost). Contract + ACL gaps: `automations/README.md`.
 
-**The entry scripts ship with the framework.** `poll.mjs` / `patrol-scan.mjs` /
-`check-all.sh` (with their runtime dependency closure and the framework test suite)
+So `task-patrol` → `dispatch.mjs patrol` → `providers.json` **`patrol` =
+`node {team}/scripts/patrol.mjs`** — a **scan + re-check before emit**: `patrol.mjs`
+runs `scanStale()` and, when candidates exist, re-checks them **in-process** against
+each card's *current* on-disk state before emitting, so a candidate whose card has
+since reached `done`/`in_review`/`blocked` moves into `dropped` instead of firing.
+`patrol-scan.mjs` stays the single-source decision module (both `scanStale` and
+`recheckStale` go through its `liveVerdict`). **Call `patrol.mjs`, not
+`patrol-scan.mjs` directly**: the scanner alone has no pre-emit re-check, and the
+re-check is what stops a stale snapshot from being fired verbatim
+(`T-20261010-061248`, `T-20261010-071808`, `T-20261010-090407`).
+The re-check is **fail-safe**: if it throws or returns a malformed envelope, the
+original candidates are kept (emit the alert rather than silently swallow it) and the
+envelope is marked `recheck:"failed"`. Exit is non-zero **only** on a real scanner
+failure; "no alert" is always exit 0 with `{"stale":[]}`.
+
+**The entry scripts ship with the framework.** `poll.mjs` / `patrol.mjs` /
+`patrol-scan.mjs` / `check-all.sh` (with their runtime dependency closure and the framework test suite)
 live in this repository under `team/scripts/**` and are deployed by `install.sh`
 into `{team}/scripts/**` — a fresh install has no dangling entry path
 (the former "entry-path coupling" gap, `automations/README.md` gap #2). These
@@ -87,6 +102,68 @@ disables). A poll run executes every card claimed in that round (up to the agent
 concurrency quota), so the bound must cover several cards. This bounds one run's
 lifetime; it does **not** release a lock held by a run that the scheduler never
 reaps.
+
+## 3.6 Live trigger drift (item 1 — the re-check must reach the *live* trigger)
+
+The framework side above is necessary but **not sufficient**: the deployed Gateway job
+does not read `providers.json`. It carries its **own** inline trigger script.
+
+- `task-patrol` is registered in the **Gateway automations store** under
+  `declarationKey` `openclaw-team:task-patrol` (job id `eb1e3fa3-…`), **not** as a file
+  anywhere under `~/.openclaw/**` — grepping the deployed tree will not find it. Read it
+  with `openclaw automations get <id>` (or `automations list`); edit the trigger with
+  `openclaw automations edit <id> --trigger-script <file>`.
+- A trigger that calls `node …/scripts/patrol-scan.mjs` **directly skips the pre-emit
+  re-check**, and bypasses `dispatch.mjs` entirely. That was the state found on
+  2026-10-10: the live `task-patrol` trigger still ran the old inline
+  `exec node patrol-scan.mjs` (no `--recheck`), while the wrapper
+  `scripts/triggers/patrol-main.js` — which *does* carry `--recheck` — was referenced by
+  **no** live automation. A fix that only lands in the repo/instance files therefore
+  does **not** take effect until the live trigger is re-pointed.
+- **Reconcile gap (residual, needs its own card).** `config/reconcile.mjs` also runs at
+  install time, but it reconciles **only** `payload.lightContext` and (for interval jobs)
+  the **schedule/interval**. **Trigger-script *content* is not reconciled** — so
+  `install.sh` re-runs do not repair drift in the trigger body. Repairing that mismatch
+  is deliberately **out of scope here** (do not touch `reconcile.mjs` / `install.sh`
+  semantics as part of a fix like this); it is recorded as a separate follow-up.
+- **Operating rule**: when a patrol decision-path fix must take effect, land it in
+  `team/scripts/**` **and** re-point the live trigger
+  (`openclaw automations edit <id> --trigger-script <file>`), then verify with
+  `openclaw automations get <id>` that the deployed script actually contains the new
+  entry. Repo-green ≠ live-green.
+
+## 3.7 Inter-session delivery latency (item 2 — a correct verdict can still arrive stale)
+
+Patrol's verdict can be **correct at generation time** and still be useless on arrival.
+Supplemental review R41 (`T-20261010-071808`, 2026-10-10) established the mechanism:
+the 18 nudge messages had **genuinely** matched a stale card when generated; the
+staleness in the consumer's experience came from **delivery latency, not a patrol
+cache**. Measured **generate → deliver ≈ 12–130 min**, and the control group was
+decisive: manually dispatched cards in the same window were delayed **38–108 min** too
+⇒ the root cause is the **transport / liveness layer (Gateway), not patrol**.
+
+Consequence: by the time a true alert reaches the worker the card often already looks
+"closed", so the worker is forced to re-verify live.
+
+**Root cause is 归口 the gateway platform layer (待 Terry 裁定).** The team side cannot
+bound transport latency from inside `team/scripts/**`. Three candidate mitigations,
+recorded for that decision:
+
+1. **Delivery-time re-check** — re-run the present-state check when the message is
+   *delivered* (not just generated). This is the only one that fully closes the window;
+   it needs the queue/consumer side, i.e. the Gateway.
+2. **Superseded downgrade** — mark a nudge as superseded if a newer state for the same
+   card already exists at delivery, and degrade it instead of waking the worker.
+3. **Queue latency upper bound / alert-on-latency** — bound how long an alert may sit
+   queued; a breach is itself a signal worth surfacing (the backlog is the incident).
+
+**Team-side mitigation landed here (partial, honest about scope).** `patrol.mjs` moves
+the re-check as late as the team layer owns — to **just before emit** — and every alert
+entry now carries **machine-checkable present-state evidence** (`status`,
+`status_changed_at`, `has_sessions`, `has_workspace`) plus the card's `stale_kind`.
+A consumer that knows when the alert was generated can therefore **drop or downgrade a
+superseded nudge without a new round-trip**. That narrows the window; it does **not**
+close it — the residual is the Gateway transport backlog above.
 
 ## 4. Decision Record
 - **Keep per-worker poll; do not do a "single board scan → dispatch"**: per-worker `*-poll` is an **independent fallback** (each worker atomically claims, so cards already created can still be claimed when Elon/main is stalled). Merging into "main scans → dispatch" would converge to a single Elon point and change the `PROTOCOL §①` "claim timing belongs to poll" semantics; the only gain is a few zero-cost config lines ⇒ not adopted.
