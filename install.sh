@@ -399,6 +399,26 @@ if [ "$DO_TEAM" = 1 ]; then
   info "protocol: $TEAM_DIR/PROTOCOL.md"
 fi
 
+# ---- 1a. team tooling (repo tools/ -> instance ROOT $TEAM_DIR/tools/) -------
+# Design/verification tooling (e.g. tools/ui-fidelity, tools/ui-align) ships in the
+# repo-root tools/ tree and deploys into the instance ROOT ($TEAM_DIR/tools/), NOT
+# under team/ (the instance has no team/tools/ subdir). Both engines coexist by
+# design (ui-fidelity README: it complements, not replaces, ui-align). Idempotent via
+# deploy_tree (install / unchanged / backup-then-overwrite on change); host-local
+# extras in the instance tools/ (e.g. a local openssl3 build) are never touched.
+if [ "$DO_TEAM" = 1 ] && [ -d "$REPO/tools" ]; then
+  step "team tooling -> $TEAM_DIR/tools"
+  for t in "$REPO"/tools/*; do
+    [ -e "$t" ] || continue
+    name="$(basename "$t")"
+    if [ -d "$t" ]; then
+      deploy_tree "$t" "$TEAM_DIR/tools/$name" "tools/$name"
+    else
+      deploy_file "$t" "$TEAM_DIR/tools/$name" "tools/$name"
+    fi
+  done
+fi
+
 # ---- 1b. prototype carrier (install-time choice read by Jobs/Linus) ---------
 carrier="$PROTOTYPE"
 if [ -z "$carrier" ]; then
@@ -694,7 +714,7 @@ fi
 # ---- summary ----------------------------------------------------------------
 # State is written read-modify-write so the optimizationApplied marker set in §4b
 # survives the version/installedAt refresh (A3).
-write_install_state version="$VERSION" installedAt="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+write_install_state version="$VERSION" installedAt="$(date -u +%Y-%m-%dT%H:%M:%SZ)" repoPath="$REPO"
 # ---- closing summary: API keys ---------------------------------------------
 if [ -f "$REPO/config/api-keys.json" ]; then
   say ""
