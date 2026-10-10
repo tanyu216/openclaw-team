@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-all.sh — 日常巡检门禁聚合（PROTOCOL §⑳.1）
 # 用法：bash check-all.sh
-# 聚合：红线一致 / 术语抽象 / §引用可解析 / 依赖 CVE 扫描(warn) / 卡 schema / 契约测试 / 原型门禁(可选) / 归档预览(dry-run 只读)
+# 聚合：红线一致 / 术语抽象 / §引用可解析 / 依赖 CVE 扫描(warn) / 防漂移巡检(只读) / 卡 schema / 契约测试 / 原型门禁(可选) / 归档预览(dry-run 只读)
 # 本脚本为「只读巡检门禁」：任何步骤都不得写 tasks/。归档步骤必须带 --dry-run（真只读，不移动文件）；
 # 真实归档由 meerkat-taskpanel(taskctl)/Elon 例行巡检执行（PROTOCOL §⑳.3），不由此门禁代劳。
 # 输出信封：末行 JSON {"ok":true|false,...} —— dispatcher 按 ok 归一（ok:false ⇒ fire:true，失败才唤醒模型）。
@@ -33,6 +33,30 @@ run "§引用可解析 lint-refs"              node "$S/lint-refs.mjs"
 echo "── 依赖 CVE 扫描 scan-deps (warn; SCAN_STRICT=1 才按阈值阻断)"
 if ! node "$S/scan-deps.mjs"; then
   if [ "${SCAN_STRICT:-0}" = 1 ]; then echo "   ↑ FAIL (strict)"; fail=1; fi
+fi
+
+# 防漂移巡检（只读）：仓 team/ ↔ 实例 diff。仅报差异，绝不写、绝不移动文件；默认不阻断
+# （DRIFT_STRICT=1 时按差异计入 fail）。仓路径取 OPENCLAW_TEAM_REPO，否则读 .install-state.json
+# 的 repoPath；两者都缺 ⇒ 跳过（非红）。把人工 reposync 升级为「自动发现 + 人工裁定」。
+echo "── 防漂移巡检 repo↔instance diff（只读；仅报差异）"
+REPO_DIR="${OPENCLAW_TEAM_REPO:-}"
+if [ -z "$REPO_DIR" ] && [ -f "$TEAM/.install-state.json" ]; then
+  REPO_DIR="$(node -e 'try{process.stdout.write(String(require(process.argv[1]).repoPath||""))}catch(e){}' "$TEAM/.install-state.json" 2>/dev/null || true)"
+fi
+if [ -z "$REPO_DIR" ] || [ ! -d "$REPO_DIR/team" ]; then
+  echo "   (skip) 未配置仓路径：设 OPENCLAW_TEAM_REPO=<repo>（或 install.sh 写 .install-state.json.repoPath）"
+else
+  drift="$(diff -rq "$REPO_DIR/team" "$TEAM" \
+    -x tasks -x workspace -x memory -x claude-sessions.json -x turing-runs.json \
+    -x projects.json -x team.config.json -x .board -x .backups \
+    -x .install-state.json -x proposals -x reviews -x skills -x tools 2>/dev/null || true)"
+  if [ -z "$drift" ]; then
+    echo "   ✔ 仓 team/ 与实例一致（已忽略运行期/主机本地项）"
+  else
+    printf '%s\n' "$drift" | sed 's/^/   Δ /'
+    echo "   ⚠ 检出动差异（只读，不阻断；裁定归口 Elon——回灌 or 部署）"
+    if [ "${DRIFT_STRICT:-0}" = 1 ]; then echo "   ↑ FAIL (drift strict)"; fail=1; fi
+  fi
 fi
 
 if [ "$provider_missing" = 0 ]; then
