@@ -152,7 +152,7 @@ test('3. 额度已满 ⇒ fire:false（零成本空转）', () => {
 
 test('4. 冲突只领一张：同 project+target 的 3 张只领最早 1 张，其余记 skipped', () => {
   const root = mkRoot();
-  const t = '/Users/tanyu/Documents/task-panel';
+  const t = '/Users/tanyu/Documents/meerkat-taskpanel';
   writeCard(root, 'T-20260101-300001-c1', { project: 'TaskPanel', target: t, created_at: '2026-01-01T00:00:01.000Z' });
   writeCard(root, 'T-20260101-300002-c2', { project: 'TaskPanel', target: t, created_at: '2026-01-01T00:00:02.000Z' });
   writeCard(root, 'T-20260101-300003-c3', { project: 'TaskPanel', target: t, created_at: '2026-01-01T00:00:03.000Z' });
