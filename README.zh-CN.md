@@ -163,7 +163,7 @@ cd <path/to/openclaw-team>
 4. **Agent 与角色工作区**：拷贝 `AGENTS.md`/`SOUL.md`/`IDENTITY.md`，然后 `openclaw agents add <id> --workspace <dir> --non-interactive`；已注册则跳过。**永不覆盖**既有 `USER.md`。
 5. **配置片段** → `openclaw config patch --file config/*.json5`（`config/examples/` 下仅参考，不自动应用）。
 6. **任务提供方（ACL）**：报告已配置的提供方（`OPENCLAW_TEAM_TASK_PROVIDER`，默认 `meerkat-taskpanel`）；**默认安装**参考实现 meerkat-taskpanel。`--no-meerkat-taskpanel` 退出并打印「自备」指引（Jira / Plane / Linear …，经 `task-interface` ACL）。
-7. **团队定时任务（调度）**：注册团队级定时任务（`poll-<agent>` 每 2m、`task-patrol` 每 5m、`team-check-all` 每小时），**声明式**（按 `declarationKey`；`config/reconcile.mjs` 产出 add/edit/skip，重跑可自愈漂移）、**provider-agnostic**：每个触发脚本只调用框架派发器 `team/automations/dispatch.mjs`，**不含任何 provider 字面量**。`--skip-automations` 关闭。见 [调度与团队定时任务](#调度与团队定时任务)。
+7. **团队定时任务（调度）**：注册团队级定时任务（`poll-<agent>` 每 5m、`task-patrol` 每 15m、`team-check-all` 每小时），**声明式**（按 `declarationKey`；`config/reconcile.mjs` 产出 add/edit/skip，重跑可自愈漂移）、**provider-agnostic**：每个触发脚本只调用框架派发器 `team/automations/dispatch.mjs`，**不含任何 provider 字面量**。`--skip-automations` 关闭。见 [调度与团队定时任务](#调度与团队定时任务)。
 8. **配置优化（providers 回填）**：把缺失的 provider 优化字段回填进 `~/.openclaw/openclaw.json`（**merge，绝不整文件覆盖**）：`contextWindow` 超过阈值（默认 200000）的模型补 `contextTokens: 200000`、白名单 deepseek id 补 `cost.cacheRead`，以及 `agents.defaults` 的 compaction/contextPruning/contextLimits 静态片段。**永不覆盖已有值**；`OPENCLAW_TEAM_OPTIMIZE_PROVIDERS=0` 关闭（见 [配置优化与定时任务瘦身](#配置优化与定时任务瘦身)）。
 
 ### 升级 / 重装
@@ -220,8 +220,8 @@ cd <path/to/openclaw-team>
 
 | 任务 | 频率 | 用途 |
 |---|---|---|
-| `poll-<agent>` | 每 2m | 各 worker 轮询（jobs/linus/turing/assistant）；仅当领取到卡时 fire |
-| `task-patrol` | 每 5m | 心跳陈旧的 `in_progress` 卡扫描 |
+| `poll-<agent>` | 每 5m | 各 worker 轮询（jobs/linus/turing/assistant）；仅当领取到卡时 fire |
+| `task-patrol` | 每 15m | 心跳陈旧的 `in_progress` 卡扫描 |
 | `team-check-all` | 每小时（`0 * * * *` @ Asia/Shanghai） | 门禁巡检；仅失败时 fire |
 
 每个触发脚本调用框架派发器 `team/automations/dispatch.mjs <poll|patrol|check-all> [agent]`；派发器解析 provider 的入口命令（`team/automations/providers.json`；provider = `OPENCLAW_TEAM_TASK_PROVIDER`，默认 `meerkat-taskpanel`）并返回 `{"fire":…}`。触发脚本**不含任何 provider 字面量**，故**换基座 = 定时任务零改动**。入口缺失 / 执行失败 / 解析失败 ⇒ `fire:false`（零成本）。详见 `team/automations/README.md`。
@@ -233,7 +233,7 @@ cd <path/to/openclaw-team>
 | 阶段 | 做什么 | 关闭方式 |
 |---|---|---|
 | **Providers 回填**（`config/optimization.mjs`） | 回填**缺失**的 `models.providers` 优化字段：`contextWindow` 超阈值（默认 200000）的模型补 `contextTokens: 200000`，白名单 deepseek id 补 `cost.cacheRead`（`deepseek-flash`→`0.006`、`deepseek-v4-pro`→`0.003625`），另加 `agents.defaults` 的 compaction/contextPruning/contextLimits 静态片段。**永不覆盖已有值**；整个 `models.providers` 数组读改写（稀疏 patch 会整体替换数组）。 | `OPENCLAW_TEAM_OPTIMIZE_PROVIDERS=0` |
-| **定时任务瘦身**（`config/reconcile.mjs`） | 声明式任务为唯一事实源；每次运行对齐运行时（缺失⇒add、漂移⇒edit、一致⇒skip）。poll 间隔 **1m → 2m**（`OPENCLAW_TEAM_POLL_INTERVAL`，默认 `2m`），所有任务加 `--light-context`。cron 任务（`team-check-all`）**绝不**加 `--every`——只对齐 `lightContext`。 | `--skip-automations` |
+| **定时任务瘦身**（`config/reconcile.mjs`） | 声明式任务为唯一事实源；每次运行对齐运行时（缺失⇒add、漂移⇒edit、一致⇒skip）。poll 间隔 **1m → 2m → 5m**（`OPENCLAW_TEAM_POLL_INTERVAL`，默认 `5m`），所有任务加 `--light-context`。cron 任务（`team-check-all`）**绝不**加 `--every`——只对齐 `lightContext`。 | `--skip-automations` |
 
 providers 回填调参（与 `config/examples/model.example.json5` 一致）：
 

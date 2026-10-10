@@ -33,7 +33,7 @@
 //
 // Declared job shape:
 //   { key, name, agent, job: "poll"|"patrol"|"check-all",
-//     kind: "interval"|"cron", interval?: "2m", lightContext: true,
+//     kind: "interval"|"cron", interval?: "5m", lightContext: true,
 //     triggerScriptPath?: "/abs/path/to/expected-trigger.js" }
 //
 // `editArgs` is word-split by install.sh (`automations edit <id> $editArgs`), so a
@@ -160,7 +160,7 @@ function normalizeScript(s) {
 /**
  * Normalize a runtime `schedule` into a minute-counted interval string (the same
  * shape the declared jobs use for `interval`), so `intervalMatches` can compare
- * real runtime shapes (`{kind:"every", everyMs:N}`) against `"2m"`/`"5m"`.
+ * real runtime shapes (`{kind:"every", everyMs:N}`) against `"5m"`/`"15m"`.
  *
  *   - {kind:"every", everyMs:N} → "Nm" (whole minutes), "Ns" (whole seconds) or "Nms"
  *   - {kind:"cron", expr:…}     → "" (a cron never maps to an interval; --every is only
