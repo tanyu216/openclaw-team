@@ -66,6 +66,7 @@ if [ "$provider_missing" = 0 ]; then
   run "建卡幂等(同 idem 非终态>1)"          node "$S/check-idem.mjs"
   run "卡↔registry session 一致性 check-sessions" node "$S/check-sessions.mjs"
   run "契约测试（task-interface v1）"      node "$TEAM/skills/task-ops/tests/contract.test.mjs"
+  run "ACL 终态不可逆守卫"                node "$TEAM/skills/task-ops/tests/terminal-guard.test.mjs"
   run "ACL 项目解析（identity code）"      node --test "$TEAM/skills/task-ops/tests/projects.test.mjs"
   run "ACL 调度求值（provider-agnostic）"  node --test "$TEAM/skills/task-ops/tests/schedule.test.mjs"
   run "frontmatter 幂等/写卡护栏 测试"     node --test "$S/tests/"*.test.mjs
