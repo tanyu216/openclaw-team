@@ -56,6 +56,7 @@ $OCL sessions list --all-agents --json        # session overview
 taskctl list                                  # board overview
 taskctl show <card>                           # a single card (including Report)
 taskctl poll <agent>                          # manually run one trigger evaluation (claim drill/troubleshooting)
+node team/scripts/taskd-pointer-doctor.mjs    # runtime pointer health (read-only; see §4.1)
 # Restart (maintenance window: back up config first; after restart the operator sends a message to verify the human channel)
 $OCL gateway restart
 # Disable a worker's fallback
@@ -72,6 +73,40 @@ $OCL automations disable <jobId>    # restore: automations enable <jobId>
 | Config broken | `cp ~/.openclaw/openclaw.json.pre-*` (chained backups); platform `.last-good`/`.bak` rotation; `doctor --fix` can recover |
 | main workspace accident | Back up `~/.openclaw/workspace.bak-persona-*` (pre-migration snapshot) |
 | Human channel route broken | Check `agents list --bindings` bindings; restore the pre-team config + restart |
+| Board CLI cannot reach the board ("started but never answered `/health`") | Runtime-pointer naming drift — see §4.1; diagnose with `node team/scripts/taskd-pointer-doctor.mjs` |
+
+### 4.1 Runtime pointer naming (`taskd`) — single name, diagnose, migrate
+
+**Decision (single naming)**: the runtime pointer's home is the **new name** `MeerkatTaskPanel`. Authority = the provider's own locator (`meerkat-taskpanel` `src/shared/runtime-locator.mjs#resolveRuntimePointerPath`):
+
+| Platform | Pointer path (new name — the one the CLI/`taskcli` uses) | Legacy (pre-rename) |
+|---|---|---|
+| macOS | `<home>/Library/Application Support/MeerkatTaskPanel/runtime.json` | `<home>/Library/Application Support/TaskPanel/runtime.json` |
+| Linux/other | `<XDG_STATE_HOME or ~/.local/state>/meerkat-taskpanel/runtime.json` | `<…>/task-panel/runtime.json` |
+
+`TASKD_RUNTIME_POINTER` overrides the whole path (the provider's documented knob; it applies to the new name). **`TaskPanel` is legacy only** — it must not be resurrected as a second home; keep exactly one name.
+
+**Why it silently fails**: the CLI looks only under the new name. If a live `taskd` was started by the old-name checkout, its pointer sits under `TaskPanel/`, the CLI sees "no board", autostarts *another* `taskd` (or loses the race on the port) and reports `started but never answered /health` — which reads like "the board is down", while the truth is "two names, two data dirs". Measured on 2026-10-12: `TaskPanel/runtime.json` → `dataDir: /Users/tanyu/Documents/task-panel/.data` (checkout deleted), `pid 77976` still serving, new-name pointer absent.
+
+**Diagnose (read-only, no side effects)**:
+
+```bash
+node team/scripts/taskd-pointer-doctor.mjs            # human output + exit 1 on any finding
+node team/scripts/taskd-pointer-doctor.mjs --json     # machine envelope (last line)
+node team/scripts/taskd-pointer-doctor.mjs --no-probe # skip the /health probe (offline)
+```
+
+Finding codes: `legacy_only` (new missing, old present) · `legacy_data_dir_missing` · `legacy_daemon_live` · `legacy_pid_dead` · `legacy_leftover` (both present) · `data_dir_missing` · `pid_dead` · `health_failed` · `pointer_missing`. Any finding ⇒ exit 1 (never silent). It **never** starts, restarts, moves or deletes anything.
+
+**Migrate (operator action — the doctor only diagnoses; these steps are executed by Elon under operator authorization):**
+
+1. Stop the stale old-name daemon (the pid in `TaskPanel/runtime.json`) so the port is free and no data is written to the deleted checkout's `.data`.
+2. Decide the board's real data directory and pin it (`TASKD_DATA_DIR=<dir>`), or let the new-name checkout own `<current checkout>/.data`; the pointer's `dataDir` must exist.
+3. Start `taskd` from the **current** checkout (`node src/server/main.mjs`) or simply run a `taskctl` command and let it autostart.
+4. Verify: the doctor exits 0 and the pointer now exists under `MeerkatTaskPanel/` with a live pid and a reachable `/health`.
+5. Archive/remove the legacy `TaskPanel/` pointer dir (keep a copy if you want the audit trail) so nobody debugs the wrong file again.
+
+**Boundary**: steps 1–5 are live-instance operations — not performed by the framework or by a task card; they run only under operator authorization (`PROTOCOL §⑪` / card scope). The team-side deliverable is the naming decision above, the read-only doctor, and this runbook.
 
 ## 5. Cost Observation Guide
 
