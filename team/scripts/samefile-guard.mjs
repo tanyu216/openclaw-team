@@ -17,7 +17,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { TASKS_DIR, CARD_ID_RE, parseFrontmatter } from './lib.mjs';
 
-const NON_TERMINAL = new Set(['ready', 'in_progress', 'blocked', 'in_review']);
+/**
+ * 非终态（可写）四态 —— **同文件/同仓并发判定的唯一口径**，`scripts/lane-isolation.mjs`
+ * 与本脚本共用（T-20261012-022948-2：单点持有，避免两处政策漂移）。
+ */
+export const NON_TERMINAL = new Set(['ready', 'in_progress', 'blocked', 'in_review']);
 
 function parseWrites(raw) {
   if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
@@ -27,7 +31,8 @@ function parseWrites(raw) {
   return s.split(',').map((x) => x.trim()).filter(Boolean);
 }
 
-function resolveWriteSet(fm) {
+/** 卡 → 写集（`writes` 优先；缺省退化 `target` —— 粗判口径见本文件头注） */
+export function resolveWriteSet(fm) {
   const writes = parseWrites(fm?.writes);
   if (writes.length) return writes;
   const target = String(fm?.target ?? '').trim();

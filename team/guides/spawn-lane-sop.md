@@ -12,7 +12,7 @@
 
 - **The only legitimate way to start a lane is the single entry**:
   ```bash
-  bash ~/.openclaw/team/scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [phase=<p>] [role=exec|review] [--review] [--dry-run]
+  bash ~/.openclaw/team/scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [phase=<p>] [role=exec|review] [--review] [--dry-run] [--no-isolate]
   ```
   The thin wrapper `scripts/spawn-lane.sh` execs the core `scripts/spawn-lane.mjs`.
   `role=exec` (default) starts an execution lane; `role=review` (`--review` is equivalent) starts a **review lane** (§9).
@@ -65,7 +65,7 @@ bash ~/.openclaw/team/scripts/spawn-lane.sh T-20261010-052210 turing --review ba
 
 - The **last stdout line is JSON** `{ok, role, settings, session_id, pid, cwd, handoff, log, cmd, …}` for machine reading.
 - Exit codes: **0** started (or dry-run OK) · **1** refused (validation/handoff/claim/cap) · **2** usage error.
-- Refusal reasons are stable and greppable, e.g. `claimed_by_mismatch(…)`, `concurrency_cap(owner=…,running=…,cap=…)`, `handoff_anchor_missing:…`, `status_not_spawnable(…)`.
+- Refusal reasons are stable and greppable, e.g. `claimed_by_mismatch(…)`, `concurrency_cap(owner=…,running=…,cap=…)`, `handoff_anchor_missing:…`, `status_not_spawnable(…)`, `lane_samefile_conflict(…):serialize`, `lane_isolation_failed(…):serialize_or_fix` (`§11`).
 - After starting a lane you **still own polling it to terminal state** (`PROTOCOL §⑥` clause 4); the entry does not take over polling.
 
 ## 5. Detach discipline (macOS)
@@ -88,20 +88,24 @@ Both gates are aggregated by `scripts/check-all.sh`; a bypass lane therefore can
 - **`status_not_spawnable(in_review):use_role=review`** — you ran an **execution** lane against an in-review card. If you meant to review it, re-run with `role=review` / `--review` (§9); otherwise wait for the reviewer.
 - **`review_needs_in_review(status=…)`** — a review lane (`role=review`) was pointed at a card that is not `in_review`.
 - **`review_seg_taken(seg=…,owner=…):use_seg=segR1`** — a review lane was given a `seg=` that already belongs to another owner on this card. Reusing it would **overwrite that owner's `## Sessions` row** (the card's upsert key is `seg:<seg> ·`); drop `seg=` (default `segR1`) or pass a fresh one (§9).
+- **`lane_samefile_conflict(with=…,overlap=…):serialize`** — a same-repo non-terminal card writes a file this card also writes. **Serialize**: wait for that card to reach terminal state, or re-scope the writes. Do **not** work around it with `--no-isolate` (that removes the protection, not the conflict) — isolation cannot fix a same-file collision, it only moves it to a branch merge (§11).
+- **`lane_isolation_failed(…):serialize_or_fix`** — the lane's repo has a concurrent lane but its worktree could not be taken. Run `git worktree list` in the repo, clear the obstacle named in the reason (a stale path, a branch checked out elsewhere), then re-run the entry (§11). Never re-launch the lane in the shared checkout to "get it moving".
 - Any refusal that looks wrong ⇒ report to Elon with the JSON envelope; do not work around the entry by launching directly.
 
-## 8. Same-repo concurrent lane ⇒ worktree isolation
+## 8. Same-repo concurrent lane ⇒ worktree isolation (now automatic)
 
-The entry resolves cwd from the card's `project` + `target` (`§3` step 3) — so **a lane is isolated by pointing its `target` at its own worktree**, with **no change to this entry's behaviour**:
+Two lanes must never share one checkout: multiple writers in a shared working tree corrupt each other's verification (061638 O2: an external lane's `b359780` mixed into an `in_review` snapshot — detected by content forensics, 27,807 B ≠ 18,432 B) and can sweep foreign hunks into a commit (`PROTOCOL §⑥`).
+
+The entry resolves cwd from the card's `project` + `target` (`§3` step 4), and **since `T-20261012-022948-2` it performs the isolation itself** — no dispatch-side memory required, no card edit (`§11`). The manual route below remains valid as an **override** (non-default lane/branch/base, or when the automatic path is switched off):
 ```bash
 # 1) overlap detected by scripts/samefile-guard.mjs (read-only)?
 # 2) take a per-lane worktree (idempotent; --dry-run first — zero side effects):
 node ~/.openclaw/team/scripts/lane-worktree.mjs <repo> <lane> [--branch <b>] [--base <ref>] --dry-run
-# 3) set the card's `target` to the returned `path`, then dispatch through §4 as usual.
+# 3) point the lane's working tree at the returned `path` (in practice: by hand, put it in the
+#    prompt or on the card `target`), then dispatch through §4 as usual.
 ```
-Two lanes must never share one checkout: multiple writers in a shared working tree corrupt each other's verification (061638 O2: an external lane's `b359780` mixed into an `in_review` snapshot — detected by content forensics, 27,807 B ≠ 18,432 B) and can sweep foreign hunks into a commit (`PROTOCOL §⑥`).
 
-**Full rule, judging criteria, naming/branch/base discipline, and cleanup**: `guides/worktree-isolation-sop.md`. Serialize instead when the card says so or `depends_on` is unmet (`PROTOCOL §⑥.3`).
+**Full rule, judging criteria, naming/branch/base discipline, and cleanup**: `guides/worktree-isolation-sop.md` (§9 = the automatic path). Serialize instead when the card says so or `depends_on` is unmet (`PROTOCOL §⑥.3`).
 
 ## 9. Review lanes (`role=review`) — the single entry, not a side registry
 
@@ -130,6 +134,33 @@ bash ~/.openclaw/team/scripts/spawn-lane.sh <card> turing --review backend=codex
 
 The preset is idempotent and side-effect-free under `--dry-run`, and it is done for every backend (for `codex`, which takes no `--settings`, the file is simply inert).
 
+## 11. Automatic same-repo lane isolation (default on; `--no-isolate` opts out)
+
+**Rule**: when the lane's repo already carries a **concurrent non-terminal lane**, the entry isolates the lane **by itself** — it creates a per-lane worktree through `scripts/lane-worktree.mjs` (`guides/worktree-isolation-sop.md §4`) and points the lane's cwd at it. The judgment is **not** recomputed here: `scripts/lane-isolation.mjs` reuses the existing policy (same **file** ⇒ strict serial; same **repo**, other **file** ⇒ isolate).
+
+Where it sits in the sequence (`§3`): the **decision** runs at **①c**, *before* the claim, so a refusal has zero side effects (no claim, no registry, no log); the **worktree is created at ③b**, after the concurrency cap and the handoff/settings pre-checks, so a refused spawn never leaves a worktree behind. It reuses the entry's own cwd resolution (`§3` step 4) and the `lane-worktree.mjs` naming defaults: `lane = <card>-<seg>`, `path = <repo>-wt-<lane>`, `branch = lane/<lane>`.
+
+**Not isolated** (unchanged behaviour): no other non-terminal lane in the repo · a non-git repo (e.g. `project: __team__` ⇒ the team root, which is not a checkout) · `role=review` (a review lane is a *reader*; isolate the writer and pin the commit, `worktree-isolation-sop.md §3`) · the lane's cwd is already a linked worktree · the switch is off. In all of those `isolation.mode` is `none` / `already_isolated` / `disabled` and `cwd` is exactly what it was before this feature.
+
+**Two new refusals** (exit 1, both zero-side-effect, both greppable):
+
+- `lane_samefile_conflict(with=…,overlap=…):serialize` — a same-repo non-terminal card shares a file with this one. Isolation does not fix that (the collision would just move to a branch merge), so the lane **waits**: serialize (`PROTOCOL §⑥.3` case ②).
+- `lane_isolation_failed(<inner reason>):serialize_or_fix` — the worktree could not be taken (path occupied by a non-worktree directory, lane branch checked out elsewhere, `bad_lane`, `worktree_add_failed`). **Fail-closed**: the entry refuses rather than starting the lane in the shared checkout, because "could not isolate" silently read as "green" is precisely the failure this closes. Fix the obstacle (`git worktree list`, remove the stale path) or serialize; do not work around it by spawning directly.
+
+**Output**: `isolation: { mode, lane, branch, path, main_repo, same_repo_lanes, action, applied }`; `cwd` equals `isolation.path` when isolated, and the sub-session prompt gains one line stating the worktree + branch and asking for the branch/sha in the Report. The card's `target` is **not** rewritten (it is the declaration and the `samefile-guard` fallback write set — rewriting it would silently disarm the same-file guard); the *effective* tree is `isolation.path`.
+
+**Rollback switch**: `--no-isolate`, or `OPENCLAW_LANE_ISOLATION=0` (`off`/`false`/`no`/`disabled`) ⇒ the pre-change behaviour, `isolation.mode = "disabled"`.
+
+```bash
+# Default: automatic isolation (a worktree appears only if the repo really has a concurrent lane)
+bash ~/.openclaw/team/scripts/spawn-lane.sh <card> linus --dry-run     # rehearse: prints cwd + isolation, zero side effects
+bash ~/.openclaw/team/scripts/spawn-lane.sh <card> linus              # may create <repo>-wt-<card>-seg1
+# Rollback to the explicit discipline
+bash ~/.openclaw/team/scripts/spawn-lane.sh <card> linus --no-isolate
+```
+
 ---
 
 > **Doc-sync note (T-20261010-084051)**: this guide is a framework doc whose normative parent is `PROTOCOL §⑥`. The change above is **method-library level** (`role=review` entry semantics + the settings preset) and adds **no new protocol clause**, so it **does not trigger a PROTOCOL §⑥ edit**; it only requires this file to be mirrored live→repo alongside `scripts/spawn-lane.mjs` (both are vendored from the same source).
+
+> **Doc-sync note (T-20261012-022948-2)**: §8 + §11 (automatic same-repo lane isolation) are likewise **method-library level**. They **implement** existing clauses — `PROTOCOL §⑥.3` case ② (same-file/same-resource ⇒ serialize; parallelism-first otherwise), `§⑨.1` (single writer per file) and `PROTOCOL §⑥` cwd normalization — and **redefine nothing**, so no PROTOCOL edit is triggered. Scope of the change: `scripts/lane-isolation.mjs` (new decision module), `scripts/spawn-lane.mjs` (①c/③b wiring + `--no-isolate`), `scripts/lane-worktree.mjs` + `scripts/tests/lane-worktree.test.mjs` (the 074754-2 mechanism, **backfilled into the repo** — it previously existed only in the deployed instance) and the tests `tests/lane-isolation.test.mjs` / `tests/spawn-lane-isolation.test.mjs`. Response: `guides/worktree-isolation-sop.md §9`.

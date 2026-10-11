@@ -18,8 +18,18 @@
  *   ①b 同卡同 seg 防双跑：卡内 `## Sessions` 该 seg 行 / registry 该卡 `phase=seg` 条目若
  *      `status=running` **且 pid 存活** ⇒ 拒绝二次 spawn（`session_running(...):reuse_existing`，零副作用），
  *      提示复用既有 session（与 poll 防双跑守卫同口径）；僵尸行（pid 已死）不占用，交 reconcile。
+ *   ①c **同仓并发 lane 自动隔离**（T-20261012-022948-2；判定见 `scripts/lane-isolation.mjs`）：
+ *      起会话前判定本 lane 的仓是否已有**并发非终态 lane**，复用既有政策（不重定政策）——
+ *        · 同**文件**（写集重叠）⇒ **严格串行**：拒绝起会话（`lane_samefile_conflict(...):serialize`，
+ *          零副作用；`PROTOCOL §⑥.3` case ②）；
+ *        · 同**仓**不同文件 ⇒ **自动**建隔离 worktree 并把本 lane 的 cwd 指向它（`lane-worktree.mjs`）；
+ *        · 只读角色（role=review）/ 非 git 仓 / 无并发 / 已在 linked worktree ⇒ 不动（兼容路径不变）。
+ *      隔离**失败即 fail-closed**（`lane_isolation_failed(...)`）：把「无法隔离」读成「绿」正是本卡要消灭的
+ *      失败模式。回退开关：`--no-isolate` 或 env `OPENCLAW_LANE_ISOLATION=0`（回到显式纪律路径）。
  *   ② 并发额度：linus/jobs running>=8 或 turing running>=3 ⇒ 拒绝；
- *   ③ cwd：由 project 经 ACL 解析（`__team__` ⇒ team 根），叠加 target；
+ *   ③ cwd：由 project 经 ACL 解析（`__team__` ⇒ team 根），叠加 target；若 ①c 判定需隔离，
+ *      cwd 改为该 lane 的隔离 worktree（卡 `target` **不**回写：`target` 是 `samefile-guard` 写集退化口径的
+ *      输入，回写绝对 worktree 路径会把同文件守卫静默拆掉；有效目标见输出 JSON `isolation.path`）；
  *   ④ handoff 自检：workspace/<id>/ 确保存在；handoff.md 缺失 ⇒ 用 ACL `task.handoff` 生成（不覆盖）；
  *      **已存在但缺四锚 ⇒ 拒绝起会话**（exit≠0，明报缺哪个锚）；
  *   ④b settings 预置（幂等）：确保 workspace/<id>/.claude/settings.json 存在（`--settings` 的目标；
@@ -30,7 +40,8 @@
  *   ⑦ 起后**立即** ACL `task.session-set`（seg/owner/backend/phase/pid/log/status=running；卡 + registry 同写）。
  *   `--dry-run`：只做校验 + 打印计划命令行，**不起进程、不写 registry/卡/handoff/settings**。
  *
- * 输出：末行 JSON `{ok, role, settings, session_id, pid, cwd, handoff, log, cmd, …}`（机读）；失败 exit≠0（用法 2 / 拒绝 1）。
+ * 输出：末行 JSON `{ok, role, settings, isolation, session_id, pid, cwd, handoff, log, cmd, …}`（机读）；失败 exit≠0（用法 2 / 拒绝 1）。
+ * 用法错误：未知旗标 / **多余的裸位置参数**（如把 `--dry-run` 误写成 `dry-run`）⇒ exit 2，绝不静默忽略。
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -38,6 +49,7 @@ import { spawn as spawnChild } from 'node:child_process';
 import { TEAM_ROOT, CARD_ID_RE, AGENTS, getProject } from './lib.mjs';
 import { anchorGaps } from './check-handoff.mjs';
 import { loadRegistry, isPidAlive } from './registry.mjs';
+import { isolationEnabled, laneIsolationPlan, applyLaneIsolation } from './lane-isolation.mjs';
 import { read as aclRead, claim as aclClaim, sessionSet, sessionIdFor, handoff as aclHandoff } from '../skills/task-ops/lib/task.mjs';
 
 /** 并发额度（PROTOCOL §⑥ clause 2）：linus/jobs < 8；turing < 3；其余默认 8 */
@@ -160,14 +172,16 @@ export function ensureWorkspaceSettings(wsDir, { dryRun = false } = {}) {
   return { state: 'created', path: settingsPath };
 }
 
-/** 解析 CLI 参数（位置：card owner；k=v：seg/backend/phase/role；flag：--review/--dry-run/--help） */
+/** 解析 CLI 参数（位置：card owner；k=v：seg/backend/phase/role；flag：--review/--dry-run/--no-isolate/--help） */
 export function parseArgs(argv) {
   const pos = [];
   const kv = {};
   let dryRun = false;
   let help = false;
+  let isolate = true;
   for (const a of argv) {
     if (a === '--dry-run') { dryRun = true; continue; }
+    if (a === '--no-isolate') { isolate = false; continue; } // 回退开关（等价 OPENCLAW_LANE_ISOLATION=0）
     if (a === '--review') { kv.role = 'review'; continue; } // 等价 role=review
     if (a === '--help' || a === '-h') { help = true; continue; }
     if (a.startsWith('--')) return { ok: false, reason: `unknown_flag:${a}` };
@@ -175,10 +189,16 @@ export function parseArgs(argv) {
     if (i > 0 && !a.startsWith('=')) { kv[a.slice(0, i)] = a.slice(i + 1); continue; }
     pos.push(a);
   }
+  // 位置参数只有 `card owner` 两个；**多余的裸位置参数一律用法错误**，绝不静默忽略
+  // （实证 T-20261012-022948-2：把 `--dry-run` 误写成裸 `dry-run` ⇒ 被当多余位置参数吞掉 ⇒
+  //  **真的起了会话**（真建 worktree + 真 spawn + 真登记），而调用者以为自己只做了预演。
+  //  「未确认」读成「已预演」＝ 本治理线一直在消灭的失败模式。）
+  if (pos.length > 2) return { ok: false, reason: `unexpected_positional:${pos[2]}` };
   return {
     ok: true,
     help,
     dryRun,
+    isolate,
     card: pos[0] || '',
     owner: pos[1] || '',
     // 未显式给 seg ⇒ ''，由 spawnLane 按 role 取默认（exec=seg1 / review=segR1）
@@ -195,13 +215,24 @@ const backendBin = (backend) =>
     ? process.env.OPENCLAW_CODEX_BIN || 'codex'
     : process.env.OPENCLAW_CLAUDE_BIN || 'claude');
 
-/** 子会话提示词：先读背景包（handoff），再执行卡。子会话不读牌面（PROTOCOL §⑥ clause 7）。 */
-export function buildPrompt({ handoffPath, cardPath, reportPath }) {
-  return [
+/**
+ * 子会话提示词：先读背景包（handoff），再执行卡。子会话不读牌面（PROTOCOL §⑥ clause 7）。
+ * 隔离开启时追加一行工作树纪律：本 lane 在**自己的 worktree** 上，提交落在 lane 分支，
+ * 收尾须回报 branch + sha 供整合（否则隔离树的产物无人知道，见 guides/worktree-isolation-sop.md §7）。
+ */
+export function buildPrompt({ handoffPath, cardPath, reportPath, isolation = null }) {
+  const lines = [
     `Read your background pack first: ${handoffPath}`,
     `Task card: ${cardPath}`,
     `Execute the card's Acceptance and write your report to ${reportPath}.`,
-  ].join('\n');
+  ];
+  if (isolation && isolation.mode === 'worktree') {
+    lines.push(
+      `You are isolated in a lane worktree: ${isolation.path} (branch ${isolation.branch}) — another non-terminal lane is writing the same repo. ` +
+      `Commit there with explicit paths, and report the branch + commit sha in your Report so it can be integrated and the worktree removed.`,
+    );
+  }
+  return lines.join('\n');
 }
 
 /** 组装子进程命令（argv 数组；claude 参数照 PROTOCOL §⑥ 模板） */
@@ -245,11 +276,14 @@ const usage = (reason) => ({ ok: false, code: 2, reason });
 
 /**
  * 执行入口（dry-run 与真实起会话共用同一条校验链）。
- * @param {{card:string,owner:string,seg:string,backend:string,phase:string,role:'exec'|'review',dryRun:boolean}} opts
+ * @param {{card:string,owner:string,seg:string,backend:string,phase:string,role:'exec'|'review',
+ *          dryRun:boolean,isolate?:boolean}} opts `isolate:false` = 关自动隔离（回退开关，等价 `--no-isolate`）
  */
 export function spawnLane(opts = {}) {
   const { card = '', owner = '', seg: segArg = '', backend = 'claude', dryRun = false } = opts;
   const role = opts.role || 'exec';
+  // 自动隔离开关：CLI `--no-isolate` 与 env `OPENCLAW_LANE_ISOLATION` 任一关闭即关闭（两者都须为「开」）
+  const isolateEnabled = opts.isolate !== false && isolationEnabled();
   // 显式 seg= 优先；否则按 role 取默认（复核 lane 用 segR1，避开执行侧 seg1 的 Sessions 行撞名）
   const seg = segArg || (role === 'review' ? REVIEW_SEG : 'seg1');
   const phase = opts.phase || seg;
@@ -287,6 +321,26 @@ export function spawnLane(opts = {}) {
       );
     }
   }
+  // ---- ①c cwd 归一 + 同仓并发 lane 的自动隔离**判定**（零副作用；放在 claim 前 ⇒ 拒绝路径零副作用）----
+  let baseCwd;
+  try {
+    baseCwd = resolveCwd(c.fm);
+  } catch (e) {
+    return reject(`project_unresolved:${String(e && e.message ? e.message : e)}`);
+  }
+  const isoPlan = laneIsolationPlan({
+    taskId, seg, role, cwd: baseCwd, fm: c.fm, enabled: isolateEnabled, dryRun,
+  });
+  if (isoPlan.mode === 'serialize') {
+    const withIds = isoPlan.conflicts.map((x) => x.card).join(',');
+    const overlap = [...new Set(isoPlan.conflicts.flatMap((x) => x.overlap))].join(',');
+    return reject(`lane_samefile_conflict(with=${withIds},overlap=${overlap}):serialize`, { isolation: isoPlan });
+  }
+  if (isoPlan.mode === 'blocked') {
+    // fail-closed：隔离预演被拒（路径被占/分支已在别处检出）⇒ 不静默降级回共享 checkout
+    return reject(`lane_isolation_failed(${isoPlan.reason}):serialize_or_fix`, { isolation: isoPlan });
+  }
+
   // ---- status / claim 断言（按 role 分派）----
   if (role === 'review') {
     // 复核 lane：只认在审卡；不 claim、不改/不校验 claimed_by（复核人 ≠ 实施人）
@@ -326,14 +380,6 @@ export function spawnLane(opts = {}) {
     return reject(`concurrency_cap(owner=${owner},running=${running},cap=${cap})`, { running, cap });
   }
 
-  // ---- ③ cwd ----
-  let cwd;
-  try {
-    cwd = resolveCwd(c.fm);
-  } catch (e) {
-    return reject(`project_unresolved:${String(e && e.message ? e.message : e)}`);
-  }
-
   // ---- ④ handoff 自检 ----
   const wsDir = path.join(TEAM_ROOT, 'workspace', taskId);
   const handoffPath = path.join(wsDir, 'handoff.md');
@@ -369,6 +415,15 @@ export function spawnLane(opts = {}) {
   const outLog = path.join(wsDir, `${owner}-${n}.out.jsonl`);
   const errLog = path.join(wsDir, `${owner}-${n}.err.log`);
 
+  // ---- ③b 隔离落实（**放在全部可拒绝步骤之后** ⇒ 拒绝路径一律不留下 worktree）----
+  // 同文件冲突与隔离预演拒绝已在 ①c 收口；此处只做**真实创建**（`--dry-run` ⇒ 幂等预演，零副作用）。
+  const applied = applyLaneIsolation(isoPlan, { dryRun });
+  if (!applied.ok) {
+    return reject(`lane_isolation_failed(${applied.reason}):serialize_or_fix`, { isolation: isoPlan });
+  }
+  const isolation = applied.isolation;
+  const cwd = isolation.mode === 'worktree' ? isolation.path : baseCwd; // ③ cwd（隔离时指向 lane worktree）
+
   // ---- ⑤ 确定性 session id（ACL）----
   let sid;
   try {
@@ -378,7 +433,7 @@ export function spawnLane(opts = {}) {
   }
 
   // ---- ⑥ 组装命令 ----
-  const prompt = buildPrompt({ handoffPath, cardPath, reportPath });
+  const prompt = buildPrompt({ handoffPath, cardPath, reportPath, isolation });
   const { bin, args } = buildCommand({ backend, bin: backendBin(backend), prompt, wsDir, sid, name: `${owner}-${seg}` });
   const plan = {
     ok: true,
@@ -388,6 +443,7 @@ export function spawnLane(opts = {}) {
     role,
     settings,
     cwd,
+    isolation,
     handoff: handoffState,
     log: outLog,
     errlog: errLog,
@@ -439,17 +495,20 @@ export function spawnLane(opts = {}) {
   };
 }
 
-const HELP = `用法: bash scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [phase=<p>] [role=exec|review] [--review] [--dry-run]
+const HELP = `用法: bash scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [phase=<p>] [role=exec|review] [--review] [--dry-run] [--no-isolate]
 
 新 lane 起会话的单一强制入口（claim → handoff 自检 → settings 预置 → spawn → session-set 卡+registry 同写）。
 role=exec（默认）起执行 lane（in_progress 卡）；role=review（--review 等价）起复核 lane（in_review 卡，
 不 claim、不校验 claimed_by，未给 seg= 时默认 segR1）。
-禁「直跑 claude -p 不登记」；见 guides/spawn-lane-sop.md 与 PROTOCOL §⑥。
+同仓已有并发非终态 lane ⇒ 自动建隔离 worktree（cwd 指向该树）；同文件冲突 ⇒ 拒绝并提示串行；
+--no-isolate（或 OPENCLAW_LANE_ISOLATION=0）关闭该自动化（回退为显式纪律）。
+禁「直跑 claude -p 不登记」；见 guides/spawn-lane-sop.md、guides/worktree-isolation-sop.md 与 PROTOCOL §⑥。
 
 示例:
   bash scripts/spawn-lane.sh T-20261010-052210 linus --dry-run
   bash scripts/spawn-lane.sh T-20261010-052210 linus seg=seg1 backend=claude
   bash scripts/spawn-lane.sh T-20261010-052210 turing --review backend=codex
+  OPENCLAW_LANE_ISOLATION=0 bash scripts/spawn-lane.sh T-20261010-052210 linus   # 显式纪律回退
 `;
 
 function main() {
