@@ -7,6 +7,10 @@
  * 基座：用 meerkat-taskpanel 官方引导 `openBoard()` 建/迁移 DB（**不手抄 SQL**）。
  * board 落盘与下方只读适配器（provider 拥有，见动态导入处）同源（resolveBoardDataDir/DbPath）。
  *
+ * 登记期**存在性守卫**（PROTOCOL §⑧ 步骤 2 的机械落地）：root 须为绝对路径 / 存在 / 为目录，
+ * 否则默认**拒绝整轮登记**（一条不写），绝不静默登记陈旧 root（事故链 R76→R79 的根因）。
+ * 不传惰性 `workspacePath`（O3 后 taskpanel 不读；基座 0012 已删该列）——目录锚点唯一经由 meta.root。
+ *
  * 用法：node scripts/seed-projects.mjs   # 可重复执行（幂等）
  * 环境：MEERKAT_TASKPANEL_REPO（meerkat-taskpanel 仓根；缺省取与 openclaw-team 同级的兄弟目录 ../meerkat-taskpanel）
  */
@@ -39,21 +43,71 @@ function legacyRepoEnv(env) {
 }
 
 /**
+ * root 存在性守卫（PROTOCOL §⑧ 步骤 2「Elon 校验 root 存在」的机械落地点）。
+ *
+ * 缺陷背景（事故链复盘 R76→R79）：登记期只校验「绝对路径」，缺 root 的目录**仍被静默登记**，
+ * 于是陈旧 root 进了基座 meta，后续解析拿它当工作目录 ⇒ 一路静默失败。
+ *
+ * 判据：`root` 须为 **绝对路径 / 存在 / 为目录**；任一不满足 ⇒ 返回人读原因（null = 合法）。
+ * 只做只读 stat，不创建/不修正任何目录。
+ * @param {unknown} root
+ * @returns {string|null} 非法原因（null = 合法）
+ */
+export function invalidRootReason(root) {
+  if (typeof root !== 'string' || root.trim() === '') return `缺失（root=${JSON.stringify(root)}）`;
+  if (!path.isAbsolute(root)) return `非绝对路径（${root}）`;
+  let st;
+  try {
+    st = fs.statSync(root);
+  } catch {
+    return `不存在（${root}）`;
+  }
+  if (!st.isDirectory()) return `非目录（${root}）`;
+  return null;
+}
+
+/**
  * 幂等登记：逐条 code —— 基座已存在 ⇒ updateProject，否则 ⇒ createProject。
+ *
+ * 登记前整体校验各 code 的 root（见 invalidRootReason）：默认**拒绝**（抛错、一条不写，
+ * 绝不部分登记）；`allowInvalidRoot` 时改为**逐条显式告警并跳过**该条（其余照常登记，
+ * summary 里以 action:'skipped' 显式回报）。两种模式下都不会静默登记陈旧 root。
+ *
+ * 不传 `workspacePath`：O3（T-20261009-190023）后 taskpanel 不再读 workspace_path，
+ * 且基座 migration 0012 已删除该列（repos.projects.create/update 无此字段、静默忽略）。
+ * 项目目录锚点唯一经由 `meta.root`；保留惰性 workspacePath 只会制造「看起来有、其实没人读」的假象。
+ *
  * @param {{repos: {projects: {get: Function}}, commands: {createProject: Function, updateProject: Function}}} board
  * @param {{projects?: Record<string, object>}|null} registry
- * @returns {Array<{code: string, root: string, kind: string, action: 'created'|'updated'}>}
+ * @param {{allowInvalidRoot?: boolean, logger?: {warn: Function}}} [opts]
+ * @returns {Array<{code: string, root: string, kind: string, action: 'created'|'updated'|'skipped', reason?: string}>}
  */
-export function registerIdentityCodes(board, registry) {
+export function registerIdentityCodes(board, registry, opts = {}) {
+  const { allowInvalidRoot = false, logger = console } = opts;
   const projects = registry?.projects ?? {};
+  const entries = Object.entries(projects).filter(([code]) => code !== '__team__'); // 保留名：内置语义，不落基座
+  const resolved = [];
+
+  // 先整体校验（fail-fast）：默认模式下任一非法 ⇒ 一条都不写，绝不部分登记
+  const invalid = [];
+  for (const [code, entry] of entries) {
+    const reason = invalidRootReason(entry?.root);
+    if (reason === null) resolved.push({ code, src: entry ?? {} });
+    else invalid.push({ code, root: entry?.root, reason });
+  }
+  if (invalid.length && !allowInvalidRoot) {
+    const lines = invalid.map((i) => `${i.code}: ${i.reason}`).join('\n  - ');
+    throw new Error(
+      `项目 root 校验未通过，登记中止（PROTOCOL §⑧：登记前须校验 root 存在）：\n  - ${lines}`,
+    );
+  }
+
   const summary = [];
-  for (const [code, entry] of Object.entries(projects)) {
-    if (code === '__team__') continue; // 保留名：内置语义，不落基座
-    const src = entry ?? {};
-    const workspacePath = src.root;
-    if (typeof workspacePath !== 'string' || !workspacePath.startsWith('/')) {
-      throw new Error(`项目 ${code} 的 root 非法（须绝对路径）: ${String(workspacePath)}`);
-    }
+  for (const { code, root, reason } of invalid) {
+    logger.warn?.(`[seed-projects] 跳过 ${code}：root 非法（${reason}）— 未登记，请 Elon 按 PROTOCOL §⑧ 修正 registry`);
+    summary.push({ code, root, kind: undefined, action: 'skipped', reason });
+  }
+  for (const { code, src } of resolved) {
     const meta = {
       kind: src.kind,
       root: src.root,
@@ -66,11 +120,11 @@ export function registerIdentityCodes(board, registry) {
     };
     const existing = board.repos.projects.get(code);
     if (existing) {
-      board.commands.updateProject({ id: code, patch: { name: code, workspacePath, meta } });
-      summary.push({ code, root: workspacePath, kind: meta.kind, action: 'updated' });
+      board.commands.updateProject({ id: code, patch: { name: code, meta } });
+      summary.push({ code, root: src.root, kind: meta.kind, action: 'updated' });
     } else {
-      board.commands.createProject({ id: code, name: code, workspacePath, meta });
-      summary.push({ code, root: workspacePath, kind: meta.kind, action: 'created' });
+      board.commands.createProject({ id: code, name: code, meta });
+      summary.push({ code, root: src.root, kind: meta.kind, action: 'created' });
     }
   }
   return summary;
@@ -104,7 +158,10 @@ export async function seedProjects(opts = {}) {
   try {
     const summary = registerIdentityCodes(board, registry);
     logger.log(`[seed-projects] board=${dbPath}`);
-    for (const s of summary) logger.log(`  ${s.action.padEnd(7)} ${s.code}  root=${s.root}  kind=${s.kind}`);
+    for (const s of summary) {
+      const tail = s.action === 'skipped' ? `  reason=${s.reason}` : `  root=${s.root}  kind=${s.kind}`;
+      logger.log(`  ${s.action.padEnd(7)} ${s.code}${tail}`);
+    }
     logger.log(`[seed-projects] 完成：${summary.length} 个项目（幂等，可重复执行）`);
     return { dbPath, summary };
   } finally {
