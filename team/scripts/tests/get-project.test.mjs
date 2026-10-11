@@ -2,8 +2,10 @@
 /**
  * get-project.test.mjs — `lib.get_project` 的 §8 解析链（team 侧薄调用）回归（C 面，T-20261012-001338）
  *
- * 端到端断言（真临时目录 + 真子进程 + 假 taskctl 可执行）：`__team__` 内置短路 → 基座（CLI 取数）
- * → 只读回退 projects.json → 未注册抛错；并钉住保留名 `__team__` 的输出形状（对外行为不变）。
+ * 端到端断言（真临时目录 + 真子进程 + 假 taskctl 可执行）：`__team__` 内置短路 → 基座（版本腿 +
+ * CLI 取数）→ 只读回退 projects.json → 未注册抛错；并钉住保留名 `__team__` 的输出形状（对外行为不变）。
+ * 假 CLI 同时应答**版本腿**（`--version --json`，版本由 `$FAKE_SCHEMA_VERSION` 控制，默认 4 = 与本
+ * 适配器声明一致），故「版本漂移 ⇒ 判红降级」可在本套件端到端证伪/证实。
  *
  * 运行：node --test scripts/tests/
  */
@@ -49,12 +51,19 @@ fs.writeFileSync(
   JSON.stringify({ projects: { fbproj: { kind: 'docs', root: '/from-fallback' } } }),
 );
 
-// 假 taskctl：只认板上的 `boardproj`（返回 projectToWire 形状的 meta），其余 code 不在板上
+// 假 taskctl：`--version --json` ⇒ 版本腿（$FAKE_SCHEMA_VERSION，默认 4）；其余 ⇒ 板上只有 `boardproj`
+// （projectToWire 形状的 meta），其它 code 不在板上。
 const stubDir = mkScratch();
 const STUB = path.join(stubDir, 'taskctl');
 fs.writeFileSync(
   STUB,
   `#!/bin/sh
+for a in "$@"; do
+  if [ "$a" = "--version" ]; then
+    printf '{"ok":true,"data":{"version":"1.0.0","schema_version":%s}}\\n' "\${FAKE_SCHEMA_VERSION:-4}"
+    exit 0
+  fi
+done
 cat <<'JSON'
 {"ok":true,"data":{"projects":[
  {"id":"boardproj","name":"boardproj","labels":[],"meta":{"kind":"code","root":"/from-board","repos":[{"path":"src"}],"guides":[]},"readme":null,"archived_at":null,"created_at":"2026-01-01T00:00:00.000Z","updated_at":"2026-01-01T00:00:00.000Z"}
@@ -93,6 +102,18 @@ test('基座命中：经 `taskctl project list --json` 子进程取数 → §8 �
   assert.equal(meta.kind, 'code');
   assert.equal(meta.root, '/from-board', 'root 只在 meta.root（board 0012 后无目录列）');
   assert.deepEqual(meta.repos, [{ path: 'src' }]);
+});
+
+test('版本腿（端到端）：provider schema_version 升到 5 ⇒ 基座判红、降级回退；还原回 4 ⇒ 板命中回到绿', () => {
+  process.env.FAKE_SCHEMA_VERSION = '5';
+  try {
+    // 版本漂移 ⇒ 基座不可用（响亮）⇒ 解析链按既有语义落到只读回退，绝不按旧 schema 读板
+    assert.equal(lib.getProject('fbproj').kind, 'docs', '基座判红后应落到 projects.json 回退');
+    assert.throws(() => lib.getProject('boardproj'), /项目未注册/, '版本漂移时不得命中板');
+  } finally {
+    delete process.env.FAKE_SCHEMA_VERSION;
+  }
+  assert.equal(lib.getProject('boardproj').root, '/from-board', '版本还原 ⇒ 绿色恢复（证明拦的是版本腿）');
 });
 
 test('板可读但无该 code ⇒ 只读回退 projects.json（过渡期快照）', () => {

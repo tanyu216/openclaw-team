@@ -16,9 +16,13 @@
  *      **不再 import provider 内部**（不 import `bases/task-panel.mjs`）、**不再直连 sqlite**（不开 `node:sqlite`）；
  *   ② **以 board wire 为准对齐 schema**：字段口径对标 provider `src/shared/wire.mjs#projectToWire`
  *      （冻结进 `docs/contract.md` 的 contract snapshot，`shape:"project"`）；
- *   ③ **schema 漂移门**：本适配器声明所对标 board wire 的 **`schema_version`**（见下），并在运行时对
- *      实取对象做结构校验；漂移 ⇒ **显式告警 + 降级**（缺字段/改类型 ⇒ 判为不可用交回退；新增字段 ⇒
- *      告警但按可读继续），**绝不静默 fallback**。
+ *   ③ **schema 漂移门（双腿）**：
+ *      **版本腿**（本卡接通）＝ 每次解析先读**运行期 provider 版本**（`taskctl --version --json` ⇒
+ *      `data.schema_version`），与适配器**声明所对标**的 `BOARD_WIRE_SCHEMA_VERSION` 比对；不一致 ⇒
+ *      **响亮判红 + 降级**（不取数、不投影，直接 `available:false` 交回退）；该腿读不到（CLI 无该子命令
+ *      / 信封里没有 `schema_version`）同样判红（版本级契约已冻结在 CLI，读不到即漂移）。
+ *      **结构腿**＝ 对实取 board `project` wire 逐字段比对声明表；缺字段/改类型 ⇒ 不可用交回退；
+ *      新增字段 ⇒ 告警但按可读继续。两腿**绝不静默 fallback**。
  *
  * **两 schema 显式映射、不合并**（边界）：本文件的映射只是 board `project` wire → §8 项目 metadata 的
  * **一次**投影；team 侧卡 frontmatter schema（`lib.mjs` 的 parseFrontmatter/serializeFrontmatter）**不动**，
@@ -33,13 +37,17 @@ import fs from 'node:fs';
 export const name = 'task-panel';
 
 /**
- * **声明的对标版本**：board wire 契约快照的 `schema_version`（provider `docs/contract.md`：
- * “Bumping the snapshot's own layout (not a section) bumps `schema_version`… It is **4**”；
- * 快照文件 `test/fixtures/contract/api.snapshot.json`）。升版 ⇒ 本常量须人工跟版复核。
+ * **声明的对标版本**：本适配器（含 `PROJECT_WIRE_FIELDS` 字段表）所对标的 board wire 契约快照
+ * `schema_version`（provider `docs/contract.md`：“Bumping the snapshot's own layout (not a section)
+ * bumps `schema_version`… It is **4**”；快照 `test/fixtures/contract/api.snapshot.json`）。
  *
- * 注：该版本**目前不经 CLI 暴露**（board 的 `/meta` 有 `schema`，CLI 无对应子命令），故运行时只能由
- * 调用方注入（`opts.boardSchemaVersion`）；未注入时本适配器以**结构校验**（字段名/类型）承担漂移门。
- * 需要“版本号级”漂移门 ⇒ provider 侧补强（CLI 暴露 schema_version），属另一张卡。
+ * **这是「期望值」，不是「真值」**：真值在运行期由 provider 给出——`taskctl --version --json` ⇒
+ * `data.schema_version`（provider `CONTRACT_SCHEMA_VERSION`，与快照**同源**，见 T-20261012-015340）。
+ * 每次解析都会读该运行期腿并与本常量比对（见 `readProviderSchemaVersion` / `resolveViaCli`）。
+ *
+ * 为什么不改用「共享契约常量」：那会把这一个数字变成**第二份拷贝**，provider 升版而 team 侧未跟版时
+ * 两个拷贝各自为政、门禁静默失效——正是本卡要关掉的那类缺陷。运行期读取让该数字保持**单一真源**，
+ * provider 升版 ⇒ 门禁自动变红，无需人工同步（本常量只在**本适配器改跟随新 wire**时才需人工复核）。
  */
 export const BOARD_WIRE_SCHEMA_VERSION = 4;
 
@@ -146,19 +154,92 @@ export function cliRunner(args, { taskctl = process.env.OPENCLAW_TEAM_TASKCTL ||
 }
 
 /**
+ * **版本腿（运行期）**：`taskctl --version --json` ⇒ `data.schema_version`。
+ *
+ * 该子命令是 provider 侧为「版本号级漂移门」专门补强的**板无关**应答（在 token/board/data-dir 之前
+ * 即返回，见 T-20261012-015340），故本适配器读它不触碰板、不写盘。同样带 `TASKD_NO_AUTOSTART=1`。
+ *
+ * 失败语义：读不到 ⇒ `{ok:false, reason}`（**不抛**）。调用方（`resolveViaCli`）据此判红。
+ * @param {{runner?: Function, taskctl?: string, timeoutMs?: number, env?: object}} [opts]
+ * @returns {{ok: true, schemaVersion: number|string} | {ok: false, reason: string}}
+ */
+export function readProviderSchemaVersion(opts = {}) {
+  const { runner = cliRunner } = opts;
+  let res;
+  try {
+    res = runner(['--version', '--json'], opts);
+  } catch (err) {
+    return { ok: false, reason: `taskctl --version 调用异常: ${err?.message ?? err}` };
+  }
+  if (!res || res.status !== 0) {
+    const detail =
+      String(res?.stderr ?? '').trim().split('\n')[0] ||
+      String(res?.error?.message ?? '').trim() ||
+      `exit=${res?.status}`;
+    return { ok: false, reason: `taskctl --version --json 失败（${detail}）` };
+  }
+  let envelope;
+  try {
+    envelope = JSON.parse(String(res.stdout ?? ''));
+  } catch {
+    return { ok: false, reason: 'taskctl --version --json 输出不可解析（非 JSON 信封）' };
+  }
+  const v = envelope?.ok === true ? envelope?.data?.schema_version : undefined;
+  if (v === undefined || v === null || v === '') {
+    return { ok: false, reason: 'taskctl --version --json 未暴露 data.schema_version（版本级契约已冻结在 CLI，读不到即漂移）' };
+  }
+  return { ok: true, schemaVersion: v };
+}
+
+/**
  * 薄调用：`taskctl project list --json` → 选 id 命中行 → 漂移门 → §8 投影。
  *
  * 注：投影取数用 `project list --json`（`project show` 目前**不存在**于 CLI；list 的每个元素即
  * `projectToWire` 输出，含 `meta`，等价且无信息损失）。
  *
+ * **顺序**（版本腿在前，短路径）：① 空 code 快速返回 → ② **版本腿**：读运行期 `schema_version`，
+ * 读不到或与本适配器声明不符 ⇒ **立刻判红**（不取数、不投影）；③ 取数 → ④ 结构腿 → ⑤ 投影。
+ * 版本腿放在取数之前：版本不一致时整条链都不可信，连读都不该读（且与「板里有没有该 code」无关，
+ * 判红不受 `found` 影响）。
+ *
  * @param {string} code identity code
  * @param {{taskctl?: string, runner?: Function, timeoutMs?: number, boardSchemaVersion?: number|string|null,
- *          warn?: (msg: string) => void}} [opts]
- * @returns {{available: boolean, found?: boolean, metadata?: object, reason?: string, drift?: object}}
+ *          warn?: (msg: string) => void}} [opts] `opts.boardSchemaVersion` 是**显式覆盖位**
+ *          （测试/降级演练用）；不传即走运行期版本腿。
+ * @returns {{available: boolean, found?: boolean, metadata?: object, reason?: string, drift?: object,
+ *            providerSchemaVersion?: number|string}}
  */
 export function resolveViaCli(code, opts = {}) {
   const { runner = cliRunner, warn = (msg) => process.stderr.write(`${msg}\n`) } = opts;
   if (typeof code !== 'string' || code.trim() === '') return { available: false, reason: 'identity code 为空' };
+
+  // ---- ② 版本腿：运行期 provider schema_version vs 本适配器声明 ----
+  let providerSchemaVersion = opts.boardSchemaVersion ?? null;
+  if (providerSchemaVersion === null) {
+    const leg = readProviderSchemaVersion(opts);
+    if (!leg.ok) {
+      warn(`[board-adapter] 版本腿不可读（对标 schema_version=${BOARD_WIRE_SCHEMA_VERSION}）：${leg.reason}`);
+      return {
+        available: false,
+        reason: `board 版本腿不可读（对标 schema_version=${BOARD_WIRE_SCHEMA_VERSION}）：${leg.reason}`,
+        drift: { ok: false, findings: [{ code: 'version_leg_unavailable', declared: BOARD_WIRE_SCHEMA_VERSION, actual: leg.reason }] },
+      };
+    }
+    providerSchemaVersion = leg.schemaVersion;
+  }
+  if (String(providerSchemaVersion) !== String(BOARD_WIRE_SCHEMA_VERSION)) {
+    const findings = [{ code: 'schema_version_mismatch', declared: BOARD_WIRE_SCHEMA_VERSION, got: providerSchemaVersion }];
+    warn(
+      `[board-adapter] board wire 版本漂移（对标 schema_version=${BOARD_WIRE_SCHEMA_VERSION}, shape=${BOARD_WIRE_SHAPE}）：` +
+        `provider 运行期 schema_version=${providerSchemaVersion}`,
+    );
+    return {
+      available: false,
+      reason: `board wire 版本漂移（对标 schema_version=${BOARD_WIRE_SCHEMA_VERSION}）：${JSON.stringify(findings)}`,
+      drift: { ok: false, findings },
+      providerSchemaVersion,
+    };
+  }
 
   let res;
   try {
@@ -190,7 +271,8 @@ export function resolveViaCli(code, opts = {}) {
   const wire = projects.find((p) => p?.id === code);
   if (wire === undefined) return { available: true, found: false };
 
-  const drift = detectWireDrift(wire, { boardSchemaVersion: opts.boardSchemaVersion ?? null });
+  // 版本腿已在上方核过（此处传运行期版本是做一次纵深的等价复核：detectWireDrift 是纯函数，可直调）
+  const drift = detectWireDrift(wire, { boardSchemaVersion: providerSchemaVersion });
   if (drift.findings.length) {
     warn(
       `[board-adapter] board wire 漂移（对标 schema_version=${BOARD_WIRE_SCHEMA_VERSION}, shape=${BOARD_WIRE_SHAPE}）：` +
@@ -199,9 +281,14 @@ export function resolveViaCli(code, opts = {}) {
   }
   if (!drift.ok) {
     // 破坏性漂移 ⇒ 显式降级为不可用（交回退），绝不静默按旧 schema 读
-    return { available: false, reason: `board wire 漂移（对标 schema_version=${BOARD_WIRE_SCHEMA_VERSION}）：${JSON.stringify(drift.findings)}`, drift };
+    return {
+      available: false,
+      reason: `board wire 漂移（对标 schema_version=${BOARD_WIRE_SCHEMA_VERSION}）：${JSON.stringify(drift.findings)}`,
+      drift,
+      providerSchemaVersion,
+    };
   }
-  return { available: true, found: true, metadata: projectFromWire(wire), drift };
+  return { available: true, found: true, metadata: projectFromWire(wire), drift, providerSchemaVersion };
 }
 
 /** §8 基座入口（默认走 CLI；`opts` 全量透传给 resolveViaCli）。 */
