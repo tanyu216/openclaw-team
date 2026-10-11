@@ -316,6 +316,11 @@ test('UNIT. parseArgs：--review 等价 role=review；未给 seg 时留空交给
   assert.equal(parseArgs(['C', 'turing']).seg, '', '未显式 seg ⇒ 留空（由 spawnLane 按 role 取默认）');
   assert.equal(parseArgs(['C', 'turing', 'seg=seg2']).seg, 'seg2', '显式 seg 优先');
   assert.equal(parseArgs(['C', 'turing', '--bogus']).ok, false, '未知旗标 ⇒ 用法错误');
+  // 裸位置参数（T-20261012-022948-2 实证）：把 `--dry-run` 误写成 `dry-run` 曾被静默吞掉 ⇒ 真起会话。
+  assert.equal(parseArgs(['C', 'turing', 'dry-run']).ok, false, '多余裸位置参数 ⇒ 用法错误（绝不静默忽略）');
+  assert.equal(parseArgs(['C', 'turing', 'dry-run']).reason, 'unexpected_positional:dry-run');
+  assert.equal(parseArgs(['C', 'turing', '--no-isolate']).isolate, false, '--no-isolate ⇒ 回退开关');
+  assert.equal(parseArgs(['C', 'turing']).isolate, true, '默认开自动隔离');
 });
 
 // ── 项2：settings 预置（幂等；消除「Settings file not found」秒退） ─────────────

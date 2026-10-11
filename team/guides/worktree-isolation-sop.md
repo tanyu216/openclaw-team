@@ -14,9 +14,9 @@
   ```bash
   node ~/.openclaw/team/scripts/lane-worktree.mjs <repo> <lane> [--branch <b>] [--base <ref>] [--dry-run]
   ```
-- **The dispatch surface is the card's `target`.** `scripts/spawn-lane.mjs` resolves the lane's cwd from `project` + `target` (`PROTOCOL §⑥` cwd normalization); pointing `target` at the lane worktree is therefore the *whole* wiring — no new spawn path, no changed `spawn-lane.mjs` behaviour.
-- **Non-terminal** = the four in-flight states that can still write: `todo`, `in_progress`, `blocked`, `in_review` (`done`/`canceled` are terminal). `blocked`/`in_review` still hold uncommitted work — the 061638 O2 incident was exactly an `in_progress` writer (063151) landing in a checkout an `in_review` verification (R26) was reading.
-- **Decide before you start, not after.** The signal is already on the board: `scripts/samefile-guard.mjs` reports overlapping write-sets across non-terminal cards (`guides/task-interface.md` `writes`, falling back to `target`). An overlap ⇒ **isolate (this SOP) or serialize (`PROTOCOL §⑥.3` case ②)**.
+- **The dispatch surface is the lane's working directory.** `scripts/spawn-lane.mjs` resolves the lane's cwd from `project` + `target` (`PROTOCOL §⑥` cwd normalization); pinning the lane to its own worktree is therefore the *whole* wiring — there is no separate spawn path. Since `T-20261012-022948-2` the entry does that pinning **itself** (§9), so the card's declared `target` no longer has to be edited by hand (and is deliberately **not** rewritten — see §9).
+- **Non-terminal** = the four in-flight states that can still write: `ready`, `in_progress`, `blocked`, `in_review` (`done`/`failed`/`canceled` are terminal; the single source of truth is the status machine in `scripts/check-card.mjs`, and `scripts/samefile-guard.mjs` + `scripts/lane-isolation.mjs` share that set). `blocked`/`in_review` still hold uncommitted work — the 061638 O2 incident was exactly an `in_progress` writer (063151) landing in a checkout an `in_review` verification (R26) was reading.
+- **Decide before you start, not after.** The signal is already on the board: `scripts/samefile-guard.mjs` reports overlapping write-sets across non-terminal cards (`guides/task-interface.md` `writes`, falling back to `target`). An overlap ⇒ **isolate (this SOP) or serialize (`PROTOCOL §⑥.3` case ②)**. Note the two signals are not equally sharp: a **declared `writes`** (or a `target` naming something *inside* the repo) is a file-level claim and can force a **serialize**; a `target` that is just the **repo root** is a *repo designation*, not a write set — it means "isolate", never "you two conflict" (§9).
 
 ## 2. Why (field-verified failure modes)
 
@@ -98,6 +98,8 @@ Dispatch procedure (Elon) for a same-repo concurrent lane:
 3. set the card's `target` to that `path`;
 4. create it (`lane-worktree.mjs <repo> <lane>`), then dispatch through `guides/spawn-lane-sop.md` as usual — `spawn-lane` resolves cwd to the worktree.
 
+> **Since T-20261012-022948-2 this procedure is a *manual override*, not the normal path.** `spawn-lane.mjs` performs steps 1–4 **automatically** (§9). Do them by hand only when the automatic path is switched off (`--no-isolate`) or when you want a non-default lane/branch/base.
+
 ## 7. Closeout / cleanup discipline
 
 - **Commit in your own worktree** with explicit paths (`PROTOCOL §⑥` commit-path discipline). A commit made *inside* the lane worktree cannot sweep another lane's hunks — that is the point.
@@ -112,3 +114,33 @@ Dispatch procedure (Elon) for a same-repo concurrent lane:
 - `PROTOCOL §⑥.3` — parallelism-first; serialize only for a same-file/same-resource conflict. Worktree isolation is how you keep the parallelism *and* the single-writer invariant.
 - `PROTOCOL §⑨.1` — "single writer per file"; a worktree per lane is the mechanism that makes this true *across repos*, not just within one file list.
 - `PROTOCOL §⑥` — commit-path discipline and the ban on destructive git both still apply *inside* the worktree.
+
+## 9. Automatic isolation — when it fires, cleanup, failure fallback (T-20261012-022948-2)
+
+§1–§8 are the **rule and the mechanism**. As of `T-20261012-022948-2` the rule is **enforced by the entry**, not by dispatch discipline: `scripts/spawn-lane.mjs` calls `scripts/lane-isolation.mjs` before starting a lane and isolates **by itself**. (Why: the discipline above was field-verified *not* to hold — `T-20261012-015340 §6.3` (14 non-terminal cards in this repo, 7 `in_progress`; a verification ran green on a tree carrying another lane's uncommitted changes) and `T-20261012-002049` (two live lanes both writing `CHANGELOG.md`).)
+
+**When it fires** — all of:
+
+| # | Condition | Source |
+|---|---|---|
+| 1 | the lane's cwd resolves into a **git** repo | `git rev-parse --git-common-dir` (a linked worktree resolves back to the *main* checkout) |
+| 2 | **≥1 other non-terminal card** resolves into the **same** repo (`ready`/`in_progress`/`blocked`/`in_review`) | board scan (`scripts/lane-isolation.mjs`) |
+| 3 | the lane is a **writer** — `role=exec` (a `role=review` lane is a reader: §3) | card role |
+| 4 | the lane is **not already isolated** (cwd is not itself a linked worktree) | `git rev-parse --git-dir` ≠ `--git-common-dir` |
+| 5 | the switch is on (see *Rollback*) | `--no-isolate` / `OPENCLAW_LANE_ISOLATION` |
+
+**The same-file branch is *not* isolated — it is refused.** If the card's write set (`writes`, else `target`) overlaps another same-repo non-terminal card's, parallelism would only defer the collision to a branch merge, so the entry **refuses to start** (`lane_samefile_conflict(with=…,overlap=…):serialize`, zero side effects) and the lane waits for the other card to reach terminal state — `PROTOCOL §⑥.3` case ②, single writer (`§⑨.1`). Choosing between "isolate" and "serialize" is therefore **not** a dial: same **file** ⇒ serialize, same **repo** other **file** ⇒ isolate.
+
+**Sharp signal blocks; coarse signal only warns.** The fallback write set (`target`) is coarse, and a *shared* coarse value must never be read as a file conflict: on 2026-10-12 **every** non-terminal card in this repo declared `target: <repo root>` and none declared `writes`, so comparing the fallback verbatim would have refused **every** lane on the repo — the whole repo serialized, the opposite of `PROTOCOL §⑥.3`. So the hard decision treats a write-set entry that resolves to **the repo root (or an ancestor of it)** as a *repo designation*: it feeds the "same repo ⇒ isolate" signal and is **excluded from the conflict test**. `writes`, or a `target` naming a path *inside* the repo, remain file-level and can still force a serialize. (`scripts/samefile-guard.mjs` keeps its coarse comparison — it only **warns**; a warning may be blunt, a refusal may not.)
+
+**What the lane gets.** `lane = <card>-<seg>`, `path = <repo>-wt-<lane>`, `branch = lane/<lane>` (the entry's own naming defaults, §5). The entry **does not rewrite the card's `target`**: `target` is the *declaration* (and the fallback write set behind `samefile-guard.mjs`), so writing an absolute worktree path into it would silently disarm the same-file guard for every card that relies on the fallback. The lane's working tree is the §3 *effective* cwd instead, and it is machine-readable in the entry's JSON: `isolation: { mode, lane, branch, path, main_repo, same_repo_lanes, action, applied }` (`cwd` equals `isolation.path`). `same_repo_lanes` names the lanes that triggered it — the audit trail for "why was I isolated?".
+
+**Cleanup (`--remove`).** Unchanged and inside the lane's own tree: the lane commits there, reports the branch + sha in its Report, and the worktree is removed **only when clean** — `worktree_dirty` otherwise; the lane branch is **kept** (it may carry the committed product). Re-entrant: after `--remove`, re-spawning the same lane attaches to the surviving branch (`branchReused:true`). The lane's Report must carry the branch + sha, otherwise the isolated tree's product is invisible to the repo (`PROTOCOL §⑥` doc/commit discipline); the entry puts that sentence in the sub-session prompt.
+
+**Failure fallback — fail-closed, then escalate.** If the isolation cannot be performed (path occupied by a non-worktree directory, lane branch already checked out elsewhere, `bad_lane`, `worktree_add_failed`), the entry **refuses to start** the lane:
+
+- `lane_isolation_failed(<stable inner reason>):serialize_or_fix` (exit 1, zero side effects).
+
+It does **not** quietly fall back to the shared checkout: "could not isolate" read as "green" *is* the failure mode this automation exists to remove. Two legitimate ways out: (**a**) serialize — wait for the other lane to reach terminal state (the same-file path, above); (**b**) fix the obstacle — `git worktree list` / remove the stale directory / re-point the branch, then re-run the entry. Both are deliberate; neither happens behind your back.
+
+**Rollback (switch off).** `--no-isolate` on the `spawn-lane.sh` call, or `OPENCLAW_LANE_ISOLATION=0` (also `off`/`false`/`no`/`disabled`), restores the pre-change behaviour exactly: no detection, no worktree, cwd = `project` + `target`, `isolation.mode = "disabled"` in the JSON. That is the escape hatch for a repo where isolation is not wanted (and the state a regression test pins). Detection is **read-only** either way: the entry writes nothing (no card, no registry) while deciding, and a refusal leaves no worktree behind.
