@@ -13,18 +13,23 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import * as boardAdapter from './board-adapter.mjs';
 
 // ── provider 依赖显式化（T-20261009-211234-providerdecouple · 方案②启动期硬失败）──
-// 路径常量与 ACL 项目解析来自 provider ACL 库 skills/task-ops/lib/*（provider 拥有、有意不随仓
+// 路径常量来自 provider ACL 库 skills/task-ops/lib/team-paths.mjs（provider 拥有、有意不随仓
 // vendoring，见 skills/PROVENANCE.md）。启动即检测其可用性：缺失 ⇒ 明确错误 + 非零退出，绝不
 // 静默 no-op（与 H1/main-guard 静默失效同类高危故障模式）。查找顺序：
 //   OPENCLAW_TASK_OPS_DIR（指向含 lib/ 的 task-ops 检出目录）→ {team}/skills/task-ops
+//
+// 项目（identity code）解析**不再**走 provider 的 projects.mjs：§8 投影现由 team 侧
+// `./board-adapter.mjs` 经 CLI 子进程取数（唯一访问点）+ wire 漂移门承担
+// （T-20261012-001338 · C 面：不再 import provider 内部、不再直连 sqlite）。
 export const TASK_OPS_DIR = process.env.OPENCLAW_TASK_OPS_DIR
   ? path.resolve(process.env.OPENCLAW_TASK_OPS_DIR)
   : path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'skills', 'task-ops');
 const TASK_OPS_LIB = path.join(TASK_OPS_DIR, 'lib');
 
-const REQUIRED_PROVIDER_LIB = ['team-paths.mjs', 'projects.mjs'];
+const REQUIRED_PROVIDER_LIB = ['team-paths.mjs'];
 const missingProviderLib = REQUIRED_PROVIDER_LIB.filter((f) => !fs.existsSync(path.join(TASK_OPS_LIB, f)));
 if (missingProviderLib.length) {
   console.error(
@@ -37,9 +42,7 @@ if (missingProviderLib.length) {
 
 // 路径常量单一来源：skills/task-ops/lib/team-paths.mjs（本模块导入并再导出，对外符号不变）
 const providerPaths = await import(pathToFileURL(path.join(TASK_OPS_LIB, 'team-paths.mjs')).href);
-const providerProjects = await import(pathToFileURL(path.join(TASK_OPS_LIB, 'projects.mjs')).href);
-const { TEAM_ROOT, TASKS_DIR, LOCKS_DIR, PROJECTS_FILE } = providerPaths;
-const { getProject: aclGetProject } = providerProjects;
+const { TEAM_ROOT, TASKS_DIR, LOCKS_DIR, PROJECTS_FILE, TEAM_WRITABLE_PREFIX } = providerPaths;
 export { TEAM_ROOT, TASKS_DIR, LOCKS_DIR, PROJECTS_FILE };
 
 // 时间阈值（毫秒）——与 PROTOCOL.md 看板协议一致
@@ -355,14 +358,37 @@ export function claimCard(cardArg, assignee) {
 
 // ---------- 项目 metadata ----------
 /**
+ * 内置保留名 `__team__`（PROTOCOL ②）：团队内部杂务专用，不查基座 / 不查回退。
+ *
+ * 逐字段与 provider 基座此前的输出一致（对外行为不变）；该保留名是**团队**约定，故由 team 侧持有。
+ * 仅可写 ~/.openclaw/team/**（`TEAM_WRITABLE_PREFIX` 来自 provider 路径常量单一来源）。
+ */
+export function teamProject() {
+  return {
+    name: '__team__',
+    kind: 'team',
+    root: null,
+    writable: [TEAM_WRITABLE_PREFIX],
+    repos: [],
+    guides: [`${TEAM_ROOT}/PROTOCOL.md`],
+    default_git_rules: '仅写 ~/.openclaw/team/**；无项目仓库访问权',
+    registered_at: null,
+  };
+}
+
+/**
  * get_project(name) → 项目 metadata（identity code）。
  *
- * 经 ACL 解析（skills/task-ops/lib/projects.mjs，见 guides/task-interface.md §8）：
- *   __team__（内置）→ 基座（当前 meerkat-taskpanel `projects` 表）→ 只读回退 projects.json → 未注册抛错。
- * 保留名 __team__ 不查基座/回退：团队内部杂务专用，仅可写 ~/.openclaw/team/**。
+ * 经 ACL 解析（guides/task-interface.md §8/§12），**team 侧**实现：
+ *   `__team__`（内置）→ 基座（`taskctl project list --json` 子进程取数 + wire 漂移门，见 board-adapter.mjs）
+ *   → 只读回退 projects.json（过渡期权威快照）→ 未注册抛错。
+ *
+ * 基座不可用/漂移 ⇒ **降级**（回退 projects.json），漂移另有显式 stderr 告警（绝不静默）。
+ * @param {string} name identity code
+ * @param {object} [opts] 透传 board-adapter（如 `{baseOpts:{taskctl, runner}}`，测试用）
  */
-export function getProject(name) {
-  return aclGetProject(name);
+export function getProject(name, opts = {}) {
+  return boardAdapter.getProject(name, { builtin: teamProject(), fallbackFile: PROJECTS_FILE, ...opts });
 }
 
 // ---------- CLI ----------
