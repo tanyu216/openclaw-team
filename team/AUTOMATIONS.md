@@ -20,7 +20,7 @@
   below; `--skip-automations` disables registration. Re-running is idempotent
   (`declarationKey`).
 
-## 1. Job Overview (currently 15)
+## 1. Job Overview (17 live: 15 declared by `install.sh` + `simons-poll` and `skill-collection-review:simons` registered out-of-band)
 
 | Name | Agent | Frequency | Trigger | Delivery | Purpose |
 |---|---|---|---|---|---|
@@ -28,6 +28,7 @@
 | `linus-poll` | linus | every 5m | ✅ | none | Same (linus) |
 | `turing-poll` | turing | every 5m | ✅ | none | Same (turing) |
 | `assistant-poll` | assistant | every 5m | ✅ | none | Same (assistant) |
+| `simons-poll` | simons | every 5m | ✅ | none | Same (simons) — live-registered out-of-band (`simons` not declared by `install.sh` `ROLES`) |
 | `task-patrol` | main | every 15m | ✅ | none | in_progress cards with stale heartbeat (>30min) → wake/recover |
 | `team-check-all` | main | **hourly** | ✅ | none | Gate patrol; wakes the model only on failure |
 | `heartbeat-main` | main | every 30m | — | none | Main-session heartbeat |
