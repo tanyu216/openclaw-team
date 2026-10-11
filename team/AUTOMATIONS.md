@@ -20,7 +20,9 @@
   below; `--skip-automations` disables registration. Re-running is idempotent
   (`declarationKey`).
 
-## 1. Job Overview (17 live: 15 declared by `install.sh` + `simons-poll` and `skill-collection-review:simons` registered out-of-band)
+## 1. Job Overview (17 live: 6 declared by `install.sh` — 4 × `*-poll` + `task-patrol` + `team-check-all`; the other 11 registered by their own mechanisms)
+
+> **Cadence / scope caveat.** The `Frequency` column documents the **framework-declared (repo) defaults**: `*-poll` = `every 5m` and `task-patrol` = `every 15m` (`install.sh:126` / `:698` / `:718`). The **live Gateway store is not yet re-deployed** and still runs the *old* cadence (`*-poll` = `every 2m`, `task-patrol` = `every 5m`); the repo values take effect only after `install.sh` / `config/reconcile.mjs` runs against the store (§3.6). Live breakdown of the 17 jobs: **6 declared by `install.sh`** = 4 × `*-poll` (jobs/linus/turing/assistant) + `task-patrol` + `team-check-all`; **4 framework/plugin-owned** = `heartbeat-main`, `memory-dreaming-promotion`, `token-hygiene`, `session-rollover`; **6 × `skill-collection-review`** (main/jobs/linus/turing/assistant/simons); **1 out-of-band `simons-poll`** (`simons` is not in `install.sh` `ROLES`).
 
 | Name | Agent | Frequency | Trigger | Delivery | Purpose |
 |---|---|---|---|---|---|
@@ -35,7 +37,7 @@
 | `memory-dreaming-promotion` | main | 03:00 (Asia/Shanghai) | — | none | memory-core short-term memory promotion (managed) |
 | `token-hygiene` | main | 04:00 (Asia/Shanghai) | — | none | Large-log compaction/memory indexing |
 | `session-rollover` | main | 06:00 (Asia/Shanghai) | — | none | Main-session rollover |
-| `skill-collection-review-{main,jobs,linus,turing,assistant}` | respective | every 7d (staggered) | — | none | Skill collection patrol |
+| `skill-collection-review-{main,jobs,linus,turing,assistant,simons}` | respective | every 7d (staggered) | — | none | Skill collection patrol (`simons` out-of-band; not declared by `install.sh`) |
 
 ## 2. Cost Model (important)
 - **An idle trigger job = zero cost**: `fire:false` only writes state, produces no run, and consumes no model. So all poll / task-patrol / team-check-all jobs are **near zero cost when there is no anomaly**.
