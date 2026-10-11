@@ -15,6 +15,9 @@
  *        in_review ⇒ 拒绝并提示改用复核 lane（`status_not_spawnable(in_review):use_role=review`）。
  *      - role=review（复核 lane，`--review` 等价）：仅接受 status=in_review；**不 claim、不校验 claimed_by**
  *        （复核人 ≠ 实施人）；未显式 seg= 时取 `segR1`（避开执行侧 seg1 的行 upsert 撞名，见 sop §Review lanes）。
+ *   ①b 同卡同 seg 防双跑：卡内 `## Sessions` 该 seg 行 / registry 该卡 `phase=seg` 条目若
+ *      `status=running` **且 pid 存活** ⇒ 拒绝二次 spawn（`session_running(...):reuse_existing`，零副作用），
+ *      提示复用既有 session（与 poll 防双跑守卫同口径）；僵尸行（pid 已死）不占用，交 reconcile。
  *   ② 并发额度：linus/jobs running>=8 或 turing running>=3 ⇒ 拒绝；
  *   ③ cwd：由 project 经 ACL 解析（`__team__` ⇒ team 根），叠加 target；
  *   ④ handoff 自检：workspace/<id>/ 确保存在；handoff.md 缺失 ⇒ 用 ACL `task.handoff` 生成（不覆盖）；
@@ -93,7 +96,12 @@ export function resolveCwd(fm = {}) {
   return target ? path.resolve(base, target) : base;
 }
 
-/** 卡内 `## Sessions` 段已登记的 {seg, owner}（复核 lane 的 seg 撞名守卫用；只读解析，不写卡） */
+/**
+ * 卡内 `## Sessions` 段已登记的条目（复核 lane 的 seg 撞名守卫 + 防双跑守卫用；只读解析，不写卡）。
+ * 行格式（task-interface §9）：`- seg:… · owner:… · backend:… · id:… · phase:… · status:… · pid:… · <ts>`。
+ * 解析为 `{seg, owner, backend, id, phase, status, pid, …}`（键值对通用提取；无键的尾部时间戳忽略）。
+ * 旧行/手写行缺字段 ⇒ 该字段缺席（不抛、不猜）。
+ */
 export function sessionsBySeg(body) {
   const lines = String(body || '').split('\n');
   const hi = lines.findIndex((l) => l.trim() === '## Sessions');
@@ -101,10 +109,40 @@ export function sessionsBySeg(body) {
   const out = [];
   for (let i = hi + 1; i < lines.length; i++) {
     if (/^##\s/.test(lines[i])) break;
-    const m = /^- seg:(\S+) ·.*owner:(\S*) ·/.exec(lines[i]);
-    if (m) out.push({ seg: m[1], owner: m[2] });
+    const m = /^- seg:(\S+) ·/.exec(lines[i]);
+    if (!m) continue;
+    const entry = {};
+    for (const part of lines[i].replace(/^-\s*/, '').split(' · ')) {
+      const kv = /^([A-Za-z_][A-Za-z0-9_]*):(.*)$/.exec(part.trim());
+      if (kv) entry[kv[1]] = kv[2].trim();
+    }
+    entry.seg = m[1]; // seg 恒以行首 `seg:<x> ·` 为准（即便后面还有名为 seg 的部件）
+    out.push(entry);
   }
   return out;
+}
+
+/**
+ * 同卡同 seg 防双跑判据（Elon 2026-10-11 并入本治理卡；**与 poll 防双跑守卫同口径**：
+ * 登记 `status=running` **且 pid 存活**）。两个登记源任一命中即视为「已有在跑的会话」：
+ *   ① 卡内 `## Sessions` 该 seg 行（seg 语义精确，含 id 供 resume）；
+ *   ② registry 该卡 `status=running` 且 pid 存活、且 `phase===seg` 的条目
+ *      （registry 条目无 `seg` 字段，`phase` 即 spawn 链路写入的 seg —— 见 sessionSet 的 regEntry）。
+ * 僵尸行（pid 已死）**不**算占用（reconcile 的职责），避免误拒恢复。
+ * @param {{taskId: string, seg: string, cardBody?: string, registry?: object[]|null}} input
+ * @returns {{blocked: boolean, session?: object}}
+ */
+export function runningLaneBlocker({ taskId, seg, cardBody = '', registry = null }) {
+  const byCard = sessionsBySeg(cardBody).find(
+    (s) => s.seg === seg && s.status === 'running' && isPidAlive(Number(s.pid)),
+  );
+  if (byCard) return { blocked: true, session: { ...byCard, pid: Number(byCard.pid), source: 'card' } };
+  const reg = registry == null ? loadRegistry() : registry;
+  const byReg = reg.find(
+    (e) => e.task_id === taskId && e.status === 'running' && e.phase === seg && isPidAlive(e.pid),
+  );
+  if (byReg) return { blocked: true, session: { ...byReg, seg, source: 'registry' } };
+  return { blocked: false };
 }
 
 /**
@@ -236,6 +274,19 @@ export function spawnLane(opts = {}) {
   let claims = [];
   let status = String(c.fm.status || '');
 
+  // ---- ①b 同卡同 seg 防双跑守卫（并入本治理卡；判据同 poll 防双跑守卫：running 登记 + pid 存活）----
+  // 已有在跑的会话 ⇒ 拒绝再次 spawn（提示复用既有 session，按 host 口径 resume），绝不双跑。
+  // 放在 claim 之前：拒绝路径**零副作用**（不 claim、不写 registry/卡/日志）。
+  {
+    const hit = runningLaneBlocker({ taskId, seg, cardBody: c.body });
+    if (hit.blocked) {
+      const s = hit.session || {};
+      return reject(
+        `session_running(seg=${seg},pid=${s.pid ?? ''},id=${s.id || s.session_id || ''},owner=${s.owner || ''}):reuse_existing`,
+        { session: { seg, pid: s.pid ?? null, id: s.id || s.session_id || null, owner: s.owner || null, source: s.source } },
+      );
+    }
+  }
   // ---- status / claim 断言（按 role 分派）----
   if (role === 'review') {
     // 复核 lane：只认在审卡；不 claim、不改/不校验 claimed_by（复核人 ≠ 实施人）

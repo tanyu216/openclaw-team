@@ -442,3 +442,49 @@ test('GREEN-7. 复核 lane --dry-run：只校验+打印（settings/handoff=would
   assert.equal(fs.existsSync(path.join(WS, id, 'handoff.md')), false, 'dry-run 不得生成 handoff');
 });
 
+// ── ①b：同卡同 seg 防双跑（Elon 2026-10-11 并入本治理卡；判据同 poll 防双跑守卫） ──────
+
+test('REJECT. 同卡同 seg 已有 running（卡内 Sessions 行 + pid 存活）⇒ 拒绝二次 spawn，零副作用', { skip: SKIP }, () => {
+  const id = 'T-20260101-100019-dup-card';
+  // 卡内该 seg 行：running 且 pid 存活（用本进程 pid 保证「存活」）
+  const live = `- seg:seg1 · owner:linus · backend:claude · id:99999999-9999-5999-8999-999999999999 · phase:seg1 · status:running · pid:${process.pid} · 2026-01-01T00:00:00.000Z`;
+  writeCard(id, { status: 'in_progress', claimed: 'linus', segs: [live] });
+
+  const r = spawnLane({ card: id, owner: 'linus', seg: 'seg1', backend: 'claude', dryRun: false });
+  assert.equal(r.ok, false, JSON.stringify(r));
+  assert.match(r.reason, /^session_running\(seg=seg1,pid=\d+,id=\S+\):reuse_existing$/);
+  assert.equal(r.session.source, 'card');
+  assert.equal(r.session.id, '99999999-9999-5999-8999-999999999999', '拒绝须给出可 resume 的既有 session id');
+  assert.equal(registryEntries(id).length, 0, '拒绝时不得写 registry');
+  assert.equal(fs.existsSync(path.join(WS, id, 'linus-1.out.jsonl')), false, '拒绝时不得起进程');
+});
+
+test('REJECT. 同卡同 seg 已有 running（仅 registry：phase=seg + pid 存活）⇒ 同样拒绝', { skip: SKIP }, () => {
+  const id = 'T-20260101-100020-dup-reg';
+  writeCard(id, { status: 'in_progress', claimed: 'linus', segs: [] }); // 卡内 Sessions 空（只写了 registry 的形态）
+  upsertSessionEntry({ task_id: id, owner: 'linus', phase: 'seg1', status: 'running', pid: process.pid, session_id: 'abababab-1111-5111-8111-111111111111', startedAt: 'x' });
+
+  const r = spawnLane({ card: id, owner: 'linus', seg: 'seg1', backend: 'claude', dryRun: true });
+  assert.equal(r.ok, false, JSON.stringify(r));
+  assert.match(r.reason, /^session_running\(seg=seg1,pid=\d+,id=abababab-1111-5111-8111-111111111111,owner=linus\):reuse_existing$/);
+  assert.equal(r.session.source, 'registry');
+});
+
+test('GREEN. 僵尸登记（pid 已死）⇒ 不占用，允许起会话（交 reconcile 清理）', { skip: SKIP }, () => {
+  const id = 'T-20260101-100021-zombie';
+  const dead = '- seg:seg1 · owner:linus · backend:claude · id:12341234-1234-5123-8123-123412341234 · phase:seg1 · status:running · pid:999999999 · 2026-01-01T00:00:00.000Z';
+  writeCard(id, { status: 'in_progress', claimed: 'linus', segs: [dead] });
+  const r = spawnLane({ card: id, owner: 'linus', seg: 'seg1', backend: 'claude', dryRun: true });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.seg, 'seg1');
+});
+
+test('GREEN. 同卡不同 seg（复核 lane segR1 对执行侧 seg1 在跑）⇒ 各跑各的，不误拒', { skip: SKIP }, () => {
+  const id = 'T-20260101-100022-diff-seg';
+  const live = `- seg:seg1 · owner:linus · backend:claude · id:56565656-5656-5656-8656-565656565656 · phase:seg1 · status:running · pid:${process.pid} · 2026-01-01T00:00:00.000Z`;
+  writeCard(id, { status: 'in_review', claimed: 'linus', segs: [live] });
+  const r = spawnLane({ card: id, owner: 'turing', backend: 'codex', role: 'review', dryRun: true });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.seg, 'segR1');
+});
+
