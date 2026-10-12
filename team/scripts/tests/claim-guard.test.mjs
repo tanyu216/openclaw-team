@@ -6,7 +6,8 @@
  * 本套件不 mock 内部函数：真实 temp 目录 + 真实子进程跑直派 CLI，验证：
  *   1) 直派路径（claim.mjs）领取前查活跃子会话 registry ⇒ 有 ⇒ 不领（active_session）；
  *   2) 同卡跨回合锁：心跳陈旧但锁新鲜 ⇒ 不领（turn_locked）；锁陈旧 ⇒ 清除后恢复；
- *   3) 终态（done）释放跨回合锁 ⇒ 可再次恢复。
+ *   3) 终态（done）释放跨回合锁 ⇒ 可再次恢复；
+ *   4) 复核卡（review_of 非空）dep=被复核卡 ⇒ 豁免（可领），其余 dep 仍生效（T-20261013-000246）。
  * 运行：node --test scripts/tests/claim-guard.test.mjs
  */
 import { test as nodeTest, after } from 'node:test';
@@ -156,6 +157,70 @@ test('5. 心跳续锁：refreshHeartbeat 刷新跨回合锁（心跳新鲜 ⇒ �
   assert.equal(hb.ok, true);
   const afterMs = fs.statSync(turnPath(id)).mtimeMs;
   assert.ok(afterMs >= before, '心跳刷新应续锁（mtime 不早于前值）');
+});
+
+// ---- 复核卡 deps 豁免（T-20261013-000246） ---------------------------------
+// 缺陷：复核卡（review_of 非空）自带 depends_on:[被复核卡]，而被复核卡须停在 in_review
+// 等验证、永不先 done ⇒ 依赖门（要求 dep=done）恒不可满足 ⇒ 复核卡恒不可领。
+// 口径：豁免「dep 恰等于 fm.review_of」的那一项，其余 dep 照旧生效。
+
+test('7. 负例：复核卡 dep=被复核卡（in_review）⇒ 可领（豁免）', () => {
+  const reviewed = 'T-20260101-020007-reviewed';
+  const review = 'T-20260101-020008-review';
+  writeCard(reviewed, { id: reviewed, title: 'impl', assignee: 'jobs', status: 'in_review' });
+  writeCard(review, {
+    id: review, title: 'review', assignee: 'linus', status: 'ready',
+    depends_on: [reviewed], review_of: reviewed,
+  });
+
+  const r = claimCard(review, 'linus');
+  assert.equal(r.ok, true, `复核卡应可领（dep 由 review_of 承载），实际 ${JSON.stringify(r)}`);
+  assert.equal(readFm(review).status, 'in_progress');
+  assert.equal(readFm(reviewed).status, 'in_review', '被复核卡不应被领取副作用改写');
+});
+
+test('8. 豁免仅限被复核卡：其余未完成 dep 仍 deps_unmet', () => {
+  const reviewed = 'T-20260101-020009-reviewed';
+  const other = 'T-20260101-020010-other';
+  const review = 'T-20260101-020011-review';
+  writeCard(reviewed, { id: reviewed, title: 'impl', assignee: 'jobs', status: 'in_review' });
+  writeCard(other, { id: other, title: 'other', assignee: 'jobs', status: 'ready' });
+  writeCard(review, {
+    id: review, title: 'review', assignee: 'linus', status: 'ready',
+    depends_on: [reviewed, other], review_of: reviewed,
+  });
+
+  const r = claimCard(review, 'linus');
+  assert.equal(r.ok, false, `其余 dep 未完成仍应拦，实际 ${JSON.stringify(r)}`);
+  assert.equal(r.reason, 'deps_unmet');
+  assert.deepEqual(r.deps, [other], '未满足集应只含被豁免项之外的那张');
+});
+
+test('9. 正例（既有语义）：普通卡 dep 未完成 ⇒ deps_unmet 不可领', () => {
+  const dep = 'T-20260101-020012-dep';
+  const card = 'T-20260101-020013-norm';
+  writeCard(dep, { id: dep, title: 'dep', assignee: 'jobs', status: 'ready' });
+  writeCard(card, { id: card, title: 'norm', assignee: 'linus', status: 'ready', depends_on: [dep] });
+
+  const r = claimCard(card, 'linus');
+  assert.equal(r.ok, false, `普通卡 dep 未完成应拦，实际 ${JSON.stringify(r)}`);
+  assert.equal(r.reason, 'deps_unmet');
+  assert.deepEqual(r.deps, [dep]);
+
+  // dep 完成（done）⇒ 可领（既有语义未破坏）
+  taskAcl.setStatus(dep, 'done');
+  assert.equal(claimCard(card, 'linus').ok, true);
+});
+
+test('10. 无 review_of 时不做任何豁免：dep 即被引用卡也不放行', () => {
+  const dep = 'T-20260101-020014-dep';
+  const card = 'T-20260101-020015-plain';
+  writeCard(dep, { id: dep, title: 'dep', assignee: 'jobs', status: 'in_review' });
+  writeCard(card, { id: card, title: 'plain', assignee: 'linus', status: 'ready', depends_on: [dep] });
+
+  const r = claimCard(card, 'linus');
+  assert.equal(r.ok, false, `review_of 为空不应豁免，实际 ${JSON.stringify(r)}`);
+  assert.equal(r.reason, 'deps_unmet');
 });
 
 test('6. 终态（done）释放跨回合锁 ⇒ 后续可恢复', () => {

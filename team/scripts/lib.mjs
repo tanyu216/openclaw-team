@@ -280,9 +280,14 @@ export function claimCard(cardArg, assignee) {
   // 关系守卫（task-interface）：容器卡不可领；前置未完成不可领
   if ((fm.kind || 'task') === 'epic') return { ok: false, reason: 'epic_container', card: fm };
   {
+    // 复核卡豁免（T-20261013-000246）：复核卡（review_of 非空）若把**被复核卡**也写进 depends_on，
+    // 该 dep 恒不可满足——被复核卡须停在 in_review 等验证、永不先 done。关系本由 review_of 承载，
+    // 该 dep 冗余且有害 ⇒ 豁免「dep 恰等于 fm.review_of」的那一项；其余 dep 照旧生效。
     const ds = parseDeps(fm.depends_on);
-    if (ds.length) {
-      const unmet = ds.filter((d) => { try { return readCard(d).fm.status !== 'done'; } catch { return true; } });
+    const reviewed = typeof fm.review_of === 'string' ? fm.review_of.trim() : '';
+    const effective = reviewed ? ds.filter((d) => d !== reviewed) : ds;
+    if (effective.length) {
+      const unmet = effective.filter((d) => { try { return readCard(d).fm.status !== 'done'; } catch { return true; } });
       if (unmet.length) return { ok: false, reason: 'deps_unmet', deps: unmet, card: fm };
     }
   }
