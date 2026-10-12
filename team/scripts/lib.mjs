@@ -279,13 +279,35 @@ export function claimCard(cardArg, assignee) {
   let { fm, body } = readCard(cardPath);
   // 关系守卫（task-interface）：容器卡不可领；前置未完成不可领
   if ((fm.kind || 'task') === 'epic') return { ok: false, reason: 'epic_container', card: fm };
+  const warnings = [];
   {
     // 复核卡豁免（T-20261013-000246）：复核卡（review_of 非空）若把**被复核卡**也写进 depends_on，
     // 该 dep 恒不可满足——被复核卡须停在 in_review 等验证、永不先 done。关系本由 review_of 承载，
     // 该 dep 冗余且有害 ⇒ 豁免「dep 恰等于 fm.review_of」的那一项；其余 dep 照旧生效。
+    //
+    // 收紧（T-20261013-035746）：豁免 ≠ 无条件放行。被复核卡**尚未交付**时豁免会让复核卡被提前领取
+    // （实证 T-20261013-030936 早领约 10min），验证者只能空转/blocked。故该项豁免前先要求被复核卡
+    // 已交付（status ∈ {in_review, done}）；否则拒领 review_unmet。被复核卡不可读（不存在）⇒ 保持
+    // 旧行为（不阻塞）并记 warning review_of_not_found:<id>。
     const ds = parseDeps(fm.depends_on);
     const reviewed = typeof fm.review_of === 'string' ? fm.review_of.trim() : '';
-    const effective = reviewed ? ds.filter((d) => d !== reviewed) : ds;
+    let effective = ds;
+    if (reviewed && ds.includes(reviewed)) {
+      let reviewedStatus = null;
+      try {
+        reviewedStatus = readCard(reviewed).fm.status;
+      } catch {
+        reviewedStatus = null; // 被复核卡不存在/不可读 ⇒ 回退到「不阻塞」旧行为
+      }
+      if (reviewedStatus === null) {
+        warnings.push(`review_of_not_found:${reviewed}`);
+        effective = ds.filter((d) => d !== reviewed);
+      } else if (reviewedStatus === 'in_review' || reviewedStatus === 'done') {
+        effective = ds.filter((d) => d !== reviewed);
+      } else {
+        return { ok: false, reason: 'review_unmet', review_of: reviewed, status: reviewedStatus, card: fm };
+      }
+    }
     if (effective.length) {
       const unmet = effective.filter((d) => { try { return readCard(d).fm.status !== 'done'; } catch { return true; } });
       if (unmet.length) return { ok: false, reason: 'deps_unmet', deps: unmet, card: fm };
@@ -351,7 +373,7 @@ export function claimCard(cardArg, assignee) {
     fm.heartbeat_at = ts;
     writeCardAtomic(cardPath, fm, body);
     touchTurnLock(turnPath); // 领取成功 ⇒ 持有跨回合锁
-    return { ok: true, mode, card: fm, cardPath };
+    return { ok: true, mode, card: fm, cardPath, warnings };
   } finally {
     try {
       fs.rmdirSync(lockDir);
