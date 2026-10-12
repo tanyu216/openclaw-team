@@ -57,13 +57,13 @@ function card(fm) {
 }
 
 /** 建隔离卡目录 → 跑 checkRelations → 返回 { bad, warn, ids, root } */
-function run(cards, extraFiles = []) {
+function run(cards, extraFiles = [], opts = undefined) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-rel-'));
   TMP.push(root);
   fs.mkdirSync(path.join(root, 'tasks'), { recursive: true });
   for (const c of cards) fs.writeFileSync(path.join(root, 'tasks', `${c.id}.md`), card(c), 'utf8');
   for (const f of extraFiles) fs.writeFileSync(path.join(root, 'tasks', f.name), f.content, 'utf8');
-  const r = checkRelations(path.join(root, 'tasks'));
+  const r = checkRelations(path.join(root, 'tasks'), opts);
   return { ...r, root };
 }
 
@@ -217,6 +217,67 @@ test('缺省 kind / 无 frontmatter 兜底分支（覆盖 kind||task 与 fm&&fm.
   assert.ok(r.ids.includes('nofm'), '无 frontmatter 卡应按文件名入 ids');
 });
 
+// ---- §⑩.2 分批登记软护栏（T-20261013-010610）：epic 已放行一批 + 长期占位子卡 ⇒ 软告警（不改退出码）----
+
+const HOUR = 3600 * 1000;
+const DAY = 24 * HOUR;
+const ago = (ms) => new Date(Date.now() - ms).toISOString();
+const epicWarns = (r) => r.warn.filter((w) => w.includes('epic_child_todo_stale'));
+
+test('分批登记：epic 已放行一批 + 有 >48h 的 todo 子卡 ⇒ 软告警（不改 bad）', () => {
+  const r = run([
+    epic('E', { status: 'ready' }),
+    task('C1', { parent: 'E', status: 'done', status_changed_at: ago(10 * DAY) }),
+    task('C2', { parent: 'E', status: 'todo', status_changed_at: ago(5 * DAY) }),
+  ]);
+  assert.equal(r.bad.length, 0, `不应有硬违例，实际 ${JSON.stringify(r.bad)}`);
+  assert.ok(epicWarns(r).some((w) => w.includes('C2')), `应软告警 C2，实际 ${JSON.stringify(r.warn)}`);
+});
+
+test('分批登记：epic in_progress + 全部子卡长期 todo ⇒ 软告警（覆盖卡片原文「in_progress」判据）', () => {
+  const r = run([
+    epic('E', { status: 'in_progress' }),
+    task('C1', { parent: 'E', status: 'todo', created_at: ago(9 * DAY) }),
+  ]);
+  assert.equal(r.bad.length, 0, `实际 ${JSON.stringify(r.bad)}`);
+  assert.ok(epicWarns(r).length > 0, `实际 ${JSON.stringify(r.warn)}`);
+});
+
+test('分批登记：占位子卡未超阈值 / 一批未开工 / epic 终态 ⇒ 均不告警', () => {
+  // (a) 占位子卡仅停留 1h（未超 48h 阈值）
+  const fresh = run([
+    epic('E', { status: 'ready' }),
+    task('C1', { parent: 'E', status: 'done', status_changed_at: ago(2 * DAY) }),
+    task('C2', { parent: 'E', status: 'todo', status_changed_at: ago(1 * HOUR) }),
+  ]);
+  assert.equal(epicWarns(fresh).length, 0, `未超阈值不应告警，实际 ${JSON.stringify(fresh.warn)}`);
+  // (b) 一批都未放行（全 todo、epic ready）⇒ 尚未开工，不算「第二批遗漏」
+  const notStarted = run([
+    epic('E', { status: 'ready' }),
+    task('C1', { parent: 'E', status: 'todo', status_changed_at: ago(9 * DAY) }),
+  ]);
+  assert.equal(epicWarns(notStarted).length, 0, `未开工不应告警，实际 ${JSON.stringify(notStarted.warn)}`);
+  // (c) epic 已终态 ⇒ 不告警
+  const term = run([
+    epic('E', { status: 'done' }),
+    task('C1', { parent: 'E', status: 'done', status_changed_at: ago(9 * DAY) }),
+    task('C2', { parent: 'E', status: 'todo', status_changed_at: ago(9 * DAY) }),
+  ]);
+  assert.equal(epicWarns(term).length, 0, `终态 epic 不应告警，实际 ${JSON.stringify(term.warn)}`);
+});
+
+test('分批登记：阈值可由 opts.epicTodoWarnMs 注入（大于停留时长 ⇒ 静默）', () => {
+  const cards = () => [
+    epic('E', { status: 'ready' }),
+    task('C1', { parent: 'E', status: 'done', status_changed_at: ago(10 * DAY) }),
+    task('C2', { parent: 'E', status: 'todo', status_changed_at: ago(2 * DAY) }),
+  ];
+  const strict = run(cards(), [], { epicTodoWarnMs: 1 * DAY, now: Date.now() });
+  assert.ok(epicWarns(strict).length > 0, `阈值 1d ⇒ 2d 占位应告警，实际 ${JSON.stringify(strict.warn)}`);
+  const loose = run(cards(), [], { epicTodoWarnMs: 30 * DAY, now: Date.now() });
+  assert.equal(epicWarns(loose).length, 0, `阈值 30d ⇒ 2d 占位应静默，实际 ${JSON.stringify(loose.warn)}`);
+});
+
 // ---- CLI（spawn：退出码 / 输出信封，同时覆盖 main() 与 main-guard arg===self 分支）----
 
 test('CLI：通过 ⇒ 退出 0 且打印「关系校验通过」', () => {
@@ -255,4 +316,17 @@ test('CLI：深链 ⇒ 打印 ⚠ 深链告警但退出 0（软护栏不改退�
   const r = spawnSync(process.execPath, [CHECK_RELATIONS], { env: { ...process.env, OPENCLAW_TEAM_ROOT: root }, encoding: 'utf8' });
   assert.equal(r.status, 0, `stdout=${r.stdout} stderr=${r.stderr}`);
   assert.match(r.stdout, /深链告警/);
+});
+
+test('CLI：epic 有长期占位子卡 ⇒ 打印分批登记告警但退出 0（软护栏不改退出码）', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-rel-cliepic-'));
+  TMP.push(root);
+  fs.mkdirSync(path.join(root, 'tasks'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'tasks', 'E.md'), card(epic('E', { status: 'ready' })), 'utf8');
+  fs.writeFileSync(path.join(root, 'tasks', 'C1.md'), card(task('C1', { parent: 'E', status: 'done', status_changed_at: ago(10 * DAY) })), 'utf8');
+  fs.writeFileSync(path.join(root, 'tasks', 'C2.md'), card(task('C2', { parent: 'E', status: 'todo', status_changed_at: ago(5 * DAY) })), 'utf8');
+  const r = spawnSync(process.execPath, [CHECK_RELATIONS], { env: { ...process.env, OPENCLAW_TEAM_ROOT: root }, encoding: 'utf8' });
+  assert.equal(r.status, 0, `软告警不得改退出码，stdout=${r.stdout} stderr=${r.stderr}`);
+  assert.match(r.stdout, /分批登记告警/);
+  assert.match(r.stdout, /epic_child_todo_stale/);
 });

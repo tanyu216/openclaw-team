@@ -4,14 +4,26 @@
  * 校验（对齐基座 meerkat-taskpanel）：自指/父子环/父存在/父须 epic/依赖存在/禁祖先/扇入/依赖环/
  * 依赖链长≤8/父链长≤8/空 epic。**不再设单层/嵌套 epic 限制**（支持多层，中间节点须为 epic）。
  * 深链（父链长 ≥5）为软告警：打印告警但**不改退出码**。
+ * 分批登记软告警（§⑩.2，T-20261013-010610）：epic 已放行过一批却仍有长期停留在占位态
+ * （todo/backlog）的子卡 ⇒ 告警（不改退出码）。
  * 退出码：0 通过；1 有 hard 违例。
  * 测试：核心逻辑抽为 `checkRelations(tasksDir)`（可注入目录），CLI 走 main-guard（被 import 不执行）。
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseFrontmatter, TASKS_DIR } from './lib.mjs';
+import { parseFrontmatter, parseIso, TASKS_DIR } from './lib.mjs';
 
 const MAX_CHAIN = 8, MAX_FANIN = 8, DEEP_CHAIN_WARN = 5;
+// §⑩.2「登记一次到位、放行可分批」软护栏（T-20261013-010610）。
+// 占位态 = 已登记、尚未放行的子卡状态；阈值默认 48h，可由 OPENCLAW_TEAM_EPIC_TODO_WARN_MS 覆盖
+// （阈值裁定归人，§㉔.7）。本项只告警、不改退出码——与 §⑩.3 深链软护栏同款。
+const PLACEHOLDER_STATUS = new Set(['todo', 'backlog']);
+const TERMINAL_STATUS = new Set(['done', 'canceled']);
+export const EPIC_CHILD_WARN_TAG = 'epic_child_todo_stale';
+export function defaultEpicTodoWarnMs() {
+  const v = Number(process.env.OPENCLAW_TEAM_EPIC_TODO_WARN_MS);
+  return Number.isFinite(v) && v > 0 ? v : 48 * 60 * 60 * 1000;
+}
 
 function parseList(raw) {
   if (typeof raw !== 'string') return [];
@@ -22,8 +34,9 @@ function parseList(raw) {
 /**
  * 巡检关系不变量；返回 { bad, warn, ids }（CLI 与单测共用）。
  * @param {string} [tasksDir=TASKS_DIR] 卡目录（单测隔离注入用；CLI 用默认 TASKS_DIR）
+ * @param {{now?:number, epicTodoWarnMs?:number}} [opts] now/epicTodoWarnMs 供单测注入（默认取当前时刻/env）
  */
-export function checkRelations(tasksDir = TASKS_DIR) {
+export function checkRelations(tasksDir = TASKS_DIR, { now = Date.now(), epicTodoWarnMs = defaultEpicTodoWarnMs() } = {}) {
   const cards = {};
   if (fs.existsSync(tasksDir)) {
     for (const f of fs.readdirSync(tasksDir)) {
@@ -83,13 +96,44 @@ export function checkRelations(tasksDir = TASKS_DIR) {
   // I12 空 epic
   for (const id of ids) if ((cards[id].kind || 'task') === 'epic' && !ids.some((x) => parentOf(x) === id)) bad.push(`${id} empty_epic`);
 
+  // §⑩.2「登记一次到位、放行可分批」软护栏（T-20261013-010610）：
+  // 分批需求应「先建 epic + 一次性登记全部批次为子卡」，放行（dispatch）可分批。若某 epic 未终结、
+  // 且确实已放行过至少一批（epic 自身 in_progress，或已有子卡离开占位态），却仍有**登记后长期停留在
+  // 占位态（todo/backlog）**的子卡 ⇒ 告警，暴露「第一批建了、第二批没人管」。
+  // 注：判据不写死 epic.status==='in_progress' —— 本团队看板上 epic 常年停在 ready（rollup 不把它
+  // 停到 in_progress），写死会成死码、假绿（§⑳.2）。故以「已放行过一批」等价刻画 in_progress 语义。
+  const childOf = {};
+  for (const id of ids) { const p = parentOf(id); if (p) (childOf[p] || (childOf[p] = [])).push(id); }
+  const isDispatched = (s) => !PLACEHOLDER_STATUS.has(String(s == null ? '' : s).trim());
+  const ageMsOf = (c) => {
+    const t = parseIso(c.status_changed_at);
+    const t0 = Number.isNaN(t) ? parseIso(c.created_at) : t;
+    return Number.isNaN(t0) ? null : now - t0;
+  };
+  for (const id of ids) {
+    if ((cards[id].kind || 'task') !== 'epic') continue;
+    if (TERMINAL_STATUS.has(String(cards[id].status == null ? '' : cards[id].status).trim())) continue;
+    const kids = (childOf[id] || []).map((k) => cards[k]);
+    if (!kids.length) continue; // 空 epic 已由 empty_epic 硬判，勿重复
+    const started = cards[id].status === 'in_progress' || kids.some((k) => isDispatched(k.status));
+    if (!started) continue; // 一批都未放行 ⇒ 尚未开工，不属「第二批遗漏」
+    const stale = kids.filter((k) => PLACEHOLDER_STATUS.has(String(k.status == null ? '' : k.status).trim()) && (ageMsOf(k) ?? -1) > epicTodoWarnMs);
+    if (stale.length) warn.push(`${id} ${EPIC_CHILD_WARN_TAG}(${stale.length}):${stale.map((k) => k.id).join(',')}`);
+  }
+
   return { bad, warn, ids };
 }
 
 function main() {
   const { bad, warn, ids } = checkRelations();
+  const epicWarn = warn.filter((w) => w.includes(EPIC_CHILD_WARN_TAG));
+  const deepWarn = warn.filter((w) => !w.includes(EPIC_CHILD_WARN_TAG));
   console.log(bad.length ? bad.join('\n') : `关系校验通过 ✔（${ids.length} 卡）`);
-  if (warn.length) console.log(`\n⚠ 深链告警：${warn.join('、')}（父链长 ≥${DEEP_CHAIN_WARN}；软护栏，不阻断）`);
+  if (deepWarn.length) console.log(`\n⚠ 深链告警：${deepWarn.join('、')}（父链长 ≥${DEEP_CHAIN_WARN}；软护栏，不阻断）`);
+  if (epicWarn.length) {
+    const h = Math.round(defaultEpicTodoWarnMs() / 3600000);
+    console.log(`\n⚠ 分批登记告警：${epicWarn.join('、')}（epic 已放行一批、仍有占位态子卡停留 >${h}h；软护栏，不阻断，§⑩.2）`);
+  }
   console.log(bad.length ? `\n违例：${bad.length}` : '');
   process.exit(bad.length ? 1 : 0);
 }

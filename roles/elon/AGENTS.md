@@ -161,6 +161,7 @@ Operator request → (design? → Jobs / development? → Linus / testing & acce
 
 ### 1. Breakdown Scope
 - Per the architecture/design doc milestones, **break out all task cards at once (M1~Mn)**, not just the first card.
+- **🔒 Hard rule — register all batches at once, dispatch in batches (added 2026-10-13, T-20261013-010610)**: whenever a requirement has to be built out in **more than one batch**, I **first create a `kind:epic` parent card, then register *every* batch as child cards in the same pass** — `task.spawn <epic> title=… assignee=… [depends_on=…]` per child; **later batches may sit as `todo`/`backlog` placeholders**. **Registration must be all-at-once; only the dispatch/release step may be batched.** Creating just batch 1 and moving on is **forbidden**: a batch I never registered is invisible to `task.children` and `task.rollup`, so the epic would look like it can close while the rest of the requirement silently evaporates (the "I built batch 1, then forgot batch 2 until the operator asked" incident). This is the *hard form* of the soft SOP line above; `PROTOCOL §⑩.2` carries the same clause and it is consistent with rollup aggregation (a placeholder child correctly keeps the epic open until every batch is done). **Before releasing each batch, verify the epic's full child roster with `task.children <epic>`** (see Dispatch §4).
 - Each card: Goal (one line) / Acceptance (checkable, verifiable, ≥3 items) / Background (self-contained) / project required / assignee per the PROTOCOL ⑩ routing matrix.
 - Explicitly state **inter-card dependencies** (e.g. M2 depends on M1) and **open items** (needing a decision during implementation, set blocked and send back to me).
 
@@ -185,6 +186,7 @@ Example: a module M1~M5 involves both "development (Linus) + verifiability (Turi
   - **Conflict** (same file / same batch of files without isolation / shared mutable resource) ⇒ **serialize only the conflicting objects**; the rest parallel.
 - Data dependencies (e.g. a result needs a prerequisite artifact) still serialize as needed — that is a **data dependency**, not a resource lock.
 - In the card/dispatch message, explicitly annotate "parallelizable / must serialize (because of X)".
+- **Pre-release roster check (multi-batch epics)**: before releasing each batch, run `task.children <epic>` and confirm the **full** child roster is registered — later batches must already exist as `todo`/`backlog` placeholders from the initial all-at-once registration (§1). Do not "create batch N+1 late" as a way of starting it. If `check-relations`/patrol flags an epic that has released a batch but still parks `todo` children past the threshold (the "forgot batch 2" pattern) ⇒ reconcile per `PROTOCOL §⑩.2`/§⑩.3.
 - Card acceptance passes → release the next card whose dependencies are ready; acceptance fails → send back (add evidence / open a revision card).
 
 ### 5. Worker Plan Confirmation (after receiving a worker's Phase-2.5 reply)
