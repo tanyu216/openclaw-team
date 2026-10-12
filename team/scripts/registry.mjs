@@ -19,6 +19,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { TEAM_ROOT } from './lib.mjs';
 
@@ -57,9 +58,17 @@ export function readRegistryFile(p) {
   }
 }
 
-/** 去重键：task_id|owner|phase|session_id */
+/**
+ * 去重键：`task_id|owner|seg|session_id`。
+ * `seg` 为契约 `guides/codex-plugin-lane-contract.md` §4.2 / §11 G-1 的增量（lane 分段键）；
+ * 历史条目无 `seg` 字段 ⇒ 回退到 `phase`（与旧口径 `task_id|owner|phase|session_id` 等价，向后兼容）。
+ * 注意：`session_id` **保留在键内** —— 同 (task,owner) 下不同会话仍各占一行（既有读侧原语
+ * `activeSessions` 依赖之，`registry-status.test.mjs` ⑤/⑧ 有断言）。插件 lane 的
+ * pending→bound 不靠键覆盖，而由绑定步**显式关闭 pending 行**（`closePendingEntries`）。
+ */
 function dedupeKey(e) {
-  return `${e.task_id}|${e.owner}|${e.phase}|${e.session_id}`;
+  const seg = e.seg == null || e.seg === '' ? e.phase : e.seg;
+  return `${e.task_id}|${e.owner}|${seg}|${e.session_id}`;
 }
 
 /**
@@ -100,10 +109,105 @@ export function isPidAlive(pid) {
   }
 }
 
-/** 过滤：e.task_id===taskId && e.status==='running' && isPidAlive(e.pid) */
-export function activeSessions(taskId, { registry = loadRegistry() } = {}) {
+/** 契约 §4.2：harness 值域（未标 ⇒ `cli`，向后兼容历史条目） */
+export const VALID_HARNESS = ['cli', 'plugin'];
+/** 契约 §4.2：插件 lane 两步回填的状态位（claude / codex-cli lane 不写该字段） */
+export const VALID_ID_STATE = ['pending', 'bound'];
+/**
+ * 插件 lane 的「thread 可达」观测窗：宿主未提供探测面时，按 NDJSON 日志的
+ * 未报终态 + mtime 新鲜度作代理判活；超窗即判不可达（交 reconcile）。可经 env 覆盖。
+ */
+export const THREAD_TTL_MS = Number(process.env.OPENCLAW_CODEX_THREAD_TTL_MS || 30 * 60 * 1000);
+
+/** 可注入的 thread 探针（宿主/测试钉定用）；null ⇒ 走内置回退探针 */
+let threadProbe = null;
+export function setThreadProbe(fn) { threadProbe = typeof fn === 'function' ? fn : null; }
+
+/** 宿主钉定的真实探测命令：exit 0 且 stdout 含 thread_id ⇒ 可达 */
+function probeByCommand(cmd, tid) {
+  try {
+    const out = execFileSync(cmd, { shell: true, encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'ignore'] });
+    return out.includes(tid);
+  } catch { return false; }
+}
+
+function lastNonEmptyLine(p) {
+  try {
+    const lines = fs.readFileSync(p, 'utf8').split('\n');
+    for (let i = lines.length - 1; i >= 0; i--) if (lines[i].trim()) return lines[i].trim();
+  } catch { /* 不可读 */ }
+  return null;
+}
+
+/** 未配置探测面时的可观测代理：NDJSON 日志未报终态且 mtime 在观测窗内 */
+function inFlightProxy(entry, now) {
+  if (!entry.log) return false;
+  let stm;
+  try { stm = fs.statSync(entry.log); } catch { return false; }
+  if (now - stm.mtimeMs > THREAD_TTL_MS) return false;
+  const last = lastNonEmptyLine(entry.log);
+  if (last == null) return true; // 尚无输出：turn 在飞
+  return !/"type"\s*:\s*"result"/.test(last);
+}
+
+/**
+ * 判定插件 lane 的 native thread 是否可达（G7 / 契约 §3.2、§5 G7、§7 reconcile 裁定）。
+ * 优先级：① `id_state!=='bound'` 或无 `thread_id` ⇒ **不可达**（绑定成功前 lane 视为不可达）；
+ * ② 注入探针（`setThreadProbe`）；③ `OPENCLAW_CODEX_THREAD_PROBE_CMD`（宿主钉定真实探测，
+ * 如 `openclaw codex sessions --json`）；④ 回退「在飞代理」（日志未报终态 + mtime 新鲜）。
+ * ④ 是「宿主未提供探测面」时的可观测代理、**不是 native 真值**；宿主提供 ③ 后以 ③ 为准。
+ */
+export function threadReachable(entry, { probe = threadProbe, now = Date.now() } = {}) {
+  if (!entry || entry.harness !== 'plugin') return false;
+  if (entry.id_state !== 'bound') return false;
+  if (!entry.thread_id) return false;
+  if (typeof probe === 'function') return !!probe(entry);
+  const cmd = process.env.OPENCLAW_CODEX_THREAD_PROBE_CMD;
+  if (cmd) return probeByCommand(cmd, entry.thread_id);
+  return inFlightProxy(entry, now);
+}
+
+/**
+ * 条目判活（G7 / 契约 §7 / §11 G-2 裁定）。
+ * - **CLI lane**（claude / codex-cli）：判活 = `isPidAlive(pid)`（现状口径不变）。
+ * - **插件 lane**（`harness==='plugin'`）：`pid` 字段是**网关进程 pid**（长存活）——**绝不能**当 lane
+ *   判活依据，否则网关在跑 ⇒ 僵尸 lane 被永久误判为活（正是 G-2 要修的反向误判）。故判活 =
+ *   **native thread 可达**（见 `threadReachable`）。
+ */
+export function isEntryAlive(entry, opts = {}) {
+  if (!entry) return false;
+  if (entry.harness === 'plugin') return threadReachable(entry, opts);
+  return isPidAlive(entry.pid);
+}
+
+/** 过滤：e.task_id===taskId && e.status==='running' && isEntryAlive(e) */
+export function activeSessions(taskId, { registry = loadRegistry(), ...opts } = {}) {
   const reg = registry == null ? loadRegistry() : registry;
-  return reg.filter((e) => e.task_id === taskId && e.status === 'running' && isPidAlive(e.pid));
+  return reg.filter((e) => e.task_id === taskId && e.status === 'running' && isEntryAlive(e, opts));
+}
+
+/**
+ * 关闭某 (task_id, seg) 下仍 `running` 的 `id_state=pending` 条目 —— 插件 lane 两步回填的
+ * **绑定步**调用之（契约 §3.1 步② / §11 G-1 的「绑定步显式关闭 pending 行」分支）。
+ * 为什么必须做：pending 行的 `pid` 是**存活的网关 pid**，若与 bound 行并存为两条 `running`
+ * ⇒ `runningCount`/`activeSessions` **双计并发额度**，且复现 `registry_only` 类门禁红。
+ * status 默认 `closed`（不是失败，是被绑定步取代）。
+ */
+export function closePendingEntries(taskId, seg, status = 'closed', extra = {}) {
+  const norm = normalizeStatus(status);
+  if (!norm.ok) return { ok: false, reason: 'invalid_status', rejected: status };
+  const list = readRegistryFile(REGISTRY_PATH);
+  let updated = 0;
+  const endedAt = extra.endedAt || new Date().toISOString();
+  for (const e of list) {
+    const eSeg = e.seg == null || e.seg === '' ? e.phase : e.seg;
+    if (e.task_id !== taskId || eSeg !== seg) continue;
+    if (e.id_state !== 'pending' || e.status !== 'running') continue;
+    Object.assign(e, { status: norm.status, endedAt });
+    updated++;
+  }
+  if (updated) writeRegistryFile(list);
+  return { ok: true, updated, status: norm.status, registryPath: REGISTRY_PATH };
 }
 
 export function hasActiveSession(taskId, opts) {

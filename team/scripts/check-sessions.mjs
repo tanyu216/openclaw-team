@@ -10,18 +10,25 @@
  *     - registry_only：registry running+pid 存活，卡内无对应 running Sessions 行（m7 主例）；
  *     - card_only：卡内 Sessions running 行且卡行 pid 存活，registry 无对应条目（spawn 漏写 registry）。
  *   软告警（note，不影响退出码）：
- *     - zombie_registry：registry running 但 pid 不存活（reconcile 的职责，非 spawn 缺陷）；
- *     - stale_card_line：卡 running 行但卡行 pid 不存活（陈旧行，reconcile 清理）；
+ *     - zombie_registry：registry running 但**判活失败**（reconcile 的职责，非 spawn 缺陷）；
+ *     - stale_card_line：卡 running 行但不活（陈旧行，reconcile 清理）；
  *     - status_mismatch：卡 running 行 vs registry 终态不一致。
+ * 判活口径 = `registry.isEntryAlive`（契约 §7 / G-2 裁定）：CLI lane 看 pid 存活；**插件 lane**
+ * （`harness:plugin`，卡行与 registry 条目均识别该段）看 **native thread 可达** —— 插件 lane 无独立
+ * pid（`pid` 为网关 pid/`-`），pid-only 会把在飞 lane 误判为僵尸（软告警）或漏判双跑。
  * 只读：绝不写卡 / 写 registry。扫描 OPENCLAW_TEAM_ROOT（import 期读取；隔离测试在 import 前设该环境变量）。
  * 用法：node check-sessions.mjs
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { TASKS_DIR, CARD_ID_RE, readCard } from './lib.mjs';
-import { loadRegistry, isPidAlive, REGISTRY_PATH } from './registry.mjs';
+import { loadRegistry, isEntryAlive, REGISTRY_PATH } from './registry.mjs';
 
-/** 解析卡 body 内 `## Sessions` 段（行首 `- seg:`）的 running 会话行 */
+/**
+ * 解析卡 body 内 `## Sessions` 段（行首 `- seg:`）的 running 会话行。
+ * `harness:` 段为契约 §4.3 的增量（插件 lane 写 `harness:plugin`；**历史行无该段 ⇒ 视为 `cli`**，
+ * 向后兼容——行解析按「段名:值」通用提取，不做位置假设）。
+ */
 function sessionsOf(cardPath) {
   const { body } = readCard(cardPath);
   const lines = body.split('\n');
@@ -35,9 +42,27 @@ function sessionsOf(cardPath) {
     const status = /status:(\S+)/.exec(line);
     const seg = /seg:(\S+)/.exec(line);
     const pid = /pid:(\S+)/.exec(line);
-    out.push({ id: id ? id[1] : '', status: status ? status[1] : '', seg: seg ? seg[1] : '', pid: pid ? pid[1] : '' });
+    const harness = /(?:^| · )harness:(\S+)/.exec(line);
+    out.push({
+      id: id ? id[1] : '', status: status ? status[1] : '', seg: seg ? seg[1] : '',
+      pid: pid ? pid[1] : '', harness: harness ? harness[1] : 'cli',
+    });
   }
   return out;
+}
+
+/**
+ * 卡行是否代表「在跑」：CLI lane 看 pid 存活；插件 lane 看 **bound 的 native thread id**
+ * （`id:pending` 未绑定 ⇒ 不算在跑，与 `registry.threadReachable` 的 `id_state` 口径一致）。
+ */
+function cardRowLive(line) {
+  const nPid = Number(line.pid);
+  if (Number.isInteger(nPid) && nPid > 0 && isPidAliveNum(nPid)) return true;
+  return line.harness === 'plugin' && !!line.id && line.id !== 'pending';
+}
+/** 保留本文件原有的 pid 存活判定语义（EPERM 视为存在） */
+function isPidAliveNum(pid) {
+  try { process.kill(pid, 0); return true; } catch (e) { return e && e.code === 'EPERM'; }
 }
 
 function scanCards() {
@@ -70,8 +95,8 @@ export function checkSessions({ registry = null } = {}) {
   for (const e of running) {
     const card = byId.get(e.task_id);
     const line = card && card.sessions.find((s) => s.id && s.id === e.session_id);
-    if (!isPidAlive(e.pid)) {
-      notes.push({ type: 'zombie_registry', task: e.task_id, session: e.session_id, pid: e.pid });
+    if (!isEntryAlive(e)) {
+      notes.push({ type: 'zombie_registry', task: e.task_id, session: e.session_id, pid: e.pid, harness: e.harness || 'cli' });
       continue;
     }
     if (!card || !line) {
@@ -83,22 +108,21 @@ export function checkSessions({ registry = null } = {}) {
         cardExists: !!card,
       });
     }
-    // 有行且 registry running ⇒ 一致（含 pid 存活）→ 无需处理
+    // 有行且 registry running ⇒ 一致（含判活）→ 无需处理
   }
 
   // 方向 2：卡内 Sessions running 行 → registry 条目
-  // 口径：卡行 pid 存活 ⇒ 真实活跃会话缺 registry 条目（spawn 漏写 registry）⇒ 硬失败；
-  //       卡行 pid 已死 ⇒ 陈旧 running 行（reconcile 职责）⇒ 软告警。
+  // 口径：卡行**判活**（CLI pid 存活；插件 bound 的 thread 行）⇒ 真实活跃会话缺 registry 条目
+  //       （spawn 漏写 registry）⇒ 硬失败；卡行不活 ⇒ 陈旧 running 行（reconcile 职责）⇒ 软告警。
   for (const card of cards) {
     for (const line of card.sessions.filter((s) => s.status === 'running')) {
       if (!line.id) continue; // 无 session id 的行不参与判定（无法对齐）
       const e = entries.find((x) => x.task_id === card.id && x.session_id === line.id);
       if (!e) {
-        const nPid = Number(line.pid);
-        if (Number.isInteger(nPid) && nPid > 0 && isPidAlive(nPid)) {
-          inconsistencies.push({ type: 'card_only', task: card.id, session: line.id, pid: nPid });
+        if (cardRowLive(line)) {
+          inconsistencies.push({ type: 'card_only', task: card.id, session: line.id, pid: line.pid, harness: line.harness });
         } else {
-          notes.push({ type: 'stale_card_line', task: card.id, session: line.id, pid: line.pid });
+          notes.push({ type: 'stale_card_line', task: card.id, session: line.id, pid: line.pid, harness: line.harness });
         }
       } else if (e.status !== 'running') {
         notes.push({ type: 'status_mismatch', task: card.id, session: line.id, card: line.status, registry: e.status });
