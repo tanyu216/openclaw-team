@@ -135,6 +135,13 @@ run-lock fix:
   **Gateway-scheduler behaviour**. The framework cannot bound or reap them; doing
   so needs owner/OpenClaw platform capability. This repository deliberately does
   **not** claim to have solved it. See `../AUTOMATIONS.md` §3.5.
+- **What the framework *does* own: the run's lifetime.** Because the lock is held for
+  exactly as long as a run lives, the framework-side lever on this failure mode is to
+  keep the poll run **short**: `team/scripts/poll-run.mjs` is the single source for the
+  poll run's payload (claim → hand off via `spawn-lane.sh` → return; never execute or
+  supervise the card inside the run) and for the run bound `install.sh` registers
+  (`--timeout-seconds` = one poll interval, not an hour). See `../AUTOMATIONS.md` §3.5
+  and `../PROTOCOL.md` §⑥.
 
 See also: `../AUTOMATIONS.md` (job list / cost model) and
 `../guides/task-interface.md` (the ACL itself).
