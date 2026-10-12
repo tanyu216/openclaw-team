@@ -114,7 +114,7 @@ Two different clocks are involved; only the first is framework-owned.
 
 | Concern | Owner | Framework behaviour |
 |---|---|---|
-| **Trigger evaluation** (the poll/patrol/check-all/skills-update *decision*: run the entry, read `{fire}`) | framework | **Bounded.** `dispatch.mjs` runs the entry under `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default **8000 ms**; invalid/absent ⇒ default) **minus `EVAL_EMIT_RESERVE_MS`** (500 ms of emission headroom — `install.sh` sizes the trigger's `timeoutSeconds` at `ceil(budget/1000)`, i.e. only ever *equal* to the inner bound, so without the reserve the outer `exec` would kill the dispatcher before it could print), and `install.sh` generates each trigger with `exec({ command, timeoutSeconds })`. Both stay under the Gateway's own **30 s** per-evaluation wall-clock budget — and the trigger's `timeoutSeconds` is additionally capped in practice by the exec helper's **10 s default `yieldMs`**, above which the call backgrounds and the trigger would read partial output; the bound therefore cannot simply be widened for a slow job. A degrade exits 0 and **fails safe**: `poll`/`patrol` → `{"fire":false,"state":{"reason":"eval-timeout"}}`, but the `check-all` **gate** → `{"fire":true,"message":…,…}` (an unconfirmed gate must alarm, never report green — T-20261010-190039), and so does `skills-update` (an unconfirmed drift check must not read as "nothing moved"). |
+| **Trigger evaluation** (the poll/patrol/check-all/skills-update *decision*: run the entry, read `{fire}`) | framework | **Bounded.** `dispatch.mjs` runs the entry under `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default **8000 ms**; invalid/absent ⇒ default) **minus `EVAL_EMIT_RESERVE_MS`** (500 ms of emission headroom — `install.sh` sizes the trigger's `timeoutSeconds` at `ceil(budget/1000)`, i.e. only ever *equal* to the inner bound, so without the reserve the outer `exec` would kill the dispatcher before it could print), and `install.sh` generates each trigger with `exec({ command, timeoutSeconds })`. Both stay under the Gateway's own **30 s** per-evaluation wall-clock budget — and the trigger's `timeoutSeconds` is additionally capped in practice by the exec helper's **10 s default `yieldMs`**, above which the call backgrounds and the trigger would read partial output; the bound therefore cannot simply be widened for a slow job. A degrade exits 0 and **fails safe**: `poll`/`patrol` → `{"fire":false,"state":{"reason":"eval-timeout"}}`, but the `check-all` **gate** → `{"fire":true,"message":…,…}` (an unconfirmed gate must alarm, never report green — T-20261010-190039), and so does `skills-update` (an unconfirmed drift check must not read as "nothing moved"). **The `check-all` gate is 15-20 s** — longer than this whole budget — so it does not run whole inside it; **§3.5.1** covers how the gate stays a real verdict inside the bound without dropping coverage. |
 | **Run lock** (`already-running`: a run already holds the job lock, so the next trigger is skipped; releasing **stale** runs) | **Gateway scheduler (platform)** | **Lock itself: not addressed here** — the framework neither bounds nor reaps runs *holding* the lock; that needs owner/OpenClaw platform capability and is **out of scope**. **What the framework DOES own is the run's LIFETIME** (below), and since the lock is only ever held for as long as a run lives, a short run is the framework-side lever on the same failure mode (T-20261013-041718). |
 
 **Poll run = short hand-off turn (T-20261013-041718, P1).** The lock row above is not
@@ -168,6 +168,47 @@ the pre-fix default was 3600 s; `0` disables). The poll run is a claim-and-hand-
 time — it only has to ensure a runaway run cannot outlive the fallback cadence it is
 there to guarantee. This bounds one run's lifetime; it does **not** release a lock held
 by a run that the scheduler never reaps.
+
+### 3.5.1 The `check-all` gate inside the budget: segmented verdict + cached slow suite (T-20261013-031036)
+
+The `check-all` gate grew past the evaluation budget: measured **15-20 s** against an entry
+bound of 7500 ms, of which the `node --test team/scripts/tests/*.test.mjs` suite is ~17 s and
+everything else is ~1.6 s. Two things went wrong, and the second is the worse one:
+
+1. the gate was **never confirmed** — every hourly evaluation ended in `eval-timeout`, which
+   under the gate fail-safe is `fire:true`, i.e. an hourly model wake and a status that is
+   never green;
+2. the timeout envelope **carried no verdict at all**, so a genuinely red gate was *masked*
+   by the timeout until somebody ran `check-all.sh` by hand.
+
+Widening the bound is not an option: the exec helper's 10 s `yieldMs` cap sits *below* the
+gate's wall clock (table above), so the cost cannot be escaped by budget. The gate is
+therefore **segmented** — this is a routing change, not a coverage change:
+
+| Piece | Where | Bounded? |
+|---|---|---|
+| **fast segment** — every check except the framework test suite (`check-all.sh --segment fast`, ~1.6 s) | **in-band**, inside the evaluation | yes (fast bound 6000 ms) |
+| **slow segment** — the framework test suite only (`check-all.sh --segment slow`) | **detached**, launched by the gate and run to completion *after* the evaluation returns | no (it is ~17 s by nature) |
+| the slow verdict | **cached** at `<team>/.check-all-slow.json` and **folded into the next evaluation** | freshness-bounded (TTL default 90 min) |
+
+`check-all.sh` is still the single source of every check (`--segment all` is the default and
+is byte-for-byte the historical full run, for humans and CI). The scheduled entry is
+`scripts/check-all-gate.mjs`: it runs the fast segment in-band, reads the cached slow verdict,
+emits `{"ok":…,"message":…}` and launches the detached slow refresh. Consequences:
+
+- a **red fast check fires immediately, with the failing steps in `message`** (the masking
+  problem is gone — the dispatcher forwards that message verbatim);
+- the slow suite still runs **every cron period**, so per-period coverage is unchanged; its
+  result is reported by the *next* evaluation (worst-case detection latency = one cron
+  period, documented and accepted — strictly better than "never confirmed");
+- the slow axis **fails closed**: a missing, stale, or unreadable cached verdict is
+  *unconfirmed* ⇒ `ok:false` ⇒ `fire:true`. A refresh that never lands degrades to an alarm,
+  never to a silent green. The one-time consequence is that the **first run after deploy**
+  alarms (no cache yet); every run after it is green.
+
+Runtime state written by the gate (`<team>/.check-all-slow.json`, `.check-all-slow.lock`,
+`.check-all-slow.log`) is excluded from the repo↔instance drift patrol — it is host-local,
+like `.install-state.json`.
 
 ## 3.6 Live trigger drift (item 1 — the re-check must reach the *live* trigger)
 
