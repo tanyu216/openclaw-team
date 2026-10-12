@@ -46,6 +46,7 @@ function wire(over = {}) {
     labels: [],
     meta: { kind: 'code', root: '/abs/dir', repos: [{ path: 'src' }], guides: [] },
     readme: null,
+    task_count: 3,
     archived_at: null,
     created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z',
@@ -232,6 +233,19 @@ test('漂移门：一致 ⇒ 绿（无 findings；null 值不算类型漂移）'
   const d = detectWireDrift(wire());
   assert.deepEqual(d.findings, []);
   assert.equal(d.ok, true);
+});
+
+test('漂移门：声明表跟随 provider wire —— `task_count` 已声明为 number（加性字段不得漏decl）', () => {
+  assert.equal(PROJECT_WIRE_FIELDS.task_count, 'number');
+});
+
+test('漂移门：`task_count` 整数 ⇒ 绿；null（本次未取计数）⇒ 也不算类型漂移；错类型 ⇒ 红', () => {
+  assert.deepEqual(detectWireDrift(wire({ task_count: 7 })).findings, []);
+  assert.deepEqual(detectWireDrift(wire({ task_count: null })).findings, []);
+  assert.deepEqual(
+    detectWireDrift(wire({ task_count: '3' })).findings,
+    [{ code: 'wire_type_changed', field: 'task_count', expected: 'number', actual: 'string' }],
+  );
 });
 
 test('漂移门：缺字段 ⇒ 红（wire_field_missing）', () => {

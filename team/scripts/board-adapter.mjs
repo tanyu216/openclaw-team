@@ -67,6 +67,7 @@ export const PROJECT_WIRE_FIELDS = Object.freeze({
   meta: 'object',
   name: 'string',
   readme: 'string',
+  task_count: 'number',
   updated_at: 'string',
 });
 
