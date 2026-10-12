@@ -3,7 +3,7 @@
   "meerkat-taskpanel": {
     "poll": "node {team}/scripts/poll.mjs {agent}",
     "patrol": "node {team}/scripts/patrol.mjs",
-    "checkAll": "bash {team}/scripts/check-all.sh",
+    "checkAll": "node {team}/scripts/check-all-gate.mjs",
     "skillsUpdate": "node {repo}/skills/update.mjs --json"
   }
 }
