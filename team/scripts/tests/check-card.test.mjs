@@ -32,10 +32,10 @@ const SKIP = PROVIDER
 const test = SKIP ? nodeTest.skip : nodeTest;
 
 // provider 依赖为**条件动态 import**：缺 provider 时 check-card.mjs/lib.mjs 在 import 期即硬红。
-let checkOne, PRIORITY;
+let checkOne, STATUS, PRIORITY;
 if (PROVIDER) {
   process.env.OPENCLAW_TASK_OPS_DIR = PROVIDER;
-  ({ checkOne, PRIORITY } = await import('../check-card.mjs'));
+  ({ checkOne, STATUS, PRIORITY } = await import('../check-card.mjs'));
 }
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-cc-'));
@@ -43,10 +43,11 @@ after(() => fs.rmSync(TMP, { recursive: true, force: true }));
 
 const CHECK_CARD = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'check-card.mjs');
 let seq = 0;
-/** 造一张合法卡（仅 priority 行可变）；priorityLine 传 null ⇒ 不含 priority 字段 */
-function mkCard(priorityLine) {
+/** 造一张合法卡（priority 行与 status 可变）；priorityLine 传 null ⇒ 不含 priority 字段 */
+function mkCard(priorityLine, status = 'ready') {
   const id = `T-20260101-3000${String(seq++).padStart(2, '0')}-cc`;
-  const lines = ['---', `id: ${id}`, 'title: t', 'assignee: linus', 'status: ready', 'goal: g', 'project: __team__'];
+  const lines = ['---', `id: ${id}`, 'title: t', 'assignee: linus', `status: ${status}`, 'goal: g', 'project: __team__'];
+  if (status === 'in_progress') lines.push('claimed_by: linus'); // in_progress 须带 claimed_by（否则另一分支误红）
   if (priorityLine) lines.push(priorityLine);
   lines.push('---', '## Report', '');
   const p = path.join(TMP, `${id}.md`);
@@ -68,6 +69,18 @@ function writeRaw(dir, id, body) {
 
 test('PRIORITY 枚举 = low|medium|high|urgent', () => {
   assert.deepEqual(PRIORITY, ['low', 'medium', 'high', 'urgent']);
+});
+
+test('STATUS 白名单 = canonical 7 ∪ 旧词别名 {ready, failed}（对齐 PROTOCOL.md §①）', () => {
+  assert.deepEqual(STATUS, ['backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done', 'canceled', 'ready', 'failed']);
+});
+
+test('合法 status（canonical 7 + 别名 ready/failed）通过', () => {
+  for (const s of STATUS) assert.deepEqual(checkOne(mkCard(null, s)), [], `${s} 应通过`);
+});
+
+test('非法 status（未知词 archived）报错', () => {
+  assert.deepEqual(checkOne(mkCard(null, 'archived')), ['非法 status: archived']);
 });
 
 test('合法 priority（low/medium/high/urgent）通过', () => {
