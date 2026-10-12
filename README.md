@@ -26,8 +26,12 @@ You  ──►  Elon (main, coordinator)  ──►  Jobs (design) · Linus (dev
 | 🧹 Assistant | `assistant` | `workspace-assistant` | Video parsing / ops / misc |
 
 > **Positioning & extending roles**: `openclaw-team` is a **framework for individual
-> developers to quickly stand up a dev team**. These **five roles (elon / jobs / linus /
-> turing / assistant) are the standard built-ins**. **Roles beyond the five** (e.g.
+> developers to quickly stand up a dev team**. It is built **around a software R&D
+> team's scenario** — one coordinator plus four specialists — and is **not a
+> general-purpose solution, nor one that suits every team**. These **five roles
+> (elon / jobs / linus / turing / assistant) are the standard built-ins**; a
+> non-R&D team should treat the framework as a **starting point** for building its own
+> team, or **adjust the role duties** to fit. **Roles beyond the five** (e.g.
 > business-specific positions) are **defined/extended by the user** — the framework
 > does not hard-code any instance's extra roles.
 
