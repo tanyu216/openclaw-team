@@ -9,19 +9,22 @@
 //
 //   {"fire": <bool>, "message"?: <string>, "state"?: <object>}
 //
-// Usage:  node dispatch.mjs <job> [agent]      job ∈ poll | patrol | check-all
+// Usage:  node dispatch.mjs <job> [agent]      job ∈ poll | patrol | check-all | skills-update
 //
 // Provider resolution:
 //   provider   = $OPENCLAW_TEAM_TASK_PROVIDER              (default: meerkat-taskpanel)
 //                (legacy-name-compat: the pre-rebrand `task-panel` name/key still resolves,
 //                 bidirectionally, with a one-line stderr note — see LEGACY_PROVIDER_ALIAS)
 //   entry cmd  = providers.json[provider][<job key>], overridable per job with:
-//                  poll      -> $OPENCLAW_TEAM_POLL_CMD
-//                  patrol    -> $OPENCLAW_TEAM_PATROL_CMD
-//                  check-all -> $OPENCLAW_TEAM_CHECKALL_CMD
+//                  poll          -> $OPENCLAW_TEAM_POLL_CMD
+//                  patrol        -> $OPENCLAW_TEAM_PATROL_CMD
+//                  check-all     -> $OPENCLAW_TEAM_CHECKALL_CMD
+//                  skills-update -> $OPENCLAW_TEAM_SKILLSUPDATE_CMD
 //
 // Placeholders: {team} -> the deployed team dir (~/.openclaw/team, resolved from
-// this file's location); {agent} -> the agent argument.
+// this file's location); {agent} -> the agent argument; {repo} -> the framework repo
+// checkout ($OPENCLAW_TEAM_REPO, else `.install-state.json.repoPath`), needed by
+// entries that live in the repo tree rather than in TEAM_DIR.
 //
 // Trigger-evaluation timeout (③): the provider entry runs synchronously, so its
 // wall clock IS the trigger evaluation's wall clock. The whole decision is bounded by
@@ -43,6 +46,10 @@
 //     drops the warning). A non-zero exit is not the gate's verdict on its own: an
 //     {"ok":false} envelope on stdout is recovered FIRST (reason `gate-failed`), because
 //     check-all.sh prints exactly that envelope and then `exit $fail`.
+//   * DETECTOR job (skills-update): normal outcomes are {"fire":false} (no upstream skill
+//     ref moved) and, on drift, {"fire":true,"message":<change list>}. An UNCONFIRMED
+//     evaluation takes the gate's fail-safe leg (see firesOnDegrade) so a broken weekly
+//     check can never masquerade as "nothing changed".
 
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -59,11 +66,12 @@ const PROVIDERS_FILE = path.join(HERE, "providers.json");
 const LEGACY_PROVIDER_ALIAS = { "meerkat-taskpanel": "task-panel", "task-panel": "meerkat-taskpanel" }; // legacy-name-compat
 
 // job -> providers.json key, and -> env override var
-const JOB_KEY = { poll: "poll", patrol: "patrol", "check-all": "checkAll" };
+const JOB_KEY = { poll: "poll", patrol: "patrol", "check-all": "checkAll", "skills-update": "skillsUpdate" };
 const JOB_ENV = {
   poll: "OPENCLAW_TEAM_POLL_CMD",
   patrol: "OPENCLAW_TEAM_PATROL_CMD",
   "check-all": "OPENCLAW_TEAM_CHECKALL_CMD",
+  "skills-update": "OPENCLAW_TEAM_SKILLSUPDATE_CMD",
 };
 
 /** Default trigger-evaluation bound (ms): one multi-claim poll evaluation fits well inside it. */
@@ -111,8 +119,15 @@ export function entryTimeoutMs(bound) {
  * timeout / spawn error / non-zero exit / unparseable result reads "unknown" as "green" and
  * silently drops the alarm (O1). ACTION jobs (poll / patrol) keep degrade-without-burning: a
  * failed evaluation should simply not wake anyone.
+ *
+ * `skills-update` is a DETECTOR, not a health gate, but it shares the gate's fail-safe leg for
+ * a different reason: it is the only signal that third-party skill bodies drifted, so an
+ * evaluation it could not complete must alarm rather than pass silently — a weekly job that
+ * degrades to `fire:false` looks exactly like "no upstream moved" (①③⑤ of
+ * T-20261013-025818). Its NORMAL outcome is still `fire:false` (nothing moved), so the
+ * zero-cost idle path is preserved; only an unconfirmed evaluation is treated as an alarm.
  */
-export function firesOnDegrade(job) { return job === "check-all"; }
+export function firesOnDegrade(job) { return job === "check-all" || job === "skills-update"; }
 
 /** Budget + entry bound for the evaluation in flight; set by main() from the job env. */
 let EVAL_TIMEOUT_MS = DEFAULT_EVAL_TIMEOUT_MS;
@@ -132,6 +147,13 @@ function alarmMessage(job, reason, extra) {
   if (d.exit !== undefined) bits.push("exit=" + d.exit);
   if (d.timeoutMs !== undefined) bits.push("entryTimeoutMs=" + d.timeoutMs);
   if (d.detail) bits.push(String(d.detail));
+  if (job !== "check-all") {
+    // The detector leg: the same "unknown ≠ green" rule, worded for a job that must be
+    // inspected by hand rather than re-run like a gate (today only `skills-update`).
+    return `[${job}] check UNCONFIRMED (${bits.join("; ")}) — unknown ≠ green: ` +
+      `the scheduled ${job} check did not complete; inspect it by hand ` +
+      "(`node skills/update.mjs`), see team/AUTOMATIONS.md §1.";
+  }
   return `[${job}] gate UNCONFIRMED (${bits.join("; ")}) — unknown ≠ green: run the team gate checks and handle per the PROTOCOL gates/archiving rules.`;
 }
 
@@ -148,7 +170,7 @@ export function main(argvIn = process.argv.slice(2), env = process.env) {
   const agent = argvIn[1] || "";
   EVAL_TIMEOUT_MS = resolveEvalTimeoutMs(env.OPENCLAW_TEAM_EVAL_TIMEOUT_MS);
   ENTRY_TIMEOUT_MS = entryTimeoutMs(EVAL_TIMEOUT_MS);
-  if (!JOB_KEY[job]) degrade(job, "unknown-job", { usage: "dispatch.mjs <poll|patrol|check-all> [agent]" });
+  if (!JOB_KEY[job]) degrade(job, "unknown-job", { usage: "dispatch.mjs <poll|patrol|check-all|skills-update> [agent]" });
 
   let provider = env.OPENCLAW_TEAM_TASK_PROVIDER || "meerkat-taskpanel";
 
@@ -169,9 +191,20 @@ export function main(argvIn = process.argv.slice(2), env = process.env) {
     if (!template) degrade(job, "entry-not-configured", { provider, jobKey: JOB_KEY[job] });
   }
 
-  // 2) substitute placeholders (absolute TEAM_DIR; {agent} only where used)
+  // 2) substitute placeholders (absolute TEAM_DIR; {agent} only where used; {repo} only
+  //    where used — the framework repo checkout, which is NOT the same tree as TEAM_DIR:
+  //    install.sh deploys team/** into TEAM_DIR but leaves the repo-side skills pipeline
+  //    (skills/manifest.json + fetch.mjs + update.mjs) in place, so a job whose entry lives
+  //    there needs the repo path. Resolved like check-all.sh resolves its drift baseline:
+  //    $OPENCLAW_TEAM_REPO first, else the repoPath install.sh recorded in
+  //    TEAM_DIR/.install-state.json.)
   if (/\{agent\}/.test(template) && !agent) degrade(job, "agent-required", { provider });
-  const expanded = template.replace(/\{team\}/g, TEAM_DIR).replace(/\{agent\}/g, agent);
+  let expanded = template.replace(/\{team\}/g, TEAM_DIR).replace(/\{agent\}/g, agent);
+  if (/\{repo\}/.test(expanded)) {
+    const repo = resolveRepoDir(env);
+    if (!repo) degrade(job, "repo-not-found", { provider, detail: "set OPENCLAW_TEAM_REPO or install via install.sh" });
+    expanded = expanded.replace(/\{repo\}/g, repo);
+  }
 
   // 3) build argv explicitly (no shell ⇒ no injection); honour "..." quoting
   const argv = tokenize(expanded);
@@ -231,6 +264,25 @@ export function main(argvIn = process.argv.slice(2), env = process.env) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
 
 // ---- helpers ---------------------------------------------------------------
+
+/**
+ * Resolve the framework REPO checkout for a `{repo}` placeholder.
+ *   1. $OPENCLAW_TEAM_REPO, when it points at an existing directory;
+ *   2. else the `repoPath` install.sh recorded in TEAM_DIR/.install-state.json.
+ * Returns "" when neither resolves — the caller degrades (never silently expands to "").
+ * Mirrors check-all.sh's REPO_DIR resolution so both agree on which tree is "the repo".
+ */
+export function resolveRepoDir(env = process.env) {
+  const fromEnv = String(env.OPENCLAW_TEAM_REPO || "").trim();
+  if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
+  try {
+    const st = JSON.parse(fs.readFileSync(path.join(TEAM_DIR, ".install-state.json"), "utf8"));
+    const p = String(st.repoPath || "").trim();
+    if (p && fs.existsSync(p)) return p;
+  } catch { /* no state file / unreadable ⇒ unresolved */ }
+  return "";
+}
+
 function tokenize(s) {
   const out = []; let cur = "", q = null;
   for (const ch of String(s)) {

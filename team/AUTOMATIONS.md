@@ -1,7 +1,7 @@
 # AUTOMATIONS.md — Scheduled Jobs / Patrol List
 
 > Overview and decision record of all scheduled jobs (cron / every / trigger) on the team Gateway. Maintainer: Elon.
-> Last updated: 2026-10-09. View live: `automations list` (or Control UI → Automations).
+> Last updated: 2026-10-13 (added `skills-update`, T-20261013-025818). View live: `automations list` (or Control UI → Automations).
 > Related: `PROTOCOL §⑳` (gates and archiving), `§⑥.4` (poll to terminal state), `README §3` (operations commands), `guides/task-interface.md` (task-provider ACL).
 
 ## 0. Boundary — framework owns scheduling; provider is only a callee (ACL)
@@ -20,9 +20,9 @@
   below; `--skip-automations` disables registration. Re-running is idempotent
   (`declarationKey`).
 
-## 1. Job Overview (17 live: 6 declared by `install.sh` — 4 × `*-poll` + `task-patrol` + `team-check-all`; the other 11 registered by their own mechanisms)
+## 1. Job Overview (repo declares 18: 7 by `install.sh` — 4 × `*-poll` + `task-patrol` + `team-check-all` + `skills-update`; the other 11 registered by their own mechanisms)
 
-> **Cadence / scope caveat.** The `Frequency` column documents the **framework-declared (repo) defaults**: `*-poll` = `every 5m` and `task-patrol` = `every 15m` (`install.sh:126` / `:698` / `:718`). The **live Gateway store is not yet re-deployed** and still runs the *old* cadence (`*-poll` = `every 2m`, `task-patrol` = `every 5m`); the repo values take effect only after `install.sh` / `config/reconcile.mjs` runs against the store (§3.6). Live breakdown of the 17 jobs: **6 declared by `install.sh`** = 4 × `*-poll` (jobs/linus/turing/assistant) + `task-patrol` + `team-check-all`; **4 framework/plugin-owned** = `heartbeat-main`, `memory-dreaming-promotion`, `token-hygiene`, `session-rollover`; **6 × `skill-collection-review`** (main/jobs/linus/turing/assistant/simons); **1 out-of-band `simons-poll`** (`simons` is not in `install.sh` `ROLES`).
+> **Cadence / scope caveat.** The `Frequency` column documents the **framework-declared (repo) defaults**: `*-poll` = `every 5m` and `task-patrol` = `every 15m` (`install.sh:126` / `:698` / `:718`). The **live Gateway store is not yet re-deployed** and still runs the *old* cadence (`*-poll` = `every 2m`, `task-patrol` = `every 5m`); the repo values take effect only after `install.sh` / `config/reconcile.mjs` runs against the store (§3.6). Live breakdown so far (17 jobs, pre-`skills-update`): **6 declared by `install.sh`** = 4 × `*-poll` (jobs/linus/turing/assistant) + `task-patrol` + `team-check-all`; **4 framework/plugin-owned** = `heartbeat-main`, `memory-dreaming-promotion`, `token-hygiene`, `session-rollover`; **6 × `skill-collection-review`** (main/jobs/linus/turing/assistant/simons); **1 out-of-band `simons-poll`** (`simons` is not in `install.sh` `ROLES`). `skills-update` is the repo's 7th declared job (18th overall) and appears in the store only once `install.sh` re-runs.<br>**Boundary vs `skill-collection-review-*`** (they are *not* the same concern): `skill-collection-review-*` reviews the **installed collection** on each host (what is present, duplicated, broken, stale *as a set*); `skills-update` reviews the **declared upstreams** in `skills/manifest.json` (has the pinned `source.ref` drifted from the upstream commit?) and is the only job that can *advance* a ref. Neither subsumes the other: a skill can be perfectly installed while its upstream moved, and a collection can be broken while every upstream is current.
 
 | Name | Agent | Frequency | Trigger | Delivery | Purpose |
 |---|---|---|---|---|---|
@@ -33,6 +33,7 @@
 | `simons-poll` | simons | every 5m | ✅ | none | Same (simons) — live-registered out-of-band (`simons` not declared by `install.sh` `ROLES`) |
 | `task-patrol` | main | every 15m | ✅ | none | in_progress cards with stale heartbeat (>30min) → wake/recover |
 | `team-check-all` | main | **hourly** | ✅ | none | Gate patrol; wakes the model only on failure |
+| `skills-update` | main | **Sundays 05:00 (Asia/Shanghai)** | ✅ | none | Upstream skill-ref drift DETECT (`skills/manifest.json` vs `git ls-remote`); wakes the model only on drift/failure. Detect-only — `--apply` is a manual, reviewed step (see [`skills/README.md`](../skills/README.md)) |
 | `heartbeat-main` | main | every 30m | — | none | Main-session heartbeat |
 | `memory-dreaming-promotion` | main | 03:00 (Asia/Shanghai) | — | none | memory-core short-term memory promotion (managed) |
 | `token-hygiene` | main | 04:00 (Asia/Shanghai) | — | none | Large-log compaction/memory indexing |
@@ -40,8 +41,8 @@
 | `skill-collection-review-{main,jobs,linus,turing,assistant,simons}` | respective | every 7d (staggered) | — | none | Skill collection patrol (`simons` out-of-band; not declared by `install.sh`) |
 
 ## 2. Cost Model (important)
-- **An idle trigger job = zero cost**: `fire:false` only writes state, produces no run, and consumes no model. So all poll / task-patrol / team-check-all jobs are **near zero cost when there is no anomaly**.
-- Only **`fire:true` wakes a model turn** (poll = a card was claimed; task-patrol = a stale card exists; check-all = the gate failed).
+- **An idle trigger job = zero cost**: `fire:false` only writes state, produces no run, and consumes no model. So all poll / task-patrol / team-check-all / skills-update jobs are **near zero cost when there is no anomaly**. (`skills-update` still costs a few seconds of *network* every Sunday — it must ask 15 upstreams for their current HEAD — but it wakes no model.)
+- Only **`fire:true` wakes a model turn** (poll = a card was claimed; task-patrol = a stale card exists; check-all = the gate failed; skills-update = an upstream skill ref moved, or the check could not be confirmed).
 - Non-trigger jobs (heartbeat/maintenance/skill) produce runs at a fixed frequency.
 
 ## 3. Dispatch Path (framework-owned, provider-agnostic)
@@ -55,6 +56,7 @@ template substitution) and calls the framework dispatcher:
 | `*-poll` | `node <team>/automations/dispatch.mjs poll <agent>` |
 | `task-patrol` | `node <team>/automations/dispatch.mjs patrol` |
 | `team-check-all` | `node <team>/automations/dispatch.mjs check-all` |
+| `skills-update` | `node <team>/automations/dispatch.mjs skills-update` |
 
 `dispatch.mjs` selects the provider's entry command (from
 `automations/providers.json`; provider = `OPENCLAW_TEAM_TASK_PROVIDER`, default
@@ -63,8 +65,21 @@ template substitution) and calls the framework dispatcher:
 `fire:true`**; a missing entry, a failure, a timeout, or unparseable output degrades
 (exit 0), and what a degrade says depends on the job: **`poll`/`patrol` ⇒ `fire:false`
 (zero cost)**, but the **`check-all` gate ⇒ `fire:true`** — an unconfirmed gate must
-alarm, never report green (T-20261010-190039). Contract + ACL gaps:
-`automations/README.md`.
+alarm, never report green (T-20261010-190039). **`skills-update` ⇒ `fire:true`** for the
+same reason: a weekly detector that degrades to `fire:false` is indistinguishable from
+"nothing moved", so an evaluation it could not complete must be surfaced. Contract + ACL
+gaps: `automations/README.md`.
+
+**Entry paths: all but one resolve to `{team}`.** The `skills-update` entry is the
+exception — `providers.json` `skillsUpdate` = `node {repo}/skills/update.mjs --json`.
+The skills pipeline (`manifest.json` + `lock.json` + `fetch.mjs` + `update.mjs`) is a
+**repo-side asset that `install.sh` drives in place**; it is deliberately *not* deployed
+into `{team}/`, because `{team}/skills/` is the task provider's own ACL directory
+(`task-ops/`). `{repo}` therefore resolves at dispatch time to the framework checkout —
+`$OPENCLAW_TEAM_REPO` first, else the `repoPath` recorded in
+`{team}/.install-state.json` (the same resolution `check-all.sh` uses for its drift
+baseline). If neither resolves, the job degrades to an **alarm** rather than substituting
+an empty path.
 
 So `task-patrol` → `dispatch.mjs patrol` → `providers.json` **`patrol` =
 `node {team}/scripts/patrol.mjs`** — a **scan + re-check before emit**: `patrol.mjs`
@@ -99,8 +114,19 @@ Two different clocks are involved; only the first is framework-owned.
 
 | Concern | Owner | Framework behaviour |
 |---|---|---|
-| **Trigger evaluation** (the poll/patrol/check-all *decision*: run the entry, read `{fire}`) | framework | **Bounded.** `dispatch.mjs` runs the entry under `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default **8000 ms**; invalid/absent ⇒ default) **minus `EVAL_EMIT_RESERVE_MS`** (500 ms of emission headroom — `install.sh` sizes the trigger's `timeoutSeconds` at `ceil(budget/1000)`, i.e. only ever *equal* to the inner bound, so without the reserve the outer `exec` would kill the dispatcher before it could print), and `install.sh` generates each trigger with `exec({ command, timeoutSeconds })`. Both stay under the Gateway's own **30 s** per-evaluation wall-clock budget. A degrade exits 0 and **fails safe**: `poll`/`patrol` → `{"fire":false,"state":{"reason":"eval-timeout"}}`, but the `check-all` **gate** → `{"fire":true,"message":…,…}` (an unconfirmed gate must alarm, never report green — T-20261010-190039). |
+| **Trigger evaluation** (the poll/patrol/check-all/skills-update *decision*: run the entry, read `{fire}`) | framework | **Bounded.** `dispatch.mjs` runs the entry under `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default **8000 ms**; invalid/absent ⇒ default) **minus `EVAL_EMIT_RESERVE_MS`** (500 ms of emission headroom — `install.sh` sizes the trigger's `timeoutSeconds` at `ceil(budget/1000)`, i.e. only ever *equal* to the inner bound, so without the reserve the outer `exec` would kill the dispatcher before it could print), and `install.sh` generates each trigger with `exec({ command, timeoutSeconds })`. Both stay under the Gateway's own **30 s** per-evaluation wall-clock budget — and the trigger's `timeoutSeconds` is additionally capped in practice by the exec helper's **10 s default `yieldMs`**, above which the call backgrounds and the trigger would read partial output; the bound therefore cannot simply be widened for a slow job. A degrade exits 0 and **fails safe**: `poll`/`patrol` → `{"fire":false,"state":{"reason":"eval-timeout"}}`, but the `check-all` **gate** → `{"fire":true,"message":…,…}` (an unconfirmed gate must alarm, never report green — T-20261010-190039), and so does `skills-update` (an unconfirmed drift check must not read as "nothing moved"). |
 | **Run lock** (`already-running`: a run already holds the job lock, so the next trigger is skipped; releasing **stale** runs) | **Gateway scheduler (platform)** | **Not addressed here.** The framework neither bounds nor reaps runs holding the lock. This needs owner/OpenClaw platform capability and is **explicitly out of scope** — this repository does not claim to have solved it. |
+
+**`skills-update` and the trigger budget (measured).** This is the only framework job
+whose entry talks to the network, so it is the only one where the 8 s bound bites. It
+resolves upstream refs **per unique repository, not per manifest entry** (~73 github
+entries live in ~15 repos) and issues the whole set in **one parallel wave**: measured on
+the maintainer host, 15 concurrent `git ls-remote` finish in ≈5 s, while the same work
+played back sequentially takes ≈45 s, and any smaller pool re-queues the tail repos into a
+second wave and exceeds the bound. That is why `resolveAll`'s concurrency default covers
+the unique-repo set instead of being a small fixed worker count. A slow/offline network
+therefore *does* blow the bound — and the honest outcome there is the alarm above, not a
+silent "no drift".
 
 Poll jobs additionally carry a **run upper bound**: `install.sh` registers them with
 `--timeout-seconds "$OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S"` (default **3600 s**; `0`
@@ -189,7 +215,7 @@ close it — the residual is the Gateway transport backlog above.
 - **Fallback cadence widened (`T-20261010-224144`)**: per-worker poll **2m → 5m** (`OPENCLAW_TEAM_POLL_INTERVAL`) and `task-patrol` **5m → 15m**. The dispatch mainline is Elon assigning via `sessions_send` (push); poll only fires when that push did not land, so the accepted worst-case claim latency is now ≤5m and the accepted worker crash recovery window ≈ patrol 15m + poll 5m. Nothing else moves: the trigger decision stays an atomic claim check (§①), `task-patrol` stays **light-context only**, and its stale threshold (>30min) is unchanged.
 
 ## 5. Management
-- **Install-time registration (declarative reconcile)**: `./install.sh` is the declaration source; `config/reconcile.mjs` aligns the runtime to it by `declarationKey` (`openclaw-team:poll:<agent>` / `openclaw-team:task-patrol` / `openclaw-team:team-check-all`); `--skip-automations` disables it. Re-running is safe and **self-healing**: a missing key ⇒ `add`; a present key that drifts ⇒ `edit`; a present key that already matches ⇒ `skip`. **Drift** = `payload.lightContext !== true`; (interval jobs only) a schedule mismatch with the declared interval; or a live `trigger.script` body that differs from the declared `triggerScriptPath` file (⇒ `--trigger-script <path>`, §3.6). **Cron jobs (`team-check-all`) are never given `--every`** — only `lightContext`/trigger are reconciled, so the cron expression is left untouched. The registration is **provider-agnostic** — no `meerkat-taskpanel`/`taskctl` literal appears in any trigger script. The expected trigger body comes from the single template `team/automations/trigger-template.mjs`.
+- **Install-time registration (declarative reconcile)**: `./install.sh` is the declaration source; `config/reconcile.mjs` aligns the runtime to it by `declarationKey` (`openclaw-team:poll:<agent>` / `openclaw-team:task-patrol` / `openclaw-team:team-check-all` / `openclaw-team:skills-update`); `--skip-automations` disables it. Re-running is safe and **self-healing**: a missing key ⇒ `add`; a present key that drifts ⇒ `edit`; a present key that already matches ⇒ `skip`. **Drift** = `payload.lightContext !== true`; (interval jobs only) a schedule mismatch with the declared interval; or a live `trigger.script` body that differs from the declared `triggerScriptPath` file (⇒ `--trigger-script <path>`, §3.6). **Cron jobs (`team-check-all`, `skills-update`) are never given `--every`** — only `lightContext`/trigger are reconciled, so the cron expression is left untouched. The registration is **provider-agnostic** — no `meerkat-taskpanel`/`taskctl` literal appears in any trigger script. The expected trigger body comes from the single template `team/automations/trigger-template.mjs`.
 - **Scheduling bounds** (set at registration; see §3.5): poll jobs get `--timeout-seconds` (run upper bound, `OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S`, default 3600 s); every generated trigger passes `exec({ …, timeoutSeconds })` and the dispatcher applies `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default 8000 ms). Both are install-time overridable env vars.
 - View: `automations list` | Details: `automations get <jobId>` | History: `automations runs <jobId>`
 - Test run: `automations run <jobId> runMode=force`

@@ -78,8 +78,9 @@ function capture(argv, env) {
 
 // ---- the fail-safe policy itself --------------------------------------------
 
-test('firesOnDegrade: only the health gate check-all fails safe; action jobs do not', () => {
+test('firesOnDegrade: the health gate and the drift detector fail safe; action jobs do not', () => {
   assert.equal(firesOnDegrade('check-all'), true);
+  assert.equal(firesOnDegrade('skills-update'), true, 'an unconfirmed drift check must alarm, not read as "nothing moved"');
   assert.equal(firesOnDegrade('poll'), false);
   assert.equal(firesOnDegrade('patrol'), false);
   assert.equal(firesOnDegrade(''), false);

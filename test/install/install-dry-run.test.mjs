@@ -210,3 +210,48 @@ test("drifted live trigger.script ⇒ edit --trigger-script preview (red→green
   assert.ok(edit, "trigger drift must preview an edit");
   assert.ok(edit.includes("--trigger-script"), "the edit must carry --trigger-script <expected path>");
 });
+
+// ---- skills-update (T-20261013-025818 ⑥) ------------------------------------
+
+/** byte-exact expected skills-update trigger for an isolated OPENCLAW_HOME. */
+function expectedSkillsUpdateTrigger(openclawHome) {
+  return renderTrigger({
+    teamDir: path.join(openclawHome, "team"),
+    dargs: "skills-update",
+    evalTimeoutS: 8,
+    evalTimeoutMs: 8000,
+  });
+}
+
+test("dry-run previews the weekly skills-update job (Sundays 05:00 Asia/Shanghai, light-context, isolated)", () => {
+  const { env } = setup();
+  const { out, status } = runInstall(env);
+  assert.equal(status, 0);
+
+  const line = out.split("\n").find((l) => l.includes("automations add skills-update"));
+  assert.ok(line, "the skills-update job must be part of the declared set");
+  assert.ok(line.includes("--agent main"), "the detector runs in the main session");
+  assert.ok(line.includes("--cron 0 5 * * 0"), "cadence = weekly on Sunday 05:00");
+  assert.ok(line.includes("--tz Asia/Shanghai"));
+  assert.ok(line.includes("--light-context"), "framework jobs run light-context (§4)");
+  assert.ok(line.includes("--session isolated"));
+  assert.ok(line.includes("--declaration-key openclaw-team:skills-update"));
+  assert.ok(line.includes("--trigger-script"), "the job is a trigger job, not a plain cron run");
+});
+
+test("an already-registered skills-update job previews a skip — re-running install.sh is idempotent", () => {
+  const live = (home) => [{
+    id: "job-su",
+    declarationKey: "openclaw-team:skills-update",
+    name: "skills-update",
+    schedule: { kind: "cron", expr: "0 5 * * 0" },
+    payload: { lightContext: true },
+    trigger: { script: expectedSkillsUpdateTrigger(home) },
+  }];
+  const { env } = setup({ jobsFn: live });
+  const { out } = runInstall(env);
+  assert.ok(!out.includes("automations add skills-update"), "a registered job must not be re-added");
+  assert.ok(!out.split("\n").some((l) => l.includes("automations edit")), "an already-matching job must not be edited");
+  assert.ok(out.includes("ok       skills-update"), "it must be reported as already matching");
+  assert.ok(out.includes("automations add task-patrol"), "the other (missing) jobs still preview an add");
+});

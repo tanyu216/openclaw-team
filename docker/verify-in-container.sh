@@ -28,11 +28,15 @@ bash -n docker/verify.sh
 
 step "node syntax"
 node --check skills/fetch.mjs
+node --check skills/update.mjs
 node --check config/optimization.mjs
 node --check config/reconcile.mjs
 
 step "install unit tests (node:test — optimization backfill + reconcile + dry-run)"
 node --test 'test/install/'*.test.mjs
+
+step "skills update tests (node:test — ref drift detect / zero-write default / --apply + tree_sha256)"
+node --test 'test/skills/'*.test.mjs
 
 step "manifest + lock integrity (0 unresolved required)"
 node -e '

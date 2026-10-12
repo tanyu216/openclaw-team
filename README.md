@@ -296,7 +296,15 @@ The installer fetches from source:
 ./install.sh                 # fetch + install from declared sources
 ./install.sh --vendor        # snapshot sources into skills/vendor/
 ./install.sh --offline       # install from a previous snapshot (no network)
+node skills/update.mjs       # detect upstream ref drift — READ-ONLY, prints a change list
+node skills/update.mjs --apply   # advance refs + rewrite lock + reinstall (reviewed step)
 ```
+
+`skills/update.mjs` is the update path: it resolves each `kind:"github"` entry's current
+upstream commit with `git ls-remote` and compares it to the pinned `source.ref`. Without
+`--apply` it writes nothing and prints nothing when there is no drift; the weekly
+`skills-update` job runs it in that mode (see [`skills/README.md`](skills/README.md) and
+[`team/AUTOMATIONS.md`](team/AUTOMATIONS.md) §1).
 
 Targets:
 
