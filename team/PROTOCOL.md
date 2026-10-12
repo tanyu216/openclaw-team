@@ -458,6 +458,7 @@ The sole dispatcher = Elon; workers do not dispatch to each other (including def
   ③ **fix–fix–fix retry segments** ⇒ should be a **defect/fix card** (`§⑨`);
   ④ "**the context is just too long**" is not a reason to open a seg — it is a reason to **split the card**.
 - **Carding enforcement (hard gate)**: `roles/elon/AGENTS.md` §1 (Task-Card Breakdown SOP — Breakdown Scope), carried **alongside the batch-carding hard rule**: expecting ≥2 independent Acceptance or ≥2 independently-acceptable deliverables ⇒ judge whether to split / build an epic **before** carding.
+- **`__team__` cards must declare `target` (hard gate; 2026-10-13, T-20261013-015831)**: a card with `project: __team__` **must** carry a `target`, one of the two meanings — **framework change (write the repo)** ⇒ `/Users/tanyu/Documents/openclaw-team`; **deploy/ops on live** ⇒ `/Users/tanyu/.openclaw/team`. Rationale: `spawn-lane` resolves cwd from `project` and, with **no `target`**, silently falls back to the **live** team root (`§⑥` cwd normalization) — so a missing `target` is exactly the hole through which a card "about the framework" ends up writing live. **A `__team__` card with no `target` is therefore a carding defect ⇒ hard red** (`check-card.mjs`: machine-readable `[role] <owner>` tag + exit≠0), not a soft warning.
 
 ---
 
