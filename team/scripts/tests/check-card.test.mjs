@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * check-card.test.mjs — priority 枚举校验（T-20261009-035200-teambackfill-depfix）
+ *                    + `project: __team__` 卡 target 必填（T-20261013-015831）
  *
  * 口径：priority 统一 low|medium|high|urgent（旧 p0–p3 弃用）。缺省/空不报错
  *   （REQUIRED 不含 priority，避免误伤）；非法值报错且 CLI 退出码 1。
@@ -43,10 +44,14 @@ after(() => fs.rmSync(TMP, { recursive: true, force: true }));
 
 const CHECK_CARD = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'check-card.mjs');
 let seq = 0;
-/** 造一张合法卡（priority 行与 status 可变）；priorityLine 传 null ⇒ 不含 priority 字段 */
+/**
+ * 造一张合法卡（priority 行与 status 可变）；priorityLine 传 null ⇒ 不含 priority 字段。
+ * 必须带 `target`：`project: __team__` 卡缺 target 是红（T-20261013-015831），
+ * 不带会把「合法卡」造错，令无关用例误红。
+ */
 function mkCard(priorityLine, status = 'ready') {
   const id = `T-20260101-3000${String(seq++).padStart(2, '0')}-cc`;
-  const lines = ['---', `id: ${id}`, 'title: t', 'assignee: linus', `status: ${status}`, 'goal: g', 'project: __team__'];
+  const lines = ['---', `id: ${id}`, 'title: t', 'assignee: linus', `status: ${status}`, 'goal: g', 'project: __team__', 'target: /Users/tanyu/Documents/openclaw-team'];
   if (status === 'in_progress') lines.push('claimed_by: linus'); // in_progress 须带 claimed_by（否则另一分支误红）
   if (priorityLine) lines.push(priorityLine);
   lines.push('---', '## Report', '');
@@ -110,7 +115,7 @@ test('CLI 子进程：非法 ⇒ 退出码 1 且输出含「非法 priority: p2�
 test('CLI 扫描全部模式：合法卡通过（退出码 0）+ 裸 id 参数（补 .md）', () => {
   const { root, dir } = mkRoot();
   const id = 'T-20260101-300090-scan';
-  writeRaw(dir, id, `---\nid: ${id}\ntitle: t\nassignee: linus\nstatus: ready\npriority: urgent\ngoal: g\nproject: __team__\n---\n## Report\n`);
+  writeRaw(dir, id, `---\nid: ${id}\ntitle: t\nassignee: linus\nstatus: ready\npriority: urgent\ngoal: g\nproject: __team__\ntarget: /Users/tanyu/Documents/openclaw-team\n---\n## Report\n`);
   const env = { ...process.env, OPENCLAW_TEAM_ROOT: root };
   const all = spawnSync(process.execPath, [CHECK_CARD], { env, encoding: 'utf8' });
   assert.equal(all.status, 0, `stdout=${all.stdout}`);
@@ -123,10 +128,11 @@ test('CLI 扫描全部模式：合法卡通过（退出码 0）+ 裸 id 参数�
 test('既有校验分支：缺必填/非法 status/非法 assignee/in_progress 缺 claimed_by', () => {
   const { root, dir } = mkRoot();
   const mk = (id, fm) => writeRaw(dir, id, `---\n${fm}\n---\n## Report\n`);
-  mk('T-20260101-300091-a', 'id: T-20260101-300091-a\ntitle: t\nassignee: linus\nstatus: ready\nproject: __team__'); // 缺 goal
-  mk('T-20260101-300092-b', 'id: T-20260101-300092-b\ntitle: t\nassignee: linus\nstatus: weird\ngoal: g\nproject: __team__');
-  mk('T-20260101-300093-c', 'id: T-20260101-300093-c\ntitle: t\nassignee: nobody\nstatus: ready\ngoal: g\nproject: __team__');
-  mk('T-20260101-300094-d', 'id: T-20260101-300094-d\ntitle: t\nassignee: linus\nstatus: in_progress\ngoal: g\nproject: __team__');
+  const TGT = '\ntarget: /Users/tanyu/Documents/openclaw-team'; // 各卡只留被测缺陷：target 齐备
+  mk('T-20260101-300091-a', `id: T-20260101-300091-a\ntitle: t\nassignee: linus\nstatus: ready\nproject: __team__${TGT}`); // 缺 goal
+  mk('T-20260101-300092-b', `id: T-20260101-300092-b\ntitle: t\nassignee: linus\nstatus: weird\ngoal: g\nproject: __team__${TGT}`);
+  mk('T-20260101-300093-c', `id: T-20260101-300093-c\ntitle: t\nassignee: nobody\nstatus: ready\ngoal: g\nproject: __team__${TGT}`);
+  mk('T-20260101-300094-d', `id: T-20260101-300094-d\ntitle: t\nassignee: linus\nstatus: in_progress\ngoal: g\nproject: __team__${TGT}`);
   mk('T-20260101-300095-e', 'id: T-20260101-300095-e\ntitle: t\ngoal: g'); // status/assignee/project 全缺 ⇒ 覆盖 && 假分支
   const env = { ...process.env, OPENCLAW_TEAM_ROOT: root };
   const r = spawnSync(process.execPath, [CHECK_CARD], { env, encoding: 'utf8' });
@@ -138,6 +144,51 @@ test('既有校验分支：缺必填/非法 status/非法 assignee/in_progress �
   assert.match(r.stdout, /缺必填字段 assignee/);
   assert.match(r.stdout, /缺必填字段 status/);
   fs.rmSync(root, { recursive: true, force: true });
+});
+
+// ── `project: __team__` 卡 target 必填（T-20261013-015831：防 spawn-lane 默认落 live） ──
+test('__team__ 卡缺 target ⇒ 报红（含机读 [role] 归口，取自 created_by）', () => {
+  const p = path.join(TMP, 'T-20260101-300080-notarget.md');
+  fs.writeFileSync(p, '---\nid: T-20260101-300080-notarget\ntitle: t\nassignee: linus\nstatus: ready\ngoal: g\nproject: __team__\ncreated_by: elon\n---\n## Report\n', 'utf8');
+  const errs = checkOne(p);
+  assert.equal(errs.length, 1, JSON.stringify(errs));
+  assert.match(errs[0], /project=__team__ 缺 target/);
+  assert.match(errs[0], /\[role] elon/); // 机读标签 + 归口角色
+});
+
+test('__team__ 卡缺 target 且无 created_by ⇒ [role] 回落 elon', () => {
+  const p = path.join(TMP, 'T-20260101-300081-notarget2.md');
+  fs.writeFileSync(p, '---\nid: T-20260101-300081-notarget2\ntitle: t\nassignee: linus\nstatus: ready\ngoal: g\nproject: __team__\n---\n## Report\n', 'utf8');
+  assert.deepEqual(checkOne(p), ['project=__team__ 缺 target [role] elon（carding 缺陷：spawn-lane 否则默认 cwd=live ~/.openclaw/team）']);
+});
+
+test('__team__ 卡有 target ⇒ 不误报；target 为空白 ⇒ 视为缺失', () => {
+  const { root, dir } = mkRoot();
+  const env = { ...process.env, OPENCLAW_TEAM_ROOT: root };
+  const good = 'T-20260101-300082-has';
+  writeRaw(dir, good, `---\nid: ${good}\ntitle: t\nassignee: linus\nstatus: ready\ngoal: g\nproject: __team__\ntarget: /Users/tanyu/.openclaw/team\n---\n## Report\n`);
+  const blank = 'T-20260101-300083-blank';
+  writeRaw(dir, blank, `---\nid: ${blank}\ntitle: t\nassignee: linus\nstatus: ready\ngoal: g\nproject: __team__\ntarget: "  "\n---\n## Report\n`);
+  const okRun = spawnSync(process.execPath, [CHECK_CARD, path.join(dir, `${good}.md`)], { env, encoding: 'utf8' });
+  assert.equal(okRun.status, 0, `stdout=${okRun.stdout} stderr=${okRun.stderr}`);
+  const blankRun = spawnSync(process.execPath, [CHECK_CARD, path.join(dir, `${blank}.md`)], { env, encoding: 'utf8' });
+  assert.equal(blankRun.status, 1);
+  assert.match(blankRun.stdout, /project=__team__ 缺 target/);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('非 __team__ 项目缺 target 不误报（规则仅限 project=__team__）', () => {
+  const p = path.join(TMP, 'T-20260101-300084-otherproj.md');
+  fs.writeFileSync(p, '---\nid: T-20260101-300084-otherproj\ntitle: t\nassignee: linus\nstatus: ready\ngoal: g\nproject: example-app\n---\n## Report\n', 'utf8');
+  assert.deepEqual(checkOne(p), []);
+});
+
+test('CLI 子进程：__team__ 缺 target ⇒ 退出码 1 且 stdout 含机读 [role]', () => {
+  const p = path.join(TMP, 'T-20260101-300085-cli.md');
+  fs.writeFileSync(p, '---\nid: T-20260101-300085-cli\ntitle: t\nassignee: linus\nstatus: ready\ngoal: g\nproject: __team__\ncreated_by: elon\n---\n## Report\n', 'utf8');
+  const r = runCli(p);
+  assert.equal(r.status, 1, `stdout=${r.stdout} stderr=${r.stderr}`);
+  assert.match(r.stdout, /缺 target \[role] elon/);
 });
 
 test('CLI 扫描全部模式：tasks 目录不存在 ⇒ 0 张通过', () => {
