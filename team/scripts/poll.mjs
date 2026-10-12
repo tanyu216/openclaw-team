@@ -10,7 +10,8 @@
  * - 返回 JSON { fire, message?, state? }；fire:false 零成本空转（不产生 run 记录）
  * - 只做"只读扫描 + 幂等原子领取"，动作留给 run 回合 payload
  * - 一轮可领取**多张**（上限 = 该 agent 并发额度 − 当前 running；且仅领**互不冲突**的卡）
- * - fire:true ⇔ 本轮至少成功领取一张（卡已转 in_progress、claimed_by=自己）——run 回合直接执行、不再 claim
+ * - fire:true ⇔ 本轮至少成功领取一张（卡已转 in_progress、claimed_by=自己）——run 回合**只做移交**
+ *   （`scripts/spawn-lane.sh` detached），**不等待 lane**；run payload 见 `poll-run.mjs`（T-20261013-041718）
  * - in_progress + 心跳新鲜（含 claimed_by=自己）→ 不动，fire:false
  * - 领取前防双跑守卫：有活跃子会话不重领（即使心跳陈旧也不越过守卫）
  * - 写冲突粗判（§⑥.3 单写者）：同 project+target 视为同资源 ⇒ 冲突组每轮只领 1 张（串行）
@@ -32,6 +33,7 @@ import {
   nowMs,
 } from './lib.mjs';
 import { activeSessions, formatActiveReason, loadRegistry, isPidAlive } from './registry.mjs';
+import { pollRunMessage } from './poll-run.mjs';
 
 /** 并发额度（PROTOCOL §⑥ 第 2 条 / §⑥.3）：Linus/Jobs/Simons=8、Turing=3；其余 agent 未定义 */
 export const CONCURRENCY_QUOTA = { linus: 8, jobs: 8, simons: 8, turing: 3 };
@@ -197,8 +199,7 @@ export function runPoll({ assignee, registry = null }) {
 
   if (claimed.length) {
     const ids = claimed.map((r) => r.card.id);
-    const list = claimed.map((r, i) => `${i + 1}. ${r.cardPath}`);
-    const message = `【${assignee} 轮询领取】本轮已领 ${claimed.length} 张卡（并发额度内、互不冲突，可并行执行）：\n${list.join('\n')}\n—— 均已原子领取（status=in_progress, claimed_by=${assignee}），直接执行不再 claim；执行中每 ≤10min 刷新 heartbeat_at，完成后按 PROTOCOL 汇报。`;
+    const message = pollRunMessage(assignee, claimed.map((r) => r.cardPath));
     return {
       fire: true,
       message,

@@ -26,11 +26,15 @@
 # Trigger evaluation is BOUNDED (③): the generated Gateway trigger script caps the
 # dispatcher call with `timeoutSeconds`, and dispatch.mjs itself bounds the provider
 # entry with OPENCLAW_TEAM_EVAL_TIMEOUT_MS (default 8000 ms) — both well under the
-# Gateway's own 30 s per-evaluation wall-clock budget. Poll jobs also carry a run
-# upper bound (`--timeout-seconds`, default 3600 s; OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S
-# overrides, 0 disables). NOTE: `already-running` (a run holding the job lock) and
-# stale-run release are GATEWAY-SCHEDULER/platform concerns — this installer does
-# not bound or reap them. See team/AUTOMATIONS.md §3.5.
+# Gateway's own 30 s per-evaluation wall-clock budget. Poll jobs ALSO carry a RUN
+# upper bound (`--timeout-seconds`) — and since a run still in flight makes the
+# Gateway skip the next trigger (`already-running`), that bound defaults to ONE poll
+# interval rather than an hour, so a runaway poll run cannot silently disable the
+# fallback it exists to provide (T-20261013-041718). Override with
+# OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S (0 disables the scheduler timeout). NOTE:
+# `already-running` itself and stale-run release are GATEWAY-SCHEDULER/platform
+# concerns — this installer bounds a run's LIFETIME, it does not reap the lock.
+# See team/AUTOMATIONS.md §3.5.
 #
 # Usage:
 #   ./install.sh [options]
@@ -114,17 +118,22 @@ case "$EVAL_TIMEOUT_MS" in ''|*[!0-9]*) EVAL_TIMEOUT_MS=8000 ;; esac
 [ "$EVAL_TIMEOUT_MS" -gt 0 ] 2>/dev/null || EVAL_TIMEOUT_MS=8000
 # exec() takes SECONDS (verified against the Gateway exec tool schema), so round up.
 EVAL_TIMEOUT_S=$(( (EVAL_TIMEOUT_MS + 999) / 1000 ))
-# Poll RUN upper bound (seconds): a poll run executes every card claimed this round
-# (up to the agent's concurrency quota), so the bound must cover several cards.
-# 0 disables the scheduler timeout (see `openclaw automations add --help`).
-POLL_RUN_TIMEOUT_S="${OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S:-3600}"
-case "$POLL_RUN_TIMEOUT_S" in ''|*[!0-9]*) POLL_RUN_TIMEOUT_S=3600 ;; esac
 # Poll cadence (②): the interval between per-worker poll triggers. Poll is the FALLBACK —
 # the mainline is Elon dispatching with sessions_send (push); poll only wakes a worker when
 # that push did not land, and it keeps the worst-case claim latency ≤5m (claim timing
 # belongs to poll, PROTOCOL §①). Override with OPENCLAW_TEAM_POLL_INTERVAL (e.g. 3m).
 POLL_INTERVAL="${OPENCLAW_TEAM_POLL_INTERVAL:-5m}"
 case "$POLL_INTERVAL" in [0-9]*[smhd]) ;; *) POLL_INTERVAL=5m ;; esac
+# Poll RUN upper bound (seconds) ③/T-20261013-041718: the poll run is a SHORT hand-off turn
+# (claim → spawn-lane detached → return; see team/scripts/poll-run.mjs). A run still in flight
+# makes the Gateway skip the next trigger (`already-running`), so the bound must NOT outlive the
+# fallback cadence it is there to guarantee ⇒ default = ONE poll interval (was 3600 s, which let a
+# single stuck run disable the 2-min fallback for up to an hour). 0 disables the scheduler timeout;
+# an invalid OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S falls back to the interval-derived default (a typo can
+# never widen the bound to "unbounded"). See `openclaw automations add --help`.
+POLL_RUN_TIMEOUT_DEFAULT="$(node "$REPO/team/scripts/poll-run.mjs" timeout-default "$POLL_INTERVAL" 2>/dev/null || echo 300)"
+POLL_RUN_TIMEOUT_S="${OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S:-$POLL_RUN_TIMEOUT_DEFAULT}"
+case "$POLL_RUN_TIMEOUT_S" in ''|*[!0-9]*) POLL_RUN_TIMEOUT_S="$POLL_RUN_TIMEOUT_DEFAULT" ;; esac
 
 # role dir  ->  agent id  ->  workspace dir (relative to OPENCLAW_HOME)
 ROLES=(elon jobs linus turing assistant)
@@ -333,11 +342,15 @@ register_automation() {
   case "$job" in
     poll)
       dargs="poll $agent"
-      # Run upper bound (③): a poll run executes every card claimed this round.
+      # Run upper bound (③/T-20261013-041718): the poll run is a SHORT hand-off turn, so
+      # the bound is one poll interval (not an hour) — see the scheduling-bounds block above.
       # `--timeout-seconds` is the scheduler's agent/command-job run timeout
       # (verified in `openclaw automations add --help`); 0 disables it.
       run_extra="--timeout-seconds $POLL_RUN_TIMEOUT_S"
-      msg="[openclaw-team] Scheduled poll for $agent: if the dispatcher claimed a card, execute it via the task-interface ACL and PROTOCOL.md; otherwise reply NO_REPLY." ;;
+      # Job default message: the SAME short-run contract as poll.mjs's payload (single source =
+      # team/scripts/poll-run.mjs). The fired run's real payload is poll.mjs's `message`; this
+      # default is the pre-claim/fallback wording and never asks for a resident run.
+      msg="$(node "$REPO/team/scripts/poll-run.mjs" message "$agent" 2>/dev/null || echo "[openclaw-team] Scheduled poll for $agent: if the dispatcher claimed a card, claim → hand off via scripts/spawn-lane.sh (detached) → return; otherwise reply NO_REPLY.")" ;;
     patrol)    msg="[openclaw-team] Stale in_progress card(s) detected by task-patrol: recover per the PROTOCOL recovery rules." ;;
     check-all) msg="[openclaw-team] Team gate patrol failed: run the team gate checks and handle per the PROTOCOL gates/archiving rules." ;;
     skills-update) msg="[openclaw-team] Upstream skill ref(s) moved (the change list is in this message), or the upstream check failed: review, then advance with \`node skills/update.mjs --apply\` after Elon's review (third-party bodies are agent instructions — see team/AUTOMATIONS.md)." ;;
@@ -657,7 +670,7 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
   auto_provider="${OPENCLAW_TEAM_TASK_PROVIDER:-meerkat-taskpanel}"
   info "scheduler: framework-owned  ·  provider: $auto_provider (callee via the ACL)"
   info "dispatcher: $TEAM_DIR/automations/dispatch.mjs"
-  info "bounds: trigger-eval ${EVAL_TIMEOUT_MS}ms (OPENCLAW_TEAM_EVAL_TIMEOUT_MS) · poll run ${POLL_RUN_TIMEOUT_S}s (OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S, 0=off)"
+  info "bounds: trigger-eval ${EVAL_TIMEOUT_MS}ms (OPENCLAW_TEAM_EVAL_TIMEOUT_MS) · poll run ${POLL_RUN_TIMEOUT_S}s (default = interval; OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S, 0=off)"
   info "poll: every $POLL_INTERVAL (OPENCLAW_TEAM_POLL_INTERVAL) · --light-context on poll/patrol/check-all/skills-update"
   info "skills-update: Sundays 05:00 Asia/Shanghai (detect-only; --apply is manual after review)"
   # built-in workers only for poll (skip main/elon), derived from ROLES/AGENT_ID

@@ -115,7 +115,39 @@ Two different clocks are involved; only the first is framework-owned.
 | Concern | Owner | Framework behaviour |
 |---|---|---|
 | **Trigger evaluation** (the poll/patrol/check-all/skills-update *decision*: run the entry, read `{fire}`) | framework | **Bounded.** `dispatch.mjs` runs the entry under `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default **8000 ms**; invalid/absent ⇒ default) **minus `EVAL_EMIT_RESERVE_MS`** (500 ms of emission headroom — `install.sh` sizes the trigger's `timeoutSeconds` at `ceil(budget/1000)`, i.e. only ever *equal* to the inner bound, so without the reserve the outer `exec` would kill the dispatcher before it could print), and `install.sh` generates each trigger with `exec({ command, timeoutSeconds })`. Both stay under the Gateway's own **30 s** per-evaluation wall-clock budget — and the trigger's `timeoutSeconds` is additionally capped in practice by the exec helper's **10 s default `yieldMs`**, above which the call backgrounds and the trigger would read partial output; the bound therefore cannot simply be widened for a slow job. A degrade exits 0 and **fails safe**: `poll`/`patrol` → `{"fire":false,"state":{"reason":"eval-timeout"}}`, but the `check-all` **gate** → `{"fire":true,"message":…,…}` (an unconfirmed gate must alarm, never report green — T-20261010-190039), and so does `skills-update` (an unconfirmed drift check must not read as "nothing moved"). |
-| **Run lock** (`already-running`: a run already holds the job lock, so the next trigger is skipped; releasing **stale** runs) | **Gateway scheduler (platform)** | **Not addressed here.** The framework neither bounds nor reaps runs holding the lock. This needs owner/OpenClaw platform capability and is **explicitly out of scope** — this repository does not claim to have solved it. |
+| **Run lock** (`already-running`: a run already holds the job lock, so the next trigger is skipped; releasing **stale** runs) | **Gateway scheduler (platform)** | **Lock itself: not addressed here** — the framework neither bounds nor reaps runs *holding* the lock; that needs owner/OpenClaw platform capability and is **out of scope**. **What the framework DOES own is the run's LIFETIME** (below), and since the lock is only ever held for as long as a run lives, a short run is the framework-side lever on the same failure mode (T-20261013-041718). |
+
+**Poll run = short hand-off turn (T-20261013-041718, P1).** The lock row above is not
+academic: with `*-poll` on a 2–5 m cadence, a single poll run that stays resident
+**silently disables the fallback for its whole lifetime** — every intervening trigger
+is skipped, so a card dropped mid-run waits until the run ends. Measured (E2E-C-4):
+a `turing-poll` run open `19:39Z → 20:05Z` delayed a `ready` card dropped at
+`19:42:35Z` until `20:05:44Z` (`Δ = 1389 s ≫ 120 s`), while the very next card in the
+same session was claimed in `85.8 s` — i.e. the *mechanism* was healthy and the whole
+`Δ` is the run's lifetime. The framework's answer is therefore **two-sided, and only
+the second is genuinely platform-free**:
+
+1. **Contract — the poll run must be SHORT.** `team/scripts/poll-run.mjs` is the single
+   source for the run payload: the run **claims → hands off** (`scripts/spawn-lane.sh`,
+   detached) **→ returns**; it does **not** execute the card and does **not** poll the
+   spawned lane to its terminal state inside the run. Lane supervision moves to the
+   **next cron turn + `task-patrol`**, which `PROTOCOL §⑥` already sanctions ("if the
+   worker's turn is interrupted/ends before the subsession finishes, arrange for a
+   subsequent turn to take over polling"). This retires the previous payload
+   (`直接执行不再 claim`, i.e. execute-in-place) as the poll-run default.
+2. **Bound — the run may not outlive the fallback it guarantees.** `install.sh` registers
+   each poll job with `--timeout-seconds "$OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S"`, whose
+   default is now **one poll interval** (`OPENCLAW_TEAM_POLL_INTERVAL`, e.g. `2m` ⇒ `120`),
+   not the old **3600 s**. So even a run that ignores the contract is reaped by the
+   scheduler within ≈one cadence instead of holding the lock for up to an hour. `0`
+   disables the bound; an invalid value falls back to the interval default (a typo can
+   never widen the bound to "unbounded").
+
+**Residual (still platform): releasing a run the scheduler never reaps.** The bound
+above bounds the *run*; it does not make the Gateway reap a run that has already
+overrun its own bookkeeping, and it cannot make a trigger fire *while* a run is in
+flight. Closing that last gap needs owner/OpenClaw platform capability and is **not
+claimed here**.
 
 **`skills-update` and the trigger budget (measured).** This is the only framework job
 whose entry talks to the network, so it is the only one where the 8 s bound bites. It
@@ -129,11 +161,13 @@ therefore *does* blow the bound — and the honest outcome there is the alarm ab
 silent "no drift".
 
 Poll jobs additionally carry a **run upper bound**: `install.sh` registers them with
-`--timeout-seconds "$OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S"` (default **3600 s**; `0`
-disables). A poll run executes every card claimed in that round (up to the agent's
-concurrency quota), so the bound must cover several cards. This bounds one run's
-lifetime; it does **not** release a lock held by a run that the scheduler never
-reaps.
+`--timeout-seconds "$OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S"`, whose default is now **one poll
+interval** (T-20261013-041718 — see the "Poll run = short hand-off turn" block above;
+the pre-fix default was 3600 s; `0` disables). The poll run is a claim-and-hand-off turn
+(`team/scripts/poll-run.mjs`), so the bound no longer has to cover a card's execution
+time — it only has to ensure a runaway run cannot outlive the fallback cadence it is
+there to guarantee. This bounds one run's lifetime; it does **not** release a lock held
+by a run that the scheduler never reaps.
 
 ## 3.6 Live trigger drift (item 1 — the re-check must reach the *live* trigger)
 
@@ -212,11 +246,11 @@ close it — the residual is the Gateway transport backlog above.
 - **Keep per-worker poll; do not do a "single board scan → dispatch"**: per-worker `*-poll` is an **independent fallback** (each worker atomically claims, so cards already created can still be claimed when Elon/main is stalled). Merging into "main scans → dispatch" would converge to a single Elon point and change the `PROTOCOL §①` "claim timing belongs to poll" semantics; the only gain is a few zero-cost config lines ⇒ not adopted.
 - **Patrol frequency**: the gate patrol `team-check-all` is set to **hourly**; because it triggers the model only on failure, a higher frequency adds no cost.
 - **Cron slimming (`T-20261010-040000-configoptim-cronslim`)**: per-worker poll was thinned **1m → 2m → 5m** (override `OPENCLAW_TEAM_POLL_INTERVAL`, default `5m`) and `task-patrol` widened to **15m**, and every framework job now runs with **`--light-context`** so scheduler triggers stay cheap. The trigger decision is still an atomic claim check — 5m keeps the "claim timing belongs to poll" fallback (§①) while cutting scheduler wake-ups (worst-case claim latency ≤5m; worker crash recovery window ≈ patrol 15m + poll 5m).
-- **Fallback cadence widened (`T-20261010-224144`)**: per-worker poll **2m → 5m** (`OPENCLAW_TEAM_POLL_INTERVAL`) and `task-patrol` **5m → 15m**. The dispatch mainline is Elon assigning via `sessions_send` (push); poll only fires when that push did not land, so the accepted worst-case claim latency is now ≤5m and the accepted worker crash recovery window ≈ patrol 15m + poll 5m. Nothing else moves: the trigger decision stays an atomic claim check (§①), `task-patrol` stays **light-context only**, and its stale threshold (>30min) is unchanged.
+- **Fallback cadence widened (`T-20261010-224144`)**: per-worker poll **2m → 5m** (`OPENCLAW_TEAM_POLL_INTERVAL`) and `task-patrol` **5m → 15m**. The dispatch mainline is Elon assigning via `sessions_send` (push); poll only fires when that push did not land, so the accepted worst-case claim latency is now ≤5m and the accepted worker crash recovery window ≈ patrol 15m + poll 5m. Nothing else moves: the trigger decision stays an atomic claim check (§①), `task-patrol` stays **light-context only**, and its stale threshold (>30min) is unchanged. **The ≤5m figure is a claim about the CADENCE, not about any single run**: it holds only while a poll run is not resident across the boundary, which is why `T-20261013-041718` pins the run contract to a short hand-off turn and the run bound to one interval (§3.5).
 
 ## 5. Management
 - **Install-time registration (declarative reconcile)**: `./install.sh` is the declaration source; `config/reconcile.mjs` aligns the runtime to it by `declarationKey` (`openclaw-team:poll:<agent>` / `openclaw-team:task-patrol` / `openclaw-team:team-check-all` / `openclaw-team:skills-update`); `--skip-automations` disables it. Re-running is safe and **self-healing**: a missing key ⇒ `add`; a present key that drifts ⇒ `edit`; a present key that already matches ⇒ `skip`. **Drift** = `payload.lightContext !== true`; (interval jobs only) a schedule mismatch with the declared interval; or a live `trigger.script` body that differs from the declared `triggerScriptPath` file (⇒ `--trigger-script <path>`, §3.6). **Cron jobs (`team-check-all`, `skills-update`) are never given `--every`** — only `lightContext`/trigger are reconciled, so the cron expression is left untouched. The registration is **provider-agnostic** — no `meerkat-taskpanel`/`taskctl` literal appears in any trigger script. The expected trigger body comes from the single template `team/automations/trigger-template.mjs`.
-- **Scheduling bounds** (set at registration; see §3.5): poll jobs get `--timeout-seconds` (run upper bound, `OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S`, default 3600 s); every generated trigger passes `exec({ …, timeoutSeconds })` and the dispatcher applies `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default 8000 ms). Both are install-time overridable env vars.
+- **Scheduling bounds** (set at registration; see §3.5): poll jobs get `--timeout-seconds` (run upper bound, `OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S`, default = one `OPENCLAW_TEAM_POLL_INTERVAL` — T-20261013-041718; was 3600 s); every generated trigger passes `exec({ …, timeoutSeconds })` and the dispatcher applies `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default 8000 ms). Both are install-time overridable env vars.
 - View: `automations list` | Details: `automations get <jobId>` | History: `automations runs <jobId>`
 - Test run: `automations run <jobId> runMode=force`
 - Add/remove/modify: prefer the `automations` tool; **but that tool is read-only in agent/cron turns** (only status/list/get/remove/runs/next_check, no add/update/run) ⇒ to actually change scheduling, use the official CLI: `openclaw automations edit <jobId> --trigger-script <file>` (Gateway WS managed path, not a manual DB edit). Hand-editing sqlite/store is forbidden.
