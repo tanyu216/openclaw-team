@@ -179,6 +179,71 @@ test('7. 负例：复核卡 dep=被复核卡（in_review）⇒ 可领（豁免�
   assert.equal(readFm(reviewed).status, 'in_review', '被复核卡不应被领取副作用改写');
 });
 
+// 收紧（T-20261013-035746）：豁免 ≠ 无条件放行。被复核卡须**已交付**（in_review/done）才豁免；
+// 仍 in_progress/ready/blocked ⇒ 拒领（review_unmet），否则复核者可早于交付被 poll 领取、被迫空转。
+// 被复核卡不存在（readCard 抛错）⇒ 保持旧行为（不阻塞）+ warning review_of_not_found:<id>。
+
+test('7.1 收紧负例：被复核卡仍 in_progress ⇒ 拒领（review_unmet，附 review_of）', () => {
+  const reviewed = 'T-20260101-020016-reviewed';
+  const review = 'T-20260101-020017-review';
+  writeCard(reviewed, { id: reviewed, title: 'impl', assignee: 'jobs', status: 'in_progress', claimed_by: 'jobs' });
+  writeCard(review, {
+    id: review, title: 'review', assignee: 'linus', status: 'ready',
+    depends_on: [reviewed], review_of: reviewed,
+  });
+
+  const r = claimCard(review, 'linus');
+  assert.equal(r.ok, false, `被复核卡未交付应拒领，实际 ${JSON.stringify(r)}`);
+  assert.equal(r.reason, 'review_unmet');
+  assert.equal(r.review_of, reviewed, '应附 review_of');
+  assert.equal(r.status, 'in_progress', '应附被复核卡实际状态');
+  assert.equal(readFm(review).status, 'ready', '拒领不得改写复核卡状态');
+});
+
+test('7.2 收紧正例：被复核卡 done ⇒ 可领（豁免）', () => {
+  const reviewed = 'T-20260101-020018-reviewed';
+  const review = 'T-20260101-020019-review';
+  writeCard(reviewed, { id: reviewed, title: 'impl', assignee: 'jobs', status: 'done' });
+  writeCard(review, {
+    id: review, title: 'review', assignee: 'linus', status: 'ready',
+    depends_on: [reviewed], review_of: reviewed,
+  });
+
+  const r = claimCard(review, 'linus');
+  assert.equal(r.ok, true, `被复核卡 done 应可领，实际 ${JSON.stringify(r)}`);
+  assert.equal(readFm(review).status, 'in_progress');
+});
+
+test('7.3 收紧负例：被复核卡 ready（未交付）⇒ 拒领', () => {
+  const reviewed = 'T-20260101-020020-reviewed';
+  const review = 'T-20260101-020021-review';
+  writeCard(reviewed, { id: reviewed, title: 'impl', assignee: 'jobs', status: 'ready' });
+  writeCard(review, {
+    id: review, title: 'review', assignee: 'linus', status: 'ready',
+    depends_on: [reviewed], review_of: reviewed,
+  });
+
+  const r = claimCard(review, 'linus');
+  assert.equal(r.ok, false, `被复核卡 ready 应拒领，实际 ${JSON.stringify(r)}`);
+  assert.equal(r.reason, 'review_unmet');
+  assert.equal(r.review_of, reviewed);
+});
+
+test('7.4 被复核卡不存在 ⇒ 保持现状（不阻塞）+ warning review_of_not_found', () => {
+  const ghost = 'T-20260101-020022-ghost';
+  const review = 'T-20260101-020023-review';
+  writeCard(review, {
+    id: review, title: 'review', assignee: 'linus', status: 'ready',
+    depends_on: [ghost], review_of: ghost,
+  });
+
+  const r = claimCard(review, 'linus');
+  assert.equal(r.ok, true, `被复核卡缺失不应阻塞（保持现状），实际 ${JSON.stringify(r)}`);
+  assert.ok(Array.isArray(r.warnings), '成功返回应带 warnings 数组');
+  assert.ok(r.warnings.includes(`review_of_not_found:${ghost}`), `应记录缺失 warning，实际 ${JSON.stringify(r.warnings)}`);
+  assert.equal(readFm(review).status, 'in_progress');
+});
+
 test('8. 豁免仅限被复核卡：其余未完成 dep 仍 deps_unmet', () => {
   const reviewed = 'T-20260101-020009-reviewed';
   const other = 'T-20260101-020010-other';
