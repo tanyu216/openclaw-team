@@ -8,7 +8,14 @@ scheduled jobs (`team/automations/providers.json` → `{team}/scripts/…`):
 | `poll.mjs <agent>` | `poll-<agent>` | claim this agent's ready/stale cards |
 | `poll-run.mjs` | — (library) | single source for the poll RUN contract: `pollRunMessage()` (claim → hand off → return) + `pollRunTimeoutS()` (run bound); `install.sh` and `poll.mjs` both use it (T-20261013-041718) |
 | `patrol-scan.mjs` | `task-patrol` | scan for stale `in_progress` heartbeats |
-| `check-all.sh` | `team-check-all` | aggregate gate patrol |
+| `check-all-gate.mjs` | `team-check-all` | aggregate gate patrol, inside the evaluation budget |
+| `check-all.sh [--segment fast\|slow\|all]` | (the gate's checks; also run by hand / CI) | aggregate gate patrol |
+
+`check-all.sh` is the gate's **single source of checks**; `check-all-gate.mjs` is the
+**scheduled entry** that fits it inside the trigger-evaluation bound: it runs the fast
+segment in-band, folds in the cached slow-suite verdict, and refreshes that cache out of
+band (`team/AUTOMATIONS.md` §3.5.1). `--segment all` (the default) is the full historical
+run, unchanged.
 
 `install.sh` deploys this directory **recursively** into `{team}/scripts/`, so a
 fresh install has no dangling entry path — the former "entry-path coupling" gap
