@@ -22,6 +22,16 @@ const REQUIRED = ['id', 'title', 'assignee', 'status', 'goal', 'project'];
  * 故 `__team__` 卡 `target` 必填；缺失按 carding 缺陷报红（机读 `[role]` 标签 + exit≠0）。
  */
 export const TEAM_PROJECT = '__team__';
+/**
+ * 终态（历史卡，**不追溯**）：`done` ∪ 旧词别名 `failed` ∪ canonical `canceled`（与 provider
+ * `lib/task.mjs` 的 `TERMINAL_STATUSES` 同口径）。`__team__` 缺 `target` 报红规则域 = **非终态**
+ * （T-20261013-023535-2）：门禁目的是捕获**卡时**缺陷，历史终态旧卡已永不 spawn-lane，
+ * 回落报红 = 噪声 ⇒ grandfather。
+ * 非终态按**排除法**判定（`!TERMINAL.includes(status)`），故 `todo`（canonical）/`ready`（旧词）
+ * 与 `backlog` 均在域内——`ready`/`todo` 会被 `spawn-lane` exec 自动 claim 后直接 spawn，
+ * 缺 target 正是落 `cwd=live` 的口子，必须覆盖。
+ */
+export const TERMINAL = ['done', 'failed', 'canceled'];
 
 export function checkOne(p) {
   const raw = fs.readFileSync(p, 'utf8');
@@ -35,8 +45,9 @@ export function checkOne(p) {
   if (fm.priority && !PRIORITY.includes(fm.priority)) errs.push(`非法 priority: ${fm.priority}`);
   if (fm.status === 'in_progress' && !fm.claimed_by) errs.push('in_progress 但缺 claimed_by');
   // `project=__team__` 卡 target 必填（§⑩.4 约定）：缺 target ⇒ spawn-lane 默认 cwd=live。
+  // 规则域限**非终态**（T-20261013-023535-2）：终态历史卡 grandfather、不追溯转红。
   // 报错串带机读 `[role] <归口>` 标签（归口 = 建卡人 created_by，缺省 elon——carding 硬门责任人）。
-  if (fm.project === TEAM_PROJECT && !String(fm.target ?? '').trim()) {
+  if (fm.project === TEAM_PROJECT && !TERMINAL.includes(fm.status) && !String(fm.target ?? '').trim()) {
     const role = fm.created_by || 'elon';
     errs.push(`project=__team__ 缺 target [role] ${role}（carding 缺陷：spawn-lane 否则默认 cwd=live ~/.openclaw/team）`);
   }

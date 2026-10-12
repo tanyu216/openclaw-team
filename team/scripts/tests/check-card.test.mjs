@@ -2,6 +2,7 @@
 /**
  * check-card.test.mjs — priority 枚举校验（T-20261009-035200-teambackfill-depfix）
  *                    + `project: __team__` 卡 target 必填（T-20261013-015831）
+ *                    + 该规则域收窄为「非终态」（T-20261013-023535-2：终态历史卡 grandfather）
  *
  * 口径：priority 统一 low|medium|high|urgent（旧 p0–p3 弃用）。缺省/空不报错
  *   （REQUIRED 不含 priority，避免误伤）；非法值报错且 CLI 退出码 1。
@@ -33,10 +34,10 @@ const SKIP = PROVIDER
 const test = SKIP ? nodeTest.skip : nodeTest;
 
 // provider 依赖为**条件动态 import**：缺 provider 时 check-card.mjs/lib.mjs 在 import 期即硬红。
-let checkOne, STATUS, PRIORITY;
+let checkOne, STATUS, PRIORITY, TERMINAL;
 if (PROVIDER) {
   process.env.OPENCLAW_TASK_OPS_DIR = PROVIDER;
-  ({ checkOne, STATUS, PRIORITY } = await import('../check-card.mjs'));
+  ({ checkOne, STATUS, PRIORITY, TERMINAL } = await import('../check-card.mjs'));
 }
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-cc-'));
@@ -189,6 +190,58 @@ test('CLI 子进程：__team__ 缺 target ⇒ 退出码 1 且 stdout 含机读 [
   const r = runCli(p);
   assert.equal(r.status, 1, `stdout=${r.stdout} stderr=${r.stderr}`);
   assert.match(r.stdout, /缺 target \[role] elon/);
+});
+
+// ── 规则域收窄到「非终态」：终态历史卡 grandfather、不追溯转红（T-20261013-023535-2） ──
+test('TERMINAL 枚举 = done|failed|canceled（非终态按排除法 = 其余全部；对齐 provider TERMINAL_STATUSES）', () => {
+  assert.deepEqual(TERMINAL, ['done', 'failed', 'canceled']);
+});
+
+test('非终态卡缺 target ⇒ 报红（规则域 = 非终态：canonical todo / 旧词 ready / backlog 亦在域内）', () => {
+  const { root, dir } = mkRoot();
+  const statuses = ['backlog', 'todo', 'ready', 'in_progress', 'in_review', 'blocked'];
+  for (const [i, s] of statuses.entries()) {
+    const id = `T-20260101-3001${String(i).padStart(2, '0')}-nt`;
+    const claim = s === 'in_progress' ? '\nclaimed_by: linus' : ''; // in_progress 另有 claimed_by 硬门，勿混入噪声
+    writeRaw(dir, id, `---\nid: ${id}\ntitle: t\nassignee: linus\nstatus: ${s}${claim}\ngoal: g\nproject: __team__\ncreated_by: elon\n---\n## Report\n`);
+    const errs = checkOne(path.join(dir, `${id}.md`));
+    assert.equal(errs.length, 1, `${s}: ${JSON.stringify(errs)}`);
+    assert.equal(errs[0], 'project=__team__ 缺 target [role] elon（carding 缺陷：spawn-lane 否则默认 cwd=live ~/.openclaw/team）');
+  }
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('终态卡（done/failed/canceled）缺 target ⇒ 不报红（grandfather：门禁捕获卡时缺陷，不追溯历史）', () => {
+  const { root, dir } = mkRoot();
+  const statuses = ['done', 'failed', 'canceled'];
+  for (const [i, s] of statuses.entries()) {
+    const id = `T-20260101-3002${String(i).padStart(2, '0')}-tm`;
+    writeRaw(dir, id, `---\nid: ${id}\ntitle: t\nassignee: linus\nstatus: ${s}\ngoal: g\nproject: __team__\ncreated_by: elon\n---\n## Report\n`);
+    assert.deepEqual(checkOne(path.join(dir, `${id}.md`)), [], `${s} 为终态 ⇒ target 规则不适用`);
+  }
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('grandfather 仅限 target 规则：终态卡其余 schema 校验照旧报红（非整体跳过）', () => {
+  const { root, dir } = mkRoot();
+  const id = 'T-20260101-300300-tm2';
+  writeRaw(dir, id, `---\nid: ${id}\ntitle: t\nassignee: linus\nstatus: done\nproject: __team__\n---\n## Report\n`); // 缺 goal（+缺 target）
+  assert.deepEqual(checkOne(path.join(dir, `${id}.md`)), ['缺必填字段 goal']);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('CLI 扫描全部：终态缺 target 不红；追加一张非终态缺 target 才转红', () => {
+  const { root, dir } = mkRoot();
+  const env = { ...process.env, OPENCLAW_TEAM_ROOT: root };
+  writeRaw(dir, 'T-20260101-300310-hist', `---\nid: T-20260101-300310-hist\ntitle: t\nassignee: linus\nstatus: done\ngoal: g\nproject: __team__\n---\n## Report\n`);
+  const okRun = spawnSync(process.execPath, [CHECK_CARD], { env, encoding: 'utf8' });
+  assert.equal(okRun.status, 0, `stdout=${okRun.stdout} stderr=${okRun.stderr}`); // 历史终态卡不追溯
+  writeRaw(dir, 'T-20260101-300311-live', `---\nid: T-20260101-300311-live\ntitle: t\nassignee: linus\nstatus: in_review\ngoal: g\nproject: __team__\ncreated_by: elon\n---\n## Report\n`);
+  const badRun = spawnSync(process.execPath, [CHECK_CARD], { env, encoding: 'utf8' });
+  assert.equal(badRun.status, 1, `stdout=${badRun.stdout}`);
+  assert.match(badRun.stdout, /缺 target \[role] elon/);
+  assert.doesNotMatch(badRun.stdout, /300310-hist/); // 终态卡不在红名单里
+  fs.rmSync(root, { recursive: true, force: true });
 });
 
 test('CLI 扫描全部模式：tasks 目录不存在 ⇒ 0 张通过', () => {
