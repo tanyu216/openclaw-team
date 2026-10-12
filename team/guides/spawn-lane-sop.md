@@ -12,10 +12,11 @@
 
 - **The only legitimate way to start a lane is the single entry**:
   ```bash
-  bash ~/.openclaw/team/scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [phase=<p>] [role=exec|review] [--review] [--dry-run] [--no-isolate]
+  bash ~/.openclaw/team/scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [harness=cli|plugin] [phase=<p>] [role=exec|review] [--review] [--plugin] [--dry-run] [--no-isolate]
   ```
   The thin wrapper `scripts/spawn-lane.sh` execs the core `scripts/spawn-lane.mjs`.
   `role=exec` (default) starts an execution lane; `role=review` (`--review` is equivalent) starts a **review lane** (§9).
+  `harness=cli` (default) keeps the current `codex exec` child-process path; `harness=plugin` (`--plugin` is equivalent, **`backend=codex` only**) runs the Codex lane on the official app-server embedded harness — its handle is a **native thread id**, so registration is a **two-step backfill** (§3.1).
 - **Forbidden**: running `claude -p …` / `codex exec …` **directly** and registering (or not registering) by hand. A lane started that way bypasses the ACL and reproduces the two failure modes in §2.
 - A lane **must not** be started outside the entry even when it "seems simpler" — the entry only adds one command's worth of friction and removes two classes of board-wide breakage.
 
@@ -48,6 +49,18 @@ claim → handoff self-check → resolve cwd/session-id → spawn → session-se
 
 `--dry-run` performs the full validation chain and prints the planned command line, but **starts no process and writes nothing** (no registry, no card, no handoff, no settings).
 
+### 3.1 Codex plugin lane (`harness=plugin`) — the two-step backfill
+
+A plugin lane diverges from step 7–9 above in exactly one way: **there is no `--session-id` and no lane pid**. The handle is a **native thread id** the harness assigns at spawn, so it cannot be predicted before the turn starts. Registration therefore happens in **two same-write steps** (`task.session-set` writes card + registry together **each time**, so there is never a half-written state):
+
+1. **step ① — `id:pending`** (immediately after dispatch): the card row carries `backend:codex · harness:plugin · id:pending`; the registry entry gets `harness:plugin`, `id_state:pending`, `seg`, `backend`, and `pid` = the **gateway** pid (or the placeholder `-`).
+2. **step ② — `id:<thread_id>`** (as soon as the native thread id is read back): the **same `seg:` row** is overwritten (`id:<thread_id>`, `id_state:bound`, registry `thread_id` + `id_state:bound`). The upsert key is `seg:<seg> ·`, so the card never accumulates two rows; the registry's pending row for that `(task, seg)` is **closed** in the same step, so it never lingers as a second `running` entry (which would double-count the concurrency cap).
+3. **bind timeout** — `id_state=pending` past `THREAD_BIND_TIMEOUT_MS` (default **120 s**, aligned with the existing startup-probe window) ⇒ the lane is `failed` and reported (`thread_bind_timeout(seg=…,ms=…):reconcile`); the entry **never** parks silently.
+
+Liveness for a plugin lane is **`pid` alive OR native thread reachable** — the registry `pid` is the long-lived **gateway** pid and must **never** be read as the lane's own liveness (§12). cwd, sandbox domain and the approval posture are the **same** as the CLI path, not relaxed: the sandbox maps onto the same `read-only | workspace-write | danger-full-access` values and an unattended lane keeps the CLI-equivalent, non-bypass approval posture (no auto-approve weakening; a blocking approval ⇒ `blocked` + report). Gateway logs (24 h prune) are exported to `workspace/<task-id>/evidence/` at lane start.
+
+Mechanism contract + per-gate evidence commands: `guides/codex-plugin-lane-contract.md`. Test surface: `scripts/tests/spawn-lane-plugin.test.mjs`.
+
 ## 4. How to run
 
 ```bash
@@ -61,6 +74,10 @@ bash ~/.openclaw/team/scripts/spawn-lane.sh T-20261010-052210 turing backend=cod
 
 # Review lane on an in_review card (defaults: seg=segR1, backend=codex)
 bash ~/.openclaw/team/scripts/spawn-lane.sh T-20261010-052210 turing --review backend=codex
+
+# Codex plugin lane (official app-server harness; two-step registration — §3.1)
+bash ~/.openclaw/team/scripts/spawn-lane.sh T-20261010-052210 turing backend=codex harness=plugin --dry-run
+bash ~/.openclaw/team/scripts/spawn-lane.sh T-20261010-052210 turing backend=codex --plugin
 ```
 
 - The **last stdout line is JSON** `{ok, role, settings, session_id, pid, cwd, handoff, log, cmd, …}` for machine reading.
@@ -79,6 +96,8 @@ The entry starts the child as a **new session detached from the parent process g
 
 Both gates are aggregated by `scripts/check-all.sh`; a bypass lane therefore cannot stay invisible on the board.
 
+`check-sessions` also judges **liveness** with the plugin lane in mind: a Codex plugin row/entry (`harness:plugin`) is alive when its **native thread is reachable**, not when a pid is — a row without a `harness:` segment is read as `cli` (backward compatible), so historical rows keep their old meaning.
+
 ## 7. When the entry refuses
 
 - **`handoff_anchor_missing:…`** — the existing `handoff.md` is hand-written/stale. Regenerate it through the ACL (back up the old file first if it holds anything you need), then re-run the entry. Do **not** hand-edit anchors in.
@@ -88,6 +107,9 @@ Both gates are aggregated by `scripts/check-all.sh`; a bypass lane therefore can
 - **`status_not_spawnable(in_review):use_role=review`** — you ran an **execution** lane against an in-review card. If you meant to review it, re-run with `role=review` / `--review` (§9); otherwise wait for the reviewer.
 - **`review_needs_in_review(status=…)`** — a review lane (`role=review`) was pointed at a card that is not `in_review`.
 - **`review_seg_taken(seg=…,owner=…):use_seg=segR1`** — a review lane was given a `seg=` that already belongs to another owner on this card. Reusing it would **overwrite that owner's `## Sessions` row** (the card's upsert key is `seg:<seg> ·`); drop `seg=` (default `segR1`) or pass a fresh one (§9).
+- **`unknown_harness:<v>`** (usage, exit 2) — `harness=` was given a value outside `cli|plugin`. Nothing was started or written; use `harness=cli` (default) or `harness=plugin`.
+- **`harness_plugin_requires_codex(backend=<b>)`** (usage, exit 2) — `harness=plugin` was combined with a non-codex backend. The official embedded harness exists for the **Codex leg only** (`claude`/`pi` have none) — run the lane as `backend=codex`, or drop `harness=plugin` (§3.1).
+- **`thread_bind_timeout(seg=…,ms=…):reconcile`** (exit 1) — a plugin lane never reported its native thread id within `THREAD_BIND_TIMEOUT_MS` (default 120 s). The lane is marked `failed` and its dispatcher terminated; **do not** start a replacement blindly — reconcile the registry entry first, then re-run the entry (§3.1).
 - **`lane_samefile_conflict(with=…,overlap=…):serialize`** — a same-repo non-terminal card writes a file this card also writes. **Serialize**: wait for that card to reach terminal state, or re-scope the writes. Do **not** work around it with `--no-isolate` (that removes the protection, not the conflict) — isolation cannot fix a same-file collision, it only moves it to a branch merge (§11).
 - **`lane_isolation_failed(…):serialize_or_fix`** — the lane's repo has a concurrent lane but its worktree could not be taken. Run `git worktree list` in the repo, clear the obstacle named in the reason (a stale path, a branch checked out elsewhere), then re-run the entry (§11). Never re-launch the lane in the shared checkout to "get it moving".
 - Any refusal that looks wrong ⇒ report to Elon with the JSON envelope; do not work around the entry by launching directly.
@@ -164,3 +186,5 @@ bash ~/.openclaw/team/scripts/spawn-lane.sh <card> linus --no-isolate
 > **Doc-sync note (T-20261010-084051)**: this guide is a framework doc whose normative parent is `PROTOCOL §⑥`. The change above is **method-library level** (`role=review` entry semantics + the settings preset) and adds **no new protocol clause**, so it **does not trigger a PROTOCOL §⑥ edit**; it only requires this file to be mirrored live→repo alongside `scripts/spawn-lane.mjs` (both are vendored from the same source).
 
 > **Doc-sync note (T-20261012-022948-2)**: §8 + §11 (automatic same-repo lane isolation) are likewise **method-library level**. They **implement** existing clauses — `PROTOCOL §⑥.3` case ② (same-file/same-resource ⇒ serialize; parallelism-first otherwise), `§⑨.1` (single writer per file) and `PROTOCOL §⑥` cwd normalization — and **redefine nothing**, so no PROTOCOL edit is triggered. Scope of the change: `scripts/lane-isolation.mjs` (new decision module), `scripts/spawn-lane.mjs` (①c/③b wiring + `--no-isolate`), `scripts/lane-worktree.mjs` + `scripts/tests/lane-worktree.test.mjs` (the 074754-2 mechanism, **backfilled into the repo** — it previously existed only in the deployed instance) and the tests `tests/lane-isolation.test.mjs` / `tests/spawn-lane-isolation.test.mjs`. Response: `guides/worktree-isolation-sop.md §9`.
+
+> **Doc-sync note (T-20261013-012318-4)**: §1 (entry signature), §3.1 (the plugin lane's two-step backfill), §4 (example), §6 (liveness in the gate) and §7 (new refusal codes) implement the A1 contract `guides/codex-plugin-lane-contract.md` for the **Codex leg only**. They **add** an opt-in `harness=plugin` sub-path and **change no existing discipline** (default `harness=cli` is byte-for-byte the old path), so the PROTOCOL edit is **additive**: a new plugin-lane note in `§⑥`, plus one-clause touches to `§⑥` clauses 2/3/8, the board `## Sessions` schema comment and `§⑬.2` — all **reflecting** the contract rather than redefining it. Scope of the change: `scripts/spawn-lane.mjs` (harness dispatch + two-step backfill + G8 export), `scripts/registry.mjs` (`seg` in the dedupe key, `isEntryAlive`/`threadReachable`/`closePendingEntries`), `scripts/check-sessions.mjs` (harness-aware parsing + liveness), the provider ACL `task.sessionSet` (no repository home — **landed in the deployed instance** and contract-tested from the repo) and `scripts/tests/spawn-lane-plugin.test.mjs`. Response: `guides/task-interface.md §9` + `PROTOCOL §⑥`.
