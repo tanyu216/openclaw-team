@@ -37,7 +37,7 @@ while [ $# -gt 0 ]; do
 done
 case "$SEGMENT" in
   fast|slow|all) ;;
-  *) echo "未知 --segment: $SEGMENT（应为 fast|slow|all）" >&2; exit 2 ;;
+  *) echo "未知 --segment: ${SEGMENT}（应为 fast|slow|all）" >&2; exit 2 ;;
 esac
 
 run() { local label="$1"; shift; echo "── $label"; "$@" || { echo "   ↑ FAIL"; fail=1; FAILED_STEPS+=("$label"); }; }
@@ -146,10 +146,10 @@ if [ "$fail" != 0 ]; then
 fi
 if [ "$fail" = 0 ]; then
   echo
-  echo "check-all（$SEGMENT）：全部通过 ✔"
+  echo "check-all（${SEGMENT}）：全部通过 ✔"
 else
   echo
-  echo "check-all（$SEGMENT）：存在失败项 ✗"
+  echo "check-all（${SEGMENT}）：存在失败项 ✗"
 fi
 # 用 node 生成 JSON（正确的转义 + 原子写 --report），避免 bash 手拼字符串的引号陷阱。
 [ "$fail" = 0 ] && OKFLAG=1 || OKFLAG=0
