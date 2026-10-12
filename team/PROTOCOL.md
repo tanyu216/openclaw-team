@@ -293,6 +293,8 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 3. When Linus finishes the fix, set `todo` → Elon accepts → dispatch Turing for a **regression retest** (rerun the full original Acceptance + affected existing cases);
 4. Only when regression fully passes may the original card reach terminal done; if regression fails → the fix card is returned to Linus.
 
+> 📌 **Anti-pattern — "fix–fix–fix" retry segments** (added 2026-10-13, T-20261013-013438): a repeated fix→retry→fix loop must **not** be packed inside one card as a `seg`. It is a defect: open a **defect/fix card** and run the loop above (Turing reproduces → Elon creates the fix card → regression). A retry loop hidden as a card-internal seg masks the defect behind an execution tool (see §⑩.4 anti-pattern ③).
+
 ### ⑨.1 UI Fidelity: Prototype Is the Contract (three lines of defense, mandatory since 2026-09-26)
 
 > **Background**: in a project overview page, only 2 of the 6 prototype blocks were implemented, and a self-invented structure replaced the prototype's Hero card — **nobody noticed for 5 days** (the operator eventually spotted it from a screenshot). Root cause = the prototype was only a "reference", not a "contract"; migration had no reconciliation and acceptance had no fidelity dimension.
@@ -437,6 +439,25 @@ The sole dispatcher = Elon; workers do not dispatch to each other (including def
 - **Granularity principle (anti-over-split)**: one card = **one "independently acceptable delivery unit"** (clear Goal/Acceptance, assignable to a single person, closable on its own). If one card contains **multiple independently acceptable units** ⇒ **it should be split**; if a split-out child is **too small to have independent acceptance value** ⇒ **it should not be split** (merge it). **How deep to split = adjudicated by Elon under this principle.**
 - **Soft guardrails (alert, not hard block)**: patrol **warns** on "**deep chains** (chain length approaching the base limit, e.g. ≥5)" and "**fragmented cards** (too many child cards / granularity too small)", for Elon's manual review.
 - **Registered-but-undispatched batches (added 2026-10-13, T-20261013-010610)**: patrol **warns** when an epic has **already released a batch** (the epic is `in_progress`, or some child has left the placeholder state) yet still holds child cards parked in `todo`/`backlog` **beyond a threshold** (default 48h) — the "first batch built, second batch forgotten" pattern. **Basis (machine-checkable)**: the signal is entirely in card frontmatter (`kind`/`status`/`parent`/`status_changed_at`), so it lands as a **`warn` in `check-relations.mjs`** (invoked by the `check-all` gate patrol per §⑳.1), **not** on the `task-patrol` stale-heartbeat channel (whose object is a stalled *worker*, `§⑥.4`) and **not** a hard gate — exit code is unchanged, decisions stay human (§㉔.7). The threshold is overridable via `OPENCLAW_TEAM_EPIC_TODO_WARN_MS`.
+
+### ⑩.4 Card Granularity ⇔ seg Usage (2026-10-13, T-20261013-013438)
+
+> A card carries **one Acceptance**; a `seg` is a further session *inside* one card. Opening segs is an execution-level tool, **not** a way to cope with "the card is big" — the team's actual practice for large work is to **split cards**. This clause fixes when a seg is legitimate.
+
+- **Criterion (one line)**: ask whether the two segs are the **same Acceptance**. Same Acceptance ⇒ a seg *may* be legitimate (and only if it fits the whitelist below); different Acceptance ⇒ **split the card**.
+- **The intuition, rewritten explicitly**: **"card is big ⇒ split the card"** (NOT "card is big ⇒ open a pile of segs"). Opening segs to cope with size uses an execution tool to hide "the breakdown was not done".
+- **seg whitelist (only these four; each must still share a single Acceptance)**:
+  1. **the current lane cannot reach the environment** (the run must continue in another window — deterministic UUIDv5 + resume, `§⑥`);
+  2. **bounded retry** where reopening the whole card costs more than re-running the failing seg;
+  3. **≥2 mutually-exclusive file families + a single acceptance** run as parallel probes (splitting into cards would make each demand its own acceptance);
+  4. **independent verification isolated from the author** (fresh context, no anchoring — anti-confirmation-bias).
+- **Split triggers (any one ⇒ split the card; do not open a seg)**: ① a **second independent Acceptance** appears; ② **≥2 independently-acceptable deliverables**; ③ a different **phase / delivery surface**; ④ a fix touching **more than one Acceptance**; ⑤ **different roles** must accept separately.
+- **Anti-patterns (forbidden)**:
+  ① opening a pile of segs because "the card is big" ⇒ the correct action is **split the card**;
+  ② **phase / delivery-surface segmentation** ⇒ should be **epic child cards** (`§⑩.2`, each with its own Acceptance/claim/acceptance);
+  ③ **fix–fix–fix retry segments** ⇒ should be a **defect/fix card** (`§⑨`);
+  ④ "**the context is just too long**" is not a reason to open a seg — it is a reason to **split the card**.
+- **Carding enforcement (hard gate)**: `roles/elon/AGENTS.md` §1 (Task-Card Breakdown SOP — Breakdown Scope), carried **alongside the batch-carding hard rule**: expecting ≥2 independent Acceptance or ≥2 independently-acceptable deliverables ⇒ judge whether to split / build an epic **before** carding.
 
 ---
 
