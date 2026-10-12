@@ -260,6 +260,16 @@ function runCheckAll(root, args) {
   }
 }
 
+/** Run a child, capturing stdout/stderr/exit WITHOUT throwing — so a missing envelope is an assertion failure, not a parse crash. */
+function runRaw(file, args, env) {
+  try {
+    const stdout = execFileSync(file, args, { encoding: 'utf8', env, timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'] });
+    return { exit: 0, stdout, stderr: '' };
+  } catch (e) {
+    return { exit: e.status, stdout: String(e.stdout || ''), stderr: String(e.stderr || '') };
+  }
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Poll until the detached refresh has written the cache. */
@@ -306,6 +316,59 @@ test('check-all.sh: bad --segment is a usage error (exit 2), never a silent pass
     catch (e) { status = e.status; }
     assert.equal(status, 2, `${args.join(' ')} must exit 2`);
   }
+});
+
+// ---- locale domain: the envelope must survive a UTF-8 locale (T-20261013-045600) ------------
+/**
+ * On macOS bash 3.2 under a UTF-8 locale, a BARE `$SEGMENT` sitting immediately before a
+ * multi-byte character (`（`/`）`) had the multi-byte lead byte folded into the variable name
+ * (`SEGMENT\xef…`) ⇒ `set -u` aborted the script BEFORE it printed its `{ok:…}` envelope ⇒ the
+ * scheduled path read `fast-unparseable` and a genuinely RED gate was masked (the exact defect
+ * this card exists to remove). The three sites are braced now; this pins the envelope under a
+ * UTF-8 locale so it cannot silently regress. Coverage: the green branch (L149 pass line), the
+ * red branch (L152 fail line) and the usage-error branch (L40) — every site that carried one.
+ * Not a skip: a host with no UTF-8 locale fails loudly, because the invariant is unverifiable there.
+ */
+function utf8Locale() {
+  // `C.UTF-8` is accepted by macOS (UTF-8 alias) and glibc alike; `en_US.UTF-8` is the macOS default.
+  for (const loc of ['C.UTF-8', 'en_US.UTF-8', 'C.utf8', 'en_US.utf8']) {
+    try {
+      const out = execFileSync('locale', ['charmap'], { encoding: 'utf8', env: { ...process.env, LC_ALL: loc }, stdio: ['ignore', 'pipe', 'pipe'] });
+      if (/UTF-8/i.test(out)) return loc;
+    } catch { /* not installed on this host — try the next candidate */ }
+  }
+  return null;
+}
+
+test('UTF-8 locale: check-all.sh still emits its envelope (bash 3.2 multibyte var-name regression)', () => {
+  const loc = utf8Locale();
+  assert.ok(loc, 'no UTF-8 locale available on this host — the envelope invariant cannot be exercised');
+  const env = { LC_ALL: loc, LC_CTYPE: loc, LANG: loc };
+
+  /** The last stdout line must be the envelope — never an `unbound variable` abort. */
+  const envelopeOf = (r) => {
+    const lines = r.stdout.trim().split('\n').filter(Boolean);
+    const last = lines[lines.length - 1] ?? '';
+    assert.doesNotMatch(last, /unbound variable/, `check-all.sh died before its envelope under ${loc}`);
+    return JSON.parse(last);                       // throws (test fails) if the envelope is absent
+  };
+
+  // green branch (L149): `check-all（<seg>）：全部通过` precedes the envelope
+  const green = runRaw('bash', [CHECKALL, '--segment', 'fast'], fixtureEnv(mkFixture(), env));
+  assert.equal(green.exit, 0, `a green fast segment exited ${green.exit} under ${loc}`);
+  assert.equal(envelopeOf(green).ok, true);
+
+  // red branch (L152): `check-all（<seg>）：存在失败项` precedes the envelope — the masking case
+  const red = runRaw('bash', [CHECKALL, '--segment', 'fast'], fixtureEnv(mkFixture({ redStep: 'scripts/check-card.mjs' }), env));
+  assert.equal(red.exit, 1);
+  const redEnvelope = envelopeOf(red);
+  assert.equal(redEnvelope.ok, false);
+  assert.deepEqual(redEnvelope.failed, ['卡 schema/状态机 check-card'], 'the failing step is still named under a UTF-8 locale');
+
+  // usage-error branch (L40): a clean exit 2, not an unbound-variable death
+  const bad = runRaw('bash', [CHECKALL, '--segment', 'bogus'], fixtureEnv(mkFixture(), env));
+  assert.equal(bad.exit, 2, `bad --segment exited ${bad.exit} under ${loc}`);
+  assert.match(bad.stderr, /未知 --segment/);
 });
 
 // ---- the gate's orchestration (stub entry point: exercises the gate, not check-all.sh) ----
