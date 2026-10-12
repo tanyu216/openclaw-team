@@ -324,7 +324,7 @@ write_trigger() {
 }
 
 # register_automation <name> <agent> <declarationKey> <job> <schedule-args...>
-#   job ∈ poll|patrol|check-all (dispatch job; poll also passes <agent>)
+#   job ∈ poll|patrol|check-all|skills-update (dispatch job; poll also passes <agent>)
 # Idempotent by declarationKey; never hard-codes a provider name.
 register_automation() {
   local name="$1" agent="$2" key="$3" job="$4"; shift 4
@@ -340,6 +340,7 @@ register_automation() {
       msg="[openclaw-team] Scheduled poll for $agent: if the dispatcher claimed a card, execute it via the task-interface ACL and PROTOCOL.md; otherwise reply NO_REPLY." ;;
     patrol)    msg="[openclaw-team] Stale in_progress card(s) detected by task-patrol: recover per the PROTOCOL recovery rules." ;;
     check-all) msg="[openclaw-team] Team gate patrol failed: run the team gate checks and handle per the PROTOCOL gates/archiving rules." ;;
+    skills-update) msg="[openclaw-team] Upstream skill ref(s) moved (the change list is in this message), or the upstream check failed: review, then advance with \`node skills/update.mjs --apply\` after Elon's review (third-party bodies are agent instructions — see team/AUTOMATIONS.md)." ;;
     *)         msg="[openclaw-team] Scheduled job $name." ;;
   esac
   tmp="$(mktemp "${TMPDIR:-/tmp}/openclaw-trigger.XXXXXX")"
@@ -657,7 +658,8 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
   info "scheduler: framework-owned  ·  provider: $auto_provider (callee via the ACL)"
   info "dispatcher: $TEAM_DIR/automations/dispatch.mjs"
   info "bounds: trigger-eval ${EVAL_TIMEOUT_MS}ms (OPENCLAW_TEAM_EVAL_TIMEOUT_MS) · poll run ${POLL_RUN_TIMEOUT_S}s (OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S, 0=off)"
-  info "poll: every $POLL_INTERVAL (OPENCLAW_TEAM_POLL_INTERVAL) · --light-context on poll/patrol/check-all"
+  info "poll: every $POLL_INTERVAL (OPENCLAW_TEAM_POLL_INTERVAL) · --light-context on poll/patrol/check-all/skills-update"
+  info "skills-update: Sundays 05:00 Asia/Shanghai (detect-only; --apply is manual after review)"
   # built-in workers only for poll (skip main/elon), derived from ROLES/AGENT_ID
   auto_agents=()
   for i in "${!ROLES[@]}"; do
@@ -698,6 +700,11 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
       printf '%s|%s|%s|%s|%s|%s|%s\n' "openclaw-team:task-patrol" "task-patrol" "main" "patrol" "interval" "15m" "$tp" >> "$MANIFEST"
       tp="$DECLARED_DIR/trigger-team-check-all.js"; write_trigger "check-all" "$tp"
       printf '%s|%s|%s|%s|%s|%s|%s\n' "openclaw-team:team-check-all" "team-check-all" "main" "check-all" "cron" "" "$tp" >> "$MANIFEST"
+      # skills-update: weekly upstream skill ref drift DETECT — Sundays 05:00 Asia/Shanghai.
+      # Trigger semantics match poll/patrol/check-all: no drift ⇒ fire:false (zero cost, no
+      # model wake); drift or an unconfirmed check ⇒ fire:true with the change list in message.
+      tp="$DECLARED_DIR/trigger-skills-update.js"; write_trigger "skills-update" "$tp"
+      printf '%s|%s|%s|%s|%s|%s|%s\n' "openclaw-team:skills-update" "skills-update" "main" "skills-update" "cron" "" "$tp" >> "$MANIFEST"
       node -e '
         const fs=require("fs");
         const lines=fs.readFileSync(process.argv[1],"utf8").split("\n").filter(Boolean);
@@ -717,6 +724,7 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
               poll)      register_automation "$name" "$agent" "$key" poll --every "$POLL_INTERVAL" ;;
               patrol)    register_automation "$name" "$agent" "$key" patrol --every 15m ;;
               check-all) register_automation "$name" "$agent" "$key" check-all --cron "0 * * * *" --tz Asia/Shanghai ;;
+              skills-update) register_automation "$name" "$agent" "$key" skills-update --cron "0 5 * * 0" --tz Asia/Shanghai ;;
             esac ;;
           edit) info "edit     $name  ($key)"; run "${OCL[@]}" automations edit "$id" $eargs ;;
           skip) info "ok       $name  ($key)" ;;
