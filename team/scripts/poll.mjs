@@ -15,6 +15,8 @@
  * - in_progress + 心跳新鲜（含 claimed_by=自己）→ 不动，fire:false
  * - 领取前防双跑守卫：有活跃子会话不重领（即使心跳陈旧也不越过守卫）
  * - 写冲突粗判（§⑥.3 单写者）：同 project+target 视为同资源 ⇒ 冲突组每轮只领 1 张（串行）
+ * - **自动候选面排除部署类卡**（`kind:deploy`）：部署/线上执行类卡由 Elon 显式派发推进，poll 不自动领取
+ *   （显式领取路径不拒，与 `kind:epic` 的「彻底不可领」分层不同；T-20261014-013629-2）
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -25,6 +27,7 @@ import {
   LOCKS_DIR,
   AGENTS,
   CARD_ID_RE,
+  isAutoClaimableKind,
   CLAIM_STALE_SAME_MS,
   CLAIM_STALE_ANY_MS,
   parseIso,
@@ -63,7 +66,15 @@ function createdMs(fm, filePath) {
   }
 }
 
-/** 只读扫描候选：ready(assignee=自己) 优先，其次陈旧恢复（>30min 同 agent / >6h 任意） */
+/**
+ * 只读扫描候选：ready(assignee=自己) 优先，其次陈旧恢复（>30min 同 agent / >6h 任意）。
+ *
+ * **自动候选面排除部署类卡**（`kind:deploy`，T-20261014-013629-2）：本函数是 poll **唯一**的候选读
+ * 面（`runPoll` = 领，`pollCandidates`/ACL `task.pollCandidates` = 只读诊断），故排除落在这里即两池
+ * （ready / 陈旧恢复）一并生效。`kind:deploy` 须 Elon 显式派发推进 ⇒ **不拒显式领取**（claimCard 不判）。
+ * 背景：基座侧（meerkat-taskpanel `658eb1f`）只改了自己的 `issue candidates` 读面；框架 poll 直读
+ * 卡文件**不经过基座**，该排除不会自动继承（实证 T-20261013-161055 部署漂移卡被 poll 领走）。
+ */
 export function scanCandidates(assignee) {
   const now = nowMs();
   const cards = [];
@@ -78,6 +89,7 @@ export function scanCandidates(assignee) {
       continue;
     }
     if (!fm || !fm.id || fm.assignee !== assignee) continue;
+    if (!isAutoClaimableKind(fm)) continue; // 部署类卡：不自动领取（显式派发仍可，见 lib.mjs）
     let cand = null;
     if (fm.status === 'ready') cand = { reason: 'ready', rank: 0 };
     else if (fm.status === 'in_progress') {

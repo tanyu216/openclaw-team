@@ -5,7 +5,7 @@ scheduled jobs (`team/automations/providers.json` → `{team}/scripts/…`):
 
 | Entry | Job | Dispatch |
 |---|---|---|
-| `poll.mjs <agent>` | `poll-<agent>` | claim this agent's ready/stale cards |
+| `poll.mjs <agent>` | `poll-<agent>` | claim this agent's ready/stale cards — **except `kind:deploy`** (deploy cards are never auto-claimed; explicit dispatch only, `PROTOCOL §①`) |
 | `poll-run.mjs` | — (library) | single source for the poll RUN contract: `pollRunMessage()` (claim → hand off → return) + `pollRunTimeoutS()` (run bound); `install.sh` and `poll.mjs` both use it (T-20261013-041718) |
 | `patrol-scan.mjs` | `task-patrol` | scan for stale `in_progress` heartbeats |
 | `check-all-gate.mjs` | `team-check-all` | aggregate gate patrol, inside the evaluation budget |
