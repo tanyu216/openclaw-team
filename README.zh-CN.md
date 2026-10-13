@@ -99,7 +99,7 @@ flowchart TB
 - **交付门禁**：任何东西被标 `done` 前必须过门禁：工程质量（TDD、覆盖率 ≥80%、集成测试、自证）、UI 保真（原型即契约）、文档同步，以及 CI / `check-all` 跑的**机器可检门禁**。`team/PROTOCOL.md` **§⑥.1 工程质量标准** 与 **§⑳ 门禁与归档**。
 - **并行优先**：worker **默认并行**；只有**写资源冲突**（同文件、不可隔离资源）、`depends_on` 未满足、或卡上明确「必须串行」时才串行。Elon 的巡检会推动并行、追陈旧卡。`team/PROTOCOL.md` **§⑥.3 worker 并行优先**。
 
-唤醒 worker 的调度（`poll-<agent>`、`task-patrol`、`team-check-all`）见 [调度与团队定时任务](#调度与团队定时任务)。
+唤醒 worker 的调度（`poll-<agent>`、`task-patrol`、`sla-scan`、`team-check-all`、`skills-update`）见 [调度与团队定时任务](#调度与团队定时任务)。
 
 ## AI Agents 协作实践指南（面向非程序员）
 
@@ -163,7 +163,7 @@ cd <path/to/openclaw-team>
 4. **Agent 与角色工作区**：拷贝 `AGENTS.md`/`SOUL.md`/`IDENTITY.md`，然后 `openclaw agents add <id> --workspace <dir> --non-interactive`；已注册则跳过。**永不覆盖**既有 `USER.md`。
 5. **配置片段** → `openclaw config patch --file config/*.json5`（`config/examples/` 下仅参考，不自动应用）。
 6. **任务提供方（ACL）**：报告已配置的提供方（`OPENCLAW_TEAM_TASK_PROVIDER`，默认 `meerkat-taskpanel`）；**默认安装**参考实现 meerkat-taskpanel。`--no-meerkat-taskpanel` 退出并打印「自备」指引（Jira / Plane / Linear …，经 `task-interface` ACL）。
-7. **团队定时任务（调度）**：注册团队级定时任务（`poll-<agent>` 每 5m、`task-patrol` 每 15m、`team-check-all` 每小时），**声明式**（按 `declarationKey`；`config/reconcile.mjs` 产出 add/edit/skip，重跑可自愈漂移）、**provider-agnostic**：每个触发脚本只调用框架派发器 `team/automations/dispatch.mjs`，**不含任何 provider 字面量**。`--skip-automations` 关闭。见 [调度与团队定时任务](#调度与团队定时任务)。
+7. **团队定时任务（调度）**：注册团队级定时任务（`poll-<agent>` 每 5m、`task-patrol` 每 15m、`sla-scan` 每 15m、`team-check-all` 每小时、`skills-update` 每周日 05:00），**声明式**（按 `declarationKey`；`config/reconcile.mjs` 产出 add/edit/skip，重跑可自愈漂移）、**provider-agnostic**：每个触发脚本只调用框架派发器 `team/automations/dispatch.mjs`，**不含任何 provider 字面量**。`--skip-automations` 关闭。见 [调度与团队定时任务](#调度与团队定时任务)。
 8. **配置优化（providers 回填）**：把缺失的 provider 优化字段回填进 `~/.openclaw/openclaw.json`（**merge，绝不整文件覆盖**）：`contextWindow` 超过阈值（默认 200000）的模型补 `contextTokens: 200000`、白名单 deepseek id 补 `cost.cacheRead`，以及 `agents.defaults` 的 compaction/contextPruning/contextLimits 静态片段。**永不覆盖已有值**；`OPENCLAW_TEAM_OPTIMIZE_PROVIDERS=0` 关闭（见 [配置优化与定时任务瘦身](#配置优化与定时任务瘦身)）。
 
 ### 升级 / 重装
@@ -216,15 +216,17 @@ cd <path/to/openclaw-team>
 
 ### 调度与团队定时任务
 
-团队级**调度归框架所有、provider-agnostic**，**不**下放给任务提供方。`install.sh` 注册三类任务（幂等，按 `declarationKey`；`--skip-automations` 关闭）：
+团队级**调度归框架所有、provider-agnostic**，**不**下放给任务提供方。`install.sh` 注册下列任务（幂等，按 `declarationKey`；`--skip-automations` 关闭）：
 
 | 任务 | 频率 | 用途 |
 |---|---|---|
 | `poll-<agent>` | 每 5m | 各 worker 轮询（jobs/linus/turing/assistant）；仅当领取到卡时 fire |
 | `task-patrol` | 每 15m | 心跳陈旧的 `in_progress` 卡扫描 |
+| `sla-scan` | 每 15m（`OPENCLAW_TEAM_SLA_INTERVAL`） | 看板 SLA 巡检：覆盖 `task-patrol` 未覆盖的 `PROTOCOL §⑮` 各行；仅在跨档时 fire（详见 `team/guides/sla-inspection-contract.md`、`team/AUTOMATIONS.md §3.8`） |
 | `team-check-all` | 每小时（`0 * * * *` @ Asia/Shanghai） | 门禁巡检；仅失败时 fire |
+| `skills-update` | 每周日 05:00（Asia/Shanghai） | 上游 skill ref 漂移检测；仅在漂移/失败时 fire |
 
-每个触发脚本调用框架派发器 `team/automations/dispatch.mjs <poll|patrol|check-all> [agent]`；派发器解析 provider 的入口命令（`team/automations/providers.json`；provider = `OPENCLAW_TEAM_TASK_PROVIDER`，默认 `meerkat-taskpanel`）并返回 `{"fire":…}`。触发脚本**不含任何 provider 字面量**，故**换基座 = 定时任务零改动**。入口缺失 / 执行失败 / 解析失败 ⇒ `fire:false`（零成本）。详见 `team/automations/README.md`。
+每个触发脚本调用框架派发器 `team/automations/dispatch.mjs <poll|patrol|check-all|skills-update|sla-scan> [agent]`；派发器解析 provider 的入口命令（`team/automations/providers.json`；provider = `OPENCLAW_TEAM_TASK_PROVIDER`，默认 `meerkat-taskpanel`）并返回 `{"fire":…}`。触发脚本**不含任何 provider 字面量**，故**换基座 = 定时任务零改动**。入口缺失 / 执行失败 / 解析失败 ⇒ `fire:false`（零成本）。详见 `team/automations/README.md`。
 
 ### 配置优化与定时任务瘦身
 
