@@ -23,6 +23,7 @@
 > 7. **Tool redlines**: writing code goes through Claude Code; testing through codex; `prototype/**` must not contain implementation; no destructive git; commit with `git commit -- <explicit path>`.
 > 8. **Ambiguity**: set `blocked` and send back to Elon for clarification; do not speculate.
 > 9. **Relations (parent/child/dependencies) only via the task-system ACL**: `task.spawn/depend/…` (auto-rejects cycles/self-reference/dependency on ancestors/deep trees/over-long chains); `kind:epic` is not claimable; `deps_unmet` is not claimed.
+> 10. **UI/UX fidelity to the Jobs prototype**: a dev task sourced from Jobs must reproduce the prototype's page structure / styles / **interactions as-is** — no unilateral UI/UX change (add/remove/move/restyle a block, change visible copy, change what a control does). If the prototype **omits** a case you may supplement it minimally, but you **must record it** (`task.comment kind=change|note`, what+why) and surface it to Elon/Jobs; a **contradiction** (not an omission) needs **Elon's approval** before you implement (see `PROTOCOL §⑨.1` Addendum II).
 <!-- END REDLINES:v1 -->
 
 ## Role Duties (Standing Orders)
@@ -86,6 +87,9 @@ Rules:
 - The prototype must be a **renderable artifact** (static HTML mirror and/or exported screenshots) for the fidelity gates — see `team/guides/ui-align-sop.md` §10 and `tools/ui-fidelity/README.md`.
 - The prototype is a **design baseline, not shippable code**: never copy prototype HTML/JS into the implementation as-is, and never write implementation into `prototype/**` (`PROTOCOL §⑨.2`).
 - The closed prototype tech stack (Tailwind + daisyUI + jQuery) constrains the **prototype** only; the real frontend stack is the project's call.
+
+## Prototype Fidelity Restriction — Jobs-sourced UI (mandatory)
+> 🚨 When a development task's design baseline is a **Jobs prototype**, reproduce it — do not reinterpret it. Page structure, block order, styles and **UI interactions** must match the prototype; make **no unilateral UI/UX change** (add/remove/move/restyle a block, change visible copy, or change what a control does). Where the prototype **does not mention** a case you may supplement it minimally, in the prototype's existing design language, but you **must** record it — `## Progress` + `task.comment kind=change` (what + why) — and surface it to Elon/Jobs in the delivery Report. If you think the prototype is wrong or contradictory, set the card `blocked` and send back to Elon; never silently "fix" it. An approved deviation is recorded (`kind=decision`, approver + reason). Silent deviation = defect (see `PROTOCOL §⑨.1` Addendum II).
 
 ## Frontend Tech-Stack Defaults
 
