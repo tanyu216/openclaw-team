@@ -65,6 +65,7 @@ const LAYOUT = PROVIDER ? (() => {
 // 但那时所有 test 都 SKIP，回调不会执行）。
 let TASKS, WS, BIN, REG, STUB, CODEX_STUB;
 let spawnLane, parseArgs, sessionIdFor, sessionSet, checkSessions, checkHandoff, anchorGaps, upsertSessionEntry;
+let spawnRunningCount, pollRunningCount, pollClaimBudget;
 
 if (LAYOUT) {
   TASKS = path.join(LAYOUT, 'tasks');
@@ -74,7 +75,8 @@ if (LAYOUT) {
   process.env.OPENCLAW_TEAM_ROOT = LAYOUT;
 
   const staged = (rel) => import(pathToFileURL(path.join(LAYOUT, rel)).href);
-  ({ spawnLane, parseArgs } = await staged('scripts/spawn-lane.mjs'));
+  ({ spawnLane, parseArgs, runningCount: spawnRunningCount } = await staged('scripts/spawn-lane.mjs'));
+  ({ runningCount: pollRunningCount, claimBudget: pollClaimBudget } = await staged('scripts/poll.mjs'));
   ({ sessionIdFor, sessionSet } = await staged('skills/task-ops/lib/task.mjs'));
   ({ checkSessions } = await staged('scripts/check-sessions.mjs'));
   ({ checkHandoff, anchorGaps } = await staged('scripts/check-handoff.mjs'));
@@ -274,6 +276,32 @@ test('REJECT. 并发额度：running(linus)>=8 ⇒ 拒绝', { skip: SKIP }, () =
   const r = spawnLane({ card: id, owner: 'linus', seg: 'seg1', backend: 'claude', dryRun: false });
   assert.equal(r.ok, false);
   assert.match(r.reason, /^concurrency_cap\(/);
+});
+
+test('REJECT. 并发额度：canonical running(turing)>=3 ⇒ 拒绝（T-20261014-011235 计数源）', { skip: SKIP }, () => {
+  const id = 'T-20260101-100030-cap-turing';
+  writeCard(id, { status: 'in_progress', claimed: 'turing', assignee: 'turing', segs: [] });
+  for (let i = 0; i < 3; i++) {
+    upsertSessionEntry({ task_id: `T-20260101-2010${String(i).padStart(2, '0')}-tcap`, owner: 'turing', phase: 'p', status: 'running', pid: process.pid, session_id: `00000000-0000-4000-8000-00000000010${i}`, startedAt: 'x' });
+  }
+  const r = spawnLane({ card: id, owner: 'turing', seg: 'seg1', backend: 'codex', dryRun: false });
+  assert.equal(r.ok, false, JSON.stringify(r));
+  assert.match(r.reason, /^concurrency_cap\(owner=turing,running=3,cap=3\)/);
+});
+
+test('UNIT. 计数源同口径：poll.runningCount ≡ spawn-lane.runningCount（canonical，含 turing）', { skip: SKIP }, () => {
+  const reg = [
+    { task_id: 'T-1', owner: 'turing', phase: 'seg1', status: 'running', pid: process.pid, session_id: 's1' },
+    { task_id: 'T-2', owner: 'turing', phase: 'seg1', status: 'running', pid: process.pid, session_id: 's2' },
+    { task_id: 'T-3', owner: 'linus', phase: 'seg1', status: 'running', pid: process.pid, session_id: 's3' },
+    { task_id: 'T-4', owner: 'turing', phase: 'seg1', status: 'done', pid: process.pid, session_id: 's4' },   // 非 running 不计
+    { task_id: 'T-5', owner: 'turing', phase: 'seg1', status: 'running', pid: 999999999, session_id: 's5' }, // 死 pid 不计
+  ];
+  for (const owner of ['turing', 'linus', 'jobs']) {
+    assert.equal(pollRunningCount(owner, { registry: reg }), spawnRunningCount(owner, { registry: reg }), `${owner}：两入口计数须同口径`);
+  }
+  assert.equal(pollRunningCount('turing', { registry: reg }), 2, 'canonical 2 条 live turing');
+  assert.equal(pollClaimBudget('turing', { registry: reg }), 1, '3 − 2 = 1');
 });
 
 test('REJECT. claimed_by 不符 ⇒ 拒绝', { skip: SKIP }, () => {
