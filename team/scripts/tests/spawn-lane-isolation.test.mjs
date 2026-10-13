@@ -13,7 +13,19 @@
  * 串行（A1 的另一半）：同**文件**冲突 ⇒ 拒绝起会话（显式串行），零副作用。
  * fail-closed：隔离被拒（路径被占）⇒ 拒绝起会话，绝不静默降级回共享 checkout。
  *
- * 全程**无破坏性 git**：只用 `git init/add/commit/worktree add|remove/rev-parse/status`；断言主 checkout
+ * 夹具自持性（T-20261014-034118-2，既有 flaky 的根因修复）：
+ *   本文件多个用例断言的都是**「某条 lane 的隔离路径未被占用」这一否定事实**（路径不存在 / 无 worktree
+ *   注册）。该前提过去是**跨用例共享且隐式**的：`<LAYOUT>-wt-<card>-<seg>` 由 GREEN 建、也只由 GREEN 的
+ *   收尾动作撤；`beforeEach` 只清看板/workspace/registry/stub-args，**不回收 worktree 路径**。于是任何
+ *   半完成的建树/清理（高负载下 git 失败或被杀）都会让后续用例的前提静默失效，并且会**反转** fail-closed
+ *   用例——`lane-worktree` 的「复用」分支排在「路径被占」守卫**之前**，残留注册让判定走 `reused`，
+ *   `spawn-lane` 于是**真的起了会话**（`ok:true`）而不是拒绝。
+ *   两条加固（均为**收紧**，不削弱任何拒止语义）：
+ *     ① 每条 lane 自持：fail-closed 用例改用**专属卡**，其隔离路径与本文件其它用例零交集；
+ *     ② 每个用例前**回收**这些 lane 路径（`beforeEach`），回收不掉即显式报红（绝不静默带病继续）。
+ *
+ * 全程**无破坏性 git**：只用 `git init/add/commit/worktree add|remove|list|prune/rev-parse/status`
+ * （`prune` 仅遗忘「工作目录已消失」的注册，不触碰任何工作树）；断言主 checkout
  * 分支与 HEAD 不变、且未出现 `--force`。
  * 隔离：跑在 `os.tmpdir()` 下的临时 git 仓；不起真实模型/不触网/不碰真实仓与真实看板。
  * 运行：node --test team/scripts/tests/spawn-lane-isolation.test.mjs
@@ -63,7 +75,7 @@ const LAYOUT = PROVIDER ? (() => {
   return root;
 })() : null;
 
-let TASKS, WS, BIN, REG, STUB;
+let TASKS, WS, BIN, REG, STUB, STUB_ARGS;
 let spawnLane, laneWorktree;
 
 if (LAYOUT) {
@@ -76,7 +88,10 @@ if (LAYOUT) {
   ({ spawnLane } = await staged('scripts/spawn-lane.mjs'));
   ({ laneWorktree } = await staged('scripts/lane-worktree.mjs'));
 
-  // 假 claude：复刻 `--settings` 前置校验，并把**真实 cwd** 落到 <stub>.args 首行（隔离取证）
+  // 假 claude：复刻 `--settings` 前置校验，并把**真实 cwd** 落到**本用例专属**取证文件首行。
+  // 取证文件路径取 env `OC_STUB_ARGS`（由 beforeEach 每个用例换一个新路径）——**不是**固定的
+  // `<stub>.args`：固定的单文件是跨用例共享资源，上一个用例的 stub 若在高负载下**迟到落盘**，
+  // 其内容会被下一个用例读成自己的证据（T-20261014-034118-2 实证的 flaky 链首环）。
   STUB = path.join(BIN, 'claude-stub');
   fs.writeFileSync(STUB, [
     '#!/bin/sh',
@@ -90,10 +105,11 @@ if (LAYOUT) {
     '  echo "Settings file not found: $settings" >&2',
     '  exit 1',
     'fi',
-    'pwd > "$0.args"',
-    'echo "$@" >> "$0.args"',
+    'args="${OC_STUB_ARGS:-$0.args}"',
+    'pwd > "$args"',
+    'echo "$@" >> "$args"',
     'echo \'{"type":"system","subtype":"init"}\'',
-    'sleep 60',
+    'exec sleep 60', // exec ⇒ SIGTERM 直达 sleep：不留下孤儿（收尾 kill 只杀 sh 时 sleep 会陪跑 60s）
     '',
   ].join('\n'));
   fs.chmodSync(STUB, 0o755);
@@ -107,17 +123,56 @@ after(() => {
   for (const s of SIBLINGS) { try { fs.rmSync(s, { recursive: true, force: true }); } catch { /* best effort */ } }
   if (LAYOUT) fs.rmSync(LAYOUT, { recursive: true, force: true });
 });
+let stubSeq = 0;
 beforeEach(() => {
   for (const f of fs.readdirSync(TASKS)) if (f.endsWith('.md')) fs.rmSync(path.join(TASKS, f));
   fs.rmSync(WS, { recursive: true, force: true });
   fs.mkdirSync(WS, { recursive: true });
   fs.rmSync(REG, { force: true });
-  fs.rmSync(`${STUB}.args`, { force: true });
+  // 本用例专属的 stub 取证文件：**换新路径**而非删旧文件 —— 旧用例的 stub 仍活着，
+  // 它的迟到落盘写进旧路径，本用例读新路径 ⇒ 证据不可能串台（删旧文件挡不住迟到写入者）。
+  STUB_ARGS = path.join(BIN, `claude-stub.${process.pid}.${(stubSeq += 1)}.args`);
+  process.env.OC_STUB_ARGS = STUB_ARGS;
+  // lane 隔离产物归零：断言「路径空闲」的用例**不得继承**上一用例的状态（见文件头「夹具自持性」）。
+  for (const lane of [LANE, CLASH_LANE]) {
+    const r = reclaimLane(lane);
+    assert.equal(r.ok, true, `beforeEach 未能回收 lane 隔离产物（前置条件无法成立）：${JSON.stringify(r)}`);
+  }
 });
+
+/** 某 lane 的隔离树路径（与 lane-worktree.mjs 默认命名同源：`<主仓目录>-wt-<lane>`） */
+const laneWtPath = (lane) => `${LAYOUT}-wt-${lane}`;
+/** 该路径是否**已注册为 worktree**（`git worktree list` 有该条目）——与「目录存在」是两件不同的事 */
+const isRegisteredWt = (p) =>
+  gitOut(LAYOUT, 'worktree', 'list', '--porcelain')
+    .split('\n').some((l) => l.trim() === `worktree ${p}`);
+/**
+ * 回收某 lane 的隔离产物，恢复「路径空闲」这一**跨用例前提**（全程非破坏性 git：无 --force/reset/clean）。
+ * ① 规范入口 `laneWorktree --remove`（仅 clean 时摘除，绝不 --force）；
+ * ② 仍有残留 ⇒ 清掉沙箱内的工作目录后再 `git worktree prune`（prune 只遗忘「工作目录已消失」的注册，
+ *    不触碰任何工作树；用于兜住高负载下**半完成**的建树/清理，或上一用例在收尾前就断言失败的情形）。
+ * @returns {{ok:boolean, action:'clean'|'reclaimed', path:string}}
+ */
+function reclaimLane(lane) {
+  const p = laneWtPath(lane);
+  if (!isRegisteredWt(p) && !fs.existsSync(p)) return { ok: true, action: 'clean', path: p };
+  laneWorktree({ repo: LAYOUT, lane, remove: true });
+  if (isRegisteredWt(p) || fs.existsSync(p)) {
+    fs.rmSync(p, { recursive: true, force: true }); // 沙箱内的工作目录（非仓外数据）
+    if (isRegisteredWt(p)) gitOut(LAYOUT, 'worktree', 'prune');
+  }
+  return { ok: !isRegisteredWt(p) && !fs.existsSync(p), action: 'reclaimed', path: p };
+}
 
 const SELF = 'T-20260103-400000-self';
 const OTHER = 'T-20260103-400001-other';
 const LANE = `${SELF}-seg1`;
+/**
+ * fail-closed 用例的**专属卡**：它的隔离路径（`<LAYOUT>-wt-T-20260103-400010-clash-seg1`）与本文件
+ * 其余用例零交集 ⇒ 该用例的前置条件（路径空闲）**结构上**不依赖任何别的用例的收尾动作。
+ */
+const CLASH = 'T-20260103-400010-clash';
+const CLASH_LANE = `${CLASH}-seg1`;
 
 function writeCard(id, { status = 'in_progress', claimed = 'linus', project = '__team__', target = '', writes = '' } = {}) {
   const body = '## Background\nx\n## Acceptance\n- [ ] a\n## Progress\n## Comments\n## Sessions\n## Report\n';
@@ -135,13 +190,16 @@ const concurrentBoard = (selfWrites = 'team-a.mjs', otherWrites = 'team-b.mjs') 
 };
 const porcelain = (dir) => spawnSync('git', ['-C', dir, 'status', '--porcelain'], { encoding: 'utf8' }).stdout.trim();
 const gitOut = (dir, ...a) => spawnSync('git', ['-C', dir, ...a], { encoding: 'utf8' }).stdout.trim();
-/** 子会话**真实** cwd（stub 落盘的首行）——隔离的硬证据 */
-const spawnedCwd = () => {
-  const f = `${STUB}.args`;
-  return fs.existsSync(f) ? fs.readFileSync(f, 'utf8').split('\n')[0].trim() : null;
-};
-/** 轮询等待（子进程异步落盘 ⇒ 避免断言与子进程竞态）；超时返回 false */
-async function waitFor(fn, { timeout = 10000, step = 25 } = {}) {
+/** 子会话**真实** cwd（stub 落盘的首行）——隔离的硬证据。只读**本用例**的取证文件（见 STUB_ARGS）。 */
+const spawnedCwd = () =>
+  (fs.existsSync(STUB_ARGS) ? fs.readFileSync(STUB_ARGS, 'utf8').split('\n')[0].trim() : null);
+/**
+ * 轮询等待（子进程异步落盘 ⇒ 避免断言与子进程竞态）；超时返回 false。
+ * 预算取 30s（可用 `OPENCLAW_TEST_WAIT_MS` 覆盖）：子进程**启动+落盘**耗时随机器负载浮动，
+ * 10s 在 12 路并发下实测会被击穿（T-20261014-034118-2 复现数据）；放宽预算不放宽任何断言语义。
+ */
+const WAIT_MS = Number(process.env.OPENCLAW_TEST_WAIT_MS || 30000);
+async function waitFor(fn, { timeout = WAIT_MS, step = 25 } = {}) {
   const t0 = Date.now();
   for (;;) {
     if (fn()) return true;
@@ -224,6 +282,10 @@ test('GREEN. 隔离**开启**（默认）⇒ lane 在自己的 worktree 里写�
   assert.equal(rm.cmd.includes('--force'), false, '绝不使用 --force');
   assert.equal(gitOut(LAYOUT, 'rev-parse', '--verify', '--quiet', `refs/heads/lane/${LANE}`).length, 40, '清理保留分支（可能承载已提交产物）');
   assert.equal(porcelain(LAYOUT), '', '清理全程不得污染共享 checkout');
+  // 清理必须**真的摘掉注册**：`git worktree remove` 退出 0 ≠ 注册已摘。残留注册会让后续用例的
+  // 「路径空闲」前提静默失效——fail-closed 用例更会被**反转**成 `reused`（见文件头「夹具自持性」）。
+  assert.equal(isRegisteredWt(r.isolation.path), false, '清理后不得残留 worktree 注册（`git worktree list` 无该条目）');
+  assert.equal(fs.existsSync(r.isolation.path), false, '清理后目录亦须消失');
 });
 
 // ── A5 兼容 / 回退开关 ──────────────────────────────────────────────────────
@@ -281,7 +343,7 @@ test('DRY-RUN. 隔离开启 + --dry-run ⇒ 报计划 worktree 路径但**零副
   assert.equal(fs.existsSync(r.cwd), false, 'dry-run 不得建树');
   assert.equal(porcelain(LAYOUT), '', 'dry-run 不得改仓');
   assert.equal(fs.existsSync(REG), false, 'dry-run 不得写 registry');
-  assert.equal(fs.existsSync(`${STUB}.args`), false, 'dry-run 不得起进程');
+  assert.equal(fs.existsSync(STUB_ARGS), false, 'dry-run 不得起进程');
 });
 
 // ── A1 的另一半：同文件 ⇒ 显式串行；fail-closed ─────────────────────────────
@@ -295,25 +357,36 @@ test('SERIALIZE. 同**文件**并发写 ⇒ 拒绝起会话（显式串行），
   assert.equal(r.isolation.mode, 'serialize');
   assert.deepEqual(r.isolation.conflicts, [{ card: OTHER, overlap: ['team/CHANGELOG.md'] }], '冲突点可点名');
   // 零副作用：不建树、不起进程、不写 registry、卡未被改
-  assert.equal(fs.existsSync(`${LAYOUT}-wt-${LANE}`), false);
+  assert.equal(fs.existsSync(laneWtPath(LANE)), false);
+  assert.equal(isRegisteredWt(laneWtPath(LANE)), false, '拒绝时连注册都不得留下（比「目录不存在」更强）');
   assert.equal(fs.existsSync(REG), false, '拒绝时不得写 registry');
-  assert.equal(fs.existsSync(`${STUB}.args`), false, '拒绝时不得起进程');
+  assert.equal(fs.existsSync(STUB_ARGS), false, '拒绝时不得起进程');
   assert.match(fs.readFileSync(path.join(TASKS, `${SELF}.md`), 'utf8'), /^status: in_progress$/m);
   assert.equal(porcelain(LAYOUT), '');
 });
 
 test('FAIL-CLOSED. 隔离被拒（预定路径被非 worktree 目录占用）⇒ 拒绝起会话，绝不静默降级回共享 checkout', { skip: SKIP }, () => {
-  concurrentBoard();
-  const clash = `${LAYOUT}-wt-${LANE}`;
+  // 专属 lane（见 CLASH）：本用例的预定路径与其它用例零交集 ⇒ 不被任何别的用例的收尾状态左右。
+  writeCard(CLASH, { writes: 'team-c.mjs' });
+  writeCard(OTHER, { claimed: 'jobs', writes: 'team-b.mjs' });
+  const clash = laneWtPath(CLASH_LANE);
+  // 前置条件（**显式断言**，不是假设）：路径既无目录也**无 worktree 注册**。这两件事在
+  // lane-worktree.mjs 里分属两条分支——「已注册且分支相符」⇒ `reused`（排在「路径被占」守卫**之前**），
+  // 只有「有目录、无注册」才走 `path_exists_not_worktree`。前置条件被污染时此断言直接点名病因，
+  // 而不是让 fail-closed 断言被静默反转成 `ok:true`（T-20261014-034118-2 的实证形状）。
+  assert.equal(fs.existsSync(clash), false, '前置条件：pre-计划隔离路径须为空');
+  assert.equal(isRegisteredWt(clash), false, '前置条件：该路径不得已有 worktree 注册');
+
   SIBLINGS.push(clash);
   fs.mkdirSync(clash, { recursive: true });
   fs.writeFileSync(path.join(clash, 'keep.txt'), 'x');
+  assert.equal(isRegisteredWt(clash), false, '普通目录≠worktree 注册：这正是「占用」与「复用」的分界');
 
-  const r = spawnLane({ card: SELF, owner: 'linus', seg: 'seg1', backend: 'claude', dryRun: false });
+  const r = spawnLane({ card: CLASH, owner: 'linus', seg: 'seg1', backend: 'claude', dryRun: false });
   assert.equal(r.ok, false, JSON.stringify(r));
   assert.match(r.reason, /^lane_isolation_failed\(path_exists_not_worktree/, r.reason);
   assert.match(r.reason, /:serialize_or_fix$/);
   assert.equal(fs.readFileSync(path.join(clash, 'keep.txt'), 'utf8'), 'x', '占用目录不得被动');
-  assert.equal(fs.existsSync(`${STUB}.args`), false, '不得起进程');
+  assert.equal(fs.existsSync(STUB_ARGS), false, '不得起进程');
   assert.equal(porcelain(LAYOUT), '');
 });
