@@ -26,7 +26,7 @@
 - Task **content** (Goal/Acceptance/Background/Report) → task cards (managed by the task provider; reference implementation `meerkat-taskpanel`, swappable via ACL)
 - Task **dispatch/status/communication** → OpenClaw native (sessions_send/spawn, background tasks, automations)
 - Project metadata (paths/git boundaries/rules) → project **identity codes resolved via the `task-interface` ACL** (the backend — currently meerkat-taskpanel — is swappable)
-- Session registry (claude/codex subprocesses) → `claude-sessions.json` / `turing-runs.json`
+- Session registry (claude/codex subprocesses) → **`claude-sessions.json`** (canonical, the **single source of truth** for lane registration **and** concurrency counting, for every owner incl. turing); `turing-runs.json` is a legacy runtime log of codex runs and is **not** a counting/registration surface (T-20261014-011235, `guides/spawn-lane-sop.md` §3.3)
 
 ## 2. Directory Overview
 
@@ -39,8 +39,8 @@
 | `AUTOMATIONS.md` | Scheduled jobs/patrol list (cron overview, cost model, decisions) |
 | `ROLES.md` | Role duties/boundaries/handoffs reconciliation table (anti-GAP) |
 | `guides/` | Stable reference docs (task-interface contract, redlines canonical, UI alignment SOP, UI assertion spec, etc.) |
-| `claude-sessions.json` | Registry of claude subsessions orchestrated by Jobs/Linus (maintained at runtime) |
-| `turing-runs.json` | Registry of Turing codex runs (maintained at runtime) |
+| `claude-sessions.json` | **Canonical** session registry — every lane (all owners, incl. turing) is registered here by the single entry; the concurrency count reads **only** here (maintained at runtime) |
+| `turing-runs.json` | Legacy runtime log of Turing codex runs — **not** a counting/registration surface (see `guides/spawn-lane-sop.md` §3.3) |
 
 Workspaces: `workspace-elon` (main) and `workspace-{jobs,linus,turing,assistant}`; role skills live in their respective `workspace-*/skills/`, global skills in `~/.openclaw/skills/`.
 

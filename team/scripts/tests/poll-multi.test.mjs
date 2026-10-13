@@ -33,11 +33,11 @@ const SKIP = PROVIDER
 const test = SKIP ? nodeTest.skip : nodeTest;
 
 // provider 依赖为**条件动态 import**：缺 provider 时 lib.mjs/poll.mjs 在 import 期即硬红。
-let parseFrontmatter, serializeFrontmatter, concurrencyQuota, conflictKey;
+let parseFrontmatter, serializeFrontmatter, concurrencyQuota, conflictKey, runningCount, claimBudget;
 if (PROVIDER) {
   process.env.OPENCLAW_TASK_OPS_DIR = PROVIDER;
   ({ parseFrontmatter, serializeFrontmatter } = await import('../lib.mjs'));
-  ({ concurrencyQuota, conflictKey } = await import('../poll.mjs'));
+  ({ concurrencyQuota, conflictKey, runningCount, claimBudget } = await import('../poll.mjs'));
 }
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -194,13 +194,15 @@ test('6. 部分失败继续：deps_unmet 跳过，其余两张仍领（fire:true
   assert.deepEqual(out.state.failed, ['T-20260101-400001-d1'], 'failed 应记录 deps_unmet 卡');
 });
 
-// ---- Turing 额度口径（turing-runs.json） -----------------------------------
+// ---- Turing 额度口径（canonical registry = 唯一事实源） ---------------------
+// 口径修正卡 T-20261014-011235：计数源从 turing-runs.json 收敛到 canonical registry
+// （与 lane 登记面同源）。以下 7 为原用例改源，9/10/11 为红→绿负例。
 
-test('7. Turing 额度 3：turing-runs.json running=2 ⇒ budget=1', () => {
+test('7. Turing 额度 3：canonical registry running=2 ⇒ budget=1', () => {
   const root = mkRoot();
   writeCard(root, 'T-20260101-500001-t1', { assignee: 'turing', project: '__team__', target: '/a/t1', created_at: '2026-01-01T00:00:01.000Z' });
   writeCard(root, 'T-20260101-500002-t2', { assignee: 'turing', project: '__team__', target: '/a/t2', created_at: '2026-01-01T00:00:02.000Z' });
-  writeTuringRuns(root, [
+  writeRegistry(root, [
     runningEntry('T-20260101-000000-x1', 'turing'),
     runningEntry('T-20260101-000000-x2', 'turing'),
   ]);
@@ -228,4 +230,48 @@ test('8. concurrencyQuota / conflictKey 纯函数口径', () => {
   assert.notEqual(conflictKey({ project: 'A', target: '/x' }), conflictKey({ project: 'B', target: '/x' }), '不同 project 不冲突');
   assert.equal(conflictKey({}), '\u0000', '未知写面 ⇒ 空组');
   assert.equal(conflictKey({ project: 'A' }), 'A\u0000');
+});
+
+// ---- T-20261014-011235 负例（红→绿）：计数源 = canonical registry -----------
+
+test('9. NEG：canonical 3 条 live turing lane ⇒ budget=0，不再多领（over-claim 回归）', () => {
+  const root = mkRoot();
+  writeCard(root, 'T-20260101-600001-t1', { assignee: 'turing', project: '__team__', target: '/a/t1', created_at: '2026-01-01T00:00:01.000Z' });
+  writeCard(root, 'T-20260101-600002-t2', { assignee: 'turing', project: '__team__', target: '/a/t2', created_at: '2026-01-01T00:00:02.000Z' });
+  // lane 登记面 = canonical registry：3 条 live（pid 存活）⇒ 额度 3 已满
+  writeRegistry(root, [
+    runningEntry('T-20260101-000000-y1', 'turing'),
+    runningEntry('T-20260101-000000-y2', 'turing'),
+    runningEntry('T-20260101-000000-y3', 'turing'),
+  ]);
+
+  const out = runPollCli(root, 'turing');
+  assert.equal(out.fire, false, `额度耗尽 ⇒ fire:false，实际 ${JSON.stringify(out)}`);
+  assert.match(out.message, /并发额度已满/);
+  assert.equal(readFm(root, 'T-20260101-600001-t1').status, 'ready', '额度满不得多领第一张');
+  assert.equal(readFm(root, 'T-20260101-600002-t2').status, 'ready', '额度满不得多领第二张');
+});
+
+test('10. NEG：canonical N=2 ⇒ runningCount(turing)=2、claimBudget=3−2=1（纯函数口径）', () => {
+  const reg = [runningEntry('T-20260101-000000-z1', 'turing'), runningEntry('T-20260101-000000-z2', 'turing')];
+  assert.equal(runningCount('turing', { registry: reg }), 2, 'turing 计数须认 canonical（不再对 owner 特判）');
+  assert.equal(claimBudget('turing', { registry: reg }), 1, '1 = 3 − 2');
+  // 与其余 owner 同一口径：linus 同法
+  assert.equal(runningCount('linus', { registry: reg }), 0, '异 owner 不串台');
+});
+
+test('11. NEG：turing-runs.json 不再是计数面 —— 仅它有条目也不扣额度', () => {
+  const root = mkRoot();
+  writeCard(root, 'T-20260101-700001-t1', { assignee: 'turing', project: '__team__', target: '/a/t1', created_at: '2026-01-01T00:00:01.000Z' });
+  writeCard(root, 'T-20260101-700002-t2', { assignee: 'turing', project: '__team__', target: '/a/t2', created_at: '2026-01-01T00:00:02.000Z' });
+  writeCard(root, 'T-20260101-700003-t3', { assignee: 'turing', project: '__team__', target: '/a/t3', created_at: '2026-01-01T00:00:03.000Z' });
+  writeTuringRuns(root, [
+    runningEntry('T-20260101-000000-w1', 'turing'),
+    runningEntry('T-20260101-000000-w2', 'turing'),
+  ]);
+
+  const out = runPollCli(root, 'turing');
+  assert.equal(out.fire, true, JSON.stringify(out));
+  assert.equal(out.state.budget, 3, 'canonical 为空 ⇒ 全额 3（不再被 turing-runs.json 扣减）');
+  assert.equal(out.state.claimed, 3, '三张互不冲突卡一轮全领');
 });
