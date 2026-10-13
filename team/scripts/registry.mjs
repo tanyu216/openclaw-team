@@ -7,6 +7,10 @@
  *   - 唯一事实源 = 团队级 team/claude-sessions.json（REGISTRY_PATH）
  *   - workspace/<task-id>/claude-sessions.json 已废弃：读取走回退合并，迁移用 `migrate`
  *
+ * lane 身份（T-20261013-233906）：一条登记行的身份 = `(task_id, owner, session_id)`（`session_id` 是
+ * `(card, owner, seg)` 的确定性投影）——`phase` 只是展示标签，**不**参与身份。去重/覆盖一律按该身份，
+ * 避免同一条 lane 因标签变化落出重复行、把 check-sessions 判成不一致。详见 `dedupeKey` / `upsertSessionEntry`。
+ *
  * 用法：
  *   node registry.mjs list               # 打印 loadRegistry 汇总
  *   node registry.mjs active <taskId>    # 打印某卡活跃子会话
@@ -57,9 +61,21 @@ export function readRegistryFile(p) {
   }
 }
 
-/** 去重键：task_id|owner|phase|session_id */
+/**
+ * 去重键（= **lane 身份**）。
+ *
+ * `session_id` 是 `(task_id, owner, seg)` 的确定性投影（§⑥：claude 的 UUIDv5）⇒ 它才是「哪条 lane」，
+ * 而 `phase` 是 caller 自由填的**展示标签**（实证有 `seg1-verify` / `seg2-browser`，也可能缺省）。旧键
+ * 把 `phase` 计入身份，于是同一条 lane 以不同标签二次登记就落出**重复行** ⇒ `check-sessions` 看见
+ * 同卡两条 running、卡内登记行被 pid-空的重复行覆盖（T-20261013-233906 实证：同 session_id d55e03c4
+ * 的 `phase:seg1-verify/pid 9271` 与 `phase:seg1/pid 空`）。
+ *
+ * 无 `session_id` 的旧式行退回粗键（含 phase/pid/startedAt），避免把互不相干的历史行折叠成一条。
+ */
 function dedupeKey(e) {
-  return `${e.task_id}|${e.owner}|${e.phase}|${e.session_id}`;
+  const sid = e && e.session_id ? String(e.session_id) : '';
+  if (sid) return `${e.task_id}|${e.owner}|${sid}`;
+  return `${e?.task_id ?? ''}|${e?.owner ?? ''}|${e?.phase ?? ''}|${e?.pid ?? ''}|${e?.startedAt ?? ''}`;
 }
 
 /**
@@ -128,8 +144,11 @@ function writeRegistryFile(entries) {
 
 /**
  * 登记/更新子会话条目（canonical registry 的唯一写入点）。
- * 去重键同 dedupeKey ⇒ 同 (task_id,owner,phase,session_id) 幂等覆盖（重复登记不产生重复行）。
+ * 去重键 = **lane 身份**（见 `dedupeKey`：task_id|owner|session_id，`phase` 只是展示标签）⇒ 同一条 lane
+ * 重复登记幂等覆盖，**不产生重复行**；`phase` 标签被刷新（同一 lane 换标签不算新 lane）。
  * 必填 task_id / session_id；缺失 ⇒ { ok:false, reason:'entry_missing_key' }（不落盘）。
+ * 拒写：既有行是活跃 running（pid 存活）而无 pid 的重复登记 ⇒ { ok:false, reason:'duplicate_running_lane' }
+ * （T-20261013-233906；保护活跃行的 log/startedAt/pid，且不留僵尸行给 check-sessions）。
  * 注意：先前已有键在本 entry 中缺席者（如重登记未带 pid）保留原值，不被 undefined 抹掉。
  */
 export function upsertSessionEntry(entry) {
@@ -147,8 +166,18 @@ export function upsertSessionEntry(entry) {
   const list = readRegistryFile(REGISTRY_PATH);
   const key = dedupeKey(clean);
   const i = list.findIndex((e) => dedupeKey(e) === key);
-  if (i >= 0) list[i] = { ...list[i], ...clean };
-  else list.push(clean);
+  if (i >= 0) {
+    // 拒写（T-20261013-233906）：既有行是**活跃** running（pid 存活），而本次登记是「无 pid 的 running」
+    // —— 这是同一条 lane 的一次无主重复登记。合并只会抹掉活跃行的 log/startedAt、并让 check-sessions
+    // 看见一条 pid 空的僵尸 running 行（实证：同 session_id 的 `phase:seg1/pid 空`）。保留原行，明报。
+    const prev = list[i];
+    const nowPid = Number(clean.pid);
+    if (prev.status === 'running' && isPidAlive(prev.pid) && clean.status === 'running' && !(Number.isInteger(nowPid) && nowPid > 0)) {
+      console.warn(`[registry] 拒绝写入 ${clean.task_id}/${clean.session_id}：已有活跃 lane（pid=${prev.pid},phase=${prev.phase ?? ''}）在跑，本次为无 pid 的重复登记（phase=${clean.phase ?? ''}）；未落盘（原行保留）。`);
+      return { ok: false, reason: 'duplicate_running_lane', existing: prev, entry: clean, registryPath: REGISTRY_PATH };
+    }
+    list[i] = { ...prev, ...clean };
+  } else list.push(clean);
   writeRegistryFile(list);
   return { ok: true, created: i < 0, entry: clean, registryPath: REGISTRY_PATH };
 }

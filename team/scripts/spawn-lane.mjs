@@ -15,9 +15,15 @@
  *        in_review ⇒ 拒绝并提示改用复核 lane（`status_not_spawnable(in_review):use_role=review`）。
  *      - role=review（复核 lane，`--review` 等价）：仅接受 status=in_review；**不 claim、不校验 claimed_by**
  *        （复核人 ≠ 实施人）；未显式 seg= 时取 `segR1`（避开执行侧 seg1 的行 upsert 撞名，见 sop §Review lanes）。
- *   ①b 同卡同 seg 防双跑：卡内 `## Sessions` 该 seg 行 / registry 该卡 `phase=seg` 条目若
- *      `status=running` **且 pid 存活** ⇒ 拒绝二次 spawn（`session_running(...):reuse_existing`，零副作用），
+ *   ①b 同卡同 seg 防双跑（两层，T-20261013-233906 加固）：卡内 `## Sessions` 该 seg 行 / registry 该卡
+ *      `phase=seg` 条目 / registry 该卡 `session_id=<本 seg 确定性 id>` 条目若 `status=running`
+ *      **且 pid 存活** ⇒ 拒绝二次 spawn（`session_running(...):reuse_existing`，零副作用），
  *      提示复用既有 session（与 poll 防双跑守卫同口径）；僵尸行（pid 已死）不占用，交 reconcile。
+ *      第三判据（session_id）见 `runningLaneBlocker`：`phase` 是 caller 自由填的展示标签
+ *      （实测有 `seg1-verify` / `seg2-browser`），拿它当身份会让同 seg 二次 spawn 漏放。
+ *   ①b2 同卡并发**执行 lane** 防双跑（本卡 ①）：`role=exec` 且该卡**已有任意活跃 lane（任意 seg）**
+ *      ⇒ 拒绝（`card_busy(...):second_exec_lane`）——「同卡并发执行 turn」的第二条 lane 必须在 spawn
+ *      前拦下（而非事后按 §⑥ 回滚）。同一计划内**有意**并行多分段时显式声明 `parallel=1` 越过本层。
  *   ①c **同仓并发 lane 自动隔离**（T-20261012-022948-2；判定见 `scripts/lane-isolation.mjs`）：
  *      起会话前判定本 lane 的仓是否已有**并发非终态 lane**，复用既有政策（不重定政策）——
  *        · 同**文件**（写集重叠）⇒ **严格串行**：拒绝起会话（`lane_samefile_conflict(...):serialize`，
@@ -135,25 +141,71 @@ export function sessionsBySeg(body) {
 }
 
 /**
- * 同卡同 seg 防双跑判据（Elon 2026-10-11 并入本治理卡；**与 poll 防双跑守卫同口径**：
- * 登记 `status=running` **且 pid 存活**）。两个登记源任一命中即视为「已有在跑的会话」：
- *   ① 卡内 `## Sessions` 该 seg 行（seg 语义精确，含 id 供 resume）；
- *   ② registry 该卡 `status=running` 且 pid 存活、且 `phase===seg` 的条目
- *      （registry 条目无 `seg` 字段，`phase` 即 spawn 链路写入的 seg —— 见 sessionSet 的 regEntry）。
- * 僵尸行（pid 已死）**不**算占用（reconcile 的职责），避免误拒恢复。
- * @param {{taskId: string, seg: string, cardBody?: string, registry?: object[]|null}} input
- * @returns {{blocked: boolean, session?: object}}
+ * 该卡当前**活跃 lane** 清单（判据与 poll 防双跑守卫同口径：登记 `status=running` **且 pid 存活**）。
+ * 两个登记源合并去重（同 session id 以卡内行为准）：卡内 `## Sessions` 行 + registry 条目。
+ * 僵尸行（pid 已死 / pid 缺失）**不**计入（reconcile 的职责），避免误拒恢复。
+ * @returns {{seg:string, pid:number, id:string, owner:string, source:'card'|'registry'}[]}
  */
-export function runningLaneBlocker({ taskId, seg, cardBody = '', registry = null }) {
+export function liveLanes(taskId, cardBody = '', registry = null) {
+  const reg = registry == null ? loadRegistry() : registry;
+  const out = [];
+  const seen = new Set();
+  for (const s of sessionsBySeg(cardBody)) {
+    const pid = Number(s.pid);
+    if (s.status !== 'running' || !isPidAlive(pid)) continue;
+    out.push({ seg: s.seg, pid, id: s.id || '', owner: s.owner || '', source: 'card' });
+    if (s.id) seen.add(s.id);
+  }
+  for (const e of reg) {
+    if (e.task_id !== taskId || e.status !== 'running' || !isPidAlive(e.pid)) continue;
+    if (e.session_id && seen.has(e.session_id)) continue;
+    out.push({ seg: e.phase || '', pid: e.pid, id: e.session_id || '', owner: e.owner || '', source: 'registry' });
+  }
+  return out;
+}
+
+/**
+ * 同卡防双跑判据（**与 poll 防双跑守卫同口径**：登记 `status=running` **且 pid 存活**）。分两层：
+ *
+ *  L1 同 lane 身份（精确，不可越过）。一个 lane 的身份 = `(task_id, owner, seg)`，其确定性投影
+ *    `session_id = UUIDv5(card, owner, seg)`（§⑥ registry 字段）⇒ 三个登记源任一命中即拒绝：
+ *      ① 卡内 `## Sessions` 该 seg 行（seg 语义精确，含 id 供 resume）；
+ *      ② registry 该卡 `phase===seg` 的条目（历史口径：`phase` 缺省即 `seg`）；
+ *      ③ registry 该卡 `session_id===<本 seg 的确定性 id>` 的条目 —— **与 `phase` 标签无关**。
+ *    ③ = T-20261013-233906 修复：`phase` 是 caller 自由填的**展示标签**（实测有 `seg1-verify` /
+ *    `seg2-browser`），不是身份。实证 `T-20261013-223243` 的 seg1 lane 以 `phase:seg1-verify` 登记，
+ *    旧判据只比 `phase===seg` ⇒ 同 seg 二次 spawn 漏放，落出同 session_id 的重复 registry 行。
+ *
+ *  L2 同卡并发**执行 lane**（本卡 ①，`role=exec`）。该卡已有任意活跃 lane（**任意 seg**）⇒ 拒绝
+ *    「第二条执行 lane」。理由：framework 在 spawn 期看不到 turn 边界，「同卡已有执行 lane 在跑」
+ *    正是「同卡并发执行 turn」的可观测形态；事后按 §⑥ 回滚等于白起一条 lane（实证 turing segR1）。
+ *    同一计划内**有意**并行多分段时，调用方显式声明 `allowParallel`（CLI `parallel=1`）越过本层。
+ *    只读角色（`role=review`）不加 L2：复核 lane 靠 pin commit、与执行 lane 并跑是既有契约
+ *    （SOP §Review lanes）；L1 对复核 lane 照常生效（复核不得复用执行侧 seg）。
+ *
+ * @param {{taskId:string, seg:string, cardBody?:string, registry?:object[]|null,
+ *          sid?:string, role?:'exec'|'review', allowParallel?:boolean}} input
+ *   `sid` = 本 seg 的确定性 session id（`sessionIdFor(card, owner, seg)`）；缺省 ⇒ 跳过 L1③。
+ * @returns {{blocked:boolean, session?:object, live?:object[]}}
+ */
+export function runningLaneBlocker({ taskId, seg, cardBody = '', registry = null, sid = '', role = 'exec', allowParallel = false }) {
+  const reg = registry == null ? loadRegistry() : registry;
   const byCard = sessionsBySeg(cardBody).find(
     (s) => s.seg === seg && s.status === 'running' && isPidAlive(Number(s.pid)),
   );
   if (byCard) return { blocked: true, session: { ...byCard, pid: Number(byCard.pid), source: 'card' } };
-  const reg = registry == null ? loadRegistry() : registry;
   const byReg = reg.find(
     (e) => e.task_id === taskId && e.status === 'running' && e.phase === seg && isPidAlive(e.pid),
   );
   if (byReg) return { blocked: true, session: { ...byReg, seg, source: 'registry' } };
+  const bySid = sid
+    ? reg.find((e) => e.task_id === taskId && e.status === 'running' && e.session_id === sid && isPidAlive(e.pid))
+    : null;
+  if (bySid) return { blocked: true, session: { ...bySid, seg, source: 'registry_session' } };
+
+  if (role !== 'exec' || allowParallel) return { blocked: false };
+  const live = liveLanes(taskId, cardBody, reg);
+  if (live.length) return { blocked: true, session: { ...live[0], seg, source: 'card_busy' }, live };
   return { blocked: false };
 }
 
@@ -206,7 +258,14 @@ export function parseArgs(argv) {
     backend: kv.backend || 'claude',
     role: kv.role || 'exec',
     phase: kv.phase || kv.seg || '',
+    // 同一计划内**有意**并行多分段：显式声明越过 ①b2（见 runningLaneBlocker L2）
+    parallel: kv.parallel || '',
   };
+}
+
+/** `parallel=1|true|yes|on` ⇒ 越过 ①b2（同卡并发执行 lane 守卫）；其它值（含空）⇒ 不越过 */
+export function parallelDeclared(value) {
+  return /^(1|true|yes|on)$/i.test(String(value == null ? '' : value).trim());
 }
 
 const BACKENDS = ['claude', 'codex'];
@@ -277,11 +336,13 @@ const usage = (reason) => ({ ok: false, code: 2, reason });
 /**
  * 执行入口（dry-run 与真实起会话共用同一条校验链）。
  * @param {{card:string,owner:string,seg:string,backend:string,phase:string,role:'exec'|'review',
- *          dryRun:boolean,isolate?:boolean}} opts `isolate:false` = 关自动隔离（回退开关，等价 `--no-isolate`）
+ *          dryRun:boolean,isolate?:boolean,parallel?:string}} opts `isolate:false` = 关自动隔离
+ *   （回退开关，等价 `--no-isolate`）；`parallel='1'` = 同一计划内有意并行多分段（越过 ①b2，见上）
  */
 export function spawnLane(opts = {}) {
   const { card = '', owner = '', seg: segArg = '', backend = 'claude', dryRun = false } = opts;
   const role = opts.role || 'exec';
+  const allowParallel = parallelDeclared(opts.parallel);
   // 自动隔离开关：CLI `--no-isolate` 与 env `OPENCLAW_LANE_ISOLATION` 任一关闭即关闭（两者都须为「开」）
   const isolateEnabled = opts.isolate !== false && isolationEnabled();
   // 显式 seg= 优先；否则按 role 取默认（复核 lane 用 segR1，避开执行侧 seg1 的 Sessions 行撞名）
@@ -312,12 +373,20 @@ export function spawnLane(opts = {}) {
   // 已有在跑的会话 ⇒ 拒绝再次 spawn（提示复用既有 session，按 host 口径 resume），绝不双跑。
   // 放在 claim 之前：拒绝路径**零副作用**（不 claim、不写 registry/卡/日志）。
   {
-    const hit = runningLaneBlocker({ taskId, seg, cardBody: c.body });
+    // 本 seg 的确定性 session id（= 该 lane 的身份投影）；读卡失败 ⇒ 空串（跳过 L1③，其余判据照跑）
+    let sid = '';
+    try { sid = sessionIdFor(card, owner, seg).session_id; } catch { sid = ''; }
+    const hit = runningLaneBlocker({ taskId, seg, cardBody: c.body, sid, role, allowParallel });
     if (hit.blocked) {
       const s = hit.session || {};
+      const session = { seg, pid: s.pid ?? null, id: s.id || s.session_id || null, owner: s.owner || null, source: s.source };
+      if (s.source === 'card_busy') {
+        const live = (hit.live || []).map((l) => `${l.seg || '?'}(pid=${l.pid},owner=${l.owner || ''})`).join(';');
+        return reject(`card_busy(seg=${seg},live=${live}):second_exec_lane`, { session, live: hit.live });
+      }
       return reject(
         `session_running(seg=${seg},pid=${s.pid ?? ''},id=${s.id || s.session_id || ''},owner=${s.owner || ''}):reuse_existing`,
-        { session: { seg, pid: s.pid ?? null, id: s.id || s.session_id || null, owner: s.owner || null, source: s.source } },
+        { session },
       );
     }
   }
@@ -495,11 +564,14 @@ export function spawnLane(opts = {}) {
   };
 }
 
-const HELP = `用法: bash scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [phase=<p>] [role=exec|review] [--review] [--dry-run] [--no-isolate]
+const HELP = `用法: bash scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [phase=<p>] [role=exec|review] [parallel=1] [--review] [--dry-run] [--no-isolate]
 
 新 lane 起会话的单一强制入口（claim → handoff 自检 → settings 预置 → spawn → session-set 卡+registry 同写）。
 role=exec（默认）起执行 lane（in_progress 卡）；role=review（--review 等价）起复核 lane（in_review 卡，
 不 claim、不校验 claimed_by，未给 seg= 时默认 segR1）。
+同卡防双跑（spawn 前，零副作用）：同 seg 已有活跃 lane（卡行 / registry phase=seg / registry session_id
+= 本 seg 确定性 id 任一命中）⇒ 拒绝复用既有 session；执行 lane 遇该卡**已有任意活跃 lane** ⇒ 拒绝第二条
+执行 lane（card_busy）。同一计划内有意并行多分段须显式声明 parallel=1。
 同仓已有并发非终态 lane ⇒ 自动建隔离 worktree（cwd 指向该树）；同文件冲突 ⇒ 拒绝并提示串行；
 --no-isolate（或 OPENCLAW_LANE_ISOLATION=0）关闭该自动化（回退为显式纪律）。
 禁「直跑 claude -p 不登记」；见 guides/spawn-lane-sop.md、guides/worktree-isolation-sop.md 与 PROTOCOL §⑥。
