@@ -546,6 +546,44 @@ test('⑥ dispatch：sla-scan 是 fail-closed 检测器（degrade ⇒ fire:true�
   void JOB_KEY;
 });
 
+test('⑥ dispatch sla-scan 端到端：入口的 alerts 进 message；入口缺失 ⇒ fail-closed 告警', async () => {
+  const mod = await import('../../automations/dispatch.mjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sla-dispatch-'));
+  scratchDirs.push(dir);
+  const entry = path.join(dir, 'entry.mjs');
+  fs.writeFileSync(
+    entry,
+    'process.stdout.write(JSON.stringify({fire:true,alerts:[{sla_row:"blocked_clarification",card_id:"T-X"}],dropped:[],state:{job:"sla-scan"}})+"\\n");\n',
+  );
+  const EXIT = Symbol('exit');
+  const run = (argv, env) => {
+    const writes = [];
+    const ow = process.stdout.write;
+    const oe = process.exit;
+    process.stdout.write = (c) => { writes.push(String(c)); return true; };
+    process.exit = () => { throw EXIT; };
+    try {
+      mod.main(argv, env);
+      assert.fail('main() 必须终止进程');
+    } catch (e) {
+      if (e !== EXIT) throw e;
+    } finally {
+      process.stdout.write = ow;
+      process.exit = oe;
+    }
+    return JSON.parse(writes.join('').trim());
+  };
+  const fired = run(['sla-scan'], { OPENCLAW_TEAM_SLA_CMD: `node ${entry}` });
+  assert.equal(fired.fire, true);
+  assert.match(fired.message, /\[sla-scan\] SLA alerts/);
+  assert.equal(fired.state.job, 'sla-scan');
+  // 入口不可执行 ⇒ degrade，但检测器 fail-closed ⇒ fire:true（绝不读作「无告警」）
+  const degraded = run(['sla-scan'], { OPENCLAW_TEAM_SLA_CMD: `node ${path.join(dir, 'nope.mjs')}` });
+  assert.equal(degraded.fire, true);
+  assert.equal(degraded.state.job, 'sla-scan');
+  assert.match(degraded.message, /UNCONFIRMED/);
+});
+
 test('⑥ install.sh：注册 sla-scan（interval + trigger 形态），且 cadence 与 P 一致', () => {
   const install = fs.readFileSync(path.join(TEAM_DIR, '..', 'install.sh'), 'utf8');
   assert.match(install, /openclaw-team:sla-scan/, 'manifest 必须声明 sla-scan 的 declarationKey');
