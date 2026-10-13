@@ -279,34 +279,35 @@ export function claimCard(cardArg, assignee) {
   let { fm, body } = readCard(cardPath);
   // 关系守卫（task-interface）：容器卡不可领；前置未完成不可领
   if ((fm.kind || 'task') === 'epic') return { ok: false, reason: 'epic_container', card: fm };
-  const warnings = [];
+  const warnings = []; // 保留字段：本门当前无 warning 产出（原 review_of_not_found 随上界收紧取消）
   {
-    // 复核卡豁免（T-20261013-000246）：复核卡（review_of 非空）若把**被复核卡**也写进 depends_on，
-    // 该 dep 恒不可满足——被复核卡须停在 in_review 等验证、永不先 done。关系本由 review_of 承载，
-    // 该 dep 冗余且有害 ⇒ 豁免「dep 恰等于 fm.review_of」的那一项；其余 dep 照旧生效。
-    //
-    // 收紧（T-20261013-035746）：豁免 ≠ 无条件放行。被复核卡**尚未交付**时豁免会让复核卡被提前领取
-    // （实证 T-20261013-030936 早领约 10min），验证者只能空转/blocked。故该项豁免前先要求被复核卡
-    // 已交付（status ∈ {in_review, done}）；否则拒领 review_unmet。被复核卡不可读（不存在）⇒ 保持
-    // 旧行为（不阻塞）并记 warning review_of_not_found:<id>。
+    // 复核门（T-20261013-233052，为 000246 的豁免补上界）：复核卡（review_of 非空）的可领性**只看
+    // 被复核卡的状态**——目标存在且 status=in_review（已交付、待验证）才可领，否则一律拒领
+    // review_not_ready（附 review_of + 目标实际 status；目标不可读 ⇒ status=null）。
+    //   · 目标 ready/todo/in_progress/blocked ⇒ 拒：尚未交付，早领 = 空跑（实证 T-20261013-232004-2
+    //     于 2026-10-13T15:25:08Z 被 poll 领取时被复核卡 T-20261013-232004 仍 in_progress ⇒ triage
+    //     以「无可验证产物」置 blocked）；
+    //   · 目标 done/canceled/failed ⇒ 拒：验收/终止已发生，复核已无标的，应由 Elon 直接收口而非领取空转；
+    //   · 目标不存在 ⇒ 拒：失去验证对象的复核卡只会空跑（旧口径「不阻塞 + warning review_of_not_found」
+    //     随之取消）。
+    // 本门**独立于 depends_on**：是否把被复核卡写进 dep 不影响判定（旧口径只在 dep 命中豁免分支时才
+    // 校验目标状态，故「复核卡不写 dep」这一常见形态无上界）。
+    // 豁免（T-20261013-000246）按原样保留、且仅在目标 in_review 时可达：dep 恰等于 review_of 的那一项
+    // 不计入 done 门——目标恒停在 in_review 等验证、永不先 done，该 dep 本就恒不可满足；其余 dep 照旧。
     const ds = parseDeps(fm.depends_on);
     const reviewed = typeof fm.review_of === 'string' ? fm.review_of.trim() : '';
     let effective = ds;
-    if (reviewed && ds.includes(reviewed)) {
+    if (reviewed) {
       let reviewedStatus = null;
       try {
         reviewedStatus = readCard(reviewed).fm.status;
       } catch {
-        reviewedStatus = null; // 被复核卡不存在/不可读 ⇒ 回退到「不阻塞」旧行为
+        return { ok: false, reason: 'review_not_ready', review_of: reviewed, status: null, card: fm };
       }
-      if (reviewedStatus === null) {
-        warnings.push(`review_of_not_found:${reviewed}`);
-        effective = ds.filter((d) => d !== reviewed);
-      } else if (reviewedStatus === 'in_review' || reviewedStatus === 'done') {
-        effective = ds.filter((d) => d !== reviewed);
-      } else {
-        return { ok: false, reason: 'review_unmet', review_of: reviewed, status: reviewedStatus, card: fm };
+      if (reviewedStatus !== 'in_review') {
+        return { ok: false, reason: 'review_not_ready', review_of: reviewed, status: reviewedStatus, card: fm };
       }
+      effective = ds.filter((d) => d !== reviewed);
     }
     if (effective.length) {
       const unmet = effective.filter((d) => { try { return readCard(d).fm.status !== 'done'; } catch { return true; } });

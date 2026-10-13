@@ -62,14 +62,15 @@ after(() => {
 });
 
 /** 写一张合成任务卡（minimal frontmatter） */
-function writeCard(root, id, { status, heartbeatAgoMs, claimed_by = 'linus', claimed_at = OLD } = {}) {
+function writeCard(root, id, { status, heartbeatAgoMs, claimed_by = 'linus', claimed_at = OLD, assignee = 'linus', extra = {} } = {}) {
   const fm = {
     id,
     title: 'guard-test',
-    assignee: 'linus',
+    assignee,
     status,
     claimed_by,
     claimed_at,
+    ...extra,
   };
   if (heartbeatAgoMs != null) fm.heartbeat_at = new Date(Date.now() - heartbeatAgoMs).toISOString();
   const p = path.join(root, 'tasks', `${id}.md`);
@@ -195,6 +196,34 @@ test('5. ready 且无活跃子会话 ⇒ 领取', () => {
   const fm = readFm(root, id);
   assert.equal(fm.status, 'in_progress');
   assert.equal(fm.claimed_by, 'linus');
+});
+
+test('5.1 复核卡提前轮询被拦：被复核卡仍 in_progress ⇒ 不领取；转 in_review ⇒ 可领取', () => {
+  // 事故原样复现点（T-20261013-233052）：poll 曾可在被复核卡未交付时领走复核卡 ⇒ 空跑。
+  const root = mkRoot();
+  const reviewed = 'T-20260101-000051-reviewed';
+  const review = 'T-20260101-000052-review';
+  writeCard(root, reviewed, { status: 'in_progress', claimed_by: 'jobs', assignee: 'jobs' });
+  writeCard(root, review, { status: 'ready', claimed_at: '', extra: { review_of: reviewed } });
+  writeRegistry(root, []);
+  const beforeClaimedAt = readFm(root, review).claimed_at;
+
+  const out1 = runPollCli(root);
+  assert.equal(out1.fire, false, `被复核卡未 in_review ⇒ poll 不应领取复核卡，实际 ${JSON.stringify(out1)}`);
+  const fm1 = readFm(root, review);
+  assert.equal(fm1.status, 'ready', '复核卡应保持 ready（未被领取）');
+  assert.equal(fm1.claimed_at, beforeClaimedAt, 'claimed_at 不应被改写');
+
+  // 被复核卡交付（in_review）⇒ 同一张复核卡可被 poll 领取
+  const rf = readFm(root, reviewed);
+  rf.status = 'in_review';
+  fs.writeFileSync(path.join(root, 'tasks', `${reviewed}.md`), serializeFrontmatter(rf, 'body\n'), 'utf8');
+
+  const out2 = runPollCli(root);
+  assert.equal(out2.fire, true, `被复核卡 in_review ⇒ 应领取，实际 ${JSON.stringify(out2)}`);
+  const fm2 = readFm(root, review);
+  assert.equal(fm2.status, 'in_progress');
+  assert.equal(fm2.claimed_by, 'linus');
 });
 
 // ---- legacy 回退 + 迁移 ----------------------------------------------------
