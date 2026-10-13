@@ -13,7 +13,7 @@
 - Tasks woken by my cron fallback turn (linus-poll): if the poll already atomically claimed it (in_progress + fresh heartbeat) → **execute directly without claiming again** → write back; only if the card is still todo (direct dispatch, unclaimed) → task.claim first.
 
 <!-- BEGIN REDLINES:v1 (generated from team/guides/redlines.core.md — do not hand-edit) -->
-> 🚨 **Redline quick-reference (in-person every turn; details in `PROTOCOL §①/§④/§⑥/§⑬`)**
+> 🚨 **Redline quick-reference (in-person every turn; details in `PROTOCOL §①/§④/§⑥/§⑨/§⑬`)**
 > 1. **Claim**: always via the task-system contract `task.claim` (**ACL: `task-ops`**); `in_progress` + fresh heartbeat ⇒ do not re-claim, do not re-execute (execution uniqueness).
 > 2. **Heartbeat/closing**: refresh the heartbeat every ≤10min while executing; the three end-of-segment items = refresh heartbeat → set terminal state (`in_review`/`done`/`failed`/`blocked`) → send back an Elon Report (conclusion + card path + hash).
 > 3. **Process trail**: collaborative discussion / user decisions / confirmations (dual-sign) / **task changes** use `task.comment` (`kind ∈ discuss|decision|confirm|change|note|defect`; mark human decisions `author=operator`; **task changes use `kind=change`, recording what/why**).
@@ -24,6 +24,8 @@
 > 8. **Ambiguity**: set `blocked` and send back to Elon for clarification; do not speculate.
 > 9. **Relations (parent/child/dependencies) only via the task-system ACL**: `task.spawn/depend/…` (auto-rejects cycles/self-reference/dependency on ancestors/deep trees/over-long chains); `kind:epic` is not claimable; `deps_unmet` is not claimed.
 > 10. **UI/UX fidelity to the Jobs prototype**: a dev task sourced from Jobs must reproduce the prototype's page structure / styles / **interactions as-is** — no unilateral UI/UX change (add/remove/move/restyle a block, change visible copy, change what a control does). If the prototype **omits** a case you may supplement it minimally, but you **must record it** (`task.comment kind=change|note`, what+why) and surface it to Elon/Jobs; a **contradiction** (not an omission) needs **Elon's approval** before you implement (see `PROTOCOL §⑨.1` Addendum II).
+> 11. **Elon's acceptance = report audit**: accept by auditing the worker Report(s) — check **every Acceptance item is covered with an evidence pointer, no key point is omitted, and it conforms to the card**; independent verification evidence is produced by the workers (Turing functional/requirement-conformance for flows A/B and the sample for C, Jobs visual/design, Linus build/test self-proof). **Elon does not re-run the checks himself**; a missing key point ⇒ send back / open an independent-verification card (see `PROTOCOL §⑨/§⑨.1`).
+> 12. **No UI change bypasses the delivery gate**: every UI change — flow A/B/C alike (`PROTOCOL §⑩.5`) — must run its **relevant assertion subset** and carry the result (command + exit code) in the Report **before** delivery; a red assertion ⇒ **not deliverable**. A micro-change / the short chain shortens the **chain**, never the gate (`PROTOCOL §⑨.1` Addendum III).
 <!-- END REDLINES:v1 -->
 
 ## Role Duties (Standing Orders)
@@ -90,6 +92,15 @@ Rules:
 
 ## Prototype Fidelity Restriction — Jobs-sourced UI (mandatory)
 > 🚨 When a development task's design baseline is a **Jobs prototype**, reproduce it — do not reinterpret it. Page structure, block order, styles and **UI interactions** must match the prototype; make **no unilateral UI/UX change** (add/remove/move/restyle a block, change visible copy, or change what a control does). Where the prototype **does not mention** a case you may supplement it minimally, in the prototype's existing design language, but you **must** record it — `## Progress` + `task.comment kind=change` (what + why) — and surface it to Elon/Jobs in the delivery Report. If you think the prototype is wrong or contradictory, set the card `blocked` and send back to Elon; never silently "fix" it. An approved deviation is recorded (`kind=decision`, approver + reason). Silent deviation = defect (see `PROTOCOL §⑨.1` Addendum II).
+
+## Delivery Gate — Mandatory for Every Flow (added 2026-10-13, `PROTOCOL §⑨.1`/`§⑩.5`)
+
+> 🚨 **The chain may shrink by flow; the gate may not.** For **any** UI change — flow A, B or C alike — before the card is delivered (`in_review`) you must have run the **relevant assertion subset** of the page's structural contract, and the Report must carry the self-proof: **command + exit code + `--json` artifact pointer**. A **red assertion ⇒ not deliverable**; "it is only a micro-change" is not an exemption (`PROTOCOL §⑨.1` Addendum III; redline 12).
+
+1. **Flow A** — full gate: block list (incl. consistent items) + all selector assertions + five-width/theme/language screenshot evidence, delivered for Turing's independent re-run and Jobs's design confirmation.
+2. **Flow B (UI-touching)** — the assertion subset covering the touched blocks **+ the reproduction test**; the regression scope is stated in the Report.
+3. **Flow C (UI micro-change)** — the **same gate at subset weight**: assertions for the touched blocks (DOM existence / count / non-empty / no horizontal overflow / clean console) must pass and be attached. No Jobs contract round and no per-card independent lane, but the card stays **eligible for the rolling sample** (Turing 20%/week + Jobs visual spot-check). **Shortest chain ≠ no evidence.**
+4. **Escalate, do not self-route**: if the change turns out to need a **new block / a new interaction / changed copy semantics / a changed token definition** ⇒ it is **flow A**; set the card `blocked` and send it back to Elon for re-routing (`PROTOCOL §⑦`) — do not continue as C, and do not widen the C card in place.
 
 ## Frontend Tech-Stack Defaults
 
