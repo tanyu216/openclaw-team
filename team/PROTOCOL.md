@@ -24,50 +24,41 @@
 
 A task card is the sole carrier of persisted content (Goal/Acceptance/Background/Report), stored at `~/.openclaw/team/tasks/T-YYYYMMDD-HHMMSS.md` (flat directory).
 
-**Schema (frontmatter)** — **aligned with meerkat-taskpanel** (`KNOWN_CARD_KEYS`; export key order `CARD_KEY_ORDER`, byte-stable export):
+**Card schema — owned by the product; this protocol only references it.**
 
-```markdown
----
-id: T-20260908-101500          # Card id (team identifier; meerkat-taskpanel also has a project-scoped identifier)
-title: One-line title
-assignee: linus                # elon|jobs|linus|turing|assistant (only Elon may create cards)
-assignee_kind: agent           # agent | human
-status: todo                   # Canonical 7 values: backlog|todo|in_progress|in_review|blocked|done|canceled
-priority: medium               # low | medium | high | urgent (default medium)
-kind: task                     # task | epic (container/aggregate, not claimable)
-labels: []                     # Free-form labels + namespaced prefix labels (category:req/dev/test/bug, area:*, env:*, sev:*) — taxonomy: guides/task-interface.md §15 Label Taxonomy; array form (§11)
-project: example-app           # ★ Required: project identity code (stable id; resolved via the task-interface ACL to a backend implementation — currently meerkat-taskpanel, swappable for Jira/Linear/Plane); internal chores use the reserved name __team__
-target: ""                     # Optional: project-internal location (a repos kind, e.g. code/docs, or a module path)
-created_by: elon
-created_at: "2026-09-08T02:15:00.000Z"   # ISO-8601 UTC, fixed millisecond width (lexicographic order = time order)
-updated_at: "2026-09-08T02:15:00.000Z"
-status_changed_at: ""          # Time of the most recent status change (SLA measurement start; see §⑮)
-claimed_by: ""
-claimed_at: ""
-heartbeat_at: ""               # Refreshed every ≤10min while in_progress
-blocked_at: ""                 # Time blocked was set (SLA measurement start; see §⑮)
-depends_on: []                 # Predecessor card ids (meerkat-taskpanel relation `blocks`; no cycles/no ancestor deps; chain length ≤8; fan-in ≤8)
-parent: ""                     # Child card → parent (epic) (relation `parent`; empty = top level; hierarchy depth follows the provider base, meerkat-taskpanel; parents must be epics)
-review_of: ""                  # Optional: id of the task being reviewed (UX review; a meerkat-taskpanel known key)
-notify_leader: true           # On terminal state, sessions_send back to the leader (coordinator; currently Elon / agent:main:main); the field does not bind a person's name
-goal: One-line goal            # Card summary (meerkat-taskpanel known key)
----
-## Background        # Distilled by Elon, so a context-free session can execute self-contained
-## Acceptance        # Line-by-line `- [ ]`; all must be checked before done
-## Progress          # append-only heartbeat/progress (each line timestamped)
-## Comments          # Process trail (discuss|decision|confirm|change|note|defect)
-## Sessions          # seg→id mapping (subsession details; claude id = deterministic UUIDv5 via `--session-id`, codex id = self-assigned, §⑥ clause 8)
-## Report            # Conclusion / Acceptance self-check / verification commands+output / change list / leftovers
-```
+> **Fact source**: the canonical card schema is `skills/meerkat-taskpanel/references/card-schema.md`
+> (the `meerkat-taskpanel` checkout; installed as the skill ⇒
+> `$OPENCLAW_HOME/skills/meerkat-taskpanel/references/card-schema.md`; code fact source `KNOWN_CARD_KEYS`
+> in `src/core/storage/md/import.mjs`). It defines every frontmatter key, the body-section shapes, the
+> status machine and the import→export round-trip rules. **Do not restate it here** — this section names
+> only the **ACL minimal required set**, the **team-side extension keys**, and the team-side rules that
+> constrain how the team uses the values. Card-face contract: `guides/task-interface.md §2`.
 
-**Alignment rules (single source of truth = meerkat-taskpanel schema)**:
-- **Status (canonical 7 values)**: `backlog | todo | in_progress | in_review | blocked | done | canceled`. Compatible aliases `ready→todo`, `failed→canceled` (also tolerating `in-review`/`in-progress`/`cancelled`) are **resolved only at the boundary and never persisted**; export restores the original word ⇒ old cards stay byte-stable.
+**ACL minimal required set** (card frontmatter) — **the product's own names; a subset, never an addition**:
+`id` `title` `status` `priority` `kind` `labels` `project` `assignee` `assignee_kind` `created_by` `created_at` `updated_at` `status_changed_at` `claimed_by` `claimed_at` `heartbeat_at` `blocked_at` `depends_on` `parent` `notify_leader` — the canonical order of the product's field table.
+
+**Team-side extension keys** (outside the ACL set; carried by the provider's unknown-key passthrough — the
+product document names `target` / `goal` / `review_of` / `git_rules` / `subsession_ids` /
+`active_session_id`, and the team adds `writes`): semantics are team-side — `guides/task-interface.md §2`
+(`target` / `writes` / `project`) and §10 (`review_of`). Among them **`goal` is required by the team's own
+card checker** (`scripts/check-card.mjs`), not by the provider.
+
+**Card body sections** (canonical order): `## Background` · `## Acceptance` · `## Progress` · `## Comments` ·
+`## Sessions` · `## Report`. Their shapes and semantics are the product document's (*Body sections*);
+team-side handling: `guides/task-interface.md §7` / `§9` (session-id forms: §⑥ clause 8) / `§10`. An unknown
+`##` section is **not** carried onto the board — a team-only value belongs in frontmatter, where unknown
+keys round-trip.
+
+**Alignment rules (team-side; the values below are the product's — this file does not define them, it constrains how the team uses them)**:
+- **Status**: canonical `backlog | todo | in_progress | in_review | blocked | done | canceled`; the team's card checker additionally accepts the legacy words `ready` / `failed`. Compatible aliases (`cancelled`, `in-review`, `in-progress`) are **resolved only at the boundary and never persisted** ⇒ old cards stay byte-stable. The product document's status machine is the authority (it also carries the provider's attention overlay `awaiting`).
 - **Claimable status = `todo`** (= the old `ready`); **`backlog` does not participate in claiming**.
 - **Priority**: `low | medium | high | urgent` (default `medium`).
 - **kind**: only `task | epic`; **do not invent a `review` kind** — use `labels:[review]` + `review_of`.
-- **Time columns**: always **ISO-8601 UTC with fixed milliseconds** (`2026-10-08T15:31:25.161Z`).
-- **Extension keys**: meerkat-taskpanel **preserves unknown keys verbatim and writes them back** (`meta.legacy`), but self-invented keys (e.g. `git_rules`) are **discouraged**.
-- **Serialization invariants**: see §⑪.
+- **Labels**: free-form plus namespaced prefix labels (`category:` / `area:` / `env:` / `sev:`) — taxonomy: `guides/task-interface.md §15`; array form: `guides/task-interface.md §11`.
+- **Time columns**: always **ISO-8601 UTC with fixed milliseconds** (`2026-10-08T15:31:25.161Z`) — the form the team writes; the provider coerces other forms on import.
+- **Extension keys**: the provider **preserves unknown keys verbatim and writes them back**; keep self-invented keys to the team's list above — adding one is a `kind:change` decision, not a per-card habit.
+- **`notify_leader`**: when set, the owner sends the closing summary back to the leader (`sessions_send`, §⑬.2); the field names the **role**, never a person (§⑯), and the provider only preserves it.
+- **Serialization invariants**: see `guides/task-interface.md §11`.
 
 **State machine**: `backlog|todo → in_progress → in_review → done` (`canceled` is a terminal state; `blocked` can be entered from any executing state and reverted). (`in_review` = delivered and awaiting Elon's acceptance; `blocked` can be entered from any executing state and reverted). `claimed` is only a transient during the atomic write process; the externally visible state goes straight to in_progress.
 - **Terminal irreversibility (frozen, machine-enforced)**: `done` / `canceled` (= the legacy word `failed`) are **terminal and irreversible once entered**. The ACL write layer — `task.setStatus`, the single card-`status` write point — **refuses every write to a card already in a terminal state** for any actor outside `DONE_ACTORS` (Elon `elon`, plus the privileged internal/management path that passes no `actor` key ⇒ sentinel `lib`): `ok:false, reason:terminal_immutable` with `from`/`to`, **and no card write at all** (no `status`, no `status_changed_at`, no turn-lock release). This is the mechanical enforcement of the invariant: it closes the incident in which a worker's concurrent closeout (`report`/`progress`/`comment`/`session-close` **plus `status→in_review`**), arriving **after** Elon's acceptance had already set `done`, silently overwrote the terminal state back to `in_review` (`T-20261012-015421`). Elon's **explicit reopen** (terminal → another state) remains available and is **trailed as a `kind:change` comment** (§⑬.7). Contract detail: `guides/task-interface.md` §3 / §4 / §6.3.
@@ -105,7 +96,7 @@ goal: One-line goal            # Card summary (meerkat-taskpanel known key)
 
 ## ③ Shared-Structure Invariants
 
-The schema of card frontmatter / scripts / project registration (resolved via the `task-interface` ACL) is maintained by Elon and the implementer; agents only read/write data and **do not change structure**.
+The schema of card frontmatter (**as the team consumes it** — the ACL minimal required set; the canonical card schema itself is the product's and is referenced, not owned, by §①) / scripts / project registration (resolved via the `task-interface` ACL) is maintained by Elon and the implementer; agents only read/write data and **do not change structure**.
 
 ---
 
