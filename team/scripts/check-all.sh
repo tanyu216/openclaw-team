@@ -3,13 +3,17 @@
 # 用法：bash check-all.sh [--segment fast|slow|all] [--report <path>]
 #   --segment fast  只跑「快门禁」（秒级）：红线一致 / 术语抽象 / §引用可解析 / 依赖 CVE 扫描 /
 #                   防漂移巡检 / 卡 schema / handoff / 关系不变量 / 幂等 / 会话一致性 / 契约测试 /
-#                   ACL 终态守卫 / 项目解析 / 调度求值 / 归档预览
-#   --segment slow  只跑「慢套件」（唯一一段：node --test scripts/tests/*.test.mjs；实测 15-20s）
-#   --segment all   两段都跑（**默认**；人工 / CI 用，覆盖面与历史行为完全一致）
+#                   ACL 终态守卫 / 项目解析 / 调度求值（provider ACL 4 套快测在此，in-band 即时信号）/ 归档预览
+#   --segment slow  只跑「慢套件」（带外刷新）：framework 套件 `node --test scripts/tests/*.test.mjs`
+#                   **+ provider ACL 全量** `node --test skills/task-ops/tests/*.test.mjs`（glob 全目录）
+#   --segment all   两段都跑（**默认**；人工 / CI 用）。相较历史覆盖，慢段新增 provider ACL 全量（T-20261014-034118）
 #   --report <path> 额外把机器可读 verdict 原子写往 <path>（供 check-all-gate.mjs 的异步慢段刷新落缓存）
 # 为什么要分段（T-20261013-031036）：完整门禁 ≈15-20s，而调度路径的 trigger-eval 预算是
 # OPENCLAW_TEAM_EVAL_TIMEOUT_MS（默认 8000ms）⇒ 每次都 eval-timeout、且超时信封不带任何判定
-# （真红被遮蔽）。快段 ≈1.6s 可稳稳落进预算，慢套件走 check-all-gate.mjs 的带外刷新 + 缓存判定。
+# （真红被遮蔽）。快段可稳稳落进预算，慢套件走 check-all-gate.mjs 的带外刷新 + 缓存判定。
+# provider ACL 全量放慢段（T-20261014-034118）：实测这五套缺失套件 ≈6.1s，而快段的在带内上界
+# OPENCLAW_TEAM_CHECKALL_FAST_TIMEOUT_MS=6000ms（快段自身实测 warm 2.4-3.7s / cold ≈6.1s，余量已薄）
+# ⇒ 若加快段必 fast-timeout（UNCONFIRMED），那正是 §⑳.1 要消除的「真红被超时/降级掩盖」。
 # 本脚本为「只读巡检门禁」：任何步骤都不得写 tasks/。归档步骤必须带 --dry-run（真只读，不移动文件）；
 # 真实归档由 meerkat-taskpanel(taskctl)/Elon 例行巡检执行（PROTOCOL §⑳.3），不由此门禁代劳。
 # 输出信封：末行 JSON {"ok":true|false,...} —— dispatcher 按 ok 归一（ok:false ⇒ fire:true，失败才唤醒模型）；
@@ -121,16 +125,34 @@ fi  # /fast
 if [ "$SEGMENT" = all ] || [ "$SEGMENT" = slow ]; then
   if [ "$provider_missing" = 0 ]; then
     SLOW_OUT="$(mktemp -t check-all-slow.XXXXXX)"
-    # frontmatter 幂等/写卡护栏 测试（framework test suite；本门禁唯一的慢段 —— 实测 15-20s）
+    PROVIDER_OUT="$(mktemp -t check-all-provider.XXXXXX)"
+    # frontmatter 幂等/写卡护栏 测试（framework test suite；本门禁的慢段之一 —— 实测 15-20s）
     run_capture "frontmatter 幂等/写卡护栏 测试" "$SLOW_OUT" node --test "$S/tests/"*.test.mjs
-    # 解析失败用例所属文件（node --test 在「failing tests」段每例打印 `test at <path>:LINE:COL`）
+    # provider ACL 全量（T-20261014-034118）：**glob 全目录，不逐文件列举**。
+    # 卡面根因正是「check-all.sh 按文件名逐条列出 provider 测试 ⇒ 新增套件静默落在聚合门禁外」：
+    # spawn-body/ idem/ relations/ actor-gate/ status-guard 五套此前均不在门禁内。glob 后
+    # task-ops/tests 下任何 *.test.mjs 自动入闸，**新增套件不再需要改门禁**（结构性消除盲区）。
+    # 与快段 4 套（contract/terminal-guard/projects/schedule）**有意重叠**：快段保 in-band 即时信号，
+    # 慢段是全量权威扫（重叠的代价仅 ~2s 且落在带外）。见文件头「为什么分段」的预算依据。
+    P_TESTS=()
+    for f in "$TEAM/skills/task-ops/tests/"*.test.mjs; do [ -e "$f" ] && P_TESTS+=("$f"); done
+    if [ "${#P_TESTS[@]}" -eq 0 ]; then
+      # 匹配不到任何套件 ⇒ 显式红（fail-closed）：绝不因目录空/改名而静默通过
+      echo "── provider ACL 全量测试（task-ops/tests/*.test.mjs）"
+      echo "   ↑ FAIL：未匹配到任何 provider 套件（$TEAM/skills/task-ops/tests/）"
+      fail=1; FAILED_STEPS+=("provider ACL 全量测试（零套件匹配）")
+    else
+      run_capture "provider ACL 全量测试（task-ops/tests glob）" "$PROVIDER_OUT" node --test "${P_TESTS[@]}"
+    fi
+    # 解析失败用例所属文件（node --test 在「failing tests」段每例打印 `test at <path>:LINE:COL`）；
+    # 两段输出合并去重 ⇒ 任一段的失败文件都进信封 slowFailedFiles/message（慢段红必须随 message 暴露）。
     SLOW_FAILED_FILES=()
     while IFS= read -r f; do
       [ -n "$f" ] && SLOW_FAILED_FILES+=("$f")
-    done < <(grep -E '^test at ' "$SLOW_OUT" 2>/dev/null | sed -E 's/^test at (.*):[0-9]+:[0-9]+$/\1/' | sed -E 's#.*/##' | sort -u)
-    rm -f "$SLOW_OUT"
+    done < <(grep -hE '^test at ' "$SLOW_OUT" "$PROVIDER_OUT" 2>/dev/null | sed -E 's/^test at (.*):[0-9]+:[0-9]+$/\1/' | sed -E 's#.*/##' | sort -u)
+    rm -f "$SLOW_OUT" "$PROVIDER_OUT"
   else
-    echo "── 慢套件（node --test scripts/tests/*.test.mjs）：provider 未安装，跳过"
+    echo "── 慢套件（scripts/tests/*.test.mjs + task-ops/tests/*.test.mjs）：provider 未安装，跳过"
   fi
 fi  # /slow
 
