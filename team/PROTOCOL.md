@@ -302,15 +302,15 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 > **Background**: in a project overview page, only 2 of the 6 prototype blocks were implemented, and a self-invented structure replaced the prototype's Hero card — **nobody noticed for 5 days** (the operator eventually spotted it from a screenshot). Root cause = the prototype was only a "reference", not a "contract"; migration had no reconciliation and acceptance had no fidelity dimension.
 > **Principle**: **the prototype (`web-client/prototype/index.html`) is the design-baseline contract for the implementation, not a reference. For any UI "already present in the prototype", the implementation must align block by block; deviations must be justified in writing in the card and approved by Elon — silent simplification/self-invented structure is forbidden.**
 
-**Three lines of defense** (every UI card must complete all three):
+**Three lines of defense** (every UI card must complete all three — **flows A/B per card; in flow C the "Before" line is the reused frozen contract and the "After" line is served by the rolling sample**, see Addendum III):
 
 | Line | Timing | Action | Owner |
 |---|---|---|---|
 | **Before** | Before the card starts | Produce the page's **structural contract**: enumerate all prototype blocks (**block name/id/role/`data-*` + selector**; line-number anchors forbidden) + data-contract annotation + machine-checkable acceptance points | **Jobs** (Elon creates and dispatches the card) |
-| **During** | When development completes | Run the **structural assertion script** (selector level); if assertions fail ⇒ **the card may not be delivered as todo** | **Linus** |
-| **After** | At acceptance | Re-run assertions + **same-viewport/theme/language screenshot comparison** with dual checks | **Turing** (independent) + **Jobs** (visual) |
+| **During** | When development completes | Run the **structural assertion script** (selector level); if assertions fail ⇒ **the card may not be delivered as todo** (uniform across flow A/B/C — see Addendum III) | **Linus** |
+| **After** | At acceptance | Re-run assertions + **same-viewport/theme/language screenshot comparison** with dual checks (**flows A/B; flow C ⇒ Addendum III**) | **Turing** (independent) + **Jobs** (visual) |
 
-**Acceptance hard gate** (all required before a UI card is done):
+**Acceptance hard gate** (all required before a UI card is done; **flows A/B** — the flow-C form is Addendum III):
 1. **All blocks** of the page are in the list (including "consistent" items, to prevent omissions); every difference has "file + block name/selector" evidence;
 2. Fix-card Acceptance = **machine-checkable conditions** (selector assertions), not "looks like";
 3. **The structural assertion script fully passes**;
@@ -344,6 +344,15 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 > 3. **Contradictions need Elon's approval**: if Linus believes the prototype is wrong or self-contradictory, do **not** silently "fix" it — set the card `blocked` and send back to Elon, who routes it to Jobs (design change) or authorizes a written deviation.
 > 4. **Deviation is written, never silent**: an approved deviation is recorded in the card with approver + reason (`kind=decision`).
 > **Anti-patterns (reject on sight)**: "improving" the prototype's spacing/hierarchy because it "looks better" | changing an interaction because "that is the engineering convention" | leaving a supplement unrecorded | treating "build passes / tests pass" as licence to diverge from the prototype.
+
+> 🔴 **⑨.1 Addendum III: flow C (UI micro-change) — a reduced but non-empty form; the delivery gate is A/B/C-uniform (mandatory since 2026-10-13, T-20261013-234110)**
+> **Background**: the three lines of defense above were written for a full UI surface, so a parameter-level tweak (spacing / token value / alignment / polish inside the frozen design) paid the whole chain; the opposite failure — a design treated as a **reference** instead of a **contract** — showed what weakening the gate costs. This addendum fixes the **floor**: the chain may shrink, the **machine gate may not**.
+> **Rules**:
+> 1. **The delivery gate is uniform across A/B/C**: before any UI change is delivered (`in_review`), the **relevant assertion subset** of the page's structural contract must pass, and the Report must carry the self-proof (command + exit code + `--json` artifact pointer). A red assertion ⇒ **not deliverable**; "it is only a micro-change" is never a reason to deliver without evidence.
+> 2. **The flow C form (routing in `§⑩.5`)**: C **reuses the frozen contract** (no new Jobs contract round) and takes the short chain (Linus → Elon final acceptance audit); the **After** line is served by the **rolling sample** instead of a per-card independent lane. **"Reduced" ≠ "empty"**: ① the machine assertion subset must be green; ② the card stays eligible for the sampled independent re-check (Turing machine sample 20%/week + Jobs visual spot-check on the same batch).
+> 3. **Jobs's visual pass in C**: required only when the change is visually **non-trivial** (it affects layout / multiple viewports) ⇒ one **asynchronous** visual pass; otherwise the sample stands in.
+> 4. **Escalation out of C (hard boundary)**: a "micro-change" that **adds a visible block / changes interaction behaviour / changes the semantics of product copy / changes a design-token definition** is **flow A** (`§⑩.5`) and takes the full gate (block list + assertions + screenshot comparison + Turing conformance matrix + Jobs design confirmation).
+> **Anti-patterns (reject on sight)**: delivering a C card with no assertion evidence | calling a token-**definition** change a "detail" | dropping the sample because "the assertion passed".
 
 ### ⑨.2 Prototype Must Not Contain Implementation: Design Draft vs Engineering Implementation Separation (mandatory since 2026-09-28)
 
@@ -386,6 +395,8 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 ### Product/UX Acceptance Trigger (handoff with Turing's test completion)
 
 > For any task card touching product/UI/UX (or containing UI deliverables), after Turing's functional test/regression passes, **Elon coordinates Jobs to do product acceptance**; only after passing may the original card reach terminal done. Pure-backend/no-UI tasks skip this step.
+>
+> **Flow scope (`§⑩.5`, 2026-10-13)**: this **per-card** Jobs product-acceptance card is the **flow-A** path. **Flow B** is closed by Turing's reproduce→pass + regression and Elon's audit; **flow C** is covered by the **rolling sample** (Turing machine sample + Jobs visual spot-check on the same batch), so neither B nor C opens a per-card Jobs review card unless the change turns out to be visually non-trivial (then one **asynchronous** Jobs visual pass — `§⑨.1` Addendum III).
 
 1. **Trigger condition**: the task card's `project` touches product/UI/UX (or the Acceptance/Background contains UI/UX deliverables such as interfaces, prototypes, design drafts, interaction flows).
 2. **Trigger timing**: after Turing's functional test/regression retest passes (the `status` could be set to done but the product side is not yet verified), Elon decides to trigger.
@@ -409,6 +420,8 @@ The sole dispatcher = Elon; workers do not dispatch to each other (including def
 | Composite tasks (UI feature + UX + tests) | chained | Elon splits into subtask cards and dispatches them ordered by dependency |
 | Tasks with unclear ownership | decided by Elon | May confirm with the operator, then create a card |
 
+**Flow routing (change nature — added 2026-10-13, T-20261013-234110)**: the table above routes by **task type**; every card is additionally routed by the **nature of the change** into **flow A / B / C** (`§⑩.5`), judged by Elon at intake and recorded **on the card** (`flow: A|B|C`). The flow selects the **chain** (which roles participate, `§⑩.1`) and the **weight of the quality gate** — it never selects whether a gate exists. A change discovered to cross the `§⑩.5` hard boundary (new block / changed interaction / changed copy semantics / changed token definition) ⇒ **re-route to A**, never push it through the short chain.
+
 **Role boundaries**:
 - **Elon**: does = requirement understanding/card splitting/dispatch/acceptance/reporting/team health/material triage and self-organization/governance. Does not = business code implementation, design drafts, test execution.
 - **Jobs**: does = product design, PRD docs, UI design, UX design, image design (illustrations/logos/posters, etc., via `canvas-design`) — five outputs + **aesthetic gatekeeping / design style positioning and selection / unified design style (sole arbiter)** + UX/UI review; product design docs must be reviewed and confirmed by Elon. Does not = backend/business code, functional test execution, promotion-material production·placement and promotion·marketing copy.
@@ -430,6 +443,12 @@ The sole dispatcher = Elon; workers do not dispatch to each other (including def
 
 - Elon organizes the review: dispatch the relevant workers in parallel to review the task card, collect, then summarize; undivided technical corrections are written back directly by Elon, cognitive differences are escalated to the operator for a decision; only after confirming line-by-line "no omissions, no differences" is it dispatched.
 - For the full card-splitting SOP (splitting scope/review gatekeeping/serial dispatch), see Elon AGENTS.md "Task Card Splitting SOP".
+
+**By flow (added 2026-10-13, T-20261013-234110)**: the participant set of a card **is its flow's chain** (`§⑩.5`) —
+**A** = Jobs (prerequisite contract, then design-dimension confirmation) + Linus + Turing (independent verification + conformance matrix) + Elon (final acceptance audit);
+**B** = Linus + Turing (reproduce → pass + regression) + Elon;
+**C** = Linus + Elon, with Turing/Jobs entering through the **rolling sample** (Turing machine sample 20%/week; Jobs visual spot-check on the same batch), or one **asynchronous** Jobs visual pass when the change is visually non-trivial.
+A flow's chain **does not remove** the review participants the card's nature demands in the table above; the flow decides **who reviews the card at intake and whose reports Elon audits at acceptance**, not whether review happens.
 
 ---
 
@@ -470,6 +489,52 @@ The sole dispatcher = Elon; workers do not dispatch to each other (including def
   ④ "**the context is just too long**" is not a reason to open a seg — it is a reason to **split the card**.
 - **Carding enforcement (hard gate)**: `roles/elon/AGENTS.md` §1 (Task-Card Breakdown SOP — Breakdown Scope), carried **alongside the batch-carding hard rule**: expecting ≥2 independent Acceptance or ≥2 independently-acceptable deliverables ⇒ judge whether to split / build an epic **before** carding.
 - **`__team__` cards must declare `target` (hard gate; 2026-10-13, T-20261013-015831)**: a card with `project: __team__` **must** carry a `target`, one of the two meanings — **framework change (write the repo)** ⇒ `/Users/tanyu/Documents/openclaw-team`; **deploy/ops on live** ⇒ `/Users/tanyu/.openclaw/team`. Rationale: `spawn-lane` resolves cwd from `project` and, with **no `target`**, silently falls back to the **live** team root (`§⑥` cwd normalization) — so a missing `target` is exactly the hole through which a card "about the framework" ends up writing live. **A `__team__` card with no `target` is therefore a carding defect ⇒ hard red** (`check-card.mjs`: machine-readable `[role] <owner>` tag + exit≠0), not a soft warning. **Scope of the check = non-terminal cards only** (2026-10-13, T-20261013-023535-2): the gate exists to catch a **carding-time** defect, so cards already in a **terminal** state (`done`/`failed`/`canceled`) are **grandfathered** — the gate does **not** retro-redden history (`check-card.mjs` narrows on `!TERMINAL.includes(status)`, the complement of the provider's `TERMINAL_STATUSES`; `ready`/`todo`/`backlog` stay in scope, since `spawn-lane` exec auto-claims `ready`/`todo` and would land on `cwd=live`).
+
+### ⑩.5 Flow Triage A/B/C — Change-Nature Routing + Quality Spine (2026-10-13, T-20261013-234110)
+
+> **Why**: every change used to walk one long chain (Jobs design → Linus → Turing → Jobs acceptance → Elon), a parameter-level UI tweak included; the TaskPanel evidence also showed the opposite failure — a design treated as a **reference** instead of a **contract**, so blocks went missing and stayed missing for 5 days. This clause routes by the **nature of the change**: a small change takes the short chain **without** weakening the machine gate.
+> **Judgement**: Elon judges the flow **at intake** and records it on the card — `flow: A|B|C` (a team-side convention field; the provider schema is unchanged, `§⑯`). A change that turns out to cross the hard boundary below ⇒ **re-route to A on discovery**; the short chain never traps an A-class change.
+
+| Flow | Trigger (criteria) | Chain | Quality gate |
+|---|---|---|---|
+| **A · feature / design-bearing** | new UI structure or block, new interaction, new or semantically changed copy, product-logic change, design-system / token **definition** change | **Jobs prerequisite contract (`§⑩.6`) → Linus development → Turing independent verification (functional + requirement→implementation conformance matrix) → Jobs design-dimension confirmation → Elon final acceptance audit** | full: block list + assertions + screenshot comparison |
+| **B · defect / behaviour fix** | fixing behaviour; restoring consistency with an **already-frozen** design; **produces no new design decision** | **Linus fix → Turing verification (reproduce → pass) + regression → Elon final acceptance audit** | reproduction test + (when UI is touched) the assertion subset |
+| **C · UI micro-change / detail** | parameter-level change **inside the frozen design**: spacing, token **value**, alignment, wording of already-decided copy, visual polish; **no new block, no new interaction, no product logic** | **Linus → Elon final acceptance audit** (2 steps) | **machine assertion subset must pass** + sampled independent re-check |
+
+**Hard boundary (any one ⇒ always A, never B/C)**: **adds a visible block / changes interaction behaviour / changes the semantics of product copy / changes a design-token definition.** When in doubt the card goes A — a longer chain beats a missed design decision.
+
+**Quality spine (5 safeguards — the chain may shrink, the spine may not)**:
+1. **Frozen design contract** (Jobs, **once per surface**) — block list (name / id / `data-*` / selector) + assertions + design tokens, landing in `workspace/<task-id>/`; **a UI surface with no machine-checkable contract does not start**; B/C **reuse** the frozen contract and produce no new one.
+2. **Delivery gate** (Linus, **mandatory for A/B/C**) — the relevant assertion subset passes and the self-proof (build / exit code / `--json` artifact pointer) is in the Report **before** delivery; red ⇒ **not deliverable** (`§⑨.1` Addendum III).
+3. **Independent verification** (Turing) — A = functional **+ requirement-conformance matrix** (block/REQ → evidence); B = reproduce → pass **+ regression**; C = **sampled** (below).
+4. **Design-dimension confirmation** (Jobs, **A only**) — **evidence-based**: read Turing's matrix + assertions + screenshot comparison to judge "was it built to the design"; **no re-doing, no re-running**.
+5. **Elon report audit + rolling sampled patrol** — the statistical safety net that replaces "Elon re-does the verification himself" (`§⑨.1` reinforcement).
+
+**Report set audited by flow (Elon's final acceptance — a PASS on one report never substitutes for the others, `§⑨`)**:
+
+| Flow | Reports Elon must audit |
+|---|---|
+| **A** | Linus (implementation/self-proof) **+** Turing (independent verification + conformance matrix) **+** Jobs (design / design-dimension confirmation) |
+| **B** | Linus **+** Turing |
+| **C** | Linus (**+** the sampling verifier's report when this card was sampled) |
+
+**Three locks against "not built to design + spec not enforced"**: ① **design = contract** — no machine-verifiable block list/assertions ⇒ the UI card is invalid; ② **delivery gate mandatory** — red assertions ⇒ not deliverable; ③ **drift = defect class** — missing blocks / self-invented structure / silent simplification ⇒ **defect ticket + card `blocked` + revert through the `§⑨` loop**, and a **missing conformance matrix ⇒ Elon sends the card back**.
+
+**Card template scales with the flow**: **A** = 3+ Acceptance items (block list + machine-check assertions + screenshot comparison); **B/C** = 2 items (the applicable gate + the evidence pointer). What shrinks is the **Acceptance surface**, never the evidence requirement.
+
+**Rolling sample (the statistical safety net)**: Turing machine-samples **20% per week** of the B/C cards that were accepted, and Jobs visual spot-checks **the same batch**; a drift found by the sample ⇒ defect ticket, and the finding tightens **the class**, not just the spot (never fix only the single occurrence). The sample is executed by Turing/Jobs; Elon **audits their reports** (he does not run it).
+
+### ⑩.6 Jobs Prerequisite Task (design contract / PRD) — a hard dependency of the dev card (2026-10-13, T-20261013-234110)
+
+> **Origin (operator ruling, 2026-10-13)**: Jobs iterates with the operator over several rounds and only then settles **one complete product design prototype**; **at that point** the development cards are created for Linus in one pass. In that case Jobs **must first produce a "prerequisite task"** (the design contract / PRD document = the design baseline), and the **development card depends on that prerequisite**.
+
+**Rules**:
+1. **Trigger**: flow **A** whose implementation baseline is a design that is **not yet frozen** (in practice: every UI feature card sourced from Jobs). B/C **reuse** the frozen contract and need no new prerequisite card.
+2. **Form**: Elon creates the prerequisite card (**`assignee: jobs`**, with its own Acceptance); Jobs produces the design contract — PRD / `DESIGN.md` / prototype structural contract + `ui-align` block list + machine-check points — into `workspace/<task-id>/`. A **product design document** still passes the "Jobs authors → Elon confirms" dual-sign gate (`roles/jobs/AGENTS.md`).
+3. **Dependency (hard)**: the development card carries **`depends_on: [<prerequisite card>]`**; while unmet it is `deps_unmet` and **must not be claimed** (`§⑩.2`). "Jobs is still designing, Linus starts anyway" is precisely the hole that produced the 5-day-unnoticed drift.
+4. **Multi-round design iteration stays inside the prerequisite card**: the operator-facing design rounds are the prerequisite task's **production/review loop** (`roles/jobs/AGENTS.md`), **not** development segs (`§⑩.4`); only the **frozen** output is handed to Linus.
+5. **Re-entry on contradiction**: if implementation shows the contract is wrong or self-contradictory ⇒ Linus sets the card `blocked` and sends it back (`§⑦`, `§⑨.1` Addendum II clause 3); Elon routes it back to Jobs as a **design change on the prerequisite** (revision / new prerequisite card), never as a silent in-card deviation.
+6. **Reuse is the point**: once frozen, the contract serves **every** B/C card on that surface — it is produced **once per surface**, not once per card (`§⑩.5` quality spine #1).
 
 ---
 
@@ -536,7 +601,7 @@ Each role's AGENTS.md keeps 3–5 lines of startup self-check (read card + read 
 | blocked awaiting Elon's clarification | ≤ 2h | Must handle (clarify/revise/reassign) | > 24h ⇒ escalate to operator |
 | Confirmation gate awaiting review (§⑭) | ≤ 4h | Must review | > 24h ⇒ escalate to operator |
 | Defect fix card creation (⑨) | ≤ 24h | Must create and dispatch to Linus | > 48h ⇒ escalate to operator |
-| Product/UX acceptance queued (⑨.1 last section) | ≤ 24h | Must create a review card and dispatch Jobs | > 48h ⇒ escalate to operator |
+| Product/UX acceptance queued (⑨.1 last section; **flow A** — B/C are covered by `§⑩.5`, no per-card Jobs card) | ≤ 24h | Must create a review card and dispatch Jobs | > 48h ⇒ escalate to operator |
 | Worker heartbeat stale (§①) | 30 min | Same assignee re-claims | > 6h ⇒ any agent may claim + report |
 | Elon patrol stalled | > 60 min no action | — | Per the §⑮.1 contingency / operator appoints a proxy |
 
@@ -554,6 +619,7 @@ Each role's AGENTS.md keeps 3–5 lines of startup self-check (read card + read 
 - **The role roster** in this file's "Team Roles" table is the **sole authority (5 people)**; each `SOUL.md` "positioning" no longer lists its own roster and instead references this table.
 - **State-machine vocabulary**: the canonical 7 values `backlog` / `todo` / `in_progress` / `in_review` / `blocked` / `done` / `canceled` (= the canonical names for the old `ready`/`failed`; worker text must not use terminal words outside this table).
 - **Model tier**: default `deepseek-flash`; high complexity upgrades to `deepseek-v4-pro`; visual tasks see ⑥.2. **Specific model names appear only in this file (L1)**; role files uniformly reference ⑥.2 and never write specific models (to prevent L2/L3 drifting from L1).
+- **Flow vocabulary**: **`flow: A|B|C`** (`§⑩.5`) = the **change-nature route** recorded on the card — **A** feature/design-bearing, **B** defect/behaviour fix, **C** UI micro-change inside the frozen design. It is a **team-side convention field** (the provider schema is not changed). The **combination** "flow + status/state" is written with the canonical 7 status words only (`§⑯` state-machine bullet); "flow" never replaces the participant set the card's nature demands (`§⑩.1`).
 
 ## ⑰ Document-System Layering and Single Source of Truth
 
