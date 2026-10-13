@@ -493,3 +493,74 @@ test('GREEN. 同卡不同 seg（复核 lane segR1 对执行侧 seg1 在跑）⇒
   assert.equal(r.seg, 'segR1');
 });
 
+// ── ①b2 / L1③：同卡并发执行 lane 在 **spawn 前**拦下（T-20261013-233906） ────────────
+// 实证：turing 复核卡 `T-20261013-223243` 的 seg1 lane 以 `phase:seg1-verify` 登记，另一执行 turn
+// 7s 后又起了一条 segR1 lane（同卡并发执行 turn）⇒ 事后按 §⑥ 回滚（kill + sessionClose，0B 空产）。
+
+test('REJECT. ①b2 同卡已有活跃执行 lane（异 seg）⇒ spawn 前拦下（card_busy），零副作用', { skip: SKIP }, () => {
+  const id = 'T-20260101-100023-card-busy';
+  const live = `- seg:seg1 · owner:linus · backend:claude · id:77777777-7777-5777-8777-777777777777 · phase:seg1 · status:running · pid:${process.pid} · 2026-01-01T00:00:00.000Z`;
+  writeCard(id, { status: 'in_progress', claimed: 'linus', segs: [live] });
+
+  const r = spawnLane({ card: id, owner: 'linus', seg: 'seg2', backend: 'claude', dryRun: false });
+
+  assert.equal(r.ok, false, JSON.stringify(r));
+  assert.match(
+    r.reason,
+    new RegExp(`^card_busy\\(seg=seg2,live=seg1\\(pid=${process.pid},owner=linus\\)\\):second_exec_lane$`),
+    r.reason,
+  );
+  assert.equal(r.session.source, 'card_busy');
+  assert.equal(registryEntries(id).length, 0, '拒绝时不得写 registry');
+  assert.equal(fs.existsSync(path.join(WS, id, 'linus-2.out.jsonl')), false, '拒绝时不得派生第二条 lane');
+});
+
+test('REJECT. ①b L1③ registry `phase` 标签 ≠ seg（phase=seg1-verify，session_id=本 seg 确定性 id）⇒ 仍拦', { skip: SKIP }, () => {
+  const id = 'T-20260101-100024-phase-label';
+  writeCard(id, { status: 'in_progress', claimed: 'linus', segs: [] }); // 卡内 Sessions 空（只写了 registry 的形态）
+  const sid = sessionIdFor(id, 'linus', 'seg1').session_id;
+  // 与实证同形：phase 是 caller 自由填的展示标签，不等于 seg；lane 身份只能靠 session_id 认
+  upsertSessionEntry({ task_id: id, owner: 'linus', phase: 'seg1-verify', status: 'running', pid: process.pid, session_id: sid, log: '/x/linus-1.out.jsonl', startedAt: 'x' });
+
+  const r = spawnLane({ card: id, owner: 'linus', seg: 'seg1', backend: 'claude', dryRun: true });
+
+  assert.equal(r.ok, false, JSON.stringify(r));
+  assert.match(r.reason, new RegExp(`^session_running\\(seg=seg1,pid=${process.pid},id=${sid}`), r.reason);
+  assert.equal(r.session.source, 'registry_session', '命中判据应为 session_id，而非 phase 标签');
+});
+
+test('GREEN. ①b2 越过：parallel=1 显式声明同一计划并行分段 ⇒ 放行；但 L1（同 lane 身份）不可越', { skip: SKIP }, () => {
+  const id = 'T-20260101-100025-parallel';
+  const live = `- seg:seg1 · owner:linus · backend:claude · id:88888888-8888-5888-8888-888888888888 · phase:seg1 · status:running · pid:${process.pid} · 2026-01-01T00:00:00.000Z`;
+  writeCard(id, { status: 'in_progress', claimed: 'linus', segs: [live] });
+
+  const ok = spawnLane({ card: id, owner: 'linus', seg: 'seg2', backend: 'claude', dryRun: true, parallel: '1' });
+  assert.equal(ok.ok, true, JSON.stringify(ok));
+  assert.equal(ok.seg, 'seg2');
+
+  const dup = spawnLane({ card: id, owner: 'linus', seg: 'seg1', backend: 'claude', dryRun: true, parallel: '1' });
+  assert.equal(dup.ok, false, JSON.stringify(dup));
+  assert.match(dup.reason, /^session_running\(seg=seg1,/, dup.reason);
+});
+
+test('UNIT. parseArgs：parallel=1 透传；未声明 ⇒ 空（默认不越过 ①b2）', { skip: SKIP }, () => {
+  assert.equal(parseArgs(['C', 'linus', 'parallel=1']).parallel, '1');
+  assert.equal(parseArgs(['C', 'linus']).parallel, '', '默认不声明并行 ⇒ ①b2 生效');
+});
+
+test('NEG-④ 并发两执行 turn ⇒ 仅一执行：首条真起 lane，第二条在 spawn 前被拦（不派生第二 lane）', { skip: SKIP }, () => {
+  const id = 'T-20260101-100026-two-turns';
+  writeCard(id, { status: 'in_progress', claimed: 'linus', segs: [] });
+
+  const first = spawnLane({ card: id, owner: 'linus', seg: 'seg1', backend: 'claude', dryRun: false });
+  if (first.pid) spawnPids.push(first.pid);
+  assert.equal(first.ok, true, JSON.stringify(first));
+
+  const second = spawnLane({ card: id, owner: 'linus', seg: 'seg2', backend: 'claude', dryRun: false });
+  assert.equal(second.ok, false, JSON.stringify(second));
+  assert.match(second.reason, /^card_busy\(seg=seg2,live=/, second.reason);
+  assert.equal(second.pid, undefined, '被拦的 turn 不得拿到 pid');
+  assert.equal(fs.existsSync(path.join(WS, id, 'linus-2.out.jsonl')), false, '不得产生第二条 lane 的日志');
+  assert.equal(registryEntries(id).length, 1, 'registry 只应有第一条 lane 的登记');
+});
+

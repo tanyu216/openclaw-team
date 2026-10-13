@@ -12,14 +12,43 @@
  *   软告警（note，不影响退出码）：
  *     - zombie_registry：registry running 但 pid 不存活（reconcile 的职责，非 spawn 缺陷）；
  *     - stale_card_line：卡 running 行但卡行 pid 不存活（陈旧行，reconcile 清理）；
- *     - status_mismatch：卡 running 行 vs registry 终态不一致。
+ *     - status_mismatch：卡 running 行 vs registry 终态不一致；
+ *     - duplicate_lane：canonical registry 内同一 lane 身份（task|owner|session_id，`phase` 只是展示标签）
+ *       出现多行（T-20261013-233906）。读取侧 `loadRegistry` 按身份折叠 ⇒ 重复行不进 running/硬失败，
+ *       但不报出来就等于静默丢审计痕迹；写入侧已去重 + 拒写（`registry.upsertSessionEntry`），此处只做可见性。
  * 只读：绝不写卡 / 写 registry。扫描 OPENCLAW_TEAM_ROOT（import 期读取；隔离测试在 import 前设该环境变量）。
  * 用法：node check-sessions.mjs
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { TASKS_DIR, CARD_ID_RE, readCard } from './lib.mjs';
-import { loadRegistry, isPidAlive, REGISTRY_PATH } from './registry.mjs';
+import { loadRegistry, isPidAlive, readRegistryFile, REGISTRY_PATH } from './registry.mjs';
+
+/**
+ * canonical registry 内的**重复 lane 行**：同一 lane 身份 `task_id|owner|session_id` 出现 >1 行。
+ * 无 `session_id` 的行无法判身份（旧式/手写行）⇒ 跳过。只读，返回软告警条目。
+ * @returns {{type:'duplicate_lane', task:string, session:string, rows:object[]}[]}
+ */
+export function duplicateLaneRows() {
+  const groups = new Map();
+  for (const e of readRegistryFile(REGISTRY_PATH)) {
+    if (!e || !e.session_id) continue;
+    const key = `${e.task_id}|${e.owner}|${e.session_id}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(e);
+  }
+  const out = [];
+  for (const rows of groups.values()) {
+    if (rows.length < 2) continue;
+    out.push({
+      type: 'duplicate_lane',
+      task: rows[0].task_id,
+      session: rows[0].session_id,
+      rows: rows.map((e) => ({ phase: e.phase ?? '', status: e.status ?? '', pid: e.pid ?? null })),
+    });
+  }
+  return out;
+}
 
 /** 解析卡 body 内 `## Sessions` 段（行首 `- seg:`）的 running 会话行 */
 function sessionsOf(cardPath) {
@@ -106,6 +135,9 @@ export function checkSessions({ registry = null } = {}) {
       // e.status === 'running' 已在方向 1 处理（一致或 zombie note）
     }
   }
+
+  // 软告警：canonical registry 里的重复 lane 行（读取侧已折叠 ⇒ 不报就看不见）
+  for (const dup of duplicateLaneRows()) notes.push(dup);
 
   return {
     ok: inconsistencies.length === 0,
