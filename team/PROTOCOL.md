@@ -336,6 +336,15 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 > 4. **The real state of pending wiring**: if you genuinely need to tell the user "data not wired", use a **proper empty/loading state component** (§EmptyState), not a parenthetical annotation.
 > **Anti-patterns (reject on sight)**: rendering developer annotations like "(static placeholder)" to users | keeping visible annotations on the grounds that "the prototype wrote it that way".
 
+> 🔴 **⑨.1 Addendum II: Linus-side UI/UX fidelity restriction — a Jobs prototype is reproduced, not reinterpreted (mandatory since 2026-10-13)**
+> **Background**: dev tasks sourced from Jobs (design) were at times "improved" during implementation — blocks restyled or re-arranged and interactions changed on the implementer's own judgement ("engineering convention") — so the shipped page diverged from the approved prototype and the divergence surfaced late. The prototype is the operator-facing design contract (§⑨.1); the implementer is **not** a second designer.
+> **Rule (Linus, hard)**:
+> 1. **Reproduce, do not reinterpret**: when the design baseline comes from Jobs, page structure, block order, styles and **UI interactions** must match the prototype. Unilateral UI/UX changes are forbidden — adding/removing/moving/restyling blocks, changing visible copy, or changing what a control does.
+> 2. **Omissions are supplementable, but declared**: only where the prototype **does not mention** a case may Linus supplement/complete it — minimally, in the prototype's existing design language — and **must**: ① record it on the card (`## Progress` + `task.comment kind=change`, stating *what* and *why*), and ② surface it to Elon (and Jobs) in the delivery Report. An undeclared supplement is a defect.
+> 3. **Contradictions need Elon's approval**: if Linus believes the prototype is wrong or self-contradictory, do **not** silently "fix" it — set the card `blocked` and send back to Elon, who routes it to Jobs (design change) or authorizes a written deviation.
+> 4. **Deviation is written, never silent**: an approved deviation is recorded in the card with approver + reason (`kind=decision`).
+> **Anti-patterns (reject on sight)**: "improving" the prototype's spacing/hierarchy because it "looks better" | changing an interaction because "that is the engineering convention" | leaving a supplement unrecorded | treating "build passes / tests pass" as licence to diverge from the prototype.
+
 ### ⑨.2 Prototype Must Not Contain Implementation: Design Draft vs Engineering Implementation Separation (mandatory since 2026-09-28)
 
 > **Background (lesson)**: `web-client/prototype/index.html` (Jobs's design prototype) had a **real login implementation** written into it (`fetch` calling `POST /api/v1/auth/login`, `apiFetch`, token storage), discovered by the operator when reading the code.
