@@ -34,7 +34,7 @@ assignee: linus                # elon|jobs|linus|turing|assistant (only Elon may
 assignee_kind: agent           # agent | human
 status: todo                   # Canonical 7 values: backlog|todo|in_progress|in_review|blocked|done|canceled
 priority: medium               # low | medium | high | urgent (default medium)
-kind: task                     # task | epic (container/aggregate, not claimable)
+kind: task                     # task | epic (container/aggregate, not claimable) | deploy (never auto-claimed; explicit dispatch only)
 labels: []                     # Free-form labels + namespaced prefix labels (category:req/dev/test/bug, area:*, env:*, sev:*) — taxonomy: guides/task-interface.md §15 Label Taxonomy; array form (§11)
 project: example-app           # ★ Required: project identity code (stable id; resolved via the task-interface ACL to a backend implementation — currently meerkat-taskpanel, swappable for Jira/Linear/Plane); internal chores use the reserved name __team__
 target: ""                     # Optional: project-internal location (a repos kind, e.g. code/docs, or a module path)
@@ -64,7 +64,7 @@ goal: One-line goal            # Card summary (meerkat-taskpanel known key)
 - **Status (canonical 7 values)**: `backlog | todo | in_progress | in_review | blocked | done | canceled`. Compatible aliases `ready→todo`, `failed→canceled` (also tolerating `in-review`/`in-progress`/`cancelled`) are **resolved only at the boundary and never persisted**; export restores the original word ⇒ old cards stay byte-stable.
 - **Claimable status = `todo`** (= the old `ready`); **`backlog` does not participate in claiming**.
 - **Priority**: `low | medium | high | urgent` (default `medium`).
-- **kind**: only `task | epic`; **do not invent a `review` kind** — use `labels:[review]` + `review_of`.
+- **kind**: `task | epic | deploy`; **do not invent a `review` kind** — use `labels:[review]` + `review_of`. `epic` = container/aggregate (**not claimable** by anyone); `deploy` = a card that executes a deployment/on-line operation (**never auto-claimed** — explicit dispatch only; see the deploy paragraph under Atomic claim below).
 - **Time columns**: always **ISO-8601 UTC with fixed milliseconds** (`2026-10-08T15:31:25.161Z`).
 - **Extension keys**: meerkat-taskpanel **preserves unknown keys verbatim and writes them back** (`meta.legacy`), but self-invented keys (e.g. `git_rules`) are **discouraged**.
 - **Serialization invariants**: see §⑪.
@@ -82,6 +82,8 @@ goal: One-line goal            # Card summary (meerkat-taskpanel known key)
 - Fresh heartbeat (≤10min) and `in_progress` → **do not touch**; poll returns fire:false.
 
 **Claim timing belongs to poll (key to preventing spin)** : qualifying claims are completed during meerkat-taskpanel's poll trigger evaluation (fire:true ⇔ the card has been moved to `in_progress` with claimed_by=self). Therefore a **run turn does not claim again**: when the card has `claimed_by==self` + a fresh heartbeat → skip claiming and execute directly; only when the turn finds the card still `todo` (e.g. a sessions_send direct dispatch bypassing poll) do you additionally run `taskctl claim`.
+
+**Deploy cards (`kind:deploy`) are never auto-claimed** (T-20261013-232004 provider side / T-20261014-013629-2 framework side): a deploy card executes a **deployment / on-line operation** (rebuild `dist`, restart `taskd`, a full `install.sh` run, …) — high-impact and generally not executable by whoever happens to be idle — so it is entered only by **explicit dispatch** (Elon `assign` / `issue move`). Concretely: **poll's candidate surface excludes it** — `team/scripts/poll.mjs#scanCandidates` skips any card whose `kind` is in `AUTO_CLAIM_EXCLUDED_KINDS` (`team/scripts/lib.mjs`), which is the **single** candidate read surface, so the exclusion covers every pool (ready + stale recovery) and the read-only ACL query `task.pollCandidates` inherits it. The rule **mirrors** the provider base's `isAutoClaimableKind` (`meerkat-taskpanel` `658eb1f`) but is **not inherited for free**: framework poll reads the card files directly and never calls the base's `issue candidates`, so the framework carries the rule again on its own path (the motivating incident was a deploy-drift card auto-claimed by `linus-poll` and then bounced back to `blocked`, `T-20261013-161055`). The **claim gate stays open** for explicit dispatch — `claimCard` refuses only `epic` (`epic_container`), never `deploy` — this deliberate layering (auto-candidate read: excluded; explicit claim: allowed) differs from `epic`'s "not claimable by anyone". Regression: `team/scripts/tests/poll-deploy.test.mjs`.
 
 **Execution uniqueness (anti-double-run hardening; the claim lock only prevents double-claiming, not double-execution)** : any newly woken turn (cron isolated run / sessions_send direct dispatch to the main session / sessions_spawn turn) that finds the target card already `in_progress` (regardless of whether claimed_by is self and whether the heartbeat is fresh) → **only report status (IN_PROGRESS + claimed_by/heartbeat) or append heartbeat_at, and do not execute again**; only a stale card (heartbeat expired >30min) may be re-claimed and taken over per the recovery rules. The first executor holds execution rights; other turns must not re-spawn claude/codex or repeat side-effecting operations such as writing to the repo.
 
@@ -661,6 +663,7 @@ Each role's AGENTS.md keeps 3–5 lines of startup self-check (read card + read 
 | Worker Report trimming (§⑬.4) | Report body threshold / large-table warning (merged into `token-hygiene`) | Patrol |
 | Research-type Report (§⑱) | Warn on missing "reproducible commands / data convention" | Patrol |
 | Broken references | `§x` reference resolvable lint | Patrol (periodic) |
+| Deploy cards are never auto-claimed (§①) | Auto-claim candidate exclusion for the `deploy` kind + regression `tests/poll-deploy.test.mjs` | Poll (every trigger evaluation) |
 
 - **Aggregation and the scheduled verdict (T-20261013-031036)**: `scripts/check-all.sh` is the **single source of the checks** (default `--segment all` = the full historical run, for humans and CI). The **scheduled** gate is `scripts/check-all-gate.mjs`, whose contract is that it returns a **real verdict inside the trigger-evaluation budget** (`team/AUTOMATIONS.md` §3.5/§3.5.1): the **fast** segment runs in-band, the **slow** framework suite runs **detached** and its verdict is cached (`<team>/.check-all-slow.json`) and folded into the next evaluation. The slow axis **fails closed** — a missing/stale/unreadable cached verdict is *unconfirmed* ⇒ alert, never green. A red verdict **must carry the failing items in `message`**: a timeout or any other degrade must never *mask* a real failure (that masking, not the cost, is what broke the gate before).
 
