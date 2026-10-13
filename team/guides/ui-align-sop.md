@@ -27,9 +27,9 @@ Every UI card must complete all three layers; missing any one means unfinished. 
 |---|---|---|---|---|
 | **Before · structural contract** | **before** the card starts | **Jobs** (Elon creates and dispatches the card) | The page's **structural contract**: enumerate all prototype **blocks** (block name / id / role / `data-*` + selector) + data-contract annotation + machine-checkable acceptance points; lands in `workspace/<task-id>/` (manifest JSON, contract version) | The block list **includes "consistent" items** (anti-omission); **no line-number anchors**; serves as the source of the card's machine-check conditions in Acceptance |
 | **During · structural assertion** | when development completes | **Linus** | The selector assertion script artifact (`ui-selectors.json` + runner), run through with `tools/ui-align` | If assertions **fail ⇒ the card must not be delivered as todo** (`§⑨.1` hard gate) |
-| **After · screenshot comparison** | at acceptance | **Turing** (machine re-run, independent) + **Jobs** (visual certification); **Elon** audits the verification reports at final review | Assertion re-run report + **same viewport × same theme × same language** screenshot comparison (prototype vs implementation) | Dual-core: machine check + visual; Elon **must confirm the independent verification in the Report** (Turing+Jobs), not rely only on "API passes/build passes/worker self-report" — he does **not** re-run the comparison himself. **Applies to flows A/B; in flow C this line is served by the rolling sample** (Turing 20%/week + Jobs visual spot-check on the same batch), or by one asynchronous Jobs visual pass when the change is visually non-trivial — see §11 |
+| **After · screenshot comparison** | at acceptance | **Turing** (machine re-run, independent) + **Jobs** (visual certification); **Elon** audits the workers' reports (Linus + Turing + Jobs) at final review | Assertion re-run report + **same viewport × same theme × same language** screenshot comparison (prototype vs implementation) | Dual-core: machine check + visual; Elon **must confirm the independent verification in the Report** (Turing+Jobs), not rely only on "API passes/build passes/worker self-report" — he does **not** re-run the comparison himself. **Applies to flows A/B; in flow C this line is served by the rolling sample** (Turing 20%/week + Jobs visual spot-check on the same batch), or by one asynchronous Jobs visual pass when the change is visually non-trivial — see §11 |
 
-> Note: the three layers' "timings" are **gate positions** — before the structural contract is issued, development should not start; before the during-assertions pass, the card should not be delivered; before the **independent** after-comparison (Turing+Jobs) is **present in the Report**, Elon should not set done.
+> Note: the three layers' "timings" are **gate positions** — before the structural contract is issued, development should not start; before the during-assertions pass, the card should not be delivered; before the **implementation Report (Linus)** and the **independent** after-comparison (Turing+Jobs) are **present in the Reports**, Elon should not set done.
 > **Flow note (added 2026-10-13)**: the layers' **surface** scales with the card's flow (`PROTOCOL §⑩.5`) — flow C reuses the frozen "Before" contract and is served on the "After" line by the rolling sample (§11). The **"During" assertion gate is uniform across A/B/C** and is never scaled (`PROTOCOL §⑨.1` Addendum III).
 
 ---
@@ -59,10 +59,10 @@ Every UI card must complete all three layers; missing any one means unfinished. 
 3. Only when **all assertions pass** may it be delivered as todo; `pending` (unimplemented) blocks count as failures under `--strict` — the point of the full manifest is that **no block can silently disappear**.
 4. Results land in files first (`--json`); the Report attaches command + exit code + summary.
 
-### Stage E · Acceptance (Turing machine check + Jobs visual + Elon report audit)
+### Stage E · Acceptance (Linus delivery + Turing machine check + Jobs visual + Elon report audit)
 1. **Turing** (independent) re-runs the assertion script + checks the acceptance hard gate (section 4); **must not reuse Linus's conclusion**.
 2. **Jobs** does UX/UI **visual certification**: browser/tool same viewport (1512/1240/980/760/430) × same theme × same language **screenshot comparison** (prototype vs implementation), block-by-block; check whether any **visible annotations** like "placeholder/pending backend/TODO" appear (if so, reject). The "Issue list" is written to `workspace/<task-id>/review/`.
-3. **Elon audits the Report at final review** (`§⑨.1` reinforcement clause): confirm the independent verification (Turing's assertion re-run + Jobs's visual certification) is **present and covers every hard-gate item**, check for omitted key points and card conformance, confirm the documentation-impact determination (`§⑫`), then set the terminal state. Elon does **not** personally re-run the comparison.
+3. **Elon audits the workers' reports at final review** (`§⑨.1` reinforcement clause): confirm **Linus's implementation Report** and the independent verification (Turing's assertion re-run + Jobs's visual certification) are **present and cover every hard-gate item**, check for omitted key points and card conformance, confirm the documentation-impact determination (`§⑫`), then set the terminal state. Elon does **not** personally re-run the comparison.
 
 ### Stage F · Closing
 - Check off Acceptance line by line; **documentation-impact determination** (if it touches interfaces/data structures/architecture/config/conventions ⇒ sync the docs; otherwise explicitly declare "no documentation impact") (`§⑫`).
@@ -80,7 +80,7 @@ Aligned with `PROTOCOL §⑨.1` "acceptance hard gate", landed as operable items
 4. **Screenshot comparison**: same viewport × same theme × same language, **prototype vs implementation** (five widths: 1512/1240/980/760/430).
 5. **console / page errors = `[]`**; **no horizontal overflow** at all five widths.
 6. **Single writer per file**: the card explicitly declares the serial order (to prevent concurrent writes to the same file by two cards).
-7. (Reinforcement) **Elon audits the verification reports at final review** (confirms Turing's machine check + Jobs's visual certification are present in the Report); the **UI card's Acceptance physically contains** "block list + machine-check assertions + screenshot comparison"; missing any one ⇒ must not be done.
+7. (Reinforcement) **Elon audits the workers' reports at final review** (confirms Linus's delivery Report + Turing's machine check + Jobs's visual certification are present in the Reports); the **UI card's Acceptance physically contains** "block list + machine-check assertions + screenshot comparison"; missing any one ⇒ must not be done.
 8. **Requirement conformance (Turing, independent)**: a **requirement→implementation traceability matrix** — every requirement/prototype block mapped to evidence (selector assertion / screenshot) — filed by Turing against Jobs' baseline; any conformance gap ⇒ not done (`PROTOCOL §⑥.1` clause 13).
 
 > **Applicability by flow (`PROTOCOL §⑩.5`, added 2026-10-13)**: items 1 (full block list), 4 (screenshot comparison) and 8 (conformance matrix) are the **flow-A** gate. Items **2, 3 and 5** (machine-check conditions in Acceptance / the assertions pass / clean console + no overflow) apply to **every** flow — at **subset weight** (the touched blocks) for B and C. Item 6 (single writer per file) is unconditional. For **flow C** there is no per-card Jobs certification and no per-card Turing lane — that "After" line is served by the **rolling sample** (§11). Item 7 binds Elon to **the report set its flow produces** (`PROTOCOL §⑩.5` report table), not to a fixed roster.
@@ -146,7 +146,7 @@ Aligned with `PROTOCOL §⑨.1` "acceptance hard gate", landed as operable items
 
 | Role | What it does in this SOP |
 |---|---|
-| **Elon** | Check dirty-surface files before card splitting / create UI cards and attach the three Acceptance items / **audit the verification reports** at final review (no hands-on re-verification) / approve "deviation rationales" / documentation-impact determination |
+| **Elon** | Check dirty-surface files before card splitting / create UI cards and attach the three Acceptance items / **audit the workers' reports (Linus + Turing + Jobs)** at final review (no hands-on re-verification) / approve "deviation rationales" / documentation-impact determination |
 | **Jobs** | Before: **structural contract** (full block list + machine-check points) / After: **visual screenshot comparison** certification + "Issue list" / maintain this file and the unified design style guide |
 | **Linus** | Implement per the contract / write the manifest and config / get the **during-stage assertions** to pass / self-prove before delivery (command + exit code) |
 | **Turing** | **Independently** re-run assertions / check the acceptance hard gate / screenshot comparison (same viewport × same theme × same language) / **requirement-conformance verification** against Jobs' baseline (traceability matrix) |
@@ -172,7 +172,7 @@ The tool **compares only DOM facts, not pixels**; computed style covers fonts/co
 | **L3 prototype-as-oracle** | render **prototype and implementation in the same browser**, diff **computed styles** per block | `tools/ui-fidelity` | `--style-strict` |
 | L4 design tokens | computed CSS variables equal the design tokens | roadmap | — |
 | L5 a11y | axe-core (contrast/labels/roles) across viewports | roadmap | — |
-| L6 human/VLM | Elon audits the independent verification reports (redline) + optional VLM pre-triage (no hands-on re-verification) | — | hard |
+| L6 human/VLM | Elon audits the workers' reports (Linus + independent verification; redline) + optional VLM pre-triage (no hands-on re-verification) | — | hard |
 
 **Determinism rules (mandatory):**
 - Run in the pinned image `docker/ui-fidelity/Dockerfile` (bundled fonts + fixed browser) — **never on a developer laptop**.
