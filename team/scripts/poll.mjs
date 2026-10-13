@@ -10,6 +10,8 @@
  * - 返回 JSON { fire, message?, state? }；fire:false 零成本空转（不产生 run 记录）
  * - 只做"只读扫描 + 幂等原子领取"，动作留给 run 回合 payload
  * - 一轮可领取**多张**（上限 = 该 agent 并发额度 − 当前 running；且仅领**互不冲突**的卡）
+ * - 「当前 running」计数源 = **唯一事实源 canonical registry `claude-sessions.json`**，对**所有 owner**
+ *   同一口径（含 turing），与 lane 登记面（`spawn-lane` 写 canonical）同源——见 `runningCount`
  * - fire:true ⇔ 本轮至少成功领取一张（卡已转 in_progress、claimed_by=自己）——run 回合**只做移交**
  *   （`scripts/spawn-lane.sh` detached），**不等待 lane**；run payload 见 `poll-run.mjs`（T-20261013-041718）
  * - in_progress + 心跳新鲜（含 claimed_by=自己）→ 不动，fire:false
@@ -20,7 +22,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  TEAM_ROOT,
   TASKS_DIR,
   LOCKS_DIR,
   AGENTS,
@@ -37,9 +38,6 @@ import { pollRunMessage } from './poll-run.mjs';
 
 /** 并发额度（PROTOCOL §⑥ 第 2 条 / §⑥.3）：Linus/Jobs/Simons=8、Turing=3；其余 agent 未定义 */
 export const CONCURRENCY_QUOTA = { linus: 8, jobs: 8, simons: 8, turing: 3 };
-
-/** Turing 的 codex 子会话 registry（PROTOCOL §⑥：Turing 用 turing-runs.json，非 claude-sessions.json） */
-const TURING_RUNS_FILE = path.join(TEAM_ROOT, 'turing-runs.json');
 
 export function resolveAssignee() {
   const argv = process.argv.slice(2);
@@ -116,24 +114,24 @@ export function pollCandidates(assignee, { registry = null } = {}) {
   };
 }
 
-/** 读 turing-runs.json（Turing 的 codex 子会话 registry）；缺失/损坏/非数组 ⇒ [] */
-export function readTuringRuns() {
-  try {
-    const data = JSON.parse(fs.readFileSync(TURING_RUNS_FILE, 'utf8'));
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
-  }
-}
-
 const isAliveRunning = (e) => !!e && e.status === 'running' && isPidAlive(e.pid);
 
 /**
  * 当前该 agent 的活跃（running）子会话数（并发计数）。
- * 口径（PROTOCOL §⑥）：Turing 用 turing-runs.json；其余用 claude-sessions.json（registry 唯一事实源）。
+ *
+ * **计数源 = 唯一事实源 = canonical registry `claude-sessions.json`**（`registry.mjs` 的
+ * `REGISTRY_PATH`）——即 **lane 登记面本身**：单入口 `spawn-lane` 经 ACL `task.session-set`
+ * 只写 canonical（`guides/spawn-lane-sop.md` §9）。本函数对**所有 owner 同一口径**，且与
+ * `spawn-lane.mjs` 的 `runningCount`（`e.owner===<owner> && e.status==='running' && pid 存活`）
+ * 同源同判（两入口口径等价由 `tests/spawn-lane.test.mjs` 的 UNIT 例机器校验）。
+ *
+ * 历史（T-20261014-011235）：此处曾对 `turing` 特判去读 `turing-runs.json`，而 lane 登记自
+ * 2026-10-10 起已统一进 canonical ⇒ `runningCount('turing')` 恒为 0、并发上限 3 形同虚设
+ * （over-claim；Turing 观察 2026-10-13T16:54:37Z：`runningCount=0`/`claimBudget=3` 而 canonical 有 live lane）。
+ * 该特判已删除：`turing-runs.json` **不再是计数面**（SOP §9 已裁定 registry-only surface 不成立）。
+ * `registry` 显式传入时以其为准（纯函数口径，测试/守卫复用），不再被 owner 绕过。
  */
 export function runningCount(assignee, { registry = null } = {}) {
-  if (assignee === 'turing') return readTuringRuns().filter((e) => e.owner === 'turing' && isAliveRunning(e)).length;
   const reg = registry == null ? loadRegistry() : registry;
   return reg.filter((e) => e.owner === assignee && isAliveRunning(e)).length;
 }
