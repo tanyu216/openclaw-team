@@ -7,7 +7,9 @@
  *   1) 直派路径（claim.mjs）领取前查活跃子会话 registry ⇒ 有 ⇒ 不领（active_session）；
  *   2) 同卡跨回合锁：心跳陈旧但锁新鲜 ⇒ 不领（turn_locked）；锁陈旧 ⇒ 清除后恢复；
  *   3) 终态（done）释放跨回合锁 ⇒ 可再次恢复；
- *   4) 复核卡（review_of 非空）dep=被复核卡 ⇒ 豁免（可领），其余 dep 仍生效（T-20261013-000246）。
+ *   4) 复核卡（review_of 非空）dep=被复核卡 ⇒ 豁免（可领），其余 dep 仍生效（T-20261013-000246）；
+ *   5) 复核门上界：复核卡仅在被复核卡**存在且 in_review** 时可领，否则 review_not_ready 拒领
+ *      （T-20261013-233052；与 dep 是否显式列出被复核卡无关）。
  * 运行：node --test scripts/tests/claim-guard.test.mjs
  */
 import { test as nodeTest, after } from 'node:test';
@@ -179,11 +181,16 @@ test('7. 负例：复核卡 dep=被复核卡（in_review）⇒ 可领（豁免�
   assert.equal(readFm(reviewed).status, 'in_review', '被复核卡不应被领取副作用改写');
 });
 
-// 收紧（T-20261013-035746）：豁免 ≠ 无条件放行。被复核卡须**已交付**（in_review/done）才豁免；
-// 仍 in_progress/ready/blocked ⇒ 拒领（review_unmet），否则复核者可早于交付被 poll 领取、被迫空转。
-// 被复核卡不存在（readCard 抛错）⇒ 保持旧行为（不阻塞）+ warning review_of_not_found:<id>。
+// 收紧（T-20261013-233052，收编 T-20261013-035746 的更窄口径）：复核卡的可领性**只看被复核卡状态**——
+// 目标须存在且 `status=in_review`（已交付、待验证）；其余一律拒领 `review_not_ready`（附 review_of +
+// 目标实际 status）。本口径取代 035746 的「in_review/done 皆可」与「目标缺失不阻塞 + warning」两条旧行为：
+//   · 目标 ∈ {ready,todo,in_progress,blocked} ⇒ 拒（早领 = 空跑；实证 T-20261013-232004-2 于
+//     2026-10-13T15:25:08Z 被 poll 领取时被复核卡仍 in_progress ⇒ triage 置 blocked）；
+//   · 目标 done/canceled/failed ⇒ 拒（验收/终止已发生，复核已无标的，应由 Elon 直接收口而非领取空转）；
+//   · 目标不存在 ⇒ 拒（失去验证对象的复核卡只会空跑；旧口径不阻塞 + `review_of_not_found` warning）。
+// 注：与 dep 是否显式列出被复核卡**无关**（旧口径只在 dep 命中豁免分支时才校验目标状态）。
 
-test('7.1 收紧负例：被复核卡仍 in_progress ⇒ 拒领（review_unmet，附 review_of）', () => {
+test('7.1 收紧负例：被复核卡仍 in_progress ⇒ 拒领（review_not_ready，附 review_of）', () => {
   const reviewed = 'T-20260101-020016-reviewed';
   const review = 'T-20260101-020017-review';
   writeCard(reviewed, { id: reviewed, title: 'impl', assignee: 'jobs', status: 'in_progress', claimed_by: 'jobs' });
@@ -194,13 +201,13 @@ test('7.1 收紧负例：被复核卡仍 in_progress ⇒ 拒领（review_unmet�
 
   const r = claimCard(review, 'linus');
   assert.equal(r.ok, false, `被复核卡未交付应拒领，实际 ${JSON.stringify(r)}`);
-  assert.equal(r.reason, 'review_unmet');
+  assert.equal(r.reason, 'review_not_ready');
   assert.equal(r.review_of, reviewed, '应附 review_of');
   assert.equal(r.status, 'in_progress', '应附被复核卡实际状态');
   assert.equal(readFm(review).status, 'ready', '拒领不得改写复核卡状态');
 });
 
-test('7.2 收紧正例：被复核卡 done ⇒ 可领（豁免）', () => {
+test('7.2 收紧负例：被复核卡 done ⇒ 拒领（验收已发生，复核无标的）', () => {
   const reviewed = 'T-20260101-020018-reviewed';
   const review = 'T-20260101-020019-review';
   writeCard(reviewed, { id: reviewed, title: 'impl', assignee: 'jobs', status: 'done' });
@@ -210,8 +217,10 @@ test('7.2 收紧正例：被复核卡 done ⇒ 可领（豁免）', () => {
   });
 
   const r = claimCard(review, 'linus');
-  assert.equal(r.ok, true, `被复核卡 done 应可领，实际 ${JSON.stringify(r)}`);
-  assert.equal(readFm(review).status, 'in_progress');
+  assert.equal(r.ok, false, `被复核卡已 done 应拒领（复核已无标的），实际 ${JSON.stringify(r)}`);
+  assert.equal(r.reason, 'review_not_ready');
+  assert.equal(r.status, 'done', '应附被复核卡实际状态');
+  assert.equal(readFm(review).status, 'ready', '拒领不得改写复核卡状态');
 });
 
 test('7.3 收紧负例：被复核卡 ready（未交付）⇒ 拒领', () => {
@@ -225,11 +234,11 @@ test('7.3 收紧负例：被复核卡 ready（未交付）⇒ 拒领', () => {
 
   const r = claimCard(review, 'linus');
   assert.equal(r.ok, false, `被复核卡 ready 应拒领，实际 ${JSON.stringify(r)}`);
-  assert.equal(r.reason, 'review_unmet');
+  assert.equal(r.reason, 'review_not_ready');
   assert.equal(r.review_of, reviewed);
 });
 
-test('7.4 被复核卡不存在 ⇒ 保持现状（不阻塞）+ warning review_of_not_found', () => {
+test('7.4 被复核卡不存在 ⇒ 拒领（review_not_ready，status=null）', () => {
   const ghost = 'T-20260101-020022-ghost';
   const review = 'T-20260101-020023-review';
   writeCard(review, {
@@ -238,10 +247,11 @@ test('7.4 被复核卡不存在 ⇒ 保持现状（不阻塞）+ warning review_
   });
 
   const r = claimCard(review, 'linus');
-  assert.equal(r.ok, true, `被复核卡缺失不应阻塞（保持现状），实际 ${JSON.stringify(r)}`);
-  assert.ok(Array.isArray(r.warnings), '成功返回应带 warnings 数组');
-  assert.ok(r.warnings.includes(`review_of_not_found:${ghost}`), `应记录缺失 warning，实际 ${JSON.stringify(r.warnings)}`);
-  assert.equal(readFm(review).status, 'in_progress');
+  assert.equal(r.ok, false, `被复核卡缺失应拒领（失去验证对象），实际 ${JSON.stringify(r)}`);
+  assert.equal(r.reason, 'review_not_ready');
+  assert.equal(r.review_of, ghost);
+  assert.equal(r.status, null, '目标不可读 ⇒ status=null');
+  assert.equal(readFm(review).status, 'ready', '拒领不得改写复核卡状态');
 });
 
 test('8. 豁免仅限被复核卡：其余未完成 dep 仍 deps_unmet', () => {
@@ -286,6 +296,83 @@ test('10. 无 review_of 时不做任何豁免：dep 即被引用卡也不放行'
   const r = claimCard(card, 'linus');
   assert.equal(r.ok, false, `review_of 为空不应豁免，实际 ${JSON.stringify(r)}`);
   assert.equal(r.reason, 'deps_unmet');
+});
+
+// ---- 复核门上界（T-20261013-233052）：与 dep 是否列出被复核卡无关 ------------
+// 000246 的豁免只解除「dep=被复核卡」的 done 门，**未**对复核卡本身设上界 ⇒ 复核卡可在被复核卡
+// 未 in_review 时被 poll 领取（实证 T-20261013-232004-2，见上）。下列用例覆盖「复核卡不写
+// depends_on」这一最常见形态（建卡模板不鼓励复核卡带 dep），确认上界不依赖 dep 分支。
+
+test('11. 负例（本卡主症）：复核卡无 dep，被复核卡仍 in_progress ⇒ 拒领 review_not_ready', () => {
+  const reviewed = 'T-20260101-020030-reviewed';
+  const review = 'T-20260101-020031-review';
+  writeCard(reviewed, { id: reviewed, title: 'impl', assignee: 'jobs', status: 'in_progress', claimed_by: 'jobs' });
+  writeCard(review, { id: review, title: 'review', assignee: 'linus', status: 'ready', review_of: reviewed });
+
+  const r = claimCard(review, 'linus');
+  assert.equal(r.ok, false, `被复核卡未交付应拒领（旧口径会放行 ⇒ 空跑），实际 ${JSON.stringify(r)}`);
+  assert.equal(r.reason, 'review_not_ready');
+  assert.equal(r.review_of, reviewed);
+  assert.equal(r.status, 'in_progress');
+  assert.equal(readFm(review).status, 'ready', '拒领不得改写复核卡状态');
+});
+
+test('11.1 正例：复核卡无 dep，被复核卡 in_review ⇒ 可领（负例红→绿）', () => {
+  const reviewed = 'T-20260101-020032-reviewed';
+  const review = 'T-20260101-020033-review';
+  writeCard(reviewed, { id: reviewed, title: 'impl', assignee: 'jobs', status: 'in_review' });
+  writeCard(review, { id: review, title: 'review', assignee: 'linus', status: 'ready', review_of: reviewed });
+
+  const r = claimCard(review, 'linus');
+  assert.equal(r.ok, true, `被复核卡 in_review 应可领，实际 ${JSON.stringify(r)}`);
+  assert.equal(readFm(review).status, 'in_progress');
+  assert.equal(readFm(reviewed).status, 'in_review', '被复核卡不应被领取副作用改写');
+});
+
+test('11.2 负例表：目标 ready/blocked/canceled/failed ⇒ 均拒领 review_not_ready', () => {
+  const table = [
+    ['ready', 'T-20260101-020040-revd', 'T-20260101-020041-revw'],
+    ['blocked', 'T-20260101-020042-revd', 'T-20260101-020043-revw'],
+    ['canceled', 'T-20260101-020044-revd', 'T-20260101-020045-revw'],
+    ['failed', 'T-20260101-020046-revd', 'T-20260101-020047-revw'],
+  ];
+  for (const [st, reviewed, review] of table) {
+    writeCard(reviewed, { id: reviewed, title: 'impl', assignee: 'jobs', status: st });
+    writeCard(review, { id: review, title: 'review', assignee: 'linus', status: 'ready', review_of: reviewed });
+
+    const r = claimCard(review, 'linus');
+    assert.equal(r.ok, false, `目标 ${st} 应拒领，实际 ${JSON.stringify(r)}`);
+    assert.equal(r.reason, 'review_not_ready', `目标 ${st} 的 reason`);
+    assert.equal(r.status, st, `目标 ${st} 应回显实际状态`);
+  }
+});
+
+test('11.3 负例：被复核卡不存在且复核卡无 dep ⇒ 拒领（不因无 dep 分支而放行）', () => {
+  const ghost = 'T-20260101-020034-ghost';
+  const review = 'T-20260101-020035-review';
+  writeCard(review, { id: review, title: 'review', assignee: 'linus', status: 'ready', review_of: ghost });
+
+  const r = claimCard(review, 'linus');
+  assert.equal(r.ok, false, `目标缺失应拒领，实际 ${JSON.stringify(r)}`);
+  assert.equal(r.reason, 'review_not_ready');
+  assert.equal(r.status, null);
+});
+
+test('11.4 上界通过后其余 dep 照旧：目标 in_review + 另一 dep 未完成 ⇒ deps_unmet', () => {
+  const reviewed = 'T-20260101-020036-reviewed';
+  const other = 'T-20260101-020037-other';
+  const review = 'T-20260101-020038-review';
+  writeCard(reviewed, { id: reviewed, title: 'impl', assignee: 'jobs', status: 'in_review' });
+  writeCard(other, { id: other, title: 'other', assignee: 'jobs', status: 'ready' });
+  writeCard(review, {
+    id: review, title: 'review', assignee: 'linus', status: 'ready',
+    depends_on: [other], review_of: reviewed,
+  });
+
+  const r = claimCard(review, 'linus');
+  assert.equal(r.ok, false, `其余 dep 未完成仍应拦，实际 ${JSON.stringify(r)}`);
+  assert.equal(r.reason, 'deps_unmet', '上界通过后走既有 deps 门（不被复核门遮蔽）');
+  assert.deepEqual(r.deps, [other]);
 });
 
 test('6. 终态（done）释放跨回合锁 ⇒ 后续可恢复', () => {
