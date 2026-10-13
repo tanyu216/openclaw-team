@@ -38,7 +38,7 @@ Every UI card must complete all three layers; missing any one means unfinished. 
 
 ### Stage A · Before card splitting (Elon)
 - **Check in-flight segments' dirty-surface files**: UI cards touching the same file must be serial, avoiding "concurrent writes to the same file by two cards" (the `§⑨.1` endnote lesson). The card must explicitly declare the **single writer per file and the serial order**.
-- **Attach machine-check conditions at card creation**: a UI card's Acceptance must physically contain the three items "block list (including consistent items) + machine-check assertions (selectors) + screenshot comparison" (`§⑨.1` reinforcement clause). Missing any one ⇒ the card is invalid.
+- **Attach machine-check conditions at card creation**: a UI card's Acceptance must physically contain the three items "block list (including consistent items) + machine-check assertions (selectors) + screenshot comparison" (`§⑨.1` reinforcement clause). Missing any one ⇒ the card is invalid. **(Flow A; flows B/C take their applicable subset of these three — see `PROTOCOL §⑩.5`.)**
 - Dispatch the "before · structural contract" to **Jobs**.
 
 ### Stage B · Before-stage contract (Jobs)
@@ -59,9 +59,9 @@ Every UI card must complete all three layers; missing any one means unfinished. 
 3. Only when **all assertions pass** may it be delivered as todo; `pending` (unimplemented) blocks count as failures under `--strict` — the point of the full manifest is that **no block can silently disappear**.
 4. Results land in files first (`--json`); the Report attaches command + exit code + summary.
 
-### Stage E · Acceptance (Linus delivery + Turing machine check + Jobs visual + Elon report audit)
-1. **Turing** (independent) re-runs the assertion script + checks the acceptance hard gate (section 4); **must not reuse Linus's conclusion**.
-2. **Jobs** does UX/UI **visual certification**: browser/tool same viewport (1512/1240/980/760/430) × same theme × same language **screenshot comparison** (prototype vs implementation), block-by-block; check whether any **visible annotations** like "placeholder/pending backend/TODO" appear (if so, reject). The "Issue list" is written to `workspace/<task-id>/review/`.
+### Stage E · Acceptance — flows A/B (Linus delivery + Turing machine check + Jobs visual + Elon report audit); flow C see §11
+1. **Turing** (independent) re-runs the assertion script + checks the acceptance hard gate (section 4); **must not reuse Linus's conclusion**. **(Flows A/B; for flow C this per-card lane is replaced by the rolling sample — see §11.)**
+2. **Jobs** does UX/UI **visual certification**: browser/tool same viewport (1512/1240/980/760/430) × same theme × same language **screenshot comparison** (prototype vs implementation), block-by-block; check whether any **visible annotations** like "placeholder/pending backend/TODO" appear (if so, reject). The "Issue list" is written to `workspace/<task-id>/review/`. **(Flows A/B; flow C gets no per-card certification — the rolling sample covers it, or one asynchronous visual pass when the change is visually non-trivial — see §11.)**
 3. **Elon audits the workers' reports at final review** (`§⑨.1` reinforcement clause): confirm **Linus's implementation Report** and the independent verification (Turing's assertion re-run + Jobs's visual certification) are **present and cover every hard-gate item**, check for omitted key points and card conformance, confirm the documentation-impact determination (`§⑫`), then set the terminal state. Elon does **not** personally re-run the comparison.
 
 ### Stage F · Closing
@@ -80,7 +80,7 @@ Aligned with `PROTOCOL §⑨.1` "acceptance hard gate", landed as operable items
 4. **Screenshot comparison**: same viewport × same theme × same language, **prototype vs implementation** (five widths: 1512/1240/980/760/430).
 5. **console / page errors = `[]`**; **no horizontal overflow** at all five widths.
 6. **Single writer per file**: the card explicitly declares the serial order (to prevent concurrent writes to the same file by two cards).
-7. (Reinforcement) **Elon audits the workers' reports at final review** (confirms Linus's delivery Report + Turing's machine check + Jobs's visual certification are present in the Reports); the **UI card's Acceptance physically contains** "block list + machine-check assertions + screenshot comparison"; missing any one ⇒ must not be done.
+7. (Reinforcement) **Elon audits the workers' reports at final review** (confirms Linus's delivery Report + Turing's machine check + Jobs's visual certification are present in the Reports); the **UI card's Acceptance physically contains** "block list + machine-check assertions + screenshot comparison" **(flow A)**; missing any one ⇒ must not be done.
 8. **Requirement conformance (Turing, independent)**: a **requirement→implementation traceability matrix** — every requirement/prototype block mapped to evidence (selector assertion / screenshot) — filed by Turing against Jobs' baseline; any conformance gap ⇒ not done (`PROTOCOL §⑥.1` clause 13).
 
 > **Applicability by flow (`PROTOCOL §⑩.5`, added 2026-10-13)**: items 1 (full block list), 4 (screenshot comparison) and 8 (conformance matrix) are the **flow-A** gate. Items **2, 3 and 5** (machine-check conditions in Acceptance / the assertions pass / clean console + no overflow) apply to **every** flow — at **subset weight** (the touched blocks) for B and C. Item 6 (single writer per file) is unconditional. For **flow C** there is no per-card Jobs certification and no per-card Turing lane — that "After" line is served by the **rolling sample** (§11). Item 7 binds Elon to **the report set its flow produces** (`PROTOCOL §⑩.5` report table), not to a fixed roster.

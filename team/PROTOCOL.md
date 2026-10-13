@@ -501,7 +501,7 @@ A flow's chain **does not remove** the review participants the card's nature dem
 | **B · defect / behaviour fix** | fixing behaviour; restoring consistency with an **already-frozen** design; **produces no new design decision** | **Linus fix → Turing verification (reproduce → pass) + regression → Elon final acceptance audit** | reproduction test + (when UI is touched) the assertion subset |
 | **C · UI micro-change / detail** | parameter-level change **inside the frozen design**: spacing, token **value**, alignment, wording of already-decided copy, visual polish; **no new block, no new interaction, no product logic** | **Linus → Elon final acceptance audit** (2 steps) | **machine assertion subset must pass** + sampled independent re-check |
 
-**Hard boundary (any one ⇒ always A, never B/C)**: **adds a visible block / changes interaction behaviour / changes the semantics of product copy / changes a design-token definition.** When in doubt the card goes A — a longer chain beats a missed design decision.
+**Hard boundary (any one ⇒ always A, never B/C)**: **new UI structure / adds a visible block / changes interaction behaviour / changes the semantics of product copy / product-logic change / changes a design-token definition** — the enumeration is the closed form of the **flow-A criteria row** of the routing table above, so a change that reads as A there can never be routed as B/C here. When in doubt the card goes A — a longer chain beats a missed design decision.
 
 **Quality spine (5 safeguards — the chain may shrink, the spine may not)**:
 1. **Frozen design contract** (Jobs, **once per surface**) — block list (name / id / `data-*` / selector) + assertions + design tokens, landing in `workspace/<task-id>/`; **a UI surface with no machine-checkable contract does not start**; B/C **reuse** the frozen contract and produce no new one.
@@ -523,6 +523,8 @@ A flow's chain **does not remove** the review participants the card's nature dem
 **Card template scales with the flow**: **A** = 3+ Acceptance items (block list + machine-check assertions + screenshot comparison); **B/C** = 2 items (the applicable gate + the evidence pointer). What shrinks is the **Acceptance surface**, never the evidence requirement.
 
 **Rolling sample (the statistical safety net)**: Turing machine-samples **20% per week** of the B/C cards that were accepted, and Jobs visual spot-checks **the same batch**; a drift found by the sample ⇒ defect ticket, and the finding tightens **the class**, not just the spot (never fix only the single occurrence). The sample is executed by Turing/Jobs; Elon **audits their reports** (he does not run it).
+
+**Sampling rule (executable — 2026-10-14, T-20261014-003241)**: the weekly unit is the **B/C cards accepted during that week**, counted **by card**; the sample size is **20% of that count, rounded to the nearest integer and never below 1** (`max(1, round(0.2 × N))` — so a week with a single accepted B/C card still samples that one). **Turing** draws the cards and re-runs the **machine assertions**; **Jobs** visual-spot-checks **the same batch**; both reports go to Elon as **one batch**, which is the report set he audits for the sampled cards (never card by card, and never a substitute for the per-card delivery evidence).
 
 ### ⑩.6 Jobs Prerequisite Task (design contract / PRD) — a hard dependency of the dev card (2026-10-13, T-20261013-234110)
 
