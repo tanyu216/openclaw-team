@@ -11,10 +11,16 @@
  * 语义（契约）：
  *   入参：<repo> <lane> [--branch <b>] [--path <p>] [--base <ref>] [--dry-run] [--remove] [--help]
  *   ① `--dry-run`：只算 path/branch/action，**不落盘、不登记、不起进程、不改仓**；
- *   ② 幂等创建/复用：worktree 已在目标 path+A分支 ⇒ reuse（不重建）；path 被非 worktree 占用 ⇒ 拒绝（不覆盖）；
+ *   ② 幂等创建/复用：worktree 已在目标 path+A分支**且真在那里** ⇒ reuse（不重建）；path 被非 worktree 占用 ⇒ 拒绝（不覆盖）；
  *      lane 分支已检出在别处 ⇒ 拒绝（不劫持）；lane 分支存在且无检出 ⇒ 附着复用（`--remove` 保留分支后的可重入）；
+ *      **「登记在册」≠「可用」**（T-20261014-053826-2）：注册仍在、工作目录已删（或 `.git` 链断裂）⇒ 拒绝
+ *      `worktree_stale_registration(<why>)`，**绝不静默 `reused`** —— 那句 `reused` 会让调用方把 lane 的 cwd
+ *      指向一个不存在的目录（`spawn-lane` 于是把会话起进虚空，而不是 fail-closed）。
  *   ③ `--remove`：**仅当该 worktree clean（无未提交）且分支匹配**才 `git worktree remove`；**绝不 `--force`**；
- *      **不删除分支**（分支可能承载已提交产物，如 rename/meerkat-taskpanel @ c6ead89）。
+ *      **不删除分支**（分支可能承载已提交产物，如 rename/meerkat-taskpanel @ c6ead89）；
+ *      残留注册（目录已消失）照摘 —— `git worktree remove` 对「目录已不在」的注册本就不需要 `--force`，
+ *      这是 ② 拒绝态的规范恢复路径（`--remove` 遗忘注册、保留分支 ⇒ 重跑即附着重建）；但目录**还在**
+ *      （哪怕 `.git` 链断）一律走脏检查守卫：绝不因「登记坏了」删掉一棵可能带未提交产物的树。
  *   命名：默认 path = `<主仓目录>-wt-<lane>`；默认 branch = `lane/<lane>`（命名空间化）。
  *   定基（T-20261014-112936）：`--base <ref>` 缺省 `HEAD` —— 这是**本入口**的默认。`spawn-lane` 的
  *   自动隔离路径在「续接上一 seg」时不再用 HEAD，改传**上一 seg 分支 tip**（`lane-isolation.mjs`
@@ -61,7 +67,7 @@ function mainRootOf(repo) {
   return path.dirname(common);
 }
 
-/** 解析 `git worktree list --porcelain` → Map<absPath, {path,head,branch,detached,bare}> */
+/** 解析 `git worktree list --porcelain` → Map<absPath, {path,head,branch,detached,bare,prunable}> */
 function worktreeList(repo) {
   const map = new Map();
   let cur = null;
@@ -72,8 +78,27 @@ function worktreeList(repo) {
     else if (line.startsWith('branch ')) map.get(cur).branch = line.slice(7).trim();
     else if (line.trim() === 'detached') map.get(cur).detached = true;
     else if (line.trim() === 'bare') map.get(cur).bare = true;
+    // `prunable[ <原因>]` = git 自己判定该注册**已不可用**（gitdir 链断/目标不在）；保留原因串供点名
+    else if (line.trim() === 'prunable' || line.startsWith('prunable ')) {
+      map.get(cur).prunable = line.slice(8).trim() || true;
+    }
   }
   return map;
+}
+
+/**
+ * 「已登记」≠「可用」——注册仍在、但那里没有一棵可用工作树时返回**病因**（可用 ⇒ `null`）。
+ * 三判（各覆盖一种真实形状，任一命中即不可复用）：
+ *   ① 目录不在：`rm -rf` 掉工作目录 / 半完成的建树被杀（T-20261014-034118-2 的实证形状）；
+ *   ② `.git` 链不在了（linked worktree 的 `.git` 是**文件**）：只剩一棵裸目录，`git -C` 在那里不可用；
+ *   ③ git 自己标 `prunable`：兜住 ①② 之外的链断（如 `.git` 文件在、指向的 `<主仓>/.git/worktrees/<n>` 已不在）。
+ * 为什么必须问这一句：`git worktree list` 对**残留注册照列不误**，只看注册表就会把「目录已删」读成 `reused`。
+ */
+function unusableWhy(wtPath, entry) {
+  if (!fs.existsSync(wtPath)) return 'dir_missing';
+  if (!fs.existsSync(path.join(wtPath, '.git'))) return 'gitlink_missing';
+  if (entry.prunable) return 'registration_prunable';
+  return null;
 }
 
 /** `refs/heads/<branch>` 的 tip（分支不存在 ⇒ null）。导出供 `lane-isolation.mjs` 做前驱 seg 定基探测。 */
@@ -148,6 +173,25 @@ export function laneWorktree(opts = {}) {
     if (entry.branch && entry.branch !== `refs/heads/${branch}`) {
       return reject(`worktree_branch_mismatch(${entry.branch} != refs/heads/${branch})`);
     }
+    if (!fs.existsSync(wtPath)) {
+      // 残留注册（目录已消失）照摘：`git -C <不存在的目录> status` 必然失败，此处也没有任何工作树可脏，
+      // 而 `git worktree remove` 对「目录已不在」的注册本就不需要 `--force`（分支照旧保留）。
+      // **仅**「目录确实不在」走这条捷径 —— 目录还在（哪怕 `.git` 链断）一律落到下面的脏检查守卫，
+      // 绝不因为「登记坏了」就删掉一棵可能带未提交产物的树。
+      const args = ['worktree', 'remove', wtPath];
+      const cmd = ['git', '-C', mainRoot, ...args];
+      if (dryRun) return env({ created: false, action: 'would_remove', stale: true, cmd });
+      const r = git(mainRoot, args);
+      if (r.code !== 0) return reject(`worktree_remove_failed:${r.stderr.trim()}`, { cmd });
+      return env({
+        created: false,
+        action: 'removed',
+        stale: true,
+        cmd,
+        branch_kept: bHead !== null ? branch : null,
+        note: 'stale_registration_removed(worktree_dir_already_gone)',
+      });
+    }
     const st = git(wtPath, ['status', '--porcelain']);
     if (st.code !== 0) return reject(`worktree_unreadable:${wtPath}`);
     if (st.stdout.trim()) {
@@ -167,6 +211,19 @@ export function laneWorktree(opts = {}) {
     if (entry.detached) return reject(`worktree_detached:${wtPath}`);
     if (entry.branch !== `refs/heads/${branch}`) {
       return reject(`worktree_path_occupied(branch=${entry.branch || '?'})`, { path: wtPath });
+    }
+    // 复用前**校验那棵树真在那里**（登记表只证明「登记过」，不证明「可用」）：残留注册 ⇒ 点名拒绝。
+    // 决不落到 `reused` —— 调用方（`spawn-lane`）拿 `reused` 当「路径可用」，会把 lane 的 cwd 指向一个
+    // 不存在的目录；而拒绝是 fail-closed（零副作用），恢复路径是同一入口的 `--remove` 再重跑（见头 ③）。
+    const why = unusableWhy(wtPath, entry);
+    if (why) {
+      return reject(`worktree_stale_registration(${why}):${wtPath}`, {
+        stale: true,
+        stale_reason: why,
+        dir_exists: fs.existsSync(wtPath),
+        prunable: entry.prunable ?? null,
+        note: 'stale_registration:--remove_then_recreate', // 恢复：本入口 --remove 遗忘注册（分支保留）后重跑
+      });
     }
     return env({ created: false, action: dryRun ? 'would_reuse' : 'reused', head: entry.head, existed: true });
   }
