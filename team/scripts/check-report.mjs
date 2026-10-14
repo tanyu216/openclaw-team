@@ -187,12 +187,12 @@ export function contentHints(body) {
   }
   const a5 = /(^|\n)[ \t]*(?:[-*+][ \t]+)?(?:\*\*)?A5(?![0-9])[\s\S]*?(?=\n[ \t]*(?:[-*+][ \t]+)?(?:\*\*)?A[0-9]|\n#{1,6}\s|$)/.exec(body);
   if (a5) {
+    // 判据取**宽**（hint 是非阻断信号，宁可漏报）：须同时出现「退出码字样」与「数字」。
+    // 不要求两者相邻 —— A5 常写成表格（列头 `exit`、单元格 `0`），相邻判据会对合规表格误报。
     const seg = a5[0];
-    const exitSeen = /\bexit\b[^0-9\n]{0,16}\d/i.test(seg)
-      || /退出码[^0-9\n]{0,16}\d/.test(seg)
-      || /返回码[^0-9\n]{0,16}\d/.test(seg)
-      || /\brc\b[^0-9\n]{0,16}\d/i.test(seg);
-    if (!exitSeen) hints.push({ slot: 'A5', hint: '未含**退出码**——实测 Jobs 仅 17% 命中（gate 只提示不阻断，审计仍按 §6）' });
+    const hasWord = /\bexit\b|退出码|返回码|\brc\b/i.test(seg);
+    const hasNumber = /\d/.test(seg);
+    if (!(hasWord && hasNumber)) hints.push({ slot: 'A5', hint: '未含**退出码**（命令 + 退出码）——实测 Jobs 仅 17% 命中（gate 只提示不阻断，审计仍按 §6）' });
   }
   return hints;
 }
