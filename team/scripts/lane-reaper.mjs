@@ -92,7 +92,9 @@ export function parseReaperArgs(argv = []) {
     dryRun,
     card: pos[0] || '',
     seg: pos[1] || 'seg1',
-    pid: kv.pid == null ? null : Number(kv.pid),
+    // pid 必须是正整数才认（`pid=`/`pid=abc`/`pid=0` ⇒ null：看守**没有**可判活的进程 ⇒ 拒绝跑，
+    // 绝不把「pid 缺省」读成「pid 已死」而立即收口一条其实在跑的 lane）
+    pid: Number.isInteger(Number(kv.pid)) && Number(kv.pid) > 0 ? Number(kv.pid) : null,
     owner: kv.owner || '',
     intervalMs: num(kv.interval, REAPER_INTERVAL_MS),
     graceMs: num(kv.grace, REAPER_GRACE_MS),
@@ -153,6 +155,11 @@ export async function reapOnce({ card, seg, pid = null, status = '', source = 'l
  */
 export async function watchAndReap({ card, seg, pid, intervalMs = REAPER_INTERVAL_MS, graceMs = REAPER_GRACE_MS, maxWaitMs = 0, status = '', once = false, dryRun = false, source = 'lane-reaper' }) {
   const t0 = Date.now();
+  // 循环看守必须有可判活的 pid：缺 pid（或 `pid=` 空值）⇒ 显式报错，绝不空转等待、也绝不立即收口
+  // （后者会把「pid 未知」误读成「pid 已死」）——`--once` 只判一次，允许无 pid。
+  if ((pid == null || !Number.isInteger(Number(pid)) || Number(pid) <= 0) && !once) {
+    return { ok: false, action: 'error', reason: 'pid_required(循环看守需 pid=<正整数>；只需判一次用 --once)', seg };
+  }
   for (;;) {
     const row = rowStateOf(card, seg);
     if (!row) return { ok: true, action: 'noop', reason: 'seg_row_missing', seg, card };

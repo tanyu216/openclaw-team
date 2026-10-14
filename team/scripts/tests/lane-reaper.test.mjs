@@ -274,6 +274,21 @@ test('不越权：行已被另一条**活** pid 接管 ⇒ 看守不动它', { s
   killAndReap(livePid, 'SIGKILL');
 });
 
+test('判据：pid 未知不得读成 pid 已死 —— 循环看守缺 pid 显式报错（零写）', { skip: SKIP }, async () => {
+  assert.equal(parseReaperArgs(['x', 'seg1', 'pid=']).pid, null, '空 pid 值 ⇒ null');
+  assert.equal(parseReaperArgs(['x', 'seg1', 'pid=0']).pid, null, '非正 pid ⇒ null');
+  assert.equal(parseReaperArgs(['x', 'seg1', 'pid=abc']).pid, null);
+  assert.equal(parseReaperArgs(['x', 'seg1', '--pid', '4242']).pid, 4242);
+
+  const id = 'T-20260101-060014-nopid';
+  const pid = startLane(id);
+  const r = await watchAndReap({ card: id, seg: 'seg1', intervalMs: 10 }); // 无 pid
+  assert.equal(r.ok, false, JSON.stringify(r));
+  assert.match(String(r.reason), /pid_required/);
+  assert.equal(rowOf(id).status, 'running', '缺 pid 时不得收口（零写）');
+  killAndReap(pid, 'SIGKILL');
+});
+
 test('判据：僵尸态（ps stat=Z）判「已终结」——单看 kill(pid,0) 会把僵尸误读成「还在跑」', { skip: SKIP }, () => {
   // 纯判据（`ps -o stat=` 首列）——真僵尸只能由「短命父 + detached 子」造出，进程内不可造，
   // 故此处锁死分类函数，另加两条真实 ps 读数（活进程 / 死 pid）证明链路本身通。
