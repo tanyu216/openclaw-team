@@ -43,7 +43,10 @@
  *     ② **运行时登记** `runtimeBaselinePath(tasksDir)` = `<被巡检的 tasks 目录>/.report-baseline.json`
  *        （`RUNTIME_BASELINE_NAME`）：`install.sh` 跳过 `tasks/`、防漂移巡检亦排除 `tasks/` ⇒
  *        不属任何部署树 ⇒ **升级不清回登记**；且随 `tasksDir` 派生 ⇒ 单测隔离 root 自动读到空登记。
- *   生效登记 = ① ∪ ②（`loadExemptions`）。登记项形状 `{ id, gaps: [...], reason }`。
+ *   生效登记 = ① ∪ ②（`loadExemptions`）。登记项形状 `{ id, gaps: [...], reason }`——`reason` 是
+ *   **必填**且去空白后 ≥8 字符（D5，见 `validExemption`）：`gaps` 只能证明「缺口集合没变」，
+ *   说不清「为何这个缺口良性」，而豁免的合法性全在那句人工判断上 ⇒ 写不下来就不放行（回到判红
+ *   路径），并在结果 `invalidExemptions` 里点名，供人工补写登记。
  *   **判据（防「登记一次、永久放行」）**：`id` 命中 **且** `gaps` 排序后与该卡**当前**缺口集合
  *   **完全一致** ⇒ 移入 `exempt`、不判红。集合一旦变化（补齐若干槽位、或又有新缺口）即**豁免失效**，
  *   回到判红/降级路径——豁免因此不可能掩盖**新增**损伤。
@@ -89,6 +92,23 @@
  *   基于「卡头 + 自报」，故**只出提示、不置退出码**；且**只对 `in_review` 且已过生效截止的卡**
  *   生效（历史卡不制造噪声）。
  *
+ * ── (vii) v1.1 判定精度与词汇收口（D1–D5，T-20261015-025543）───────────────────
+ *   来源 T-20261015-010749-3 T6 缺陷票；逐条：
+ *   · **D1 词汇面**：A4 状态词表由 3 值扩为**基座同款 4 值** `met/partial/not_met/not_applicable`
+ *     （`ACCEPTANCE_STATUSES`）。裁定取「缺失」而非「3 值子集 by design」——`not_applicable`
+ *     （本卡不适用）是标准必须能表达的一档，否则作者只能违心写 `met`/`not_met`。并明确
+ *     `not_applicable` **不**触发 A4→A6 耦合（`UNMET_STATUSES` 只含 `partial`/`not_met`）。
+ *   · **D2 提示精度**：Δ1 耦合由**词级**改**行级**（`couplingHint` / `a4UnmetRows` / `a6ClaimsNone`
+ *     / `a6AccountsFor`）。旧口径双错：A6 里 `none critical` 一类**限定语**被当「无残留」⇒ 误报
+ *     （本腿 Report 实测）；中文 `无` 类表述不在词表 ⇒ 误漏。新口径 = 「A6 声明无残留」**且**
+ *     「该未达成行未在 A6 交代」才提示。
+ *   · **D3 sha 规则**：A2 提示由松散 `\b[0-9a-f]{7,40}\b` 收紧为「7–40 位**小写** hex **或**显式
+ *     声明无提交」；删掉「槽位里出现 `commit` 字样即放行」的逃生口；**大写 40 位 sha-1 真值不被拒**。
+ *   · **D4 边界语义**：项数/字节上限与 `truncated` 属**基座 provider 的载荷边界**，本门禁**不校验**
+ *     （理由见 guide §6：上游写入时已界定，门禁是只读的槽位存在性检查，重复设限只会给合法长报告
+ *     制造假红）。
+ *   · **D5 豁免理由**：登记项 `reason` **必填**且 ≥8 字符（`validExemption`）；不合格 ⇒ 不放行。
+ *
  * 注：与 `check-card.mjs`（frontmatter schema）、`check-handoff.mjs`（背景包四锚）**正交**——
  * 前者管卡头字段，后者管 workspace/<id>/handoff.md，本脚本只读**卡面 `## Report` 段**。
  */
@@ -118,10 +138,47 @@ export const OPTIONAL_SLOTS = [{ id: 'A0', label: 'Report origin' }];
 /** 全部槽位 id（必需 + 可选）：仅用于**切片边界**——每个槽位片段到下一个槽位标签为止。 */
 const SLOT_IDS = [...OPTIONAL_SLOTS, ...REQUIRED_SLOTS].map((s) => s.id);
 
+/** A4 状态词表（D1：与基座 provider `ACCEPTANCE_STATUSES = met/partial/not_met/not_applicable`
+ *  **四值对齐**，见 guide §1 A4）。子集口径被裁定为缺失而非「by design」：`not_applicable`
+ *  （本卡不适用该项）是标准必须能表达的一档，否则作者只能违心写 `met` 或 `not_met`。 */
+export const ACCEPTANCE_STATUSES = ['met', 'partial', 'not_met', 'not_applicable'];
+/** 未达成集合：只有这两类需要在 A6 里归口。`not_applicable` **不是**未达成 ⇒ **不**参与
+ *  A4→A6 耦合（D1(a)，对齐基座 leftovers 规则「未达成项才必须出现在 leftovers」）。 */
+export const UNMET_STATUSES = ['partial', 'not_met'];
+
 /** 槽位标签的匹配式：行首（可带列表符号 `-`/`*`/`+`、可带 `**` 粗体）后接标签，标签后须为非数字边界
  *  （`A10` 不得命中 `A1`）。标签即机读手柄，其余正文自由（见 guide §0 锚点语法）。 */
 export function slotRegex(id) {
   return new RegExp(`(^|\\n)[ \\t]*(?:[-*+][ \\t]+)?(?:\\*\\*)?${id}(?![0-9])`);
+}
+
+/** D3 判据：sha 规则（guide §1 A2）——字段值里出现 `7–40 位小写 hex`，或 40 位**全大写** sha-1
+ *  真值（某些工具大写输出，且它是真 sha ⇒ 不得被拒）；或**显式声明无提交**。
+ *  `commit`/`提交` 字段**在**时只看字段值，不要求「值恰为一个 sha」：线上实测（2026-10-15 全库扫描）
+ *  真实的 A2 都带注记，如 `` `270cce9` (7 files, +2956/−133) ``、`` `cf3a45c` (docs) + `f5b3e76` (cli) ``、
+ *  以及 `无（写面 tasks/*.md 不在任何 git 仓）` 式的显式无提交 —— 按整值全等判定会把这 12 张全判成
+ *  误报。收紧的着力点是「**裸 `commit:`（无值）/ 6 位缩写不算数**」，不是「值必须纯 sha」。
+ *  字段**不在**时才退回整段扫描（兼容「不标注直接写 hash」的写法）——扫描前先抹掉卡路径
+ *  `T-YYYYMMDD-HHMMSS`：它的 8 位日期是合法 hex，否则任何带卡路径的 A2 都会「白捡」一个 hash
+ *  （旧口径实测如此：只写卡路径的 A2 从不提示 commit 缺失）。 */
+const SHA_LOWER = /\b[0-9a-f]{7,40}\b/;
+const SHA_UPPER40 = /\b[0-9A-F]{40}\b/;
+const NO_COMMIT_VALUE = /^(?:none\b|n\/?a\b|—|-|无|no commit\b)/i;
+const NO_COMMIT_PHRASE = /\bno commit\b|无提交|未提交/i;
+function commitField(seg) {
+  const m = /(?:^|[\s·|;；])(?:commit|提交)\s*[:：]\s*([^\n·|;；]*)/i.exec(seg);
+  return m ? m[1].trim() : null;                       // null = 字段不在；'' = 字段在但空
+}
+/** A2 是否交代了提交坐标（`{ok, reason}`；reason 只用于报文）。 */
+export function commitCoordinate(seg) {
+  const field = commitField(seg);
+  if (field !== null) {
+    if (SHA_LOWER.test(field) || SHA_UPPER40.test(field) || NO_COMMIT_VALUE.test(field)) return { ok: true };
+    return { ok: false, reason: field ? `commit 字段值不是合法 sha：\`${field}\`` : 'commit 字段为空' };
+  }
+  const scrubbed = String(seg).replace(/T-\d{8}-\d{6}[^\s·|,，;；]*/g, ' ');
+  if (SHA_LOWER.test(scrubbed) || SHA_UPPER40.test(scrubbed) || NO_COMMIT_PHRASE.test(scrubbed)) return { ok: true };
+  return { ok: false, reason: 'A2 里既无小写 hex sha（7–40 位）也无显式无提交声明' };
 }
 
 /** 槽位片段（本槽位标签之后 → 下一个槽位标签之前）：`{found, text}`。
@@ -272,7 +329,10 @@ export function contentHints(body) {
   if (a2) {
     const seg = a2[0];
     if (!/T-\d{8}-\d{6}/.test(seg)) hints.push({ slot: 'A2', hint: '未含卡路径（`tasks/T-YYYYMMDD-HHMMSS….md`）——实测全岗最缺槽位（16–19%）' });
-    if (!/\b[0-9a-f]{7,40}\b/.test(seg) && !/commit/i.test(seg)) hints.push({ slot: 'A2', hint: '未含 commit hash' });
+    const cc = commitCoordinate(seg);                      // D3
+    if (!cc.ok) {
+      hints.push({ slot: 'A2', hint: `未提交坐标：${cc.reason} —— 规则＝**7–40 位小写 hex**（大写 40 位 sha-1 真值亦可），或 \`commit: none\` 式**显式声明无提交**` });
+    }
   }
   const a5 = /(^|\n)[ \t]*(?:[-*+][ \t]+)?(?:\*\*)?A5(?![0-9])[\s\S]*?(?=\n[ \t]*(?:[-*+][ \t]+)?(?:\*\*)?A[0-9]|\n#{1,6}\s|$)/.exec(body);
   if (a5) {
@@ -286,25 +346,110 @@ export function contentHints(body) {
   return hints;
 }
 
-/**
- * 交付面提示（Δ1/Δ4，**永远非阻断**，且**只对生效截止之后的卡**计算）：由 `scanReports` 在
- * 「硬触发 + 已过截止 + 槽位齐备」时调用，避免给历史卡制造噪声。
- *   · Δ1：A4 里出现 `partial`/`not_met`（固定状态词表）却把 A6 写成「无残留」⇒ guide 的耦合规则
- *        被违反（未达成项必须同时出现在 A6 leftovers）。
+/** 交付面提示（Δ1/Δ4，**永远非阻断**，且**只对生效截止之后的卡**计算）：由 `scanReports` 在
+ *  「硬触发 + 已过截止 + 槽位齐备」时调用，避免给历史卡制造噪声。
+ *   · Δ1：A4 有未达成项（`partial`/`not_met`）却把 A6 写成「无残留」**且未交代该项** ⇒ guide 的
+ *        耦合规则被违反（未达成项必须同时出现在 A6 leftovers）。判据为**行级**，见 `couplingHint`
+ *        与文件头 (vii)：旧口径是词级匹配，会误报（A6 里 `none critical` 被当成「无残留」）也会
+ *        误漏（中文 `无` 类表述不在词表里）。
  *   · Δ4：本卡曾被退回后重新交付，而 Report 未声明本轮交付时间/轮次 ⇒ 疑似复用旧轮报告。
  */
 export function deliveryHints(body, fm = {}) {
   if (!body || !body.trim()) return [];
   const hints = [];
-  // Δ1：A4 未达成项 ⇔ A6 必须交代
-  const a4 = slotSpan(body, 'A4').text;
-  const a6 = slotSpan(body, 'A6').text;
-  if (/\b(partial|not_met)\b|未达成|部分达成/.test(a4) && /\bnone\b|\bn\/a\b|无残留|无未决|无待办|无风险|无遗留/.test(a6)) {
-    hints.push({ slot: 'A6', hint: 'A4 有未达成项（`partial`/`not_met`）但 A6 写「无残留」——guide §1 A4 耦合规则：未达成项**必须**同时出现在 A6 leftovers 并带归口' });
-  }
-  const rh = roundHint(fm, body);
+  const ch = couplingHint(slotSpan(body, 'A4').text, slotSpan(body, 'A6').text); // Δ1
+  if (ch) hints.push(ch);
+  const rh = roundHint(fm, body);                                               // Δ4
   if (rh) hints.push(rh);
   return hints;
+}
+
+// ---------- Δ1：A4 → A6 耦合（**行级**判定，非阻断提示；D2 重写） ----------
+
+/** 单元格归一化：剥**首尾**的粗体/反引号/下划线标记与空白、把空白与连字符折叠为 `_`、小写。
+ *  目的是把 `partial` / `` `partial` `` / `**not_met**` / `Not Met` / `not-met` 都归一到词表值上。
+ *  **不能**把 `_` 当强调符全局剥掉：`not_met` 的状态词本身带下划线，全局剥会把它读成 `notmet`
+ *  ⇒ 未达成项被当成表头、静默漏判（本仓单测已钉住该形态）。故只剥首尾。 */
+function normCell(s) {
+  return String(s).replace(/^[`*_\s]+|[`*_\s]+$/g, '').replace(/[\s-]+/g, '_').toLowerCase();
+}
+
+/**
+ * 抽 A4 里的**未达成行**（`{ key, item }`）。只认 markdown 表格行，且状态列必须**归一化后恰为**
+ * 状态词——状态词钉在独立单元格里，故 A4 的词汇图例行（`met | partial | not_met | not_applicable`）
+ * 或项名正文里偶然出现的 `partial` **不会**被当成一行（旧口径正是栽在这里的）。
+ *   · `key` = 序号列（`①`/`2`/`#3`；无序号列 ⇒ `''`）——用于在 A6 里回检「这一项交代了吗」；
+ *   · `item` = 状态列之前的项名正文（存在时）。
+ * `not_applicable` 不是未达成 ⇒ 不进结果（D1(a)）。
+ */
+export function a4UnmetRows(a4Text) {
+  const rows = [];
+  for (const line of String(a4Text || '').split('\n')) {
+    const t = line.trim();
+    if (!t.startsWith('|')) continue;
+    const cells = t.replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
+    if (cells.every((c) => c === '' || /^:?-{2,}:?$/.test(c))) continue;          // 分隔行
+    const si = cells.findIndex((c) => ACCEPTANCE_STATUSES.includes(normCell(c)));
+    if (si < 0 || !UNMET_STATUSES.includes(normCell(cells[si]))) continue;        // 表头/图例/已达成
+    rows.push({
+      key: si !== 0 && normCell(cells[0]) !== '#' ? cells[0].replace(/[`*]/g, '').trim() : '',
+      item: si >= 2 ? cells[1] || '' : '',
+    });
+  }
+  return rows;
+}
+
+const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** 该未达成行是否**已在 A6 里交代**（D2）。判据取**宽**（宁漏报、不误报）：命中任一即算交代。
+ *  ① 序号键（`①`/`#3`/`2`）以**独立 token** 出现（数字键须有词边界：否则日期或 `1 file` 会误吞）；
+ *  ② 项名正文（≥6 字符）作为子串出现。
+ *  有这一条，A6 合法地写着 `none critical` 之类措辞时，不会仅因 A4 有未达成项就被判矛盾。 */
+function a6AccountsFor(a6Text, row) {
+  const a6 = String(a6Text || '');
+  if (row.key) {
+    const k = escapeRe(row.key);
+    if (k && new RegExp(`(?<![\\p{L}\\p{N}])${k}(?![\\p{L}\\p{N}])`, 'u').test(a6)) return true;
+  }
+  const item = String(row.item || '').replace(/[`*]/g, '').trim();
+  return item.length >= 6 && a6.includes(item);
+}
+
+/** A6 是否**声明无残留**（D2）。关键：不能把 `none` 的一切实例都读成「无残留」——
+ *  `none critical` / `none of the above blocks` 是**限定语**（残留存在、只是不严重；
+ *  本腿自己 Report 的实测误报即此），而旧口径按词命中即判矛盾。
+ *  中文只认「无」+ 句读或残留名词（`无。` / `无残留` / `无未决项`），`无法`（cannot）之类不算。 */
+const A6_NONE = [
+  /\bnone\b(?!\s+(?:critical|block\w*|serious|major|of\b))/i,
+  /\bnothing\s+(?:outstanding|remaining|open|pending)\b/i,
+  /\bno\s+(?:residual\w*|remaining|outstanding|open|pending|known|block\w*)\b/i,
+  /\bn\/?a\b/i,
+  /(?:^|[\s（(、,，;；|·>—\-*）)])无(?=[\s。.!！,，;；|)）·—]|$|残留|未决|待办|风险|遗留|其他|其余|剩余|新增|问题|阻塞|未完成)/m,
+];
+export function a6ClaimsNone(a6Text) { return A6_NONE.some((re) => re.test(String(a6Text || ''))); }
+
+/**
+ * Δ1 耦合判定的实现（**行级**，D2 重写）：返回提示或 `null`。
+ * 两段式——先问 A6 有没有**声明无残留**（矛盾的必要条件），再逐行回检该未达成项是否已在 A6
+ * 出现（交代了 ⇒ 不是矛盾）。两段都过才提示，故：
+ *   · 误报面关掉：A6 写 `none critical`（限定语）或已逐项交代 ⇒ 不提示；
+ *   · 误漏面关掉：A6 写 `无。`/`无未决项`（旧词表外）而 A4 有 `partial` 且未交代 ⇒ 提示。
+ * A4 非表格（散文形态）⇒ 退化为词表命中（`partial`/`not_met`/`未达成`），此时无法逐行回检，
+ * 但 A6 侧已换成「声明无残留」判据 ⇒ 旧口径的 `none` 误报仍然消除。
+ */
+export function couplingHint(a4Text, a6Text) {
+  if (!a6ClaimsNone(a6Text)) return null;
+  const a4 = String(a4Text || '');
+  const tableShaped = /(^|\n)[ \t]*\|/.test(a4);
+  const pending = tableShaped
+    ? a4UnmetRows(a4).filter((r) => !a6AccountsFor(a6Text, r))
+    : (/\b(?:partial|not_met)\b|未达成|部分达成/.test(a4) ? [{}] : []);
+  if (!pending.length) return null;
+  return {
+    slot: 'A6',
+    hint: 'A4 有未达成项（`partial`/`not_met`）但 A6 声明「无残留」且未交代该项 —— guide §1 A4 耦合规则：'
+      + '未达成项**必须**同时出现在 A6 leftovers 并带归口（`not_applicable` 不是未达成项，不参与本条）',
+  };
 }
 
 /**
@@ -336,7 +481,23 @@ export function loadBaseline(file = BASELINE_PATH) {
   } catch { return []; }
 }
 
-/** 生效登记 = 托管模板（①，只读）∪ 运行时登记（②，tasks 目录内）。两源可注入，便于单测。 */
+/** 豁免理由的最小长度（D5，口径对齐基座 provider 的 `reason ≥8 字符`）。 */
+export const MIN_EXEMPTION_REASON = 8;
+
+/**
+ * 登记项是否**有效**（D5）：形状 `{ id, gaps: [...], reason }` 且 `reason` 去空白后 ≥8 字符。
+ * **理由缺失/过短 ⇒ 该项不放行**（回到判红路径），并在巡检结果 `invalidExemptions` 里点名。
+ * 理由不是形式主义：`gaps` 只能证明「缺口集合没变」，说不清「为什么这个缺口是良性的」——
+ * 而豁免的全部合法性来源就是那句人工判断，写不下来就等于没有。故它跟 `gaps` 一样是**必填**。
+ */
+export function validExemption(e) {
+  return Boolean(e) && typeof e.id === 'string' && e.id !== ''
+    && Array.isArray(e.gaps)
+    && typeof e.reason === 'string' && e.reason.trim().length >= MIN_EXEMPTION_REASON;
+}
+
+/** 登记面 = 托管模板（①，只读）∪ 运行时登记（②，tasks 目录内）。两源可注入，便于单测。
+ *  注意：本函数只负责**读**（含形状不合的条目，便于点名）；放行与否由 `validExemption` 在判红处裁定。 */
 export function loadExemptions(tasksDir = TASKS_DIR, { template = BASELINE_PATH, runtime = runtimeBaselinePath(tasksDir) } = {}) {
   return [...loadBaseline(template), ...loadBaseline(runtime)];
 }
@@ -353,7 +514,7 @@ function sameGapSet(a, b) {
 /**
  * 执行 Report 完备性巡检（只读）。可注入 tasksDir/baseline 供隔离测试。
  * @returns {{ok:boolean, checked:number, skipped:number, violations:Array, grandfathered:Array,
- *            drafts:Array, exempt:Array, hints:Array, effectiveAt:string}}
+ *            drafts:Array, exempt:Array, invalidExemptions:Array, hints:Array, effectiveAt:string}}
  */
 export function scanReports(tasksDir = TASKS_DIR, { baseline } = {}) {
   const eff = effectiveAt();
@@ -366,6 +527,7 @@ export function scanReports(tasksDir = TASKS_DIR, { baseline } = {}) {
   const grandfathered = [];
   const drafts = [];
   const exempt = [];
+  const invalidExemptions = [];
   const hints = [];
   let checked = 0;
   let skipped = 0;
@@ -418,8 +580,13 @@ export function scanReports(tasksDir = TASKS_DIR, { baseline } = {}) {
       continue;
     }
 
-    const hit = base.find((b) => b && b.id === id && sameGapSet(b.gaps || [], hardGaps));
-    if (hit) { exempt.push({ id, status, gaps: hardGaps, reason: hit.reason || '' }); continue; }
+    const candidates = base.filter((b) => b && b.id === id && sameGapSet(b.gaps || [], hardGaps));
+    const hit = candidates.find(validExemption);                 // D5：理由不合格者一律不放行
+    if (hit) { exempt.push({ id, status, gaps: hardGaps, reason: String(hit.reason ?? '').trim() }); continue; }
+    if (candidates.length) {
+      // 形状对（id + 缺口集合全等）但 reason 不合格 ⇒ 不放行，点名供人工补写登记（不是卡面缺陷）
+      invalidExemptions.push({ id, status, gaps: hardGaps, reason: String(candidates[0].reason ?? '').trim() });
+    }
     violations.push({ id, status, gaps: hardGaps, origin: origin.origin });
   }
 
@@ -431,6 +598,7 @@ export function scanReports(tasksDir = TASKS_DIR, { baseline } = {}) {
     grandfathered,
     drafts,
     exempt,
+    invalidExemptions,
     hints,
     effectiveAt: eff,
   };
@@ -467,6 +635,7 @@ function main() {
       grandfathered: r.grandfathered.filter(pick),
       drafts: r.drafts.filter(pick),
       exempt: r.exempt.filter(pick),
+      invalidExemptions: r.invalidExemptions.filter(pick),
       hints: r.hints.filter(pick),
     };
     console.log(JSON.stringify(one, null, 2));
@@ -495,7 +664,11 @@ function main() {
   }
   if (r.exempt.length) {
     console.error(`Report 完备性基线豁免：${r.exempt.length} 张（exempt）—— 登记处＝运行时 ${RUNTIME_BASELINE_NAME} ∪ 托管模板 report-baseline.json（只读）；缺口集合变化即失效`);
-    for (const v of r.exempt) console.error(`  · exempt ${v.id}${v.reason ? `（${v.reason}）` : ''} 缺 ${describeGaps(v.gaps)}`);
+    for (const v of r.exempt) console.error(`  · exempt ${v.id}（${v.reason}）缺 ${describeGaps(v.gaps)}`);
+  }
+  if (r.invalidExemptions.length) {
+    console.error(`Report 完备性豁免登记**未生效**（D5：reason 缺失或去空白后 <${MIN_EXEMPTION_REASON} 字符 ⇒ 不放行）：${r.invalidExemptions.length} 条 —— 请在登记项补写可核对的理由`);
+    for (const v of r.invalidExemptions) console.error(`  · invalid-exempt ${v.id} reason=${v.reason ? `"${v.reason}"` : '(缺失)'} 缺 ${describeGaps(v.gaps)}`);
   }
   if (r.hints.length) {
     console.error(`Report 内容提示（非阻断，不置退出码）：${r.hints.length} 条`);
