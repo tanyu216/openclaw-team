@@ -92,7 +92,8 @@ Report states what it is.
   (`§5`).
 - **Why acceptance needs it**: without the card path the auditor cannot tell *which*
   card the Report belongs to; without the hash the claim is not reproducible.
-  (Historical hit rate for the card path is the worst of the whole core — see §4.)
+  (Historically the weakest slot of the whole core — §4 states the criterion that makes that
+  true, and why no rate is quoted.)
 - **Minimal example**:
   `- **A2 Delivery coordinates** — card: tasks/T-20261015-010749-2.md · commit: a1b2c3d · branch: lane/T-20261015-010749-2-seg1 (base 1c54cec) · pushed: no (see A8).`
 
@@ -142,7 +143,8 @@ Report states what it is.
 - **Write**: the **command**, its **exit code**, and a **pointer to the artifact**
   (report file, log path, JSON envelope). "Tests pass" alone is not evidence.
 - **Why acceptance needs it**: exit codes and artifacts are what make the claim
-  independent of the author's summary. Jobs' historical hit rate here is 17%.
+  independent of the author's summary. Jobs is the role that historically drops this slot
+  hardest (§4 — no rate quoted there, and why).
 - **Minimal example**: `- **A5 Re-run evidence** — cmd: node --test scripts/tests/check-report.test.mjs · exit: 0 · artifact: workspace/T-…/test-output.txt`
 
 ### A6 Residuals / risks / open items + owner
@@ -282,36 +284,66 @@ un-acceptable as delivery evidence until the deliverer's own Report exists.
 
 ## 4. Common gaps (what actually goes missing)
 
-Measured on the card board (Elon's read-only census, cards with a non-empty `## Report`,
-n = 487: Linus 303 · Turing 105 · Jobs 76 · Assistant 3):
+> **Relative conclusions only — absolute numbers are not evidence (rev. 2026-10-15).**
+> This section says **which families leak and where**, not how often. The census that stood
+> here before (a published `n = 487` with a per-slot hit-rate table) was **withdrawn**: it
+> shipped with no script, no **as-of** and no stated criterion, and an independent re-run
+> reproduced neither its `n` nor most of its rates under any criterion (defect **D6**;
+> evidence `T-20261015-010749-3` §T6). A frozen absolute is not merely *stale* here — it is
+> **un-derivable**, for two reasons:
+>
+> - **the population is live.** 584 card files / 471 non-empty Reports at 02:34Z → 594 / 490
+>   at 03:53Z on 2026-10-15 — two readings, ninety minutes apart. **Almost all** of that
+>   population is **terminal** (`done`/`failed`/`canceled`; compare `--status=terminal` with
+>   `--status=nonterminal`), i.e. exactly the surface `check-report.mjs` **never inspects**;
+>   the table therefore describes *history*, not the enforced surface, and its denominator
+>   moves every hour.
+> - **the criteria are a parameter, and on one family they flip the conclusion.** Under
+>   `--card-path=path` (the form A2 actually asks for) the card path is among the **weakest**
+>   families on every role; under `--card-path=id` (a bare card id anywhere) it is among the
+>   **strongest**. Neither reading is wrong — the criterion is what makes the claim true, and
+>   the published table never said which one it used.
+>
+> The census is now a script: **`team/scripts/report-census.mjs`** — read-only, every axis
+> parameterised (`--sample=nonempty|section|board`,
+> `--status=all|nonterminal|terminal|<csv>`, `--criterion=topic|shape`,
+> `--card-path=id|path|abs`, `--slots=…`, `--include-archived`), with `params` and `asOf`
+> echoed in the `--json` envelope. **Quote a rate only together with its command and its
+> as-of.** `node scripts/report-census.mjs --compare` re-prints the withdrawn table against a
+> fresh reading with a per-family verdict (`equal` / `near` / `diverged`): on the 2026-10-15
+> reading seven families land `near` (±5 pt) and four — `Acceptance item-by-item`,
+> `A/B before-after`, `pending decision`, `change surface` — are `diverged` by 20–50 pt.
 
-| slot | Linus | Jobs | Turing |
-|---|---|---|---|
-| commit hash | 99% | 99% | 98% |
-| Acceptance item-by-item | 95% | 92% | 92% |
-| evidence pointer | 81% | 84% | 93% |
-| conclusion | 88% | 91% | 78% |
-| **command + exit code** | 75% | **17%** | 67% |
-| not-pushed accounting | 62% | 53% | 38% |
-| residuals / risks | 48% | 42% | 55% |
-| A/B before-after | 37% | 32% | 46% |
-| pending decision | 26% | 36% | 14% |
-| **card path** | **19%** | **16%** | **16%** |
-| change surface | 29% | 50% | 24% |
+Measured **relatively** (re-run the script for a current reading; the criterion is named
+wherever the ordering depends on it):
 
-Read it as: **the core is already real** (hash / Acceptance table / evidence pointer are
-habit), but three families leak systematically.
+| slot | relative finding |
+|---|---|
+| commit hash · evidence pointer · conclusion | **the habit band** — highest on every role under both criteria |
+| Acceptance item-by-item | **middling and criterion-sensitive** (table/checkbox shape sits 13–24 pt below a mere mention of "acceptance") — *not* the habit slot the withdrawn table claimed |
+| **command + exit code** | **Jobs is the weakest role on it by a wide margin** — the slot Linus/Turing carry in most of their Reports, Jobs carries in a small minority; the one relative finding that held under every criterion, both readings, and in the withdrawn table itself |
+| **card path** | among the **weakest** on every role under `path`; among the **strongest** under `id` — the criterion decides |
+| A/B before-after · pending decision · change surface | the **leak band** — low on every role; the title-less "soft" slots the §1 anchor grammar exists to stabilise |
+| not-pushed accounting · residuals / risks | middling-low; Turing is the weakest role on both |
 
-1. **Card path — the worst slot on every role (16–19%).** The redline asks for
-   "conclusion + card path + hash" yet the path is usually dropped. Slot **A2** exists to
-   make it un-droppable; `check-report.mjs` warns when A2 carries no card id or hash.
-2. **Jobs: command + exit code (17%).** Jobs' Reports describe the design and stop before
-   the machine-readable proof. Slot **J5/J4** plus **A5** force the command + exit code.
-3. **Turing: conclusion (78%) and pending decision (14%).** Verification reports list
-   findings without a verdict or a decision fork. Slots **A1** and **A6** carry them.
+Read it as: **the core anchors are real** (hash / evidence pointer / conclusion are habit),
+but the families below leak systematically.
+
+1. **Card path.** The redline asks for "conclusion + card path + hash" yet the path is
+   usually dropped. Slot **A2** exists to make it un-droppable; `check-report.mjs` warns when
+   A2 carries no card id or hash. *The claim is criterion-bound, and this rev. says so: it
+   holds when you require the path form and reverses when you accept a bare card id.*
+2. **Jobs: command + exit code.** Jobs' Reports describe the design and stop before the
+   machine-readable proof — the sharpest per-role contrast in the table (the slot Linus and
+   Turing carry in most of their Reports, Jobs carries in a small minority). Slot **J5/J4**
+   plus **A5** force the command + exit code.
+3. **Turing: the leak band is lowest here.** Verification reports list findings without a
+   verdict or a decision fork. Turing is the weakest role on pending decision, change
+   surface, not-pushed accounting and residuals (and, under the shape criterion, on A/B
+   before-after too). Slots **A1**, **A6** and the role slots carry them.
 4. **All roles: the "soft" slots are unstable** — change surface, residuals, A/B
-   comparison, pending decision (14–55%). Their titles vary per Report, so acceptance
-   has to guess where to look. The anchor grammar in §0 fixes the handle, not the prose.
+   comparison, pending decision. Their titles vary per Report, so acceptance has to guess
+   where to look. The anchor grammar in §0 fixes the handle, not the prose.
 5. **The empty-Report accident.** On the night of 2026-10-14, four cards reached
    `in_review` with a **blank `## Report`** — the shape was not the problem, the absence
    was. `check-report.mjs` hard-checks exactly that case (`in_review` ⇒ Report present,
@@ -333,7 +365,7 @@ habit), but three families leak systematically.
 
 - **Effective from 2026-10-15** (the local day Terry's instruction landed). Cards created
   before the gate's cutover are **grandfathered** — violations are reported as warnings
-  and never set the exit code, so the historical board (487 Reports) is not retro-reddened.
+  and never set the exit code, so the historical board is not retro-reddened.
 - **Terminal cards** (`done` / `canceled` / `failed`) are never checked at all.
 - **Only `in_review` is a hard trigger.** Cards still being worked
   (`in_progress` / `blocked` / `todo` / `ready` / `backlog`) are at most a warning.
