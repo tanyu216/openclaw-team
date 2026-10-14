@@ -3,7 +3,7 @@
 # 用法：bash check-all.sh [--segment fast|slow|all] [--report <path>]
 #   --segment fast  只跑「快门禁」（秒级）：红线一致 / 术语抽象 / §引用可解析 / 依赖 CVE 扫描 /
 #                   防漂移巡检 / 卡 schema / handoff / 关系不变量 / 幂等 / 会话一致性 /
-#                   建卡完备性（epic 子卡完整性 + 路线图×卡 对账）/ 契约测试 /
+#                   建卡完备性（epic 子卡完整性 + 路线图×卡 对账）/ 卡面 Report 完备性 / 契约测试 /
 #                   ACL 终态守卫 / 项目解析 / 调度求值（provider ACL 4 套快测在此，in-band 即时信号）/ 归档预览
 #   --segment slow  只跑「慢套件」（带外刷新）：framework 套件 `node --test scripts/tests/*.test.mjs`
 #                   **+ provider ACL 全量** `node --test skills/task-ops/tests/*.test.mjs`（glob 全目录）
@@ -176,6 +176,18 @@ if [ "$provider_missing" = 0 ]; then
   else
     echo "── 建卡完备性 check-epic-completeness"
     echo "   (skip) $S/check-epic-completeness.mjs 未部署（install.sh 部署后本步生效）"
+  fi
+  # 卡面 Report 完备性（公共核心 A1…A8；T-20261015-010749-2）。
+  # 硬触发面**只有 `in_review`**（交付待验收态）——正是父卡实测的事故型（2026-10-14 夜间 4 张
+  # in_review 而卡面 Report 空）；其余非终态档最多次级提示，终态卡一律不查（不追溯翻旧账）。
+  # 生效截止（`created_at` 早于门禁落仓时刻 ⇒ 降 warn）+ 豁免登记（托管模板 ∪ tasks 运行时登记）
+  # 见脚本头注 (ii)/(iii)；这三条都是为了**上线即零既存红**，否则本步会让 live 门禁当场转红。
+  # 与 check-epic-completeness 同款部署口：脚本未部署时显式 skip（避免「仓里已修 ≠ 线上已修」制造既存红）。
+  if [ -f "$S/check-report.mjs" ]; then
+    run "卡面 Report 完备性 check-report" node "$S/check-report.mjs"
+  else
+    echo "── 卡面 Report 完备性 check-report"
+    echo "   (skip) $S/check-report.mjs 未部署（install.sh 部署后本步生效）"
   fi
   run "契约测试（task-interface v1）"      node "$TEAM/skills/task-ops/tests/contract.test.mjs"
   run "ACL 终态不可逆守卫"                node "$TEAM/skills/task-ops/tests/terminal-guard.test.mjs"
