@@ -524,7 +524,7 @@
 | `PROTOCOL.md` | `§⑥` 第 2 条（并发额度）、第 3 条（cwd 归一注）、第 8 条（会话关联与 resume）、单入口小节 | JHS 与 CLI 合并计数；native cwd 钉死；resume = `sessions_send`；单入口是否覆盖 JHS |
 | `PROTOCOL.md` | `§⑥` 第 1 条（reconcile/`kill -0`）、`§①` Board 的 `## Sessions` schema 注、`§⑬.2` | 判活扩为 pid 或子会话可达性；`## Sessions` 行增 `harness` 段、`pid` 省略/`-` |
 | `guides/spawn-lane-sop.md` | §1 Rule、§3 Sequence、§6 gates、§7 refusal | **范围声明**（E12）：扩展或显式排除 HTML sub-agent + 登记等价物；若扩展则增 native 分支与拒绝码 |
-| `guides/task-interface.md` | §2 Data Model（AgentSession）、§8 Future-Swap Mapping、§9 Session Association and Resume | AgentSession 增 `harness/id_state/seg`；`## Sessions` 行映射；native resume 形态（`sessions_send`） |
+| `guides/task-interface.md` | **AgentSession 的 canonical schema 归产品（引用，不在此声明）**：`skills/meerkat-taskpanel/references/card-schema.md`；`task-interface §2` = 仅 ACL 最小必需集（**不再含 AgentSession**）；§9 Session Association and Resume（team 侧处理）；§8 Future-Swap Mapping | AgentSession 增 `harness/id_state/seg`（落产品 `## Sessions` schema）；`## Sessions` 行映射（§9）；native resume 形态（`sessions_send`） |
 | `scripts/README.md` | spawn-lane / registry 段 | 若单入口扩展：后端分派增 native 分支；registry 字段增量 |
 | `roles/jobs/AGENTS.md` · `SOUL.md` · `IDENTITY.md` | Role Duties item 1 / §Tool Discipline / §Pre-Delivery Checklist / 第 5 行 / theme 行 | E1–E10 before/after（§9） |
 | `team/guides/redlines.core.md` | 第 7 条 | E11：是否划范围（**需 Elon 双签**，只标注不落改） |
