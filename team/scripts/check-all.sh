@@ -80,9 +80,13 @@ if ! node "$S/scan-deps.mjs"; then
   if [ "${SCAN_STRICT:-0}" = 1 ]; then echo "   ↑ FAIL (strict)"; fail=1; FAILED_STEPS+=("依赖 CVE 扫描 scan-deps (strict)"); fi
 fi
 
-# 防漂移巡检（只读）：仓 team/ ↔ 实例 diff。仅报差异，绝不写、绝不移动文件；默认不阻断
-# （DRIFT_STRICT=1 时按差异计入 fail）。仓路径取 OPENCLAW_TEAM_REPO，否则读 .install-state.json
-# 的 repoPath；两者都缺 ⇒ 跳过（非红）。把人工 reposync 升级为「自动发现 + 人工裁定」。
+# 防漂移巡检（只读）：仓 team/ ↔ 实例 diff。仅报差异，绝不写、绝不移动文件。仓路径取
+# OPENCLAW_TEAM_REPO，否则读 .install-state.json 的 repoPath；两者都缺 ⇒ 跳过（非红）。
+#   · **部署面**（team/scripts/**，随 install.sh §1 部署的可执行面）差异 ⇒ **默认红**（fail-closed，
+#     T-20261014-204806）：该面的 drift 恒为「部署滞后」（第三种实现态），必须机检为红——
+#     否则 merge 后未重跑 install.sh 的漂移会像本次对账一样静默累积。
+#   · 其它面（docs / automations / guides…）差异 ⇒ 仅告警，DRIFT_STRICT=1 时才算 fail（裁定归口 Elon）。
+#   · 主机本地 / 运行期项（scripts/triggers、tmp、*-proposed-clauses.md、备份 *.bak*）已排除，不误红。
 echo "── 防漂移巡检 repo↔instance diff（只读；仅报差异）"
 REPO_DIR="${OPENCLAW_TEAM_REPO:-}"
 if [ -z "$REPO_DIR" ] && [ -f "$TEAM/.install-state.json" ]; then
@@ -96,12 +100,17 @@ else
     -x projects.json -x team.config.json -x .board -x .backups \
     -x .install-state.json -x proposals -x reviews -x skills -x tools \
     -x .check-all-slow.json -x .check-all-slow.lock -x .check-all-slow.log \
-    -x .sla-scan-ledger.json -x .sla-scan-state.json -x .sla-loop-patrol-state.json 2>/dev/null || true)"
+    -x .sla-scan-ledger.json -x .sla-scan-state.json -x .sla-loop-patrol-state.json \
+    -x triggers -x tmp -x '*-proposed-clauses.md' -x '*.bak*' 2>/dev/null || true)"
   if [ -z "$drift" ]; then
     echo "   ✔ 仓 team/ 与实例一致（已忽略运行期/主机本地项）"
   else
     printf '%s\n' "$drift" | sed 's/^/   Δ /'
-    echo "   ⚠ 检出动差异（只读，不阻断；裁定归口 Elon——回灌 or 部署）"
+    echo "   ⚠ 检出动差异（裁定归口 Elon——回灌 or 部署）"
+    # 部署面 fail-closed：team/scripts/** 出现 repo↔instance 差异 ⇒ 部署滞后 ⇒ 默认红（见文件头）。
+    if printf '%s\n' "$drift" | grep -q '/team/scripts/'; then
+      echo "   ↑ FAIL (deploy surface drift: team/scripts/**)"; fail=1; FAILED_STEPS+=("部署面漂移 team/scripts")
+    fi
     if [ "${DRIFT_STRICT:-0}" = 1 ]; then echo "   ↑ FAIL (drift strict)"; fail=1; FAILED_STEPS+=("防漂移巡检 (strict)"); fi
   fi
 fi
