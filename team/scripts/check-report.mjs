@@ -9,6 +9,8 @@
  * 见 §6「Elon's acceptance = report audit」）：正文怎么写由 guide 管，机检只钉「槽位稳不稳」。
  * 三岗专属小节（L1…L6 / J1…J5 / T1…T7）**有意不入机检**：其必需项随岗位与 flow 变化，语义判定
  * 无法机检（见 guide §2；由各岗自身复核 + Turing 独立复核覆盖）。
+ * 唯一的语义例外是**报告作者来源**（(v)：`delivery` vs `import`）——它是**声明式**的：卡面自己
+ * 标注来源，机检只读这个声明并据此判定「能不能开门」。正文怎么写仍然不管。
  *
  * ── (i) 触发面（trigger surface）──────────────────────────────────────────────
  *   · **硬触发（置退出码 1）＝ 仅 `in_review`**：卡处于交付待验收态 ⇒ Report 必须存在、非空、且
@@ -60,6 +62,33 @@
  *   退出码：0 无「非豁免硬违规」（含 grandfather warn / draft / content hint）；1 有之。
  *   隔离：`OPENCLAW_TEAM_ROOT` 覆盖（与 team-paths.mjs 同源），便于单测用 mkdtemp。
  *
+ * ── (v) 报告作者来源（Δ2：delivery vs import/代收口）────────────────────────────
+ *   对齐 TaskPanel `task_reports.origin = delivery|import`（Terry 2026-10-15 批准的设计输入）：
+ *   「这张卡的 Report 是谁写的」是**验收资格**问题，不只是内容问题 ——
+ *     · `delivery`（默认）：**交付者本人**所写 ⇒ 可作为验收证据；
+ *     · `import`：**迁移 / 代收口**所写（替已死会话、或历史迁移补写）⇒ **不是交付证据**。
+ *   机读手柄 = **可选**槽位 `A0`（`- **A0 Report origin** — import; author: <谁>; source: <自哪来>`）。
+ *   判据（只作用于**硬触发档**，即 `in_review`；draft/grandfather 本就非阻断，不受影响）：
+ *     · 无 `A0` ⇒ 视为 `delivery`（正常情形：交付者本人写自己的 Report）；
+ *     · 有 `A0` 但**认不出来源词** ⇒ 缺口 `REPORT_ORIGIN_UNKNOWN`（fail-closed：来源自称不可识别时，
+ *       不得当作交付证据开门）；
+ *     · `A0` = `import` ⇒ ① **必须**同时标注 `author` 与 `source`，缺一即缺口
+ *       `REPORT_IMPORT_NO_PROVENANCE`；② 且在 `in_review` 下**一律**缺口 `REPORT_IMPORT_NOT_DELIVERY`
+ *       —— **代收口报告不得当交付证据开门**（这正是 2026-10-14 夜间 4 例「`in_review` 卡面 Report
+ *       空」的代收口形态：报告不是没有，而是**不是交付者写的**）。人工核对后确属良性的（例如
+ *       迁移期的一次性补写），走 (iii) 的**运行时登记**：`gaps` 写该卡**当前**缺口集合。
+ *   已知上限（残余）：机检只能读**卡面自报**的来源；若代收口报告根本不写 `A0`，它不可与 delivery
+ *   区分 —— 要堵这条口须由 provider ACL（`skills/task-ops/lib/task.mjs#writeReport`）在写入时盖章
+ *   `origin`，属**基座侧**改造，不在本卡边界内（见 guide §5 与卡面 Report 的 A6）。
+ *
+ * ── (vi) 轮次语义（Δ4，warn-only 提示）────────────────────────────────────────
+ *   防「复用上一轮的报告」：卡被退回重来（`blocked_at` 有值）后重新交付（`status_changed_at` 晚于
+ *   `blocked_at`）⇒ 交付轮次 ≥2。此时若 Report **未声明本轮交付时间/轮次**（正文既无 `YYYY-MM-DD`
+ *   日期、也无 `round N` / `第 N 轮` 字样），出**非阻断**提示 —— 审计无法判断这张 Report 属于
+ *   当前一轮还是上一轮。因无 Report 写入时间戳（`writeReport` 只换段、不盖时间），本判定只能
+ *   基于「卡头 + 自报」，故**只出提示、不置退出码**；且**只对 `in_review` 且已过生效截止的卡**
+ *   生效（历史卡不制造噪声）。
+ *
  * 注：与 `check-card.mjs`（frontmatter schema）、`check-handoff.mjs`（背景包四锚）**正交**——
  * 前者管卡头字段，后者管 workspace/<id>/handoff.md，本脚本只读**卡面 `## Report` 段**。
  */
@@ -82,6 +111,13 @@ export const REQUIRED_SLOTS = [
   { id: 'A8', label: 'Not-pushed accounting' },
 ];
 
+/** **可选**槽位（guide §1 A0）：报告作者来源声明。不属必需项 ⇒ 缺它不是缺口（默认 `delivery`），
+ *  但**存在**时参与硬判定（见文件头 (v)）。 */
+export const OPTIONAL_SLOTS = [{ id: 'A0', label: 'Report origin' }];
+
+/** 全部槽位 id（必需 + 可选）：仅用于**切片边界**——每个槽位片段到下一个槽位标签为止。 */
+const SLOT_IDS = [...OPTIONAL_SLOTS, ...REQUIRED_SLOTS].map((s) => s.id);
+
 /** 槽位标签的匹配式：行首（可带列表符号 `-`/`*`/`+`、可带 `**` 粗体）后接标签，标签后须为非数字边界
  *  （`A10` 不得命中 `A1`）。标签即机读手柄，其余正文自由（见 guide §0 锚点语法）。 */
 export function slotRegex(id) {
@@ -97,8 +133,8 @@ function slotSpan(body, id) {
   if (!m) return { found: false, text: '' };
   const start = m.index + m[0].length;
   let next = body.length;
-  for (const s of REQUIRED_SLOTS) {
-    const r2 = slotRegex(s.id);
+  for (const sid of SLOT_IDS) {
+    const r2 = slotRegex(sid);
     r2.lastIndex = 0;
     const mm = r2.exec(body.slice(start));
     if (mm) { const abs = start + mm.index; if (abs < next) next = abs; }
@@ -124,6 +160,10 @@ function slotHasBody(body, slot) {
 /** 伪缺口标签：Report 段缺失 / 段存在但为空（事故型的两种形态）。 */
 export const GAP_NO_SECTION = 'REPORT_MISSING';
 export const GAP_EMPTY = 'REPORT_EMPTY';
+/** 伪缺口标签：来源（(v)）。代收口报告不是交付证据 ⇒ 与槽位缺口同列，走同一套登记判定。 */
+export const GAP_ORIGIN_UNKNOWN = 'REPORT_ORIGIN_UNKNOWN';
+export const GAP_IMPORT_NO_PROVENANCE = 'REPORT_IMPORT_NO_PROVENANCE';
+export const GAP_IMPORT_NOT_DELIVERY = 'REPORT_IMPORT_NOT_DELIVERY';
 
 /** 终态（历史卡，**不追溯**）：与 provider `TERMINAL_STATUSES` / check-card.mjs 同口径。 */
 export const TERMINAL = ['done', 'failed', 'canceled'];
@@ -172,6 +212,55 @@ export function slotGaps(body) {
   return REQUIRED_SLOTS.filter((s) => !slotHasBody(body, s)).map((s) => s.id);
 }
 
+// ---------- 报告作者来源（(v)：delivery vs import） ----------
+
+export const ORIGIN_DELIVERY = 'delivery';
+export const ORIGIN_IMPORT = 'import';
+export const ORIGIN_UNKNOWN = 'unknown';
+
+/** 取自声明文本的来源字段（`author:`/`作者：`…）：取到下一个字段分隔符（`;`/`·`/`,`/`、`/行尾）为止。
+ *  只用于「填了没有」的布尔判定，不参与语义解释 —— 故取**顺手的宽松**：分隔符按中英双套。 */
+function originField(text, names) {
+  for (const n of names) {
+    const m = new RegExp(`${n}\\s*[:：]\\s*([^\\n;；·|,，、]+)`, 'i').exec(text);
+    if (m) {
+      const v = m[1].replace(/[*\s]+$/, '').trim();
+      if (v) return v;
+    }
+  }
+  return '';
+}
+
+/**
+ * 解析可选槽位 `A0` 的来源声明：`{ origin: 'delivery'|'import'|'unknown', declared, author, source }`。
+ * 无 `A0` ⇒ `delivery` + `declared:false`（交付者本人写自己的 Report 是常态，不需要声明）。
+ * `import` **优先于** `delivery` 判定（同一行两种词都出现时按 fail-closed 取 import）。
+ */
+export function reportOrigin(body) {
+  const { found, text } = slotSpan(body, 'A0');
+  if (!found) return { origin: ORIGIN_DELIVERY, declared: false, author: '', source: '' };
+  const isImport = /\bimport(ed)?\b|代收口|迁移|补写|导入/i.test(text);
+  const isDelivery = /\bdelivery\b|交付者本人|\b本人\b|交付者|自写/i.test(text);
+  const author = originField(text, ['author', '作者']);
+  const source = originField(text, ['source', '来源']);
+  return {
+    origin: isImport ? ORIGIN_IMPORT : isDelivery ? ORIGIN_DELIVERY : ORIGIN_UNKNOWN,
+    declared: true,
+    author,
+    source,
+  };
+}
+
+/** 来源缺口（只由硬触发档消费）：`delivery` ⇒ 无缺口；`import` ⇒ 交代 + 不开门两条；其余 ⇒ 不可识别。 */
+export function originGaps(origin) {
+  if (!origin || origin.origin === ORIGIN_DELIVERY) return [];
+  if (origin.origin === ORIGIN_UNKNOWN) return [GAP_ORIGIN_UNKNOWN];
+  const gaps = [];
+  if (!origin.author || !origin.source) gaps.push(GAP_IMPORT_NO_PROVENANCE);
+  gaps.push(GAP_IMPORT_NOT_DELIVERY);
+  return gaps;
+}
+
 /**
  * 内容提示（**永远非阻断**）：只对父卡实测命中率最低、且**有稳定机读形态**的两项做轻量核对。
  * 语义判定不入机检（见文件头），故这里只报 hint，绝不置退出码。
@@ -195,6 +284,46 @@ export function contentHints(body) {
     if (!(hasWord && hasNumber)) hints.push({ slot: 'A5', hint: '未含**退出码**（命令 + 退出码）——实测 Jobs 仅 17% 命中（gate 只提示不阻断，审计仍按 §6）' });
   }
   return hints;
+}
+
+/**
+ * 交付面提示（Δ1/Δ4，**永远非阻断**，且**只对生效截止之后的卡**计算）：由 `scanReports` 在
+ * 「硬触发 + 已过截止 + 槽位齐备」时调用，避免给历史卡制造噪声。
+ *   · Δ1：A4 里出现 `partial`/`not_met`（固定状态词表）却把 A6 写成「无残留」⇒ guide 的耦合规则
+ *        被违反（未达成项必须同时出现在 A6 leftovers）。
+ *   · Δ4：本卡曾被退回后重新交付，而 Report 未声明本轮交付时间/轮次 ⇒ 疑似复用旧轮报告。
+ */
+export function deliveryHints(body, fm = {}) {
+  if (!body || !body.trim()) return [];
+  const hints = [];
+  // Δ1：A4 未达成项 ⇔ A6 必须交代
+  const a4 = slotSpan(body, 'A4').text;
+  const a6 = slotSpan(body, 'A6').text;
+  if (/\b(partial|not_met)\b|未达成|部分达成/.test(a4) && /\bnone\b|\bn\/a\b|无残留|无未决|无待办|无风险|无遗留/.test(a6)) {
+    hints.push({ slot: 'A6', hint: 'A4 有未达成项（`partial`/`not_met`）但 A6 写「无残留」——guide §1 A4 耦合规则：未达成项**必须**同时出现在 A6 leftovers 并带归口' });
+  }
+  const rh = roundHint(fm, body);
+  if (rh) hints.push(rh);
+  return hints;
+}
+
+/**
+ * Δ4 轮次提示：`blocked_at` 有值（曾被退回/阻塞）且 `status_changed_at` 晚于它 ⇒ 至少交付过两轮；
+ * 此时 Report 若不声明本轮交付时间（`YYYY-MM-DD`）或轮次（`round N` / `第 N 轮`），则审计无从判断
+ * 这张 Report 属于哪一轮（`writeReport` 只换段、不盖时间戳 ⇒ 无更硬的信号）。
+ * 仅对 `in_review` 生效（调用方已保证过了生效截止）。无该形状 ⇒ 返回 null（零噪声）。
+ */
+export function roundHint(fm, body) {
+  if (!fm) return null;
+  if (!HARD_STATUSES.includes(String(fm.status || ''))) return null;
+  const blocked = Date.parse(String(fm.blocked_at || ''));
+  const changed = Date.parse(String(fm.status_changed_at || ''));
+  if (!Number.isFinite(blocked) || !Number.isFinite(changed) || changed <= blocked) return null;
+  if (/\d{4}-\d{2}-\d{2}/.test(body) || /\bround\s*\d+/i.test(body) || /第\s*\d+\s*轮/.test(body)) return null;
+  return {
+    slot: 'A2',
+    hint: `疑似复用旧轮报告：本卡曾被退回（blocked_at=${fm.blocked_at}）后重新交付，但 Report 未声明**本轮交付时间/轮次** ⇒ 审计无法判断该 Report 是否属于当前一轮（guide §1 A2「被退回过的卡」）`,
+  };
 }
 
 // ---------- 豁免登记（① 托管模板 ∪ ② 运行时登记） ----------
@@ -256,6 +385,7 @@ export function scanReports(tasksDir = TASKS_DIR, { baseline } = {}) {
 
     const body = reportBody(raw);
     const gaps = slotGaps(body);
+    const origin = reportOrigin(body);
     const inHardStatus = HARD_STATUSES.includes(status);
 
     if (!inHardStatus) {
@@ -272,20 +402,25 @@ export function scanReports(tasksDir = TASKS_DIR, { baseline } = {}) {
     const pastCutoff = Number.isFinite(created) && created >= effMs;
     if (pastCutoff) checked++; else skipped++;
 
-    if (!gaps.length) {
+    // 硬面完整缺口集 = 槽位缺口 ∪ 来源缺口（(v)：代收口报告不得当交付证据开门）
+    const hardGaps = [...gaps, ...originGaps(origin)];
+
+    if (!hardGaps.length) {
       hints.push(...contentHints(body).map((h) => ({ id, ...h })));
+      // Δ1/Δ4 属新增口径 ⇒ 只对生效截止之后的卡计算（历史卡不制造噪声）
+      if (pastCutoff) hints.push(...deliveryHints(body, fm).map((h) => ({ id, ...h })));
       continue;
     }
 
     // 截止优先于豁免：grandfather 档本就非阻断，登记对它无实义（登记只用于消解硬违规）
     if (!pastCutoff) {
-      grandfathered.push({ id, status, gaps, created_at: fm.created_at || '' });
+      grandfathered.push({ id, status, gaps: hardGaps, created_at: fm.created_at || '' });
       continue;
     }
 
-    const hit = base.find((b) => b && b.id === id && sameGapSet(b.gaps || [], gaps));
-    if (hit) { exempt.push({ id, status, gaps, reason: hit.reason || '' }); continue; }
-    violations.push({ id, status, gaps });
+    const hit = base.find((b) => b && b.id === id && sameGapSet(b.gaps || [], hardGaps));
+    if (hit) { exempt.push({ id, status, gaps: hardGaps, reason: hit.reason || '' }); continue; }
+    violations.push({ id, status, gaps: hardGaps, origin: origin.origin });
   }
 
   return {
@@ -303,9 +438,17 @@ export function scanReports(tasksDir = TASKS_DIR, { baseline } = {}) {
 
 // ---------- CLI ----------
 
-/** 缺口标签 → 人类可读（供 stderr 报文；`REPORT_MISSING`/`REPORT_EMPTY` 是伪标签）。 */
+/** 缺口标签 → 人类可读（供 stderr 报文；`REPORT_*` 都是伪标签）。渲染成**接在「缺 …」后面也通顺**的
+ *  名词短语（历史报文里 `REPORT_MISSING` 曾被直出，读作「缺 REPORT_MISSING」）。 */
+const GAP_TEXT = {
+  [GAP_NO_SECTION]: '`## Report` 段（整段缺失）',
+  [GAP_EMPTY]: '`## Report` 段的正文（空段）',
+  [GAP_ORIGIN_UNKNOWN]: '可识别的来源标注（`A0` 只认 `delivery`/`import`）',
+  [GAP_IMPORT_NO_PROVENANCE]: '代收口报告的**作者/来源**标注（`author:` + `source:`）',
+  [GAP_IMPORT_NOT_DELIVERY]: '**交付者本人**的 Report（本报告自称代收口 ⇒ 不是交付证据）',
+};
 function describeGaps(gaps) {
-  return gaps.map((g) => (g === GAP_NO_SECTION ? '无 `## Report` 段' : g === GAP_EMPTY ? '`## Report` 段为空' : g)).join(', ');
+  return gaps.map((g) => GAP_TEXT[g] || g).join(', ');
 }
 
 function main() {
@@ -337,10 +480,10 @@ function main() {
   const r = scanReports(tasksDir, { baseline: noBaseline ? [] : undefined });
   console.log(JSON.stringify(r, null, 2));
   if (r.violations.length) {
-    console.error(`Report 完备性违例：${r.violations.length} 张 in_review 卡缺公共核心必需项 —— 按 guides/worker-report-template.md §1 补齐（A1…A8 槽位标签）`);
+    console.error(`Report 完备性违例：${r.violations.length} 张 in_review 卡缺公共核心必需项 —— 按 guides/worker-report-template.md §1 补齐（A1…A8 槽位标签）；来源标注见 §1 A0（代收口报告不是交付证据，须交付者本人补写）`);
     // 逃生口可发现性：登记处只报一次（人工核对后追加），免去「翻头注才知道登记在哪」
     console.error(`  如需登记良性豁免（人工核对后）：追加 ${RUNTIME_BASELINE_NAME} @ ${runtimeBaselinePath(tasksDir)}（运行时不随部署；判据 = id + 缺口集合全等，集合变化即失效）`);
-    for (const v of r.violations) console.error(`  · ${v.id} [${v.status}] 缺 ${describeGaps(v.gaps)}`);
+    for (const v of r.violations) console.error(`  · ${v.id} [${v.status}]${v.origin && v.origin !== 'delivery' ? ` origin=${v.origin}` : ''} 缺 ${describeGaps(v.gaps)}`);
   }
   if (r.grandfathered.length) {
     console.error(`Report 完备性 warn（生效截止 ${effectiveAt()} 之前创建的卡 ⇒ 不追溯转红）：${r.grandfathered.length} 张`);
