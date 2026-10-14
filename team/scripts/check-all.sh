@@ -91,7 +91,8 @@ else
     -x tasks -x workspace -x memory -x claude-sessions.json -x turing-runs.json \
     -x projects.json -x team.config.json -x .board -x .backups \
     -x .install-state.json -x proposals -x reviews -x skills -x tools \
-    -x .check-all-slow.json -x .check-all-slow.lock -x .check-all-slow.log 2>/dev/null || true)"
+    -x .check-all-slow.json -x .check-all-slow.lock -x .check-all-slow.log \
+    -x .sla-scan-ledger.json -x .sla-scan-state.json -x .sla-loop-patrol-state.json 2>/dev/null || true)"
   if [ -z "$drift" ]; then
     echo "   ✔ 仓 team/ 与实例一致（已忽略运行期/主机本地项）"
   else
@@ -111,6 +112,14 @@ if [ "$provider_missing" = 0 ]; then
   run "ACL 终态不可逆守卫"                node "$TEAM/skills/task-ops/tests/terminal-guard.test.mjs"
   run "ACL 项目解析（identity code）"      node --test "$TEAM/skills/task-ops/tests/projects.test.mjs"
   run "ACL 调度求值（provider-agnostic）"  node --test "$TEAM/skills/task-ops/tests/schedule.test.mjs"
+  # SLA 巡检阈值漂移核对（guides/sla-inspection-contract.md §11 钩子 H6）：运行期映射表 vs PROTOCOL §⑮。
+  # 只在脚本已部署时跑（部署前显式 skip，避免「仓里已修 ≠ 线上已修」制造既存红）；非零 = 阈值漂移 ⇒ 红。
+  if [ -f "$S/sla-scan.mjs" ]; then
+    run "SLA 阈值漂移核对 sla-scan --check-thresholds" node "$S/sla-scan.mjs" --check-thresholds
+  else
+    echo "── SLA 阈值漂移核对 sla-scan --check-thresholds"
+    echo "   (skip) $S/sla-scan.mjs 未部署（install.sh 部署后本步生效）"
+  fi
   [ -n "${PROTOTYPE_DIR:-}" ] && run "原型禁写实现原型门禁" bash "$S/prototype-guard.sh" "$PROTOTYPE_DIR"
   # 只读预览（--dry-run）：只报「将归档」计数，不 mkdir / 不 rename（门禁不得产生写副作用）
   echo "── 归档预览 dry-run（--days 7 · 只读，不移动文件）"; node "$S/archive.mjs" --days 7 --dry-run
