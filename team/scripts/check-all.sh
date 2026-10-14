@@ -80,13 +80,23 @@ if ! node "$S/scan-deps.mjs"; then
   if [ "${SCAN_STRICT:-0}" = 1 ]; then echo "   ↑ FAIL (strict)"; fail=1; FAILED_STEPS+=("依赖 CVE 扫描 scan-deps (strict)"); fi
 fi
 
-# 防漂移巡检（只读）：仓 team/ ↔ 实例 diff。仅报差异，绝不写、绝不移动文件。仓路径取
+# 防漂移巡检（只读）：仓 ↔ 实例 diff。仅报差异，绝不写、绝不移动文件。仓路径取
 # OPENCLAW_TEAM_REPO，否则读 .install-state.json 的 repoPath；两者都缺 ⇒ 跳过（非红）。
-#   · **部署面**（team/scripts/**，随 install.sh §1 部署的可执行面）差异 ⇒ **默认红**（fail-closed，
-#     T-20261014-204806）：该面的 drift 恒为「部署滞后」（第三种实现态），必须机检为红——
-#     否则 merge 后未重跑 install.sh 的漂移会像本次对账一样静默累积。
-#   · 其它面（docs / automations / guides…）差异 ⇒ 仅告警，DRIFT_STRICT=1 时才算 fail（裁定归口 Elon）。
-#   · 主机本地 / 运行期项（scripts/triggers、tmp、*-proposed-clauses.md、备份 *.bak*）已排除，不误红。
+#   · **部署面差异 ⇒ 默认红**（fail-closed）。部署面 = install.sh 部署的**可执行面**，其 drift 恒为
+#     「部署滞后」（第三种实现态），必须机检为红——否则 merge 后未重跑 install.sh 的漂移会像本次
+#     对账一样静默累积（T-20261014-204806 立，T-20261014-214625 扩展）：
+#       - `team/scripts/**`    （install.sh §1；T-20261014-204806）
+#       - `team/automations/**`（install.sh §1；T-20261014-214625）—— `dispatch.mjs`/`providers.json`
+#         是**可执行路由面**（派发 + provider 入口映射），不是纯文档：旧文件会让计划任务静默错派。
+#       - `tools/**`           （install.sh §1a；T-20261014-214625）—— **独立比对** `$REPO/tools ↔
+#         $TEAM/tools`（见下方 tools 段；不复用上面那对 `team/`，两者不是同一棵树）。
+#     三个面都覆盖 **diff 的三种形态**：内容不同（`Files A and B differ`）、面目录整体仓内有实例无
+#     （`Only in <repo>/team: <s>`）、面上某文件仓内有实例无（`Only in <repo>/team/<s>: <name>`）——
+#     后两种是片段正则的历史盲区，而「仓里新增了文件/脚本、线上还没部署」恰是最典型的一档滞后
+#     （T-20261014-204806 对账时即有 3 个仓内新脚本）。
+#   · 其它面（docs / guides…）差异 ⇒ 仅告警，DRIFT_STRICT=1 时才算 fail（裁定归口 Elon）。
+#   · 主机本地 / 运行期项（scripts/triggers、tmp、*-proposed-clauses.md、备份 *.bak*、实例 tools/ 下
+#     的本地附加物如 tools/openssl3）已排除，不误红。
 echo "── 防漂移巡检 repo↔instance diff（只读；仅报差异）"
 REPO_DIR="${OPENCLAW_TEAM_REPO:-}"
 if [ -z "$REPO_DIR" ] && [ -f "$TEAM/.install-state.json" ]; then
@@ -107,11 +117,48 @@ else
   else
     printf '%s\n' "$drift" | sed 's/^/   Δ /'
     echo "   ⚠ 检出动差异（裁定归口 Elon——回灌 or 部署）"
-    # 部署面 fail-closed：team/scripts/** 出现 repo↔instance 差异 ⇒ 部署滞后 ⇒ 默认红（见文件头）。
-    if printf '%s\n' "$drift" | grep -q '/team/scripts/'; then
+    # 部署面 fail-closed：team/scripts/** 或 team/automations/** 出现 repo↔instance 差异 ⇒ 部署滞后
+    # ⇒ 默认红（见文件头）。两条独立判据 ⇒ 信封里能直接读出是哪个面滞后。
+    # 每一面都要覆盖 **diff 的三种形态**（T-20261014-214625）：
+    #   (a) 两侧都有但内容不同  ⇒ `Files <repo>/team/<s>/x and … differ`   → 含 `/team/<s>/`
+    #   (b) 面目录整体仓内有、实例无 ⇒ `Only in <repo>/team: <s>`            → ★ 片段正则漏判
+    #   (c) 面上某文件仓内有、实例无 ⇒ `Only in <repo>/team/<s>: x`          → ★ 同上
+    # (b)/(c) 恰是「仓里新增了脚本、线上还没部署」——最典型的一档滞后（T-20261014-204806 对账时
+    # 就有 3 个仓内新脚本）。用 -F 定长匹配，避免仓路径里的正则元字符误伤。
+    deploy_surface_drift() {
+      printf '%s\n' "$drift" | grep -qF \
+        -e "/team/$1/" -e "Only in ${REPO_DIR}/team: $1" -e "Only in ${REPO_DIR}/team/$1:"
+    }
+    if deploy_surface_drift scripts; then
       echo "   ↑ FAIL (deploy surface drift: team/scripts/**)"; fail=1; FAILED_STEPS+=("部署面漂移 team/scripts")
     fi
+    if deploy_surface_drift automations; then
+      echo "   ↑ FAIL (deploy surface drift: team/automations/**)"; fail=1; FAILED_STEPS+=("部署面漂移 team/automations")
+    fi
     if [ "${DRIFT_STRICT:-0}" = 1 ]; then echo "   ↑ FAIL (drift strict)"; fail=1; FAILED_STEPS+=("防漂移巡检 (strict)"); fi
+  fi
+
+  # ---- tools 面显式比对（install.sh §1a：$REPO/tools → $TEAM/tools）----------------------------
+  # 为什么不靠「去掉上面那行的 `-x tools`」：上面比的是 `$REPO/team` ↔ `$TEAM`，仓内并没有
+  # `team/tools/` ⇒ 实例 `$TEAM/tools/` 会被读成「仅实例有」的**伪差异**，真盲区（仓改 tools/
+  # 未部署）依旧看不见。工具面是**另一对**路径，必须独立比对。
+  # 判据（触发条件）：仓侧文件在实例缺失、或内容不同 ⇒ 部署滞后 ⇒ **默认红**（与 scripts/automations
+  # 同列）。**仅实例有**的条目忽略：install.sh 只部署 $REPO/tools 下的条目，主机本地附加物
+  # （如 tools/openssl3 本地构建）属设计内，不误红。
+  # 豁免开关：无单独开关（与 scripts/automations 同口径）。仓库路径本身可用 OPENCLAW_TEAM_REPO
+  # 指向「应与之对齐的基线检出」——lane 部署超前（未合并即前移）时用它隔离出真实滞后。
+  if [ -d "$REPO_DIR/tools" ]; then
+    if [ ! -d "$TEAM/tools" ]; then
+      echo "   ↑ FAIL (deploy surface drift: tools/ 实例缺目录 $TEAM/tools)"; fail=1; FAILED_STEPS+=("部署面漂移 tools")
+    else
+      tools_drift="$(diff -rq "$REPO_DIR/tools" "$TEAM/tools" 2>/dev/null | grep -vF "Only in ${TEAM}/tools" || true)"
+      if [ -z "$tools_drift" ]; then
+        echo "   ✔ 仓 tools/ 与实例 tools/ 一致（忽略实例本地附加物）"
+      else
+        printf '%s\n' "$tools_drift" | sed 's/^/   Δ /'
+        echo "   ↑ FAIL (deploy surface drift: tools/**)"; fail=1; FAILED_STEPS+=("部署面漂移 tools")
+      fi
+    fi
   fi
 fi
 
