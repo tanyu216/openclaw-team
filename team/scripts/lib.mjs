@@ -250,6 +250,14 @@ function mkdirLock(lockDir) {
   }
 }
 
+// 领取守卫的状态归类：规范词表（skills/task-ops/lib/task.mjs：#CANONICAL_STATUSES 含 `todo`；
+// `ready` 仅见于 #STATUS_ALIASES，是兼容别名）与守卫原实现两处口径曾不一致——守卫只认字面量
+// `ready`，反把**规范值** `todo` 挡在门外（T-20261014-204530：卡被送回为 `todo` 后 claim 静默
+// `status=todo` 拒领，换人/换脚本即卡死）。归一：`todo`（规范）与 `ready`（兼容别名）**同视为
+// new**；仅此二者，不引入第三种语义。
+const NEW_STATUSES = new Set(['todo', 'ready']);
+const isNewStatus = (s) => NEW_STATUSES.has(s);
+
 /** 尝试清理陈旧锁；返回 true=已清理（可重试加锁） */
 function clearStaleLockIfAllowed(lockDir, fm, now) {
   let st;
@@ -259,10 +267,10 @@ function clearStaleLockIfAllowed(lockDir, fm, now) {
     return true; // 锁已被清（竞态窗口）
   }
   if (now - st.mtimeMs <= STALE_LOCK_MS) return false; // 锁新鲜：正在被其他进程使用
-  // 锁陈旧（>15min）：卡仍 ready → 删锁重试；卡 in_progress 且心跳过期 → 删锁交恢复路径
+  // 锁陈旧（>15min）：卡仍 new（todo/ready）→ 删锁重试；卡 in_progress 且心跳过期 → 删锁交恢复路径
   const hb = parseIso(fm.heartbeat_at);
   const hbStale = Number.isNaN(hb) ? true : now - hb > CLAIM_STALE_SAME_MS;
-  if (fm.status === 'ready' || (fm.status === 'in_progress' && hbStale)) {
+  if (isNewStatus(fm.status) || (fm.status === 'in_progress' && hbStale)) {
     try {
       fs.rmdirSync(lockDir);
       return true;
@@ -276,7 +284,7 @@ function clearStaleLockIfAllowed(lockDir, fm, now) {
 /**
  * 原子领取（幂等）：claim.mjs 与 poll.mjs 共用。
  * 规则（PROTOCOL 看板协议）：
- *  - 仅 assignee 匹配 + ready（或满足陈旧恢复）可领
+ *  - 仅 assignee 匹配 + new（todo 规范值 / ready 兼容别名，或满足陈旧恢复）可领
  *  - mkdir 抢锁失败 → 不动作（他进程正在领）
  *  - 成功 → 整卡 tmp+rename 写 in_progress + claimed_by/claimed_at/heartbeat_at → 释放锁
  *  - in_progress + 心跳新鲜（≤10min）→ 不动（执行唯一性：仅回报）
@@ -333,7 +341,7 @@ export function claimCard(cardArg, assignee) {
   if (fm.assignee !== assignee) return { ok: false, reason: `wrong_assignee(assignee=${fm.assignee})` };
 
   let mode;
-  if (fm.status === 'ready') {
+  if (isNewStatus(fm.status)) {
     mode = 'new';
   } else if (fm.status === 'in_progress') {
     const hb = parseIso(fm.heartbeat_at);
@@ -349,7 +357,7 @@ export function claimCard(cardArg, assignee) {
   }
 
   // 同卡跨回合锁：领取前查持久锁（与 registry 无关的兜底互斥，见 turnLockPath 注释）。
-  //  - new（ready）⇒ 残留锁清除（无持有者，不应阻塞领取）；
+  //  - new（todo/ready）⇒ 残留锁清除（无持有者，不应阻塞领取）；
   //  - 恢复（recover_same/recover_any）⇒ 新鲜锁（≤ STALE_LOCK_MS）仍被持有 ⇒ 不领（turn_locked）；
   //    陈旧锁 ⇒ 清除后走恢复。
   const turnPath = turnLockPath(cardPath);
@@ -375,7 +383,7 @@ export function claimCard(cardArg, assignee) {
   try {
     // 抢锁成功后重新读卡（期间状态可能已变），二次校验
     ({ fm, body } = readCard(cardPath));
-    if (!(fm.status === 'ready' || fm.status === 'in_progress')) {
+    if (!(isNewStatus(fm.status) || fm.status === 'in_progress')) {
       return { ok: false, reason: `status_changed(${fm.status})`, card: fm };
     }
     if (fm.status === 'in_progress') {
