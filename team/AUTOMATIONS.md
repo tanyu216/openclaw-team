@@ -1,7 +1,7 @@
 # AUTOMATIONS.md — Scheduled Jobs / Patrol List
 
 > Overview and decision record of all scheduled jobs (cron / every / trigger) on the team Gateway. Maintainer: Elon.
-> Last updated: 2026-10-14 (added `check-epic-completeness` to the fast segment, T-20261012-171026-2; + added `sla-scan`, T-20261014-022254-3; + the contract-v1.1 conformance fixes F1/F5/F8, T-20261014-084606). View live: `automations list` (or Control UI → Automations).
+> Last updated: 2026-10-15 (added `check-report` — card-face Report completeness — to the fast segment, T-20261015-010749-2; + `check-epic-completeness`, T-20261012-171026-2; + `sla-scan`, T-20261014-022254-3; + the contract-v1.1 conformance fixes F1/F5/F8, T-20261014-084606). View live: `automations list` (or Control UI → Automations).
 > Related: `PROTOCOL §⑳` (gates and archiving), `§⑥.4` (poll to terminal state), `README §3` (operations commands), `guides/task-interface.md` (task-provider ACL).
 
 ## 0. Boundary — framework owns scheduling; provider is only a callee (ACL)
@@ -224,6 +224,21 @@ gate. The second half is the **dangling-roadmap sweep** (mechanism ⑤ of the pa
 `workspace/<task>/plan.md`, `workspace/<task>/design/…` and epic cards and reports "phase without a
 card", **soft and exit-code-neutral** by contract.
 
+**Report completeness in the fast segment (T-20261015-010749-2).** `check-all.sh` also runs
+`scripts/check-report.mjs` in the **fast** segment (~0.05 s on a live-shaped board, 580+ cards):
+it checks that a card's `## Report` section carries the **common core** slots `A1…A8` defined by
+`team/guides/worker-report-template.md`. Its trigger surface is deliberately narrow so that landing
+it cannot redden the existing board: **only `in_review` is a hard trigger** (`PROTOCOL §⑳.1`) —
+cards still being worked report at most a warning, and **terminal cards are never checked at all**
+(not even a warning). Two further bounds keep history out of it: an **effective cutoff**
+(`created_at` earlier than the gate's landing instant ⇒ *grandfathered*, warning only — the
+2026-10-15 landing measured 12 such cards, including the four `in_review`-with-blank-Report cases
+that motivated the gate), and an **exemption register** modelled on `check-idem` (managed template
+`scripts/report-baseline.json`, pinned empty in the repo, ∪ runtime register
+`<tasks>/.report-baseline.json`, honoured only when a card's **current** gap set matches exactly).
+Content checks are **non-blocking hints** only (A2 card path/commit, A5 exit code). Switches:
+`OPENCLAW_TEAM_REPORT_EFFECTIVE_AT` (move the cutoff), `--no-baseline` (ignore both registers).
+
 `check-all.sh` is still the single source of every check (`--segment all` is the default and
 is the historical full run plus the provider ACL sweep recorded above, for humans and CI). The scheduled entry is
 `scripts/check-all-gate.mjs`: it runs the fast segment in-band, reads the cached slow verdict,
@@ -425,3 +440,4 @@ confirmation `T-20261014-022327` found in this landing (registered as §12 **G-1
 - Redline-block drift = 0 | terminology-abstraction violations = 0 | §reference broken links = 0 | card-schema violations = 0 | contract tests all green.
 - **Epic completeness / roadmap × card reconciliation = 0 hard violations** (`scripts/check-epic-completeness.mjs`, T-20261012-171026-2, `PROTOCOL §⑩.2/§⑩.3/§⑳.1`): every card named in an epic's roadmap ledger must exist **and** be a child of that epic, and every phase with no card must state a reason (hard domain = non-terminal epics — terminal ones are grandfathered and reported as warnings). The **dangling-roadmap sweep** (`workspace/<task>/plan.md`, `design/`, epic cards → "phase without a card") is **soft**: it reports, never sets the exit code.
 - **New-seg background-pack rate**: the gate verifies that "all running/closed segs in the card have `workspace/<task-id>/handoff.md` containing the four anchors" — target 100%; gaps are handled (generated/carded).
+- **Card-face Report completeness = 0 hard violations** (`scripts/check-report.mjs`, T-20261015-010749-2, `PROTOCOL §⑳.1`; standard = `team/guides/worker-report-template.md`): an `in_review` card must have a non-blank `## Report` carrying the common-core slots `A1…A8`. Hard domain = **`in_review` created at/after the gate's effective cutoff**; terminal cards are never checked, earlier cards are grandfathered to warnings (12 at landing — no retro-reddening), and the register (`scripts/report-baseline.json` ∪ `<tasks>/.report-baseline.json`) can exempt a benign case when its gap set matches exactly. Measured motivation: on the 487-card census the **card path** slot hit only 16–19% on every role, Jobs' "command + exit code" 17%, and four cards reached `in_review` with a blank Report on the night of 2026-10-14.
