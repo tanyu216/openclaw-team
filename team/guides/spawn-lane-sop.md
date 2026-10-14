@@ -32,6 +32,7 @@ Both were observed on 2026-10-10 (`check-all` red) on lanes started by a direct 
 
 ```
 claim → handoff self-check → resolve cwd/session-id → spawn → session-set (card + registry, one step)
+      → arm session reaper (lane pid ⇒ terminal write on both sides, whichever way the lane ends)
 ```
 
 1. **claim** — parse the card through the ACL, then dispatch on `role`:
@@ -52,6 +53,7 @@ claim → handoff self-check → resolve cwd/session-id → spawn → session-se
 7. **session id** — for **claude**, a deterministic UUIDv5 via the ACL (`<card> <owner> <seg>`) ⇒ predictable, and passed at spawn via `--session-id` (**claude only** — **codex has no `--session-id`** and self-assigns its session id at spawn, so the UUIDv5 is not a codex spawn parameter) — resume in the host's exact form: claude `--resume <id>`, codex `codex exec resume <id>` (continue most recent `--last`), pi `pi --print --session <id>` (`PROTOCOL §⑥` clause 8; basis `T-20261011-231103`).
 8. **spawn** — `claude -p <prompt> --output-format stream-json --verbose --permission-mode acceptEdits --settings <ws>/.claude/settings.json --add-dir <ws> --add-dir <team> --session-id <uuid> --name <owner>-<seg>`, started as a **new session detached from the parent process group** (see §5), `stdin`=DEVNULL, stdout → `workspace/<task-id>/<owner>-<n>.out.jsonl`, stderr → `<owner>-<n>.err.log`, cwd = project root.
 9. **session-set (immediately after spawn)** — one ACL call writes **both** the card's `## Sessions` row (seg/owner/backend/id/phase/status/**pid**) **and** the team registry. Registration is never two half-writes.
+10. **arm the session reaper (immediately after registration, `T-20261015-045724`)** — a detached watchdog (`scripts/lane-reaper.mjs`) waits for **this lane's pid** to die (including the zombie case) and then closes the session on both surfaces through the ACL `task.session-close`, stamping `endedAt` on the card row and appending one audit line to `workspace/<task-id>/lane-lifecycle.log`. This is what makes the terminal write hold on the abnormal paths too (killed / timed out / crashed) — the parent turn is not in the loop. Exit-field: `reaper: {state:"armed", pid:…}`. If the reaper cannot be started the entry **refuses to run the lane and closes the row it just registered** (`lane_reaper_failed(…)`): "registered but nobody owns the close" is exactly the drift this step removes. `--no-reaper` / `OPENCLAW_TEAM_REAPER=0` opts out (see `lane-session-lifecycle-sop.md` §4 for what you then owe).
 
 `--dry-run` performs the full validation chain and prints the planned command line, but **starts no process and writes nothing** (no registry, no card, no handoff, no settings).
 
@@ -70,12 +72,15 @@ bash ~/.openclaw/team/scripts/spawn-lane.sh T-20261010-052210 turing backend=cod
 
 # Review lane on an in_review card (defaults: seg=segR1, backend=codex)
 bash ~/.openclaw/team/scripts/spawn-lane.sh T-20261010-052210 turing --review backend=codex
+
+# Opt out of the session reaper (you then own task.session-close before your turn ends)
+bash ~/.openclaw/team/scripts/spawn-lane.sh T-20261010-052210 linus --no-reaper      # = OPENCLAW_TEAM_REAPER=0
 ```
 
 - The **last stdout line is JSON** `{ok, role, settings, session_id, pid, cwd, handoff, log, cmd, …}` for machine reading.
 - Exit codes: **0** started (or dry-run OK) · **1** refused (validation/handoff/claim/cap) · **2** usage error.
 - Refusal reasons are stable and greppable, e.g. `claimed_by_mismatch(…)`, `concurrency_cap(owner=…,running=…,cap=…)`, `handoff_anchor_missing:…`, `status_not_spawnable(…)`, `lane_samefile_conflict(…):serialize`, `lane_isolation_failed(…):serialize_or_fix` (`§11`).
-- After starting a lane you **still own polling it to terminal state** (`PROTOCOL §⑥` clause 4); the entry does not take over polling.
+- After starting a lane you **still own polling it to terminal state** (`PROTOCOL §⑥` clause 4); the entry does not take over polling. You do **not** own the session's terminal *registration* any more: step 10's reaper writes it when the lane's process ends (`lane-session-lifecycle-sop.md`).
 
 ## 5. Detach discipline (macOS)
 
@@ -83,7 +88,7 @@ The entry starts the child as a **new session detached from the parent process g
 
 ## 6. How the gates back this up
 
-- `scripts/check-sessions.mjs` — two-way card↔registry comparison; `registry_only` / `card_only` are hard failures (a bypass lane that only wrote the registry is caught here).
+- `scripts/check-sessions.mjs` — two-way card↔registry comparison; `registry_only` / `card_only` are hard failures (a bypass lane that only wrote the registry is caught here). Its `note`s (the drift class: `status_mismatch` / `stale_card_line` / `zombie_registry`) are collected by `scripts/session-reconcile.mjs` (`lane-session-lifecycle-sop.md` §6); the live claiming surface no longer acts on them — poll refuses to re-claim such a card (same SOP, §3).
 - `scripts/check-handoff.mjs` — validates the four anchors for **two** populations: ① every registered `running|closed` seg, and ② **any `in_progress|in_review` card whose `handoff.md` already exists** — so a hand-written handoff left by a direct launch is caught **before or after** its seg is registered.
 
 Both gates are aggregated by `scripts/check-all.sh`; a bypass lane therefore cannot stay invisible on the board.
@@ -100,6 +105,7 @@ Both gates are aggregated by `scripts/check-all.sh`; a bypass lane therefore can
 - **`review_needs_in_review(status=…)`** — a review lane (`role=review`) was pointed at a card that is not `in_review`.
 - **`review_seg_taken(seg=…,owner=…):use_seg=segR1`** — a review lane was given a `seg=` that already belongs to another owner on this card. Reusing it would **overwrite that owner's `## Sessions` row** (the card's upsert key is `seg:<seg> ·`); drop `seg=` (default `segR1`) or pass a fresh one (§9).
 - **`lane_samefile_conflict(with=…,overlap=…):serialize`** — a same-repo non-terminal card writes a file this card also writes. **Serialize**: wait for that card to reach terminal state, or re-scope the writes. Do **not** work around it with `--no-isolate` (that removes the protection, not the conflict) — isolation cannot fix a same-file collision, it only moves it to a branch merge (§11).
+- **`lane_reaper_failed(…)`** — the session reaper (step 10) could not be started, so the entry refused to run the lane and already closed the row it had registered (fail-closed: no lane is left running without an owner for its terminal write). Re-run the entry; if it keeps failing, check that the reaper can be spawned at all (node executable, `TEAM_ROOT` writable) — and do **not** work around it with `--no-reaper` unless you are taking the close over yourself (`lane-session-lifecycle-sop.md` §4).
 - **`lane_isolation_failed(…):serialize_or_fix`** — the lane's repo has a concurrent lane but its worktree could not be taken. Run `git worktree list` in the repo, clear the obstacle named in the reason (a stale path, a branch checked out elsewhere), then re-run the entry (§11). Never re-launch the lane in the shared checkout to "get it moving".
 - Any refusal that looks wrong ⇒ report to Elon with the JSON envelope; do not work around the entry by launching directly.
 

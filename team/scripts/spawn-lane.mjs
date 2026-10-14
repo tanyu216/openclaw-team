@@ -9,7 +9,8 @@
  * 任一步失败即拒绝起会话（绝不半登记）。
  *
  * 语义（契约）：
- *   入参：<card> <owner> [seg=seg1] [backend=claude|codex] [phase=<p>] [role=exec|review] [--review] [--dry-run] [--help]
+ *   入参：<card> <owner> [seg=seg1] [backend=claude|codex] [phase=<p>] [role=exec|review] [parallel=1]
+ *         [--review] [--dry-run] [--no-isolate] [--no-reaper] [--base <ref>] [--help]
  *   ① 解析卡（ACL `task.read`）；**按 role 分派状态口径**：
  *      - role=exec（默认）：断言 status=in_progress && claimed_by=owner（status=ready/todo 时自动 claim）；
  *        in_review ⇒ 拒绝并提示改用复核 lane（`status_not_spawnable(in_review):use_role=review`）。
@@ -53,6 +54,10 @@
  *      ——否则 codex 沙箱的可写根只有 cwd（主 workspace），复核报告落点 `{team}/workspace/<id>/` 在 cwd 之外
  *      ⇒ lane 写 `report.md` 得 EPERM（须父回合手工回迁）。`--add-dir` 只在 workspace-write 下生效（实测）；
  *   ⑦ 起后**立即** ACL `task.session-set`（seg/owner/backend/phase/pid/log/status=running；卡 + registry 同写）。
+ *   ⑧ 登记成功后**立即**起「会话终态看守」（`lane-reaper.mjs`，detached）——lane 进程一死（正常结束/
+ *      被杀/超时/崩溃）即经 ACL `task.session-close` 写完两侧终态 + 逐条留痕。**起看守失败即拒绝**
+ *      （fail-closed：先 `session-close` 收口已登记的行、再 kill 子进程——「登记了却无人负责收口」正是
+ *      本卡要消灭的失败模式）。回退开关：`--no-reaper` 或 env `OPENCLAW_TEAM_REAPER=0`。
  *   `--dry-run`：只做校验 + 打印计划命令行，**不起进程、不写 registry/卡/handoff/settings**。
  *
  * 输出：末行 JSON `{ok, role, settings, isolation, session_id, pid, cwd, handoff, log, cmd, …}`（机读）；失败 exit≠0（用法 2 / 拒绝 1）。
@@ -65,7 +70,8 @@ import { TEAM_ROOT, CARD_ID_RE, AGENTS, getProject } from './lib.mjs';
 import { anchorGaps } from './check-handoff.mjs';
 import { loadRegistry, isPidAlive } from './registry.mjs';
 import { isolationEnabled, laneIsolationPlan, applyLaneIsolation } from './lane-isolation.mjs';
-import { read as aclRead, claim as aclClaim, sessionSet, sessionIdFor, handoff as aclHandoff } from '../skills/task-ops/lib/task.mjs';
+import { read as aclRead, claim as aclClaim, sessionSet, sessionClose, sessionIdFor, handoff as aclHandoff } from '../skills/task-ops/lib/task.mjs';
+import { armLaneReaper, reaperEnabled } from './lane-reaper.mjs';
 
 /** 并发额度（PROTOCOL §⑥ clause 2）：linus/jobs < 8；turing < 3；其余默认 8 */
 export const RUNNING_CAPS = { linus: 8, jobs: 8, turing: 3 };
@@ -243,10 +249,12 @@ export function parseArgs(argv) {
   let dryRun = false;
   let help = false;
   let isolate = true;
+  let reaper = true;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dry-run') { dryRun = true; continue; }
     if (a === '--no-isolate') { isolate = false; continue; } // 回退开关（等价 OPENCLAW_LANE_ISOLATION=0）
+    if (a === '--no-reaper') { reaper = false; continue; } // 回退开关（等价 OPENCLAW_TEAM_REAPER=0）
     if (a === '--review') { kv.role = 'review'; continue; } // 等价 role=review
     if (a === '--help' || a === '-h') { help = true; continue; }
     if (a === '--base') { // 带值旗标：缺值 / 值形如 `--x` ⇒ 用法错误（绝不把下一个旗标吞成值）
@@ -270,6 +278,7 @@ export function parseArgs(argv) {
     help,
     dryRun,
     isolate,
+    reaper,
     card: pos[0] || '',
     owner: pos[1] || '',
     // 未显式给 seg ⇒ ''，由 spawnLane 按 role 取默认（exec=seg1 / review=segR1）
@@ -558,6 +567,7 @@ export function spawnLane(opts = {}) {
     seg,
     owner,
     task_id: taskId,
+    reaper: opts.reaper !== false && reaperEnabled() ? 'would_arm' : 'disabled',
     ...(claims.length ? { claims } : {}),
     cmd: [bin, ...args],
     cmdline: [bin, ...args].map((s) => (/[\s"'$]/.test(s) ? JSON.stringify(s) : s)).join(' '),
@@ -592,19 +602,37 @@ export function spawnLane(opts = {}) {
     return reject(`session_set_failed:${reg.reason || 'unknown'}`, { detail: reg, pid });
   }
 
+  // ---- ⑨ 会话终态看守（lane 一死必写终态；见 lane-reaper.mjs 与 guides/lane-session-lifecycle-sop.md）----
+  // fail-closed：看守起不来 ⇒ 把已登记的行就地收口（ACL 唯一写点，两侧同写）后拒绝起会话。
+  // 「登记了却无人负责收口」正是本卡要消灭的失败模式：宁可不跑这条 lane，也不留下一条无人收口
+  // 的 running 登记（它会同时污染 check-sessions 与 poll 的陈旧恢复面）。
+  const reaperOn = opts.reaper !== false && reaperEnabled();
+  let reaperState = { state: reaperOn ? 'armed' : 'disabled' };
+  if (reaperOn) {
+    const armed = armLaneReaper({ card, seg, pid, owner, env: process.env });
+    if (!armed.ok) {
+      const closed = (() => { try { return sessionClose(card, seg, 'closed'); } catch (e) { return { ok: false, reason: String(e && e.message ? e.message : e) }; } })();
+      try { process.kill(pid, 'SIGTERM'); } catch { /* 已退出/无权限：忽略 */ }
+      return reject(`lane_reaper_failed(${armed.reason})`, { detail: armed, pid, session_close: closed, session: { seg, pid, id: sid } });
+    }
+    reaperState = { state: 'armed', pid: armed.pid };
+  }
+
   return {
     ...plan,
     pid,
     handoff: reg.handoff === 'created' ? 'created' : handoffState,
     card: reg.cardPath || cardPath,
     registry: reg.registry,
+    reaper: reaperState,
     ...(reg.warnings ? { warnings: reg.warnings } : {}),
   };
 }
 
-const HELP = `用法: bash scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [phase=<p>] [role=exec|review] [parallel=1] [--review] [--dry-run] [--no-isolate] [--base <ref>]
+const HELP = `用法: bash scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [phase=<p>] [role=exec|review] [parallel=1] [--review] [--dry-run] [--no-isolate] [--no-reaper] [--base <ref>]
 
-新 lane 起会话的单一强制入口（claim → handoff 自检 → settings 预置 → spawn → session-set 卡+registry 同写）。
+新 lane 起会话的单一强制入口（claim → handoff 自检 → settings 预置 → spawn → session-set 卡+registry 同写
+→ 起会话终态看守）。
 role=exec（默认）起执行 lane（in_progress 卡）；role=review（--review 等价）起复核 lane（in_review 卡，
 不 claim、不校验 claimed_by，未给 seg= 时默认 segR1）。
 同卡防双跑（spawn 前，零副作用）：同 seg 已有活跃 lane（卡行 / registry phase=seg / registry session_id
@@ -613,7 +641,11 @@ role=exec（默认）起执行 lane（in_progress 卡）；role=review（--revie
 同仓已有并发非终态 lane ⇒ 自动建隔离 worktree（cwd 指向该树）；同文件冲突 ⇒ 拒绝并提示串行；
 隔离树的 base：续接上一 seg ⇒ 上一 seg 的 lane 分支 tip（首 seg ⇒ HEAD）；--base <ref> 显式指定且
 不可解析即拒绝。--no-isolate（或 OPENCLAW_LANE_ISOLATION=0）关闭该自动化（回退为显式纪律）。
-禁「直跑 claude -p 不登记」；见 guides/spawn-lane-sop.md、guides/worktree-isolation-sop.md 与 PROTOCOL §⑥。
+起会话成功后自动起**会话终态看守**（lane-reaper.mjs，detached）：lane 进程一死（正常/被杀/超时/崩溃）
+即经 ACL session-close 写完卡行 status + 清 active_session_id + registry 终态；起看守失败即拒绝起会话
+（fail-closed，且会先把已登记的行收口）。--no-reaper（或 OPENCLAW_TEAM_REAPER=0）关闭该自动化。
+禁「直跑 claude -p 不登记」；见 guides/spawn-lane-sop.md、guides/lane-session-lifecycle-sop.md、
+guides/worktree-isolation-sop.md 与 PROTOCOL §⑥。
 
 示例:
   bash scripts/spawn-lane.sh T-20261010-052210 linus --dry-run
@@ -622,6 +654,7 @@ role=exec（默认）起执行 lane（in_progress 卡）；role=review（--revie
   bash scripts/spawn-lane.sh T-20261010-052210 linus seg=seg2 --base 43bdf5f   # 显式定基
   bash scripts/spawn-lane.sh T-20261010-052210 turing --review backend=codex
   OPENCLAW_LANE_ISOLATION=0 bash scripts/spawn-lane.sh T-20261010-052210 linus   # 显式纪律回退
+  OPENCLAW_TEAM_REAPER=0 bash scripts/spawn-lane.sh T-20261010-052210 linus      # 关闭会话终态看守
 `;
 
 function main() {

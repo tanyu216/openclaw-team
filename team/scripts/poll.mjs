@@ -16,6 +16,9 @@
  *   （`scripts/spawn-lane.sh` detached），**不等待 lane**；run payload 见 `poll-run.mjs`（T-20261013-041718）
  * - in_progress + 心跳新鲜（含 claimed_by=自己）→ 不动，fire:false
  * - 领取前防双跑守卫：有活跃子会话不重领（即使心跳陈旧也不越过守卫）
+ * - **不一致态不重领**（T-20261015-045724）：陈旧候选若「卡 Sessions=running」与「registry 终态/缺失」
+ *   互相矛盾（登记漂移，lane 终结没写终态）⇒ 不进候选面、本轮不领，交 `session-reconcile.mjs` 对账
+ *   （判据唯一源 `session-lifecycle.mjs#classifyClaimBlock`，读写两面同源）
  * - 写冲突粗判（§⑥.3 单写者）：同 project+target 视为同资源 ⇒ 冲突组每轮只领 1 张（串行）
  * - **自动候选面排除部署类卡**（`kind:deploy`）：部署/线上执行类卡由 Elon 显式派发推进，poll 不自动领取
  *   （显式领取路径不拒，与 `kind:epic` 的「彻底不可领」分层不同；T-20261014-013629-2）
@@ -39,6 +42,7 @@ import {
 } from './lib.mjs';
 import { activeSessions, formatActiveReason, loadRegistry, isPidAlive } from './registry.mjs';
 import { pollRunMessage } from './poll-run.mjs';
+import { parseSessionRows, laneRow, classifyClaimBlock } from './session-lifecycle.mjs';
 
 /** 并发额度（PROTOCOL §⑥ 第 2 条 / §⑥.3）：Linus/Jobs/Simons=8、Turing=3；其余 agent 未定义 */
 export const CONCURRENCY_QUOTA = { linus: 8, jobs: 8, simons: 8, turing: 3 };
@@ -73,22 +77,38 @@ function createdMs(fm, filePath) {
  * `ready` 字面量：原实现的裸判据把**规范值** `todo` 挡在自动候选面外（T-20261014-205709，与
  * T-20261014-204530 的 claim 守卫同根）。
  *
+ * **不一致态不重领**（T-20261015-045724，判据唯一源 = `session-lifecycle.mjs#classifyClaimBlock`）：
+ * `in_progress` 陈旧候选若其活跃 `## Sessions` 行与 canonical registry 互相矛盾（registry=done /
+ * registry 终态而卡行 pid 存活 / registry 无条目而卡行 pid 存活）⇒ **不进候选面**，改由
+ * `session-reconcile.mjs` 对账。理由：这类「陈旧」是**登记漂移**而非「lane 跑了没回来」，重领
+ * 可能重复执行已交付的工作（实证：lane 终结未写会话终态 ⇒ 卡停 in_progress + registry done ⇒
+ * 本卡被 stale_same 重领）。真僵尸行（pid 已死且 registry 未宣告完成）**照旧可领**——恢复路径
+ * 不得被本守卫吃掉。
+ *
  * **自动候选面排除部署类卡**（`kind:deploy`，T-20261014-013629-2）：本函数是 poll **唯一**的候选读
  * 面（`runPoll` = 领，`pollCandidates`/ACL `task.pollCandidates` = 只读诊断），故排除落在这里即两池
  * （new / 陈旧恢复）一并生效。`kind:deploy` 须 Elon 显式派发推进 ⇒ **不拒显式领取**（claimCard 不判）。
  * 背景：基座侧（meerkat-taskpanel `658eb1f`）只改了自己的 `issue candidates` 读面；框架 poll 直读
  * 卡文件**不经过基座**，该排除不会自动继承（实证 T-20261013-161055 部署漂移卡被 poll 领走）。
+ *
+ * @returns {{candidates:Array<object>, inconsistent:Array<object>}} `candidates` 排序后可直接领取；
+ *   `inconsistent` = 被一致性守卫拦下的卡（判据 + 证据，供信封/诊断）。
  */
-export function scanCandidates(assignee) {
+export function scanCandidatesDetailed(assignee, { registry = null } = {}) {
   const now = nowMs();
   const cards = [];
-  if (!fs.existsSync(TASKS_DIR)) return cards;
+  const inconsistent = [];
+  if (!fs.existsSync(TASKS_DIR)) return { candidates: cards, inconsistent };
+  const reg = registry == null ? loadRegistry() : registry;
   for (const f of fs.readdirSync(TASKS_DIR)) {
     if (!f.endsWith('.md') || !CARD_ID_RE.test(f.slice(0, -3))) continue;
     const p = path.join(TASKS_DIR, f);
     let fm;
+    let body = '';
     try {
-      fm = parseFrontmatter(fs.readFileSync(p, 'utf8')).fm;
+      const parsed = parseFrontmatter(fs.readFileSync(p, 'utf8'));
+      fm = parsed.fm;
+      body = parsed.body;
     } catch {
       continue;
     }
@@ -102,10 +122,25 @@ export function scanCandidates(assignee) {
       if (age > CLAIM_STALE_ANY_MS) cand = { reason: 'stale_any', rank: 1 };
       else if (fm.claimed_by === assignee && age > CLAIM_STALE_SAME_MS) cand = { reason: 'stale_same', rank: 1 };
     }
-    if (cand) cards.push({ filePath: p, fm, rank: cand.rank, reason: cand.reason });
+    if (!cand) continue;
+    // 一致性守卫：只作用于陈旧恢复面（new 卡的可领性独立于历史 Sessions 行，见函数头）
+    if (cand.rank === 1) {
+      const row = laneRow(parseSessionRows(body), { activeSessionId: fm.active_session_id });
+      const blk = classifyClaimBlock({ taskId: fm.id, row, registry: reg });
+      if (blk.block) {
+        inconsistent.push({ card: fm.id, cardPath: p, reason: cand.reason, kind: blk.kind, registry: blk.registry ?? null, session: blk.session, seg: blk.seg, pid: blk.pid, pidAlive: blk.alive, detail: 'registry≠card：登记漂移，交 session-reconcile / 显式派发；不得重领' });
+        continue;
+      }
+    }
+    cards.push({ filePath: p, fm, rank: cand.rank, reason: cand.reason });
   }
   cards.sort((a, b) => a.rank - b.rank || createdMs(a.fm, a.filePath) - createdMs(b.fm, b.filePath));
-  return cards;
+  return { candidates: cards, inconsistent };
+}
+
+/** 候选读面（兼容签名）：只返回可领候选；不一致态见 `scanCandidatesDetailed`。 */
+export function scanCandidates(assignee, opts = {}) {
+  return scanCandidatesDetailed(assignee, opts).candidates;
 }
 
 /**
@@ -115,7 +150,7 @@ export function scanCandidates(assignee) {
  * @returns {{ok:true, candidates:Array<{cardPath,id,assignee,status,title,reason,rank,claimed_by,heartbeat_at}>}}
  */
 export function pollCandidates(assignee, { registry = null } = {}) {
-  const candidates = scanCandidates(assignee);
+  const candidates = scanCandidates(assignee, { registry });
   return {
     ok: true,
     candidates: candidates.map((c) => ({
@@ -181,7 +216,9 @@ export function claimBudget(assignee, { registry = null } = {}) {
  * 顺序：候选按 new（todo/ready）优先 + created_at 升序；冲突组内取最先者，其余该组候选本轮串行跳过。
  */
 export function runPoll({ assignee, registry = null }) {
-  const candidates = scanCandidates(assignee);
+  const scan = scanCandidatesDetailed(assignee, { registry });
+  const candidates = scan.candidates;
+  const inconsistent = scan.inconsistent; // 登记漂移（registry≠card）⇒ 本轮不领，见 scanCandidatesDetailed
   const budget = claimBudget(assignee, { registry });
   const claimed = [];
   const guarded = [];     // 防双跑守卫跳过（有活跃子会话）
@@ -228,12 +265,24 @@ export function runPoll({ assignee, registry = null }) {
         budget,
         skipped: [...guarded, ...conflicted].map((s) => s.card),
         failed: failed.map((f) => f.card),
+        ...(inconsistent.length ? { inconsistent } : {}),
       },
     };
   }
 
   if (budget <= 0) {
     return { fire: false, message: `poll.mjs: ${assignee} 并发额度已满（running 已达额度），本轮零成本空转` };
+  }
+  if (inconsistent.length) {
+    const detail = inconsistent.map((s) => `[${s.card} ${s.kind}(registry=${s.registry ?? 'missing'},pid=${s.pid ?? '?'},alive=${s.pidAlive})]`).join(' ');
+    return {
+      fire: false,
+      state: { inconsistent },
+      message:
+        `poll.mjs: ${inconsistent.length} 张卡的会话登记处于不一致态（registry≠卡 Sessions），**不重领**：${detail}` +
+        '——这是登记漂移（lane 终结没写终态），不是可恢复的陈旧 claim；先 `node scripts/session-reconcile.mjs` 对账，' +
+        '或由 Elon 显式派发续做（T-20261015-045724）。',
+    };
   }
   if (guarded.length) {
     const detail = guarded.map((s) => `[${s.card} ${s.reason}]`).join(' ');
