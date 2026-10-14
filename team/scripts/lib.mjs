@@ -56,6 +56,22 @@ export const AGENTS = ['elon', 'jobs', 'linus', 'simons', 'turing', 'assistant']
 // 每段以字母开头（T-…-v1 这类「段首数字」用 [A-Za-z][A-Za-z0-9]* 兜住整段）。
 export const CARD_ID_RE = /^T-\d{8}-\d{6}(-[A-Za-z0-9]+)*$/;
 
+// ---------- 自动领取排除的 kind（部署类卡） ----------
+// 口径（PROTOCOL §①；与基座 meerkat-taskpanel 同源，T-20261013-232004 / T-20261014-013629-2）：
+// `kind:deploy` = 须在实例/线上执行的高影响卡（重建 dist、重启 taskd、整跑 install.sh 等），
+// 由 Elon **显式派发**推进（`issue move` / 指派），**自动候选面不领**。
+// 分层与 `epic` **刻意不同**：epic = 领取门拒（claimCard ⇒ `epic_container`，谁都不能领）；
+// deploy = **只排除自动候选读**，显式领取路径（claimCard / claim.mjs / ACL task.claim）**不拒**。
+// 故本判定只许用在候选扫描侧（poll.mjs#scanCandidates），**不得**下沉进 claimCard。
+// 基座对应物：`src/core/domain/claim.mjs#AUTO_CLAIM_EXCLUDED_KINDS` + `isAutoClaimableKind`，
+// 由 `commands/tasks.mjs#listCandidates` 在三池（ready/公共池/stale 回收）统一应用（658eb1f）。
+export const AUTO_CLAIM_EXCLUDED_KINDS = new Set(['deploy']);
+
+/** 该卡是否参与**自动领取**（自动候选面）：kind 缺省视作 `task`（未知 kind 不误伤）。 */
+export function isAutoClaimableKind(fm) {
+  return !AUTO_CLAIM_EXCLUDED_KINDS.has(String(fm?.kind ?? 'task').trim());
+}
+
 export function nowIso() {
   return new Date().toISOString();
 }

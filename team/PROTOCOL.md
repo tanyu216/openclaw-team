@@ -33,6 +33,12 @@ A task card is the sole carrier of persisted content (Goal/Acceptance/Background
 > status machine and the import→export round-trip rules. **Do not restate it here** — this section names
 > only the **ACL minimal required set**, the **team-side extension keys**, and the team-side rules that
 > constrain how the team uses the values. Card-face contract: `guides/task-interface.md §2`.
+>
+> **Takeover note (T-20261014-120936, merge of `T-20261014-013629-2`)**: the lane was authored against
+> the pre-`T-20261014-003524-2` baseline, whose §① restated the whole card schema as a sample block and
+> had edited that sample's `kind:` comment line. This side (main) has since **deleted that restatement
+> on purpose** ("do not restate it here") ⇒ the sample-block hunk is dropped, not applied; the `deploy`
+> kind is recorded in the bullet list below and in the §① *Deploy cards* paragraph (which did apply).
 
 **ACL minimal required set** (card frontmatter) — **the product's own names; a subset, never an addition**:
 `id` `title` `status` `priority` `kind` `labels` `project` `assignee` `assignee_kind` `created_by` `created_at` `updated_at` `status_changed_at` `claimed_by` `claimed_at` `heartbeat_at` `blocked_at` `depends_on` `parent` `notify_leader` — the canonical order of the product's field table.
@@ -53,7 +59,7 @@ keys round-trip.
 - **Status**: canonical `backlog | todo | in_progress | in_review | blocked | done | canceled`; the team's card checker additionally accepts the legacy words `ready` / `failed`. Compatible aliases (`cancelled`, `in-review`, `in-progress`) are **resolved only at the boundary and never persisted** ⇒ old cards stay byte-stable. The product document's status machine is the authority (it also carries the provider's attention overlay `awaiting`).
 - **Claimable status = `todo`** (= the old `ready`); **`backlog` does not participate in claiming**.
 - **Priority**: `low | medium | high | urgent` (default `medium`).
-- **kind**: only `task | epic`; **do not invent a `review` kind** — use `labels:[review]` + `review_of`.
+- **kind**: `task | epic | deploy`; **do not invent a `review` kind** — use `labels:[review]` + `review_of`. `epic` = container/aggregate (**not claimable** by anyone); `deploy` = a card that executes a deployment/on-line operation (**never auto-claimed** — explicit dispatch only; see the deploy paragraph under Atomic claim below).
 - **Labels**: free-form plus namespaced prefix labels (`category:` / `area:` / `env:` / `sev:`) — taxonomy: `guides/task-interface.md §15`; array form: `guides/task-interface.md §11`.
 - **Time columns**: always **ISO-8601 UTC with fixed milliseconds** (`2026-10-08T15:31:25.161Z`) — the form the team writes; the provider coerces other forms on import.
 - **Extension keys**: the provider **preserves unknown keys verbatim and writes them back**; keep self-invented keys to the team's list above — adding one is a `kind:change` decision, not a per-card habit.
@@ -73,6 +79,8 @@ keys round-trip.
 - Fresh heartbeat (≤10min) and `in_progress` → **do not touch**; poll returns fire:false.
 
 **Claim timing belongs to poll (key to preventing spin)** : qualifying claims are completed during meerkat-taskpanel's poll trigger evaluation (fire:true ⇔ the card has been moved to `in_progress` with claimed_by=self). Therefore a **run turn does not claim again**: when the card has `claimed_by==self` + a fresh heartbeat → skip claiming and execute directly; only when the turn finds the card still `todo` (e.g. a sessions_send direct dispatch bypassing poll) do you additionally run `taskctl claim`.
+
+**Deploy cards (`kind:deploy`) are never auto-claimed** (T-20261013-232004 provider side / T-20261014-013629-2 framework side): a deploy card executes a **deployment / on-line operation** (rebuild `dist`, restart `taskd`, a full `install.sh` run, …) — high-impact and generally not executable by whoever happens to be idle — so it is entered only by **explicit dispatch** (Elon `assign` / `issue move`). Concretely: **poll's candidate surface excludes it** — `team/scripts/poll.mjs#scanCandidates` skips any card whose `kind` is in `AUTO_CLAIM_EXCLUDED_KINDS` (`team/scripts/lib.mjs`), which is the **single** candidate read surface, so the exclusion covers every pool (ready + stale recovery) and the read-only ACL query `task.pollCandidates` inherits it. The rule **mirrors** the provider base's `isAutoClaimableKind` (`meerkat-taskpanel` `658eb1f`) but is **not inherited for free**: framework poll reads the card files directly and never calls the base's `issue candidates`, so the framework carries the rule again on its own path (the motivating incident was a deploy-drift card auto-claimed by `linus-poll` and then bounced back to `blocked`, `T-20261013-161055`). The **claim gate stays open** for explicit dispatch — `claimCard` refuses only `epic` (`epic_container`), never `deploy` — this deliberate layering (auto-candidate read: excluded; explicit claim: allowed) differs from `epic`'s "not claimable by anyone". Regression: `team/scripts/tests/poll-deploy.test.mjs`.
 
 **Execution uniqueness (anti-double-run hardening; the claim lock only prevents double-claiming, not double-execution)** : any newly woken turn (cron isolated run / sessions_send direct dispatch to the main session / sessions_spawn turn) that finds the target card already `in_progress` (regardless of whether claimed_by is self and whether the heartbeat is fresh) → **only report status (IN_PROGRESS + claimed_by/heartbeat) or append heartbeat_at, and do not execute again**; only a stale card (heartbeat expired >30min) may be re-claimed and taken over per the recovery rules. The first executor holds execution rights; other turns must not re-spawn claude/codex or repeat side-effecting operations such as writing to the repo.
 
@@ -653,6 +661,7 @@ Each role's AGENTS.md keeps 3–5 lines of startup self-check (read card + read 
 | Worker Report trimming (§⑬.4) | Report body threshold / large-table warning (merged into `token-hygiene`) | Patrol |
 | Research-type Report (§⑱) | Warn on missing "reproducible commands / data convention" | Patrol |
 | Broken references | `§x` reference resolvable lint | Patrol (periodic) |
+| Deploy cards are never auto-claimed (§①) | Auto-claim candidate exclusion for the `deploy` kind + regression `tests/poll-deploy.test.mjs` | Poll (every trigger evaluation) |
 
 - **Aggregation and the scheduled verdict (T-20261013-031036)**: `scripts/check-all.sh` is the **single source of the checks** (default `--segment all` = the full historical run, for humans and CI). The **scheduled** gate is `scripts/check-all-gate.mjs`, whose contract is that it returns a **real verdict inside the trigger-evaluation budget** (`team/AUTOMATIONS.md` §3.5/§3.5.1): the **fast** segment runs in-band, the **slow** test suites (framework suite + the full provider ACL suite, `skills/task-ops/tests/*.test.mjs` by glob — a new suite is in the gate without a gate edit) run **detached** and their verdict is cached (`<team>/.check-all-slow.json`) and folded into the next evaluation. The slow axis **fails closed** — a missing/stale/unreadable cached verdict is *unconfirmed* ⇒ alert, never green. A red verdict **must carry the failing items in `message`**: a timeout or any other degrade must never *mask* a real failure (that masking, not the cost, is what broke the gate before).
 
