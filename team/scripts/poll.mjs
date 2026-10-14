@@ -29,6 +29,7 @@ import {
   AGENTS,
   CARD_ID_RE,
   isAutoClaimableKind,
+  isNewStatus,
   CLAIM_STALE_SAME_MS,
   CLAIM_STALE_ANY_MS,
   parseIso,
@@ -65,11 +66,16 @@ function createdMs(fm, filePath) {
 }
 
 /**
- * 只读扫描候选：ready(assignee=自己) 优先，其次陈旧恢复（>30min 同 agent / >6h 任意）。
+ * 只读扫描候选：new（`todo` 规范值 / `ready` 兼容别名，assignee=自己）优先，其次陈旧恢复
+ * （>30min 同 agent / >6h 任意）。
+ *
+ * 状态判据走 `lib.mjs#isNewStatus`（单一真源，与 `claimCard` 归一语义同源）——**不得**在此写裸
+ * `ready` 字面量：原实现的裸判据把**规范值** `todo` 挡在自动候选面外（T-20261014-205709，与
+ * T-20261014-204530 的 claim 守卫同根）。
  *
  * **自动候选面排除部署类卡**（`kind:deploy`，T-20261014-013629-2）：本函数是 poll **唯一**的候选读
  * 面（`runPoll` = 领，`pollCandidates`/ACL `task.pollCandidates` = 只读诊断），故排除落在这里即两池
- * （ready / 陈旧恢复）一并生效。`kind:deploy` 须 Elon 显式派发推进 ⇒ **不拒显式领取**（claimCard 不判）。
+ * （new / 陈旧恢复）一并生效。`kind:deploy` 须 Elon 显式派发推进 ⇒ **不拒显式领取**（claimCard 不判）。
  * 背景：基座侧（meerkat-taskpanel `658eb1f`）只改了自己的 `issue candidates` 读面；框架 poll 直读
  * 卡文件**不经过基座**，该排除不会自动继承（实证 T-20261013-161055 部署漂移卡被 poll 领走）。
  */
@@ -89,7 +95,7 @@ export function scanCandidates(assignee) {
     if (!fm || !fm.id || fm.assignee !== assignee) continue;
     if (!isAutoClaimableKind(fm)) continue; // 部署类卡：不自动领取（显式派发仍可，见 lib.mjs）
     let cand = null;
-    if (fm.status === 'ready') cand = { reason: 'ready', rank: 0 };
+    if (isNewStatus(fm.status)) cand = { reason: 'new', rank: 0 };
     else if (fm.status === 'in_progress') {
       const hb = parseIso(fm.heartbeat_at);
       const age = Number.isNaN(hb) ? Infinity : now - hb;
@@ -105,7 +111,7 @@ export function scanCandidates(assignee) {
 /**
  * 只读候选查询（**零副作用**）：供守卫/诊断，绝不领取、不写卡、不抢锁。
  * 契约（task-interface §4.1）：领取仍唯一走 pollEvaluate/runPoll；本函数仅返回 poll **会考虑**的
- * 候选（ready 优先 + 陈旧恢复），不含并发额度削减与防双跑守卫的过滤（那是 pollEvaluate 的职责）。
+ * 候选（new〔todo/ready〕优先 + 陈旧恢复），不含并发额度削减与防双跑守卫的过滤（那是 pollEvaluate 的职责）。
  * @returns {{ok:true, candidates:Array<{cardPath,id,assignee,status,title,reason,rank,claimed_by,heartbeat_at}>}}
  */
 export function pollCandidates(assignee, { registry = null } = {}) {
@@ -172,7 +178,7 @@ export function claimBudget(assignee, { registry = null } = {}) {
 
 /**
  * 一轮轮询：领取前先查防双跑守卫；在并发额度内领取多张互不冲突的卡。
- * 顺序：候选按 ready 优先 + created_at 升序；冲突组内取最先者，其余该组候选本轮串行跳过。
+ * 顺序：候选按 new（todo/ready）优先 + created_at 升序；冲突组内取最先者，其余该组候选本轮串行跳过。
  */
 export function runPoll({ assignee, registry = null }) {
   const candidates = scanCandidates(assignee);
