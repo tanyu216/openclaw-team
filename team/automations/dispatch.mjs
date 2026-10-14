@@ -9,7 +9,7 @@
 //
 //   {"fire": <bool>, "message"?: <string>, "state"?: <object>}
 //
-// Usage:  node dispatch.mjs <job> [agent]      job ∈ poll | patrol | check-all | skills-update
+// Usage:  node dispatch.mjs <job> [agent]      job ∈ poll | patrol | check-all | skills-update | sla-scan
 //
 // Provider resolution:
 //   provider   = $OPENCLAW_TEAM_TASK_PROVIDER              (default: meerkat-taskpanel)
@@ -20,6 +20,7 @@
 //                  patrol        -> $OPENCLAW_TEAM_PATROL_CMD
 //                  check-all     -> $OPENCLAW_TEAM_CHECKALL_CMD
 //                  skills-update -> $OPENCLAW_TEAM_SKILLSUPDATE_CMD
+//                  sla-scan      -> $OPENCLAW_TEAM_SLA_CMD
 //
 // Placeholders: {team} -> the deployed team dir (~/.openclaw/team, resolved from
 // this file's location); {agent} -> the agent argument; {repo} -> the framework repo
@@ -50,6 +51,11 @@
 //     ref moved) and, on drift, {"fire":true,"message":<change list>}. An UNCONFIRMED
 //     evaluation takes the gate's fail-safe leg (see firesOnDegrade) so a broken weekly
 //     check can never masquerade as "nothing changed".
+//   * DETECTOR job (sla-scan): the SLA inspector of the board's own wait time
+//     (guides/sla-inspection-contract.md §10.2). Normal outcomes are {"fire":false}
+//     (nothing crossed a tier) and {"fire":true, "alerts":[…]} on a crossing; an
+//     UNCONFIRMED evaluation takes the same fail-safe leg — a detector with an alarm
+//     obligation must alarm when it could not look, never report green.
 
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -66,12 +72,19 @@ const PROVIDERS_FILE = path.join(HERE, "providers.json");
 const LEGACY_PROVIDER_ALIAS = { "meerkat-taskpanel": "task-panel", "task-panel": "meerkat-taskpanel" }; // legacy-name-compat
 
 // job -> providers.json key, and -> env override var
-const JOB_KEY = { poll: "poll", patrol: "patrol", "check-all": "checkAll", "skills-update": "skillsUpdate" };
+const JOB_KEY = {
+  poll: "poll",
+  patrol: "patrol",
+  "check-all": "checkAll",
+  "skills-update": "skillsUpdate",
+  "sla-scan": "slaScan",
+};
 const JOB_ENV = {
   poll: "OPENCLAW_TEAM_POLL_CMD",
   patrol: "OPENCLAW_TEAM_PATROL_CMD",
   "check-all": "OPENCLAW_TEAM_CHECKALL_CMD",
   "skills-update": "OPENCLAW_TEAM_SKILLSUPDATE_CMD",
+  "sla-scan": "OPENCLAW_TEAM_SLA_CMD",
 };
 
 /** Default trigger-evaluation bound (ms): one multi-claim poll evaluation fits well inside it. */
@@ -120,14 +133,16 @@ export function entryTimeoutMs(bound) {
  * silently drops the alarm (O1). ACTION jobs (poll / patrol) keep degrade-without-burning: a
  * failed evaluation should simply not wake anyone.
  *
- * `skills-update` is a DETECTOR, not a health gate, but it shares the gate's fail-safe leg for
- * a different reason: it is the only signal that third-party skill bodies drifted, so an
- * evaluation it could not complete must alarm rather than pass silently — a weekly job that
- * degrades to `fire:false` looks exactly like "no upstream moved" (①③⑤ of
- * T-20261013-025818). Its NORMAL outcome is still `fire:false` (nothing moved), so the
- * zero-cost idle path is preserved; only an unconfirmed evaluation is treated as an alarm.
+ * `skills-update` and `sla-scan` are DETECTORS, not health gates, but they share the gate's
+ * fail-safe leg for the same reason in different clothes: each is the ONLY signal of the thing
+ * it observes (third-party skill bodies drifting; the board's own waits crossing a §⑮ tier), so
+ * an evaluation it could not complete must alarm rather than pass silently — a job that degrades
+ * to `fire:false` looks exactly like "nothing changed / nothing overdue" (①③⑤ of
+ * T-20261013-025818; `guides/sla-inspection-contract.md` §10.2 for the SLA inspector). Their
+ * NORMAL outcome is still `fire:false`, so the zero-cost idle path is preserved; only an
+ * unconfirmed evaluation is treated as an alarm.
  */
-export function firesOnDegrade(job) { return job === "check-all" || job === "skills-update"; }
+export function firesOnDegrade(job) { return job === "check-all" || job === "skills-update" || job === "sla-scan"; }
 
 /** Budget + entry bound for the evaluation in flight; set by main() from the job env. */
 let EVAL_TIMEOUT_MS = DEFAULT_EVAL_TIMEOUT_MS;
@@ -147,6 +162,12 @@ function alarmMessage(job, reason, extra) {
   if (d.exit !== undefined) bits.push("exit=" + d.exit);
   if (d.timeoutMs !== undefined) bits.push("entryTimeoutMs=" + d.timeoutMs);
   if (d.detail) bits.push(String(d.detail));
+  if (job === "sla-scan") {
+    // The SLA inspector's leg: same "unknown ≠ green" rule, worded for a board inspector.
+    return `[sla-scan] inspection UNCONFIRMED (${bits.join("; ")}) — unknown ≠ green: ` +
+      `the scheduled SLA inspection did not complete, so the board's §⑮ waits are currently ` +
+      "UNVERIFIED; inspect by hand (`node team/scripts/sla-scan.mjs`) per guides/sla-inspection-contract.md.";
+  }
   if (job !== "check-all") {
     // The detector leg: the same "unknown ≠ green" rule, worded for a job that must be
     // inspected by hand rather than re-run like a gate (today only `skills-update`).
@@ -170,7 +191,7 @@ export function main(argvIn = process.argv.slice(2), env = process.env) {
   const agent = argvIn[1] || "";
   EVAL_TIMEOUT_MS = resolveEvalTimeoutMs(env.OPENCLAW_TEAM_EVAL_TIMEOUT_MS);
   ENTRY_TIMEOUT_MS = entryTimeoutMs(EVAL_TIMEOUT_MS);
-  if (!JOB_KEY[job]) degrade(job, "unknown-job", { usage: "dispatch.mjs <poll|patrol|check-all|skills-update> [agent]" });
+  if (!JOB_KEY[job]) degrade(job, "unknown-job", { usage: "dispatch.mjs <poll|patrol|check-all|skills-update|sla-scan> [agent]" });
 
   let provider = env.OPENCLAW_TEAM_TASK_PROVIDER || "meerkat-taskpanel";
 
@@ -255,6 +276,7 @@ export function main(argvIn = process.argv.slice(2), env = process.env) {
   const out = { fire };
   if (envelope.message) out.message = String(envelope.message);
   else if (fire && Array.isArray(envelope.stale)) out.message = "[task-patrol] stale in_progress cards: " + JSON.stringify(envelope.stale);
+  else if (fire && Array.isArray(envelope.alerts)) out.message = "[sla-scan] SLA alerts: " + JSON.stringify(envelope.alerts);
   out.state = Object.assign({ job, provider, evalTimeoutMs: EVAL_TIMEOUT_MS, at: Date.now() }, envelope.state && typeof envelope.state === "object" ? envelope.state : {});
   emit(out);
   process.exit(0);

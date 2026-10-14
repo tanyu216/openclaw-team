@@ -150,8 +150,9 @@ Each role file holds that role's **standing orders (SOP)**. Cross-role rules are
   `depends_on`, or an explicit "must serialize" serialises them. Elon's patrol pushes
   parallelism and chases stale cards. `team/PROTOCOL.md` **§⑥.3 Worker Parallelism-First**.
 
-The scheduler that wakes workers (`poll-<agent>`, `task-patrol`, `team-check-all`) is
-described in [Scheduling & team automations](#scheduling--team-automations).
+The scheduler that wakes workers (`poll-<agent>`, `task-patrol`, `sla-scan`,
+`team-check-all`, `skills-update`) is described in
+[Scheduling & team automations](#scheduling--team-automations).
 
 ## AI-Agent Collaboration Guide (for non-programmers)
 
@@ -249,7 +250,8 @@ What the installer does (every stage is idempotent; existing items are skipped):
    prints how to bring your own (Jira / Plane / Linear / … via the `task-interface`
    ACL).
 7. **Team automations (scheduling)** — registers the team-level scheduled jobs
-   (`poll-<agent>` every 5m, `task-patrol` every 15m, `team-check-all` hourly),
+   (`poll-<agent>` every 5m, `task-patrol` every 15m, `sla-scan` every 15m,
+   `team-check-all` hourly, `skills-update` weekly),
    **declaratively** (by `declarationKey`; `config/reconcile.mjs` emits add/edit/skip
    so re-runs self-heal drift) and **provider-agnostically**: each trigger calls the
    framework dispatcher `team/automations/dispatch.mjs`, never a provider literal.
@@ -352,17 +354,19 @@ does not restate it.
 ### Scheduling & team automations
 
 Team-level **scheduling is framework-owned and provider-agnostic** — it is *not*
-delegated to the task provider. `install.sh` registers three kinds of job
+delegated to the task provider. `install.sh` registers the jobs below
 (idempotently, by `declarationKey`; `--skip-automations` disables them):
 
 | Job | Schedule | Purpose |
 |---|---|---|
 | `poll-<agent>` | every 5m | per-worker board poll (jobs/linus/turing/assistant); fires only when a card is claimed |
 | `task-patrol` | every 15m | stale `in_progress` heartbeat scan |
+| `sla-scan` | every 15m (`OPENCLAW_TEAM_SLA_INTERVAL`) | board SLA inspection of the `PROTOCOL §⑮` waits `task-patrol` does not cover; fires only on a tier crossing (`team/guides/sla-inspection-contract.md`, `team/AUTOMATIONS.md §3.8`) |
 | `team-check-all` | hourly (`0 * * * *` @ Asia/Shanghai) | gate patrol; fires only on failure |
+| `skills-update` | Sundays 05:00 (Asia/Shanghai) | upstream skill-ref drift detect; fires only on drift/failure |
 
 Each trigger calls the framework dispatcher
-`team/automations/dispatch.mjs <poll|patrol|check-all> [agent]`, which resolves the
+`team/automations/dispatch.mjs <poll|patrol|check-all|skills-update|sla-scan> [agent]`, which resolves the
 provider's entry command (`team/automations/providers.json`; provider =
 `OPENCLAW_TEAM_TASK_PROVIDER`, default `meerkat-taskpanel`) and returns `{"fire":…}`. **The
 entry scripts themselves ship with this repository** — `poll.mjs`, `patrol-scan.mjs`,

@@ -15,9 +15,9 @@
 # Connectors for other systems (Jira, Linear, Plane, ...) are out of scope.
 #
 # Team-level SCHEDULING is FRAMEWORK-OWNED and provider-agnostic: the scheduled
-# jobs (*-poll / task-patrol / team-check-all) are registered here and dispatch
-# to the configured provider through team/automations/dispatch.mjs (meerkat-taskpanel
-# by default; select another with OPENCLAW_TEAM_TASK_PROVIDER). See
+# jobs (*-poll / task-patrol / team-check-all / skills-update / sla-scan) are registered
+# here and dispatch to the configured provider through team/automations/dispatch.mjs
+# (meerkat-taskpanel by default; select another with OPENCLAW_TEAM_TASK_PROVIDER). See
 # --skip-automations.
 #
 # The provider ENTRY scripts ship WITH the repository (deployed from team/scripts/
@@ -124,6 +124,16 @@ EVAL_TIMEOUT_S=$(( (EVAL_TIMEOUT_MS + 999) / 1000 ))
 # belongs to poll, PROTOCOL §①). Override with OPENCLAW_TEAM_POLL_INTERVAL (e.g. 3m).
 POLL_INTERVAL="${OPENCLAW_TEAM_POLL_INTERVAL:-5m}"
 case "$POLL_INTERVAL" in [0-9]*[smhd]) ;; *) POLL_INTERVAL=5m ;; esac
+# SLA inspection cadence (`sla-scan`, team/guides/sla-inspection-contract.md §5.2 P).
+# The contract's tier ladder puts `warn` at `L − P`, and §⑮'s TIGHTEST row is
+# `Worker heartbeat stale` (L = 30 min) ⇒ P MUST stay below 30 min or that row's warn
+# boundary collapses to `T ≥ 0` and every in-flight card alarms on every tick (breaking
+# the contract's own §9.4 zero-cost idle). The framework's existing patrol already runs
+# at 15m, so the ruling's "~30 min" is reconciled to the same order of magnitude as that
+# declared cadence. The runtime default lives in scripts/sla-scan.mjs (DEFAULT_PERIOD_MIN)
+# and a machine check pins the two together (tests/sla-scan.test.mjs, contract §12 G‑6).
+SLA_INTERVAL="${OPENCLAW_TEAM_SLA_INTERVAL:-15m}"
+case "$SLA_INTERVAL" in [0-9]*[smhd]) ;; *) SLA_INTERVAL=15m ;; esac
 # Poll RUN upper bound (seconds) ③/T-20261013-041718: the poll run is a SHORT hand-off turn
 # (claim → spawn-lane detached → return; see team/scripts/poll-run.mjs). A run still in flight
 # makes the Gateway skip the next trigger (`already-running`), so the bound must NOT outlive the
@@ -352,6 +362,7 @@ register_automation() {
       # default is the pre-claim/fallback wording and never asks for a resident run.
       msg="$(node "$REPO/team/scripts/poll-run.mjs" message "$agent" 2>/dev/null || echo "[openclaw-team] Scheduled poll for $agent: if the dispatcher claimed a card, claim → hand off via scripts/spawn-lane.sh (detached) → return; otherwise reply NO_REPLY.")" ;;
     patrol)    msg="[openclaw-team] Stale in_progress card(s) detected by task-patrol: recover per the PROTOCOL recovery rules." ;;
+    sla-scan)  msg="[openclaw-team] Board SLA alert(s) from sla-scan (the alerts list is in this message): handle each §⑮ action as the leader — clarification/reassign, review the confirmation gate, create the defect or acceptance card. The inspector only notifies; it never changes a card (guides/sla-inspection-contract.md)." ;;
     check-all) msg="[openclaw-team] Team gate patrol failed: run the team gate checks and handle per the PROTOCOL gates/archiving rules." ;;
     skills-update) msg="[openclaw-team] Upstream skill ref(s) moved (the change list is in this message), or the upstream check failed: review, then advance with \`node skills/update.mjs --apply\` after Elon's review (third-party bodies are agent instructions — see team/AUTOMATIONS.md)." ;;
     *)         msg="[openclaw-team] Scheduled job $name." ;;
@@ -671,8 +682,9 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
   info "scheduler: framework-owned  ·  provider: $auto_provider (callee via the ACL)"
   info "dispatcher: $TEAM_DIR/automations/dispatch.mjs"
   info "bounds: trigger-eval ${EVAL_TIMEOUT_MS}ms (OPENCLAW_TEAM_EVAL_TIMEOUT_MS) · poll run ${POLL_RUN_TIMEOUT_S}s (default = interval; OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S, 0=off)"
-  info "poll: every $POLL_INTERVAL (OPENCLAW_TEAM_POLL_INTERVAL) · --light-context on poll/patrol/check-all/skills-update"
+  info "poll: every $POLL_INTERVAL (OPENCLAW_TEAM_POLL_INTERVAL) · --light-context on poll/patrol/check-all/skills-update/sla-scan"
   info "skills-update: Sundays 05:00 Asia/Shanghai (detect-only; --apply is manual after review)"
+  info "sla-scan: every $SLA_INTERVAL (OPENCLAW_TEAM_SLA_INTERVAL; must stay < 30m — §⑮'s tightest row, contract §12 G-6)"
   # built-in workers only for poll (skip main/elon), derived from ROLES/AGENT_ID
   auto_agents=()
   for i in "${!ROLES[@]}"; do
@@ -718,6 +730,13 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
       # model wake); drift or an unconfirmed check ⇒ fire:true with the change list in message.
       tp="$DECLARED_DIR/trigger-skills-update.js"; write_trigger "skills-update" "$tp"
       printf '%s|%s|%s|%s|%s|%s|%s\n' "openclaw-team:skills-update" "skills-update" "main" "skills-update" "cron" "" "$tp" >> "$MANIFEST"
+      # sla-scan: board SLA inspection across the PROTOCOL §⑮ rows the heartbeat patrol does not
+      # cover (guides/sla-inspection-contract.md). Same trigger semantics as patrol: no tier
+      # crossed ⇒ fire:false (zero cost, no model wake); a crossing ⇒ fire:true carrying the
+      # alerts. Registered as an INTERVAL job (`every $SLA_INTERVAL`) so the declaration and the
+      # inspector's own mechanism period P stay one number (contract §12 G‑6 reconciliation).
+      tp="$DECLARED_DIR/trigger-sla-scan.js"; write_trigger "sla-scan" "$tp"
+      printf '%s|%s|%s|%s|%s|%s|%s\n' "openclaw-team:sla-scan" "sla-scan" "main" "sla-scan" "interval" "$SLA_INTERVAL" "$tp" >> "$MANIFEST"
       node -e '
         const fs=require("fs");
         const lines=fs.readFileSync(process.argv[1],"utf8").split("\n").filter(Boolean);
@@ -736,6 +755,7 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
             case "$job" in
               poll)      register_automation "$name" "$agent" "$key" poll --every "$POLL_INTERVAL" ;;
               patrol)    register_automation "$name" "$agent" "$key" patrol --every 15m ;;
+              sla-scan)  register_automation "$name" "$agent" "$key" sla-scan --every "$SLA_INTERVAL" ;;
               check-all) register_automation "$name" "$agent" "$key" check-all --cron "0 * * * *" --tz Asia/Shanghai ;;
               skills-update) register_automation "$name" "$agent" "$key" skills-update --cron "0 5 * * 0" --tz Asia/Shanghai ;;
             esac ;;
