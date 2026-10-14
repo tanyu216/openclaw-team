@@ -22,6 +22,15 @@
  *            且**一律不得当交付证据开门**（`in_review` ⇒ 判红）；含**判定变异自证**与登记豁免口径；
  *      Δ4 —— 轮次语义 warn-only：被退回后重新交付而 Report 未声明本轮时间/轮次 ⇒ 提示（非阻断）。
  *      两条新提示**只对生效截止之后的卡**生效（历史卡不制造噪声）。
+ *   ⑨+ **v1.1 判定精度与词汇收口 D1–D5**（卡 T-20261015-025543，源缺陷票 T-20261015-010749-3 §T6）：
+ *      D1 —— A4 词表扩为基座同款 4 值 `met|partial|not_met|not_applicable`，且 `not_applicable`
+ *            **不**参与 A4→A6 耦合（`UNMET_STATUSES` 只含前两者）；
+ *      D2 —— Δ1 耦合由**词级**改**行级**：A6 声明无残留 **且** 该未达成行未在 A6 交代才提示
+ *            （正例 ≥2 / 反例 ≥2，含本腿 Report 的真实假报回归；含判定变异自证）；
+ *      D3 —— A2 commit 判据收紧为「7–40 位小写 hex 或显式声明无提交」，大写 sha-1 真值不拒；
+ *      D4 —— guide §6 边界语义（≤64 项/列表 · ≤64 KiB · `truncated`），门禁**不**校验（含理由）；
+ *      D5 —— 豁免登记 `reason` **必填**且去空白后 ≥8 字符，缺失/过短 ⇒ 不放行并点名
+ *            （含判定变异自证）。
  *
  * 隔离：`OPENCLAW_TEAM_ROOT` = mkdtemp（TASKS_DIR 于 lib.mjs 模块加载期读取，须先设 env 再 import）
  * ⇒ 绝不碰真实看板、绝不写仓内模板。
@@ -68,16 +77,20 @@ process.env.OPENCLAW_TEAM_ROOT = ROOT;
 
 let scanReports, slotGaps, slotRegex, reportBody, contentHints, REQUIRED_SLOTS,
   EFFECTIVE_AT, effectiveAt, BASELINE_PATH, RUNTIME_BASELINE_NAME, runtimeBaselinePath,
-  loadBaseline, loadExemptions,
-  reportOrigin, originGaps, roundHint, deliveryHints, ORIGIN_DELIVERY, ORIGIN_IMPORT, ORIGIN_UNKNOWN,
+  loadBaseline, loadExemptions, validExemption, MIN_EXEMPTION_REASON,
+  reportOrigin, originGaps, roundHint, deliveryHints, couplingHint, a4UnmetRows, a6ClaimsNone,
+  commitCoordinate, ACCEPTANCE_STATUSES, UNMET_STATUSES,
+  ORIGIN_DELIVERY, ORIGIN_IMPORT, ORIGIN_UNKNOWN,
   GAP_ORIGIN_UNKNOWN, GAP_IMPORT_NO_PROVENANCE, GAP_IMPORT_NOT_DELIVERY;
 if (PROVIDER) {
   process.env.OPENCLAW_TASK_OPS_DIR = PROVIDER;
   ({
     scanReports, slotGaps, slotRegex, reportBody, contentHints, REQUIRED_SLOTS,
     EFFECTIVE_AT, effectiveAt, BASELINE_PATH, RUNTIME_BASELINE_NAME, runtimeBaselinePath,
-    loadBaseline, loadExemptions,
-    reportOrigin, originGaps, roundHint, deliveryHints, ORIGIN_DELIVERY, ORIGIN_IMPORT, ORIGIN_UNKNOWN,
+    loadBaseline, loadExemptions, validExemption, MIN_EXEMPTION_REASON,
+    reportOrigin, originGaps, roundHint, deliveryHints, couplingHint, a4UnmetRows, a6ClaimsNone,
+    commitCoordinate, ACCEPTANCE_STATUSES, UNMET_STATUSES,
+    ORIGIN_DELIVERY, ORIGIN_IMPORT, ORIGIN_UNKNOWN,
     GAP_ORIGIN_UNKNOWN, GAP_IMPORT_NO_PROVENANCE, GAP_IMPORT_NOT_DELIVERY,
   } = await import('../check-report.mjs'));
 }
@@ -309,11 +322,11 @@ test('⑤ 豁免：① 托管模板必须为空（仓内不得夹带豁免）；
 
 test('⑤ 豁免：运行时登记命中 ⇒ exempt、退出 0；缺口集合一变 ⇒ 豁免失效、仍红', { skip: SKIP }, () => {
   writeCard({ id: 'T-20261015-000011-e', report: goodReport((s) => s.remove('A5')) });
-  registerRuntime([{ id: 'T-20261015-000011-e', gaps: ['A5'], reason: '登记测试' }]);
+  registerRuntime([{ id: 'T-20261015-000011-e', gaps: ['A5'], reason: '登记测试用（人工核对过）' }]);
 
   const r = scan();
   assert.equal(r.violations.length, 0, '命中登记 ⇒ 不判红');
-  assert.deepEqual(r.exempt.map((e) => [e.id, e.reason]), [['T-20261015-000011-e', '登记测试']]);
+  assert.deepEqual(r.exempt.map((e) => [e.id, e.reason]), [['T-20261015-000011-e', '登记测试用（人工核对过）']]);
   const cli = runCli();
   assert.equal(cli.code, 0);
   assert.match(cli.err, /基线豁免/);
@@ -335,7 +348,7 @@ test('⑤ 豁免：运行时登记命中 ⇒ exempt、退出 0；缺口集合一
 test('⑤ 豁免只作用于硬触发档：grandfather warn / draft 不受登记影响，也不消耗登记', { skip: SKIP }, () => {
   writeCard({ id: 'T-20261015-000012-e', status: 'in_review', created_at: ANCIENT, report: '' });
   writeCard({ id: 'T-20261015-000013-e', status: 'blocked', report: goodReport((s) => s.remove('A2')) });
-  registerRuntime([{ id: 'T-20261015-000012-e', gaps: ['REPORT_EMPTY'], reason: '不该被消耗' }]);
+  registerRuntime([{ id: 'T-20261015-000012-e', gaps: ['REPORT_EMPTY'], reason: '不该被消耗（非硬档）' }]);
   const r = scan();
   assert.equal(r.exempt.length, 0, '非硬档不消费登记');
   assert.deepEqual(r.grandfathered.map((g) => g.id), ['T-20261015-000012-e']);
@@ -350,17 +363,17 @@ test('⑤/⑥ 两源合取 + `--no-baseline` 忽略两源（核查真违规）',
   TMP.push(dir);
   const tpl = path.join(dir, 'template.json');
   const rt = path.join(dir, 'runtime.json');
-  fs.writeFileSync(tpl, JSON.stringify({ cards: [{ id: 'T-20261015-000014-f', gaps: ['A7'], reason: '模板' }] }), 'utf8');
+  fs.writeFileSync(tpl, JSON.stringify({ cards: [{ id: 'T-20261015-000014-f', gaps: ['A7'], reason: '模板登记理由（够长）' }] }), 'utf8');
   assert.equal(loadExemptions(TASKS, { template: tpl, runtime: rt }).length, 1, '仅模板有登记');
-  fs.writeFileSync(rt, JSON.stringify({ cards: [{ id: 'x', gaps: [], reason: '运行时' }] }), 'utf8');
+  fs.writeFileSync(rt, JSON.stringify({ cards: [{ id: 'x', gaps: [], reason: '运行时登记理由（够长）' }] }), 'utf8');
   const both = loadExemptions(TASKS, { template: tpl, runtime: rt });
   assert.equal(both.length, 2, '两源合取（模板 ∪ 运行时）');
-  assert.deepEqual(both.map((g) => g.reason), ['模板', '运行时']);
+  assert.deepEqual(both.map((g) => g.reason), ['模板登记理由（够长）', '运行时登记理由（够长）']);
   assert.deepEqual(loadExemptions(TASKS, { template: path.join(dir, 'nope.json'), runtime: path.join(dir, 'nope2.json') }), [], '缺失/损坏 ⇒ 视为空，不报错');
 
   // 注入模板（模块参数）⇒ 豁免；运行时登记（真实文件，②）⇒ CLI 也豁免
-  assert.equal(scanReports(TASKS, { baseline: [{ id: 'T-20261015-000014-f', gaps: ['A7'], reason: '注入' }] }).violations.length, 0);
-  registerRuntime([{ id: 'T-20261015-000014-f', gaps: ['A7'], reason: '运行时登记' }]);
+  assert.equal(scanReports(TASKS, { baseline: [{ id: 'T-20261015-000014-f', gaps: ['A7'], reason: '注入的登记理由（够长）' }] }).violations.length, 0);
+  registerRuntime([{ id: 'T-20261015-000014-f', gaps: ['A7'], reason: '运行时登记的理由（够长）' }]);
   assert.equal(runCli().code, 0, '运行时登记生效 ⇒ 退出 0');
   // --no-baseline ⇒ 忽略①②两源 ⇒ 露出真违规
   assert.equal(runCli(['--no-baseline']).code, 1, '--no-baseline 忽略两源 ⇒ 露出真违规');
@@ -606,6 +619,184 @@ test('Δ4 直连判定：roundHint 只在「in_review + 被退回 + 无时间/�
   assert.equal(roundHint({ status: 'in_progress', ...SENT_BACK }, body), null);
   assert.equal(roundHint({ status: 'in_review', ...SENT_BACK }, `${body}\n- delivered 2026-10-15T01:30Z`), null, '有日期 ⇒ 不提示');
   assert.equal(roundHint({ status: 'in_review', ...SENT_BACK }, `${body}\n- round 3`), null, '有轮次 ⇒ 不提示');
+});
+
+// ---------- D1–D5（v1.1 判定精度与词汇收口，卡 T-20261015-025543） ----------
+
+/** 单行 A4 表（`A4` 槽位正文）：状态词钉在**独立单元格**里——这正是判定所要求的形态。 */
+const A4_ROW = (n, status, name = 'an acceptance item with no owner yet') =>
+  '- **A4 Acceptance item-by-item**\n  | # | item | status | evidence |\n  |---|---|---|---|\n'
+  + `  | ${n} | ${name} | ${status} | workspace/<id>/evidence.txt |`;
+const A6_NONE_TEXT = '- **A6 Residuals** — none outstanding.';
+
+test('D1 词表：ACCEPTANCE_STATUSES = 基座同款 4 值；UNMET_STATUSES 只含 partial/not_met', { skip: SKIP }, () => {
+  assert.deepEqual(ACCEPTANCE_STATUSES, ['met', 'partial', 'not_met', 'not_applicable']);
+  assert.deepEqual(UNMET_STATUSES, ['partial', 'not_met']);
+  assert.equal(ACCEPTANCE_STATUSES.includes('not_applicable'), true, 'not_applicable 是**合法**状态，不属「其它词」');
+  assert.equal(UNMET_STATUSES.includes('not_applicable'), false, 'not_applicable 不是未达成项（对齐基座 leftovers 规则）');
+  const md = fs.readFileSync(GUIDE, 'utf8');
+  assert.match(md, /met \| partial \| not_met \| not_applicable/, 'guide 词表必须与基座逐值对齐');
+});
+
+test('D1 判定：`not_applicable` 行 + A6「无残留」⇒ 0 提示 / exit 0（口径不再未声明）', { skip: SKIP }, () => {
+  // 直连判据：同形状换 partial 必须提示，换 not_applicable 必须不提示
+  assert.equal(couplingHint(A4_ROW('②', 'not_applicable'), A6_NONE_TEXT), null,
+    'not_applicable 不是未达成项 ⇒ 即便 A6 声明无残留也不得提示');
+  assert.equal(couplingHint(A4_ROW('②', 'partial'), A6_NONE_TEXT).slot, 'A6',
+    '同一形状的 partial 必须仍提示 —— 否则上一条可能只是判定整个失灵');
+  // 卡面整链：not_applicable + A6 none ⇒ 0 缺口 / 0 提示 / 退出 0（D1 实测形态）
+  writeCard({ id: 'T-20261015-000031-m', report: goodReport((s) => s.set('A4', A4_ROW('②', 'not_applicable'))) });
+  const r = scan();
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.violations, []);
+  assert.deepEqual(r.hints, []);
+  assert.equal(runCli().code, 0);
+});
+
+test('D2 正例（≥2，必须提示，不误漏）：A6 声明无残留且未交代该未达成项', { skip: SKIP }, () => {
+  const cases = [
+    ['partial', '- **A6 Residuals** — none outstanding.'],
+    ['not_met', '- **A6 Residuals** — 无。'],                                  // 中文「无」——旧词表**漏报**
+    ['partial', '- **A6 Residuals** — n/a'],                                  // 基座 token
+    ['partial', '- **A6 Residuals** — nothing outstanding at this time.'],
+    ['not_met', '- **A6 Residuals** — 无未决项。'],
+  ];
+  for (const [status, a6] of cases) {
+    const h = couplingHint(A4_ROW('③', status), a6);
+    assert.ok(h && h.slot === 'A6', `${status} + ${JSON.stringify(a6)} 必须提示（真实静默丢弃不得漏报）`);
+  }
+  // 卡面整链：提示非阻断
+  writeCard({ id: 'T-20261015-000034-o', report: goodReport((s) => s.set('A4', A4_ROW('③', 'partial'))) });
+  const r = scan();
+  assert.equal(r.ok, true, 'Δ1 只是提示，绝不阻断');
+  assert.deepEqual(r.hints.filter((h) => h.slot === 'A6').length, 1);
+  assert.equal(runCli().code, 0);
+});
+
+test('D2 反例（≥2，不得提示，不误报）：A6 已交代该项 / 用限定语 / 图例非行', { skip: SKIP }, () => {
+  const table = A4_ROW('③', 'partial', 'A/B before-after table');
+  // 反例 1 = **本腿真实误报用例的回归**（T-20261015-010749-3 §T6 D2）：A6 写了 `none critical`
+  // 但该 partial 行**已在 A6 逐项交代** ⇒ 旧口径（词级 `\bnone\b`）误报，新口径必须不报。
+  const regression = '- **A6 Residuals** — ③ the A/B before-after table carries no pre-fix reading'
+    + ' — none critical, deferring to round 2 → owner: integration leg.';
+  assert.equal(couplingHint(table, regression), null, 'A6 已交代该行 ⇒ 不得因里面有 `none critical` 就误报');
+  // 反例 2：A6 逐项交代、无任何「无残留」措辞
+  assert.equal(couplingHint(table, '- **A6 Residuals** — ③ A/B table pending → owner: integration leg.'), null);
+  // 反例 3：限定语本身**不是**「无残留」声明（`none critical` = 有残留、只是不严重）
+  assert.equal(couplingHint(table, '- **A6 Residuals** — none critical; see the round-2 note → owner: Elon.'), null,
+    '`none critical` 是限定语，不是「A6 说没有」⇒ 不构成 guide 写明的矛盾');
+  // 反例 4：A4 段里的**词汇图例行**提到 partial，但表内每一行都 `met` ⇒ 行级判定不得被词级带偏
+  const withLegend = '- **A4 Acceptance item-by-item** — status vocabulary: met | partial | not_met | not_applicable\n'
+    + '  | # | item | status | evidence |\n  |---|---|---|---|\n  | ① | guide | met | guides/x.md |';
+  assert.equal(couplingHint(withLegend, A6_NONE_TEXT), null, '图例里的 partial 不是一行未达成项（行级 > 词级）');
+});
+
+test('D2 判定变异：把行级抽取摘空 ⇒ 真实静默丢弃不再被测出（证明正例有杀伤力）', { skip: SKIP }, async () => {
+  const src = fs.readFileSync(CHECK_REPORT, 'utf8');
+  const patched = src.replace('? a4UnmetRows(a4).filter((r) => !a6AccountsFor(a6Text, r))', '? []');
+  assert.notEqual(patched, src, '变异必须真的改到 A4 行级抽取，否则本测试无意义');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-report-mut4-'));
+  TMP.push(dir);
+  fs.symlinkSync(path.join(HERE, '..', 'lib.mjs'), path.join(dir, 'lib.mjs'));
+  fs.writeFileSync(path.join(dir, 'check-report.mjs'), patched, 'utf8');
+  const mut = await import(pathToFileURL(path.join(dir, 'check-report.mjs')).href);
+
+  const a4 = A4_ROW('③', 'partial');
+  assert.equal(mut.couplingHint(a4, A6_NONE_TEXT), null, '行级抽取被摘空 ⇒ 静默丢弃不再被测出（= 变异存活）');
+  assert.equal(couplingHint(a4, A6_NONE_TEXT).slot, 'A6', '真实判定必须测出该矛盾');
+});
+
+test('D3：commit 判据收紧为「7–40 位小写 hex 或显式声明无提交」；大写 sha-1 真值不拒', { skip: SKIP }, () => {
+  const A2 = (v) => goodReport((s) => s.set('A2',
+    `- **A2 Delivery coordinates** — card: tasks/T-20261015-025543.md · ${v} · branch: lane/x · pushed: no.`));
+  const a2Hints = (rep) => contentHints(rep).filter((h) => h.slot === 'A2');
+  assert.deepEqual(a2Hints(A2('commit: a1b2c3d')), [], '7 位小写 hex 合规');
+  assert.deepEqual(a2Hints(A2('commit: 0123456789abcdef0123456789abcdef01234567')), [], '40 位小写 sha-1 合规');
+  assert.deepEqual(a2Hints(A2('commit: 0123456789ABCDEF0123456789ABCDEF01234567')), [], '**大写 sha-1 真值不得被拒**');
+  assert.deepEqual(a2Hints(A2('commit: none')), [], '显式声明无提交 ⇒ 合规');
+  assert.deepEqual(a2Hints(A2('commit: 无')), [], '中文显式声明无提交 ⇒ 合规');
+  assert.deepEqual(a2Hints(A2('无提交（本卡只读）')), [], '整段短语声明无提交 ⇒ 合规');
+  // 旧口径的逃生口已关：槽位里有 `commit` 字样而**没有值**不再放行
+  assert.equal(a2Hints(A2('commit:')).length, 1, '裸 `commit:`（无值）⇒ 必须提示');
+  assert.equal(a2Hints(A2('commit: abcd')).length, 1, '6 位缩写不足 7 位 ⇒ 必须提示');
+  // 收紧不等于逼人改写法：不标注直接写 hash 仍然放行
+  assert.deepEqual(a2Hints(A2('a1b2c3d4e5')), [], '不标注直接写 hash ⇒ 仍合规');
+  // **线上实测形状**（2026-10-15 全库只读扫描：按「值须恰为 sha」判会误报 12/12）⇒ 必须放行
+  assert.deepEqual(a2Hints(A2('commit: `270cce9` (7 files, +2956/−133)')), [], 'hash + 注记（线上真实形状）⇒ 合规');
+  assert.deepEqual(a2Hints(A2('commit: `cf3a45c` (docs) + `f5b3e76` (cli)')), [], '多段 hash + 注记 ⇒ 合规');
+  assert.deepEqual(a2Hints(A2('commit: `a825bf6` (base `9e4c1aa`)')), [], 'hash + base 括注 ⇒ 合规');
+  assert.deepEqual(a2Hints(A2('commit: 无（写面 tasks/*.md 不在任何 git 仓）')), [],
+    '「无（…）」式显式无提交（线上真实形状）⇒ 合规');
+  // 但「值里有 sha」不等于放行一切：裸字段 / 6 位缩写仍须提示（见上）
+  // 直连判据
+  assert.deepEqual(commitCoordinate('commit: a1b2c3d'), { ok: true });
+  assert.equal(commitCoordinate('commit:').ok, false);
+  assert.equal(commitCoordinate('commit:').reason, 'commit 字段为空');
+  assert.match(commitCoordinate('commit: abcd').reason, /不是合法 sha/);
+});
+
+test('D4：guide §6 写明边界语义（≤64 项/列表 · ≤64 KiB · truncated）并说明门禁**不**校验', { skip: SKIP }, () => {
+  const md = fs.readFileSync(GUIDE, 'utf8');
+  assert.match(md, /## 6\. Bounds/, 'guide 必须有 §6 边界节');
+  assert.match(md, /64 items per list/, '必须写明项数上限');
+  assert.match(md, /64 KiB/, '必须写明字节上限');
+  assert.match(md, /truncated/, '必须写明超限截断语义');
+  assert.match(md, /does not validate/, '必须写明门禁不校验（含理由）');
+  // 门禁确实不设限：超长但槽位齐备的 Report ⇒ 0 缺口 / 0 提示（只读 + 存在性判据）
+  const huge = goodReport((s) => s.set('A3', `- **A3 Change surface** — ${'x'.repeat(200000)}`));
+  assert.deepEqual(slotGaps(huge), []);
+  assert.deepEqual(contentHints(huge), []);
+  assert.deepEqual(deliveryHints(huge, { status: 'in_review' }), []);
+});
+
+test('D5：豁免条目必须带 reason（去空白后 ≥8 字符）；缺失/过短 ⇒ 不放行（判红）并点名', { skip: SKIP }, () => {
+  assert.equal(MIN_EXEMPTION_REASON, 8);
+  assert.equal(validExemption({ id: 'x', gaps: ['A5'], reason: '八个字符的理由啊' }), true, '恰 8 字符 ⇒ 有效');
+  assert.equal(validExemption({ id: 'x', gaps: ['A5'], reason: '太短了' }), false, '过短 ⇒ 无效');
+  assert.equal(validExemption({ id: 'x', gaps: ['A5'] }), false, '缺失 ⇒ 无效');
+  assert.equal(validExemption({ id: 'x', gaps: ['A5'], reason: '        ' }), false, '纯空白 ⇒ trim 后 0 字符 ⇒ 无效');
+  assert.equal(validExemption({ id: 'x', gaps: ['A5'], reason: 12345678 }), false, '非字符串 ⇒ 无效（fail-closed）');
+  assert.equal(validExemption({ id: '', gaps: ['A5'], reason: '八个字符的理由啊' }), false, '无 id ⇒ 无效');
+
+  writeCard({ id: 'T-20261015-000032-n', report: goodReport((s) => s.remove('A5')) });
+  registerRuntime([{ id: 'T-20261015-000032-n', gaps: ['A5'] }]);        // 旧口径：无 reason 即「登记一次、永久放行」
+  let r = scan();
+  assert.deepEqual(r.exempt, [], '无 reason ⇒ **不放行**（退出豁免面）');
+  assert.deepEqual(r.violations.map((v) => [v.id, v.gaps]), [['T-20261015-000032-n', ['A5']]]);
+  assert.deepEqual(r.invalidExemptions.map((e) => e.id), ['T-20261015-000032-n'], '必须点名，供人工补写登记');
+  let cli = runCli();
+  assert.equal(cli.code, 1, '无 reason 的登记不得放行 ⇒ 仍红');
+  assert.match(cli.err, /invalid-exempt/);
+
+  registerRuntime([{ id: 'T-20261015-000032-n', gaps: ['A5'], reason: '短' }]);
+  assert.deepEqual(scan().violations.map((v) => v.id), ['T-20261015-000032-n'], '过短 ⇒ 仍不放行');
+  assert.equal(runCli().code, 1);
+
+  registerRuntime([{ id: 'T-20261015-000032-n', gaps: ['A5'], reason: '人工核对：该槽位由基座覆盖' }]);
+  r = scan();
+  assert.deepEqual(r.exempt.map((e) => e.id), ['T-20261015-000032-n'], '理由合规 ⇒ 恢复放行');
+  assert.deepEqual(r.invalidExemptions, []);
+  assert.deepEqual(r.violations, []);
+  assert.equal(runCli().code, 0);
+  fs.rmSync(runtimeBaselinePath(TASKS), { force: true });
+});
+
+test('D5 判定变异：摘掉 validExemption 过滤 ⇒ 无 reason 的登记又放行（证明上一条有杀伤力）', { skip: SKIP }, async () => {
+  const src = fs.readFileSync(CHECK_REPORT, 'utf8');
+  const patched = src.replace('candidates.find(validExemption)', 'candidates[0]');
+  assert.notEqual(patched, src, '变异必须真的改到放行判定，否则本测试无意义');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-report-mut3-'));
+  TMP.push(dir);
+  fs.symlinkSync(path.join(HERE, '..', 'lib.mjs'), path.join(dir, 'lib.mjs'));
+  fs.writeFileSync(path.join(dir, 'check-report.mjs'), patched, 'utf8');
+  const mut = await import(pathToFileURL(path.join(dir, 'check-report.mjs')).href);
+
+  writeCard({ id: 'T-20261015-000033-n', report: goodReport((s) => s.remove('A5')) });
+  registerRuntime([{ id: 'T-20261015-000033-n', gaps: ['A5'] }]);
+  const inj = [{ id: 'T-20261015-000033-n', gaps: ['A5'] }];            // 形状对、无 reason
+  assert.equal(mut.scanReports(TASKS, { baseline: inj }).violations.length, 0, '变异后无 reason 的登记又放行（= 变异存活）');
+  assert.equal(scanReports(TASKS, { baseline: inj }).violations.length, 1, '真实判定必须拦下无 reason 的登记');
+  fs.rmSync(runtimeBaselinePath(TASKS), { force: true });
 });
 
 // ---------- CLI 单卡模式 ----------
