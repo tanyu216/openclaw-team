@@ -1,7 +1,7 @@
 # AUTOMATIONS.md — Scheduled Jobs / Patrol List
 
 > Overview and decision record of all scheduled jobs (cron / every / trigger) on the team Gateway. Maintainer: Elon.
-> Last updated: 2026-10-14 (added `sla-scan`, T-20261014-022254-3; + the contract-v1.1 conformance fixes F1/F5/F8, T-20261014-084606). View live: `automations list` (or Control UI → Automations).
+> Last updated: 2026-10-14 (added `check-epic-completeness` to the fast segment, T-20261012-171026-2; + added `sla-scan`, T-20261014-022254-3; + the contract-v1.1 conformance fixes F1/F5/F8, T-20261014-084606). View live: `automations list` (or Control UI → Automations).
 > Related: `PROTOCOL §⑳` (gates and archiving), `§⑥.4` (poll to terminal state), `README §3` (operations commands), `guides/task-interface.md` (task-provider ACL).
 
 ## 0. Boundary — framework owns scheduling; provider is only a callee (ACL)
@@ -212,6 +212,18 @@ segment's in-band bound is 6000 ms and the fast segment itself already measures 
 to remove. A provider red therefore lands in `failed[]` / `slowFailedFiles` and reaches the operator
 through `message` (directly under `--segment all`, and via the cached verdict under the scheduled gate).
 
+**Epic completeness in the fast segment (T-20261012-171026-2).** `check-all.sh` also runs
+`scripts/check-epic-completeness.mjs` in the **fast** segment (~0.2 s on a live-shaped board,
+485+ cards, so it stays well inside the 6000 ms bound): it reconciles an epic's **roadmap ledger**
+against the board (`PROTOCOL §⑩.2/§⑩.3`, `AUTOMATIONS §6`). It fires **hard** only where the
+ledger is already in use — a card named in the ledger that does not exist or is not a child of that
+epic, or a phase with neither a card nor a reason — and only for **non-terminal** epics (terminal
+epics are grandfathered, their violations surfaced as warnings instead). A **missing** ledger is a
+soft `epic_no_roadmap` prompt, never a red, so the 20-odd historical epics do not retro-redden the
+gate. The second half is the **dangling-roadmap sweep** (mechanism ⑤ of the parent epic): it scans
+`workspace/<task>/plan.md`, `workspace/<task>/design/…` and epic cards and reports "phase without a
+card", **soft and exit-code-neutral** by contract.
+
 `check-all.sh` is still the single source of every check (`--segment all` is the default and
 is the historical full run plus the provider ACL sweep recorded above, for humans and CI). The scheduled entry is
 `scripts/check-all-gate.mjs`: it runs the fast segment in-band, reads the cached slow verdict,
@@ -411,4 +423,5 @@ confirmation `T-20261014-022327` found in this landing (registered as §12 **G-1
 ## 6. Patrol Metrics (attached to check-all)
 - **Trigger-script placeholder incident fix (historical)**: the trigger inline JS **does not do brace template substitution**, so a placeholder literal passed to shell fails (`bash: {{HOME}}/...: No such file or directory`) ⇒ the gate patrol falsely reports failure and burns a model turn (poll-type jobs silently fail instead). **Fix**: switch trigger scripts to **absolute paths** and write back each job via `openclaw automations edit <id> --trigger-script <file>`; verify `automations list` has no placeholders and the gate is all green ⇒ trigger evaluation is `fire:false`. **Convention**: trigger script paths are always absolute; placeholders are forbidden.
 - Redline-block drift = 0 | terminology-abstraction violations = 0 | §reference broken links = 0 | card-schema violations = 0 | contract tests all green.
+- **Epic completeness / roadmap × card reconciliation = 0 hard violations** (`scripts/check-epic-completeness.mjs`, T-20261012-171026-2, `PROTOCOL §⑩.2/§⑩.3/§⑳.1`): every card named in an epic's roadmap ledger must exist **and** be a child of that epic, and every phase with no card must state a reason (hard domain = non-terminal epics — terminal ones are grandfathered and reported as warnings). The **dangling-roadmap sweep** (`workspace/<task>/plan.md`, `design/`, epic cards → "phase without a card") is **soft**: it reports, never sets the exit code.
 - **New-seg background-pack rate**: the gate verifies that "all running/closed segs in the card have `workspace/<task-id>/handoff.md` containing the four anchors" — target 100%; gaps are handled (generated/carded).
