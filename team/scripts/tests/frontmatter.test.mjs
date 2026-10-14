@@ -167,37 +167,158 @@ after(() => {
   for (const d of scratchDirs) fs.rmSync(d, { recursive: true, force: true });
 });
 
-test('护栏：输出 >4× 时拒绝写入，且原文件字节不变、无 tmp 残留', () => {
+// ---- 测试 4：写卡护栏（口径 = frontmatter 膨胀比值 + `## Report` 绝对上限） --------
+// T-20261015-025543-3（D8）：旧口径「整文件 4× 比值」既拦不住它命名的事故（大卡上 FM 翻倍被
+// 正文稀释 ⇒ 只读作 ~1.005×），又误伤合法长 Report（新 Report 标准 29KB/3KB = 9.70×）。
+const reportSection = (raw) => {
+  const lines = raw.split('\n');
+  let start = -1;
+  let end = lines.length;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^## Report[ \t]*$/.test(lines[i])) { start = i; continue; }
+    if (start >= 0 && /^## /.test(lines[i])) { end = i; break; }
+  }
+  return start < 0 ? 0 : Buffer.byteLength(lines.slice(start, end).join('\n'), 'utf8');
+};
+
+test('护栏 A：frontmatter 乘性膨胀（事故 T-20261008-214730 形态）被拒 —— 原文件不变、无 tmp', () => {
   const dir = mkScratch();
   const card = path.join(dir, `${CARD_ID}.md`);
-  const baseFm = { __order: ['id', 'title'], id: CARD_ID, title: 'guard-baseline' };
-  fs.writeFileSync(card, serializeFrontmatter(baseFm, 'body\n'), 'utf8');
-
+  const fmOf = (n) => ({
+    __order: ['id', 'title'],
+    id: CARD_ID,
+    title: 'guard-baseline',
+    // 模拟旧实现的转义翻倍：标题里的 `\` 逐轮复制 ⇒ frontmatter 块乘性增长
+    note: '\\"'.repeat(n),
+  });
+  fs.writeFileSync(card, serializeFrontmatter(fmOf(1), 'body\n'), 'utf8');
   const before = fs.readFileSync(card);
-  const prevSize = before.length;
-  const bigBody = 'x'.repeat(prevSize * 8); // 输出必然 > 4× 上版
 
   assert.throws(
-    () => writeCardAtomic(card, { __order: ['id', 'title'], id: CARD_ID, title: 'guard-baseline' }, bigBody),
+    () => writeCardAtomic(card, fmOf(400), 'body\n'), // FM 块 ≫ 1.5× 且增量 ≫ 1 KiB
     (err) => {
       assert.match(String(err.message), /拒绝写入：疑似 frontmatter 转义膨胀/);
       assert.ok(err.message.includes(card), '错误信息应含卡路径');
-      assert.ok(err.message.includes(`prev=${prevSize}B`), '错误信息应含前次大小');
-      assert.match(err.message, /ratio=[\d.]+x > 4x/);
+      assert.match(err.message, /fm_prev=\d+B fm_next=\d+B/);
+      assert.match(err.message, /ratio=[\d.]+x > 1\.5x/);
+      assert.match(err.message, /\+(\d+)B > 1024B/);
       return true;
     },
-    '应抛错拒绝膨胀写'
+    '应抛错拒绝 frontmatter 膨胀写'
   );
-
   assert.ok(before.equals(fs.readFileSync(card)), '原文件应字节不变（无部分写入）');
-  assert.deepEqual(
-    fs.readdirSync(dir).filter((f) => f.includes('.tmp.')),
-    [],
-    '不应残留 tmp 文件'
+  assert.deepEqual(fs.readdirSync(dir).filter((f) => f.includes('.tmp.')), [], '不应残留 tmp 文件');
+});
+
+test('护栏 A：事故形态逐轮倍增，在有限轮内被拦（不是「永远差一点」）', () => {
+  const dir = mkScratch();
+  const card = path.join(dir, `${CARD_ID}.md`);
+  const fmOf = (esc) => ({ __order: ['id', 'title'], id: CARD_ID, title: 't', note: esc });
+  let esc = '\\"';
+  fs.writeFileSync(card, serializeFrontmatter(fmOf(esc), 'body\n'), 'utf8');
+  let rounds = 0;
+  let caught = false;
+  for (; rounds < 12; rounds++) {
+    esc = esc + esc; // 每轮翻倍（旧实现的行为）
+    try {
+      writeCardAtomic(card, fmOf(esc), 'body\n');
+    } catch (err) {
+      assert.match(String(err.message), /疑似 frontmatter 转义膨胀/);
+      caught = true;
+      break;
+    }
+  }
+  assert.ok(caught, `事故形态应在有限轮内被拦，实测 ${rounds} 轮仍未拦`);
+});
+
+test('护栏 B：`## Report` 段 > 64 KiB 被拒（写期强制 guide §6 上限）', () => {
+  const dir = mkScratch();
+  const card = path.join(dir, `${CARD_ID}.md`);
+  const fm = { __order: ['id', 'title'], id: CARD_ID, title: 'guard-baseline' };
+  fs.writeFileSync(card, serializeFrontmatter(fm, '\n## Report\nsmall\n'), 'utf8');
+  const before = fs.readFileSync(card);
+
+  // 正文总量 ≫ 64 KiB，但全部落在 `## Report` 段内
+  assert.throws(
+    () => writeCardAtomic(card, fm, `\n## Report\n${'z'.repeat(64 * 1024 + 1)}\n`),
+    (err) => {
+      assert.match(String(err.message), /拒绝写入：`## Report` 段超上限/);
+      assert.ok(err.message.includes(card));
+      assert.match(err.message, /report=\d+B > 65536B=64KiB/);
+      return true;
+    },
+    '应抛错拒绝超限 Report'
+  );
+  assert.ok(before.equals(fs.readFileSync(card)), '原文件应字节不变');
+  assert.deepEqual(fs.readdirSync(dir).filter((f) => f.includes('.tmp.')), [], '不应残留 tmp 文件');
+});
+
+test('护栏 B 边界：恰好 64 KiB 的 `## Report` 可写，超 1B 即拒', () => {
+  const dir = mkScratch();
+  const card = path.join(dir, `${CARD_ID}.md`);
+  const fm = { __order: ['id', 'title'], id: CARD_ID, title: 't' };
+  const body = (n) => `\n## Report\n${'z'.repeat(n)}\n`;
+  // 先量出「段 = 64 KiB」所需的正文长度，再在边界两侧各测一次
+  const head = reportSection(body(0));           // `\n## Report\n` + `\n` 的段内开销
+  const fill = 64 * 1024 - head;
+  writeCardAtomic(card, fm, body(fill));
+  assert.equal(reportSection(fs.readFileSync(card, 'utf8')), 64 * 1024, '恰好 64 KiB 应可写');
+  assert.throws(() => writeCardAtomic(card, fm, body(fill + 1)), /`## Report` 段超上限/);
+});
+
+test('护栏 B 不追溯：已超限的历史 Report 不被无关写入冻结（也不阻止收缩）', () => {
+  const dir = mkScratch();
+  const card = path.join(dir, `${CARD_ID}.md`);
+  const fm = { __order: ['id', 'title'], id: CARD_ID, title: 't' };
+  // 落一张「历史遗留」超限卡（模拟 161 KiB Report 的 T-20261012-012736）：**直接写盘**，
+  // 模拟守卫存在之前就已落地的卡 —— 守卫不接受新写的超限 Report，故不能用 writeCardAtomic 造前置。
+  fs.writeFileSync(card, serializeFrontmatter(fm, `\n## Report\n${'z'.repeat(70 * 1024)}\n`), 'utf8');
+  const legacy = fs.readFileSync(card, 'utf8');
+  assert.ok(reportSection(legacy) > 64 * 1024, '前置：该卡 Report 已超限');
+
+  // 无关写入（心跳/评论等价物）：Report 段不变 ⇒ 应放行
+  writeCardAtomic(card, { ...fm, heartbeat_at: '2026-01-01T00:00:00.000Z' }, `\n## Report\n${'z'.repeat(70 * 1024)}\n`);
+  assert.match(fs.readFileSync(card, 'utf8'), /heartbeat_at:/, '超限历史卡不应被无关写入冻结');
+
+  // 收缩到上限内：放行
+  writeCardAtomic(card, { ...fm, heartbeat_at: '2026-01-01T00:00:00.000Z' }, `\n## Report\n${'z'.repeat(1024)}\n`);
+  assert.ok(reportSection(fs.readFileSync(card, 'utf8')) <= 64 * 1024);
+
+  // 再次顶过上限：拒
+  assert.throws(
+    () => writeCardAtomic(card, fm, `\n## Report\n${'z'.repeat(70 * 1024)}\n`),
+    /`## Report` 段超上限/
   );
 });
 
-test('护栏：新卡（无既有文件）不受限制 + 正常小幅改写可写', () => {
+test('护栏：D8 回归 —— 合法长 Report（29KB 写入 3KB 卡，旧口径 9.70x 被拒）现应写入', () => {
+  const dir = mkScratch();
+  const card = path.join(dir, `${CARD_ID}.md`);
+  const fm = { __order: ['id', 'title'], id: CARD_ID, title: 'guard-baseline' };
+  // 复刻 D8 现场：3 003B 的卡 + 29 136B 的 Report
+  fs.writeFileSync(card, serializeFrontmatter(fm, 'x'.repeat(3003 - serializeFrontmatter(fm, '').length)), 'utf8');
+  const prevSize = fs.statSync(card).size;
+  const report = 'B'.repeat(29136); // 29 136B = D8 现场的报告体量
+  writeCardAtomic(card, fm, `\n\n## Report\n${report}\n`);
+  const after = fs.readFileSync(card, 'utf8');
+  assert.equal(reportSection(after), B(`## Report\n${report}\n`), 'Report 段应原样落盘');
+  assert.ok(B(after) > prevSize * 9, `整文件应确实 >9×（实得 ${(B(after) / prevSize).toFixed(2)}×）—— 旧口径必拒`);
+});
+
+test('护栏 A 假阳性边界：合法 FM 增长（同 write 内新增字段 ≲1 KiB）不受限', () => {
+  const dir = mkScratch();
+  const card = path.join(dir, `${CARD_ID}.md`);
+  const fm = { __order: ['id', 'title'], id: CARD_ID, title: 't' };
+  fs.writeFileSync(card, serializeFrontmatter(fm, 'body\n'), 'utf8');
+  // 比值 >1.5× 但增量 ≤1 KiB ⇒ 合法（实测全生命周期最大 1.248× / +105B）
+  writeCardAtomic(card, { ...fm, claimed_by: 'linus', claimed_at: '2026-01-01T00:00:00.000Z', heartbeat_at: '2026-01-01T00:00:00.000Z' }, 'body\n');
+  assert.match(fs.readFileSync(card, 'utf8'), /claimed_by: linus/);
+  // FM 大幅**缩减**（session 收敛）同样放行
+  writeCardAtomic(card, fm, 'body\n');
+  assert.equal(fs.readFileSync(card, 'utf8'), serializeFrontmatter(fm, 'body\n'));
+});
+
+test('护栏：新卡（无既有文件）不受限 + 正常小幅改写可写', () => {
   const dir = mkScratch();
   const fresh = path.join(dir, 'T-20260101-000001-fresh.md');
   const fm = { __order: ['id', 'title'], id: 'T-20260101-000001-fresh', title: 'fresh' };
@@ -208,7 +329,7 @@ test('护栏：新卡（无既有文件）不受限制 + 正常小幅改写可�
   // 已存在卡的小幅改写：应正常写入
   const small = path.join(dir, `${CARD_ID}.md`);
   fs.writeFileSync(small, serializeFrontmatter(fm, 'body\n'), 'utf8');
-  const large = serializeFrontmatter(fm, 'body\n\nmore\n'); // 远小于 4×
+  const large = serializeFrontmatter(fm, 'body\n\nmore\n');
   writeCardAtomic(small, fm, 'body\n\nmore\n');
   assert.equal(fs.readFileSync(small, 'utf8'), large, '小幅改写应成功');
 });
