@@ -771,7 +771,7 @@
       "name": "setup-matt-pocock-skills",
       "targets": [
         "claude",
-        "agent:linus"
+        "openclaw"
       ],
       "source": {
         "kind": "github",
