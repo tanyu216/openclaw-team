@@ -414,7 +414,7 @@ bash scripts/spawn-lane.sh <card> <owner> seg=<seg> backend=codex harness=plugin
 | `PROTOCOL.md` | `§⑥` 第 2 条（并发额度）、第 3 条（cwd/沙箱注）、第 8 条（会话关联与 resume）、单入口小节 | 插件 lane 合并计数；沙箱映射；codex id = native thread id（非确定性 UUIDv5）+ `harness`；入口增 `harness=plugin` |
 | `PROTOCOL.md` | `§⑥` 第 1 条（reconcile/`kill -0`）、`§①` Board 的 `## Sessions` schema 注、`§⑬.2` | reconcile 判活扩为 pid 或 thread 可达；`## Sessions` 行增 `harness` 段 |
 | `guides/spawn-lane-sop.md` | §1 Rule、§3 Sequence、§6 How the gates back this up、§7 When the entry refuses | 增 `harness=plugin` 入参与两步回填；新增拒绝码 `unknown_harness` / `thread_bind_timeout` |
-| `guides/task-interface.md` | §2 Data Model（AgentSession）、§8 Future-Swap Mapping、§9 Session Association and Resume | AgentSession 增 `harness/thread_id/id_state`；registry 行映射；codex resume 形态（插件 `openclaw codex continue <thread_id>`） |
+| `guides/task-interface.md` | **AgentSession 的 canonical schema 归产品（引用，不在此声明）**：`skills/meerkat-taskpanel/references/card-schema.md`；`task-interface §2` = 仅 ACL 最小必需集（**不再含 AgentSession**）；§9 Session Association and Resume（team 侧处理）；§8 Future-Swap Mapping | AgentSession 增 `harness/thread_id/id_state`（落产品 `## Sessions` schema）；registry 行映射（§9）；codex resume 形态（插件 `openclaw codex continue <thread_id>`） |
 | `scripts/README.md` | spawn-lane / registry 段 | 后端分派新增插件分支；registry 字段增量 |
 
 > 无「无文档影响」声明。同步触发点 = A2 实现 PR（`§⑫` 反向回填）；本契约文档自身为 L5 证据，不改 L1/L2 正文。
