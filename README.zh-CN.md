@@ -207,7 +207,7 @@ cd <path/to/openclaw-team>
 
 ## 任务系统与调度（可切换，经 ACL）
 
-**边界归属**：`openclaw-team` 拥有**调度**与 **ACL 抽象**；任务基座（meerkat-taskpanel / Jira / Plane …）只是 ACL 背后的**被调方**。完整契约见 `team/guides/task-interface.md`（卡、原子领取 + 心跳、`ready → in_progress → in_review → done | failed` 状态机、评论/过程留痕、父子 + 依赖 DAG），本文不复述。
+**边界归属**：`openclaw-team` 拥有**调度**与 **ACL 抽象**；任务基座（meerkat-taskpanel / Jira / Plane …）只是 ACL 背后的**被调方**。完整契约见 `team/guides/task-interface.md`（卡、原子领取 + 心跳、`todo → in_progress → in_review → done | canceled` 状态机、评论/过程留痕、父子 + 依赖 DAG），本文不复述。
 
 - **默认提供方 —— meerkat-taskpanel**：默认安装（任务 skill + `taskctl` CLI）。`./install.sh --no-meerkat-taskpanel` 可退出；用 `--meerkat-taskpanel DIR` 指定源码。
 - **自备 / 换基座**：Jira / Linear / Plane / GitHub Issues / 自研看板 … —— 自行安装其连接 skill/MCP，并用 `OPENCLAW_TEAM_TASK_PROVIDER=<name>` 指向它。上层（角色 / SOP / 定时任务）**零改动**，因为它们只依赖 ACL；随后跑 ACL 契约测试（`task-interface.md §6`、`§12`）。
