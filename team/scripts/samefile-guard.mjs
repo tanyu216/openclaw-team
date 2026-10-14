@@ -18,10 +18,29 @@ import path from 'node:path';
 import { TASKS_DIR, CARD_ID_RE, parseFrontmatter } from './lib.mjs';
 
 /**
- * 非终态（可写）四态 —— **同文件/同仓并发判定的唯一口径**，`scripts/lane-isolation.mjs`
+ * 非终态（可写）状态集 —— **同文件/同仓并发判定的唯一口径**，`scripts/lane-isolation.mjs`
  * 与本脚本共用（T-20261012-022948-2：单点持有，避免两处政策漂移）。
+ *
+ * 口径（`guides/worktree-isolation-sop.md §1`：非终态 = **在飞四态**）：
+ *   - **规范词**（真源 `skills/task-ops/lib/task.mjs#CANONICAL_STATUSES`）：`todo` / `in_progress`
+ *     / `blocked` / `in_review`。⚠ `todo` 才是**规范值**，`ready` 只是它的 legacy 别名。
+ *   - **兼容别名** `ready`：旧卡仍用它写「新卡」（live 仍有 `ready` 旧卡，本卡实测 5 张）⇒ 必须
+ *     继续计入，否则只是把同一个缺陷换个方向再犯一遍（轮到 `ready` 卡隐形）。
+ *   - **不在集内**：终态 `done`/`failed`/`canceled`（口径同 `TERMINAL_STATUSES`），以及**未排期**
+ *     的 `backlog`（尚未进入在飞写集 ⇒ 不构成写者；`§1` 的四态不含它）。
+ *
+ * **为什么不用 `!TERMINAL_STATUSES.has(status)` 的反向口径**：那会把 `backlog` 与一切**未知名 /
+ * 写错**的 status 一并读成写者，把守卫**放宽**到卡面从没声明过的语义（`§1` 明写非终态=在飞四态；
+ * 且 live 现存 11 张 `backlog` 卡会突然开始参与同仓判定）。「同类再犯」改由**回归套件**兜住：
+ * `scripts/tests/samefile-guard.test.mjs` 以「规范 7 值 − 终态 − 未排期 ∪ 兼容别名」逐值对拍本集合，
+ * 并断言集内每个词都在 `ACCEPTED_STATUSES` 里 —— 将来词表增删/拼错会把它**变红**，而不是静默漂移。
+ *
+ * 本次缺陷（T-20261014-214625-2）：原集正向枚举 `['ready','in_progress','blocked','in_review']`，
+ * 用 legacy 词 `ready` 顶替 canonical `todo` ⇒ `status: todo` 的卡对写集重叠扫描与同仓并发判定
+ * **完全隐形**（实测：`samefileConflicts({card:<todo 卡>})` 报 `card_not_found_or_terminal`，
+ * `laneIsolationPlan` 对一张同写集 `todo` 卡报 `none/no_concurrent_lane`）。
  */
-export const NON_TERMINAL = new Set(['ready', 'in_progress', 'blocked', 'in_review']);
+export const NON_TERMINAL = new Set(['todo', 'ready', 'in_progress', 'blocked', 'in_review']);
 
 function parseWrites(raw) {
   if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
