@@ -1,3 +1,5 @@
 {
-  "groups": []
+  "groups": [],
+  "retired": true,
+  "note": "退役态：零豁免登记（T-20261014-123216）。本文件由 install.sh §1 deploy_file 部署到实例（默认 upgrade ⇒ 仓内副本覆盖实例副本）⇒ 仓内副本是唯一权威，请勿直接手改实例副本。provider 契约测试 skills/task-ops/tests/idem.test.mjs:483 断言本文件 groups 为空（退役）；如需登记豁免，必须与该校验成对落地，否则 check-all 慢段 fail-closed 转红。"
 }
