@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * check-idem.test.mjs — 建卡幂等巡检口径收口测试（T-20261010-064006-2）
+ * check-idem.test.mjs — 建卡幂等巡检口径收口测试（T-20261010-064006-2；T-20261014-214625 细化）
  *
- * 重点（红→绿负例）：**同 parent + 同 assignee + 空 target 的兄弟卡**在旧口径下机械键相同 ⇒ 被误判
- * duplicates；新口径降级为非阻断 hints（退出码 0）。真重复（同 review_of / 非空同 target）仍判红。
+ * 重点（红→绿负例）：**同 parent + 同 assignee + 同 target 的兄弟卡**在旧口径下机械键相同 ⇒ 被误判
+ * duplicates；新口径判红依据收窄为「组内是否有非空 review_of」单一判据 ⇒ parent 派生组（含共享非空 target）
+ * 降级为非阻断 hints（退出码 0）。真重复（组内有非空 review_of）仍判红。
  * 口径依据：scripts/check-idem.mjs 头部注释；PROTOCOL §㉙.8；guides/task-interface.md §14。
  *
  * 风格：核心逻辑直接 import `scanIdem(dir)`（注入 mkdtemp 隔离目录）取行/分支覆盖；退出码/输出另
@@ -177,31 +178,63 @@ test('真重复：同 review_of + 同 assignee + 同 target ⇒ 仍判 duplicate
   assert.equal(runCli(root, ['--no-baseline']).code, 1);
 });
 
-// ---- D3（T-20261010-081140 裁定）：非空 target 的兄弟卡**不**降级 ----
-// 同一 idem 键 ⇒ 同一 target 字符串；非空且相同 target = 「同人同目标」真实区分信号 ⇒ 维持 duplicates（红）。
-// 口径见 check-idem.mjs 头注「非空 target 的兄弟卡」。
+// ---- T-20261014-214625 细化：target 不再是 parent 派生组的区分信号 ----
+// 同一 parent 的子卡共享 target 是常态（同一项目的多个子任务）⇒ 非空同 target 对 parent 派生组无区分信息
+// ⇒ 即便 target 非空也降 hints。判红依据收窄为「组内是否有非空 review_of」。口径见 check-idem.mjs 头注
+// 「target 不再是 parent 派生组的区分信号」。
+// 本组取代 081140 的「非空 target 不降级」；081140 的「同人同目标 ⇒ 真重复倾向」在 **review_of 组**仍成立（见下 ③）。
 
-test('D3 裁定：同 parent + 同**非空** target 的兄弟卡 ⇒ duplicates（红，不降级为 hints）', { skip: SKIP }, () => {
+test('回归①：同 parent + 同**非空** target 的兄弟卡 ⇒ hints（非阻断，exit 0）', { skip: SKIP }, () => {
   const root = mkRoot([
     card('T-20260101-120000-a', { parent: 'T-20260101-090000-epic', target: '/repo/meerkat' }),
     card('T-20260101-120001-b', { parent: 'T-20260101-090000-epic', target: '/repo/meerkat' }),
   ]);
   const r = scanIdem(tasksOf(root));
-  assert.equal(r.hints.length, 0, '非空同 target 有区分信号 ⇒ 不得降级为 hints');
-  assert.equal(r.duplicates.length, 1, '同人同目标（非空）仍属真重复档');
-  assert.equal(r.duplicates[0].idem, 'task | linus | T-20260101-090000-epic | /repo/meerkat');
+  assert.equal(r.duplicates.length, 0, 'parent 派生组共享 target 属常态 ⇒ 不得判红');
+  assert.equal(r.hints.length, 1, '应降级为 1 组非阻断 hints');
+  assert.equal(r.hints[0].idem, 'task | linus | T-20260101-090000-epic | /repo/meerkat');
+  assert.equal(r.hints[0].reason, SIBLING_HINT_REASON);
 
-  // 退出码契约：duplicates ⇒ 1（只有 hints 才是不置码的非阻断档）
+  // 退出码契约：仅 hints ⇒ 0
   const { code, out, err } = runCli(root);
-  assert.equal(code, 1, `非空同 target 兄弟卡应置退出码 1；stderr=${err}`);
+  assert.equal(code, 0, `parent 派生兄弟卡（非空同 target）应退出 0；stderr=${err}`);
   const parsed = JSON.parse(out);
-  assert.equal(parsed.duplicates.length, 1);
-  assert.equal(parsed.hints.length, 0);
-  assert.match(err, /建卡幂等违例/, '应打印违例（而非提示）');
-  assert.doesNotMatch(err, /建卡幂等提示/, '不得打印 hints 提示');
+  assert.equal(parsed.duplicates.length, 0);
+  assert.equal(parsed.hints.length, 1);
+  assert.doesNotMatch(err, /建卡幂等违例/, '不得打印违例');
+  assert.match(err, /建卡幂等提示/, '应打印非阻断提示');
 });
 
-test('D3 边界：同 parent 但**不同**非空 target ⇒ 键不同、不分组（区分信号生效的另一面）', { skip: SKIP }, () => {
+test('回归②：同 parent + 同 target + 同 review_of ⇒ duplicates（显式复核仍红，exit 1）', { skip: SKIP }, () => {
+  const root = mkRoot([
+    card('T-20260101-122000-a', { parent: 'T-20260101-090000-epic', review_of: 'T-20260101-090000-epic', target: '/repo/meerkat' }),
+    card('T-20260101-122001-b', { parent: 'T-20260101-090000-epic', review_of: 'T-20260101-090000-epic', target: '/repo/meerkat', status: 'in_review' }),
+  ]);
+  const r = scanIdem(tasksOf(root));
+  assert.equal(r.hints.length, 0, 'review_of 有实义 ⇒ 不入 hints');
+  assert.equal(r.duplicates.length, 1);
+  assert.equal(r.duplicates[0].idem, 'task | linus | T-20260101-090000-epic | /repo/meerkat');
+
+  const { code, out, err } = runCli(root);
+  assert.equal(code, 1, `显式复核同卡应置退出码 1；stderr=${err}`);
+  assert.equal(JSON.parse(out).duplicates.length, 1);
+  assert.match(err, /建卡幂等违例/);
+});
+
+test('回归③：非父子（review_of 派生，无 parent）+ 同人同 target ⇒ 维持 duplicates（不回归 081140 意图）', { skip: SKIP }, () => {
+  const cards = [
+    card('T-20260101-123000-a', { review_of: 'T-20260101-000000-rsrc', target: '/repo/meerkat' }),
+    card('T-20260101-123001-b', { review_of: 'T-20260101-000000-rsrc', target: '/repo/meerkat', status: 'in_progress' }),
+  ];
+  // 非父子：无 parent 字段，source 完全由 review_of 派生 ⇒ 键的 source 段 = review_of 值
+  assert.equal(idemKey(cards[0]), 'task | linus | T-20260101-000000-rsrc | /repo/meerkat');
+  const r = scanIdem(tasksOf(mkRoot(cards)));
+  assert.equal(r.hints.length, 0);
+  assert.equal(r.duplicates.length, 1, 'review_of 组的「同人同目标 ⇒ 真重复倾向」不因 parent 组降级而回归（081140 意图保留）');
+  assert.equal(r.duplicates[0].idem, 'task | linus | T-20260101-000000-rsrc | /repo/meerkat');
+});
+
+test('边界：同 parent 但**不同**非空 target ⇒ 键不同、不分组（target 仍参与键，决定是否同组）', { skip: SKIP }, () => {
   const r = scanIdem(tasksOf(mkRoot([
     card('T-20260101-121000-a', { parent: 'T-20260101-090000-epic', target: '/repo/meerkat' }),
     card('T-20260101-121001-b', { parent: 'T-20260101-090000-epic', target: '/repo/other' }),
