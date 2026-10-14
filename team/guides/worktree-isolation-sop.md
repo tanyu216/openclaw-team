@@ -15,7 +15,7 @@
   node ~/.openclaw/team/scripts/lane-worktree.mjs <repo> <lane> [--branch <b>] [--base <ref>] [--dry-run]
   ```
 - **The dispatch surface is the lane's working directory.** `scripts/spawn-lane.mjs` resolves the lane's cwd from `project` + `target` (`PROTOCOL §⑥` cwd normalization); pinning the lane to its own worktree is therefore the *whole* wiring — there is no separate spawn path. Since `T-20261012-022948-2` the entry does that pinning **itself** (§9), so the card's declared `target` no longer has to be edited by hand (and is deliberately **not** rewritten — see §9).
-- **Non-terminal** = the four in-flight states that can still write: `ready`, `in_progress`, `blocked`, `in_review` (`done`/`failed`/`canceled` are terminal; the single source of truth is the status machine in `scripts/check-card.mjs`, and `scripts/samefile-guard.mjs` + `scripts/lane-isolation.mjs` share that set). `blocked`/`in_review` still hold uncommitted work — the 061638 O2 incident was exactly an `in_progress` writer (063151) landing in a checkout an `in_review` verification (R26) was reading.
+- **Non-terminal** = the four in-flight states that can still write: `todo`, `in_progress`, `blocked`, `in_review` (`done`/`failed`/`canceled` are terminal, and the not-yet-scheduled `backlog` is neither; the single source of truth is the status machine in `scripts/check-card.mjs`, and `scripts/samefile-guard.mjs` + `scripts/lane-isolation.mjs` share that set). `blocked`/`in_review` still hold uncommitted work — the 061638 O2 incident was exactly an `in_progress` writer (063151) landing in a checkout an `in_review` verification (R26) was reading.
 - **Decide before you start, not after.** The signal is already on the board: `scripts/samefile-guard.mjs` reports overlapping write-sets across non-terminal cards (`guides/task-interface.md` `writes`, falling back to `target`). An overlap ⇒ **isolate (this SOP) or serialize (`PROTOCOL §⑥.3` case ②)**. Note the two signals are not equally sharp: a **declared `writes`** (or a `target` naming something *inside* the repo) is a file-level claim and can force a **serialize**; a `target` that is just the **repo root** is a *repo designation*, not a write set — it means "isolate", never "you two conflict" (§9).
 
 ## 2. Why (field-verified failure modes)
@@ -124,7 +124,7 @@ Dispatch procedure (Elon) for a same-repo concurrent lane:
 | # | Condition | Source |
 |---|---|---|
 | 1 | the lane's cwd resolves into a **git** repo | `git rev-parse --git-common-dir` (a linked worktree resolves back to the *main* checkout) |
-| 2 | **≥1 other non-terminal card** resolves into the **same** repo (`ready`/`in_progress`/`blocked`/`in_review`) | board scan (`scripts/lane-isolation.mjs`) |
+| 2 | **≥1 other non-terminal card** resolves into the **same** repo (`todo`/`ready`(legacy alias)/`in_progress`/`blocked`/`in_review`) | board scan (`scripts/lane-isolation.mjs`) |
 | 3 | the lane is a **writer** — `role=exec` (a `role=review` lane is a reader: §3) | card role |
 | 4 | the lane is **not already isolated** (cwd is not itself a linked worktree) | `git rev-parse --git-dir` ≠ `--git-common-dir` |
 | 5 | the switch is on (see *Rollback*) | `--no-isolate` / `OPENCLAW_LANE_ISOLATION` |
