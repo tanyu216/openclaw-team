@@ -32,6 +32,11 @@
  *        · 只读角色（role=review）/ 非 git 仓 / 无并发 / 已在 linked worktree ⇒ 不动（兼容路径不变）。
  *      隔离**失败即 fail-closed**（`lane_isolation_failed(...)`）：把「无法隔离」读成「绿」正是本卡要消灭的
  *      失败模式。回退开关：`--no-isolate` 或 env `OPENCLAW_LANE_ISOLATION=0`（回到显式纪律路径）。
+ *      ①c-b **续接定基**（T-20261014-112936）：隔离树的基准 ⇏ 恒为 `HEAD`。**续接上一 seg** 时
+ *      （多 seg 续做 / 打回续做）以**上一 seg 的 lane 分支 tip**为 base —— 派单者此前只能靠人工
+ *      `lane-worktree --base <prev-tip>` 手建树绕开（`T-20261013-154930-2` 实证：seg2 默认建在 HEAD ⇒
+ *      `merge-base --is-ancestor <seg1 tip> → NO`，前段产物被丢）。首 seg / 无前驱 ⇒ 仍 `HEAD`（不变）；
+ *      显式 `--base <ref>` 优先且**不可解析即拒绝**（显式意图绝不静默回落）。证据在输出 `isolation.base`。
  *   ② 并发额度：linus/jobs running>=8 或 turing running>=3 ⇒ 拒绝；
  *   ③ cwd：由 project 经 ACL 解析（`__team__` ⇒ team 根），叠加 target；若 ①c 判定需隔离，
  *      cwd 改为该 lane 的隔离 worktree（卡 `target` **不**回写：`target` 是 `samefile-guard` 写集退化口径的
@@ -228,21 +233,31 @@ export function ensureWorkspaceSettings(wsDir, { dryRun = false } = {}) {
   return { state: 'created', path: settingsPath };
 }
 
-/** 解析 CLI 参数（位置：card owner；k=v：seg/backend/phase/role；flag：--review/--dry-run/--no-isolate/--help） */
+/**
+ * 解析 CLI 参数（位置：card owner；k=v：seg/backend/phase/role/base；带值 flag：--base；开关：--review/--dry-run/--no-isolate/--help）
+ * `--base <ref>` 与 `base=<ref>` 等价（前者形状与 `lane-worktree.mjs` 对齐，见 worktree-isolation-sop §5）。
+ */
 export function parseArgs(argv) {
   const pos = [];
   const kv = {};
   let dryRun = false;
   let help = false;
   let isolate = true;
-  for (const a of argv) {
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
     if (a === '--dry-run') { dryRun = true; continue; }
     if (a === '--no-isolate') { isolate = false; continue; } // 回退开关（等价 OPENCLAW_LANE_ISOLATION=0）
     if (a === '--review') { kv.role = 'review'; continue; } // 等价 role=review
     if (a === '--help' || a === '-h') { help = true; continue; }
+    if (a === '--base') { // 带值旗标：缺值 / 值形如 `--x` ⇒ 用法错误（绝不把下一个旗标吞成值）
+      const v = argv[++i];
+      if (v == null || v.startsWith('--')) return { ok: false, reason: `missing_value:${a}` };
+      kv.base = v;
+      continue;
+    }
     if (a.startsWith('--')) return { ok: false, reason: `unknown_flag:${a}` };
-    const i = a.indexOf('=');
-    if (i > 0 && !a.startsWith('=')) { kv[a.slice(0, i)] = a.slice(i + 1); continue; }
+    const i2 = a.indexOf('=');
+    if (i2 > 0 && !a.startsWith('=')) { kv[a.slice(0, i2)] = a.slice(i2 + 1); continue; }
     pos.push(a);
   }
   // 位置参数只有 `card owner` 两个；**多余的裸位置参数一律用法错误**，绝不静默忽略
@@ -264,6 +279,7 @@ export function parseArgs(argv) {
     phase: kv.phase || kv.seg || '',
     // 同一计划内**有意**并行多分段：显式声明越过 ①b2（见 runningLaneBlocker L2）
     parallel: kv.parallel || '',
+    base: kv.base || '',
   };
 }
 
@@ -354,11 +370,12 @@ const usage = (reason) => ({ ok: false, code: 2, reason });
 /**
  * 执行入口（dry-run 与真实起会话共用同一条校验链）。
  * @param {{card:string,owner:string,seg:string,backend:string,phase:string,role:'exec'|'review',
- *          dryRun:boolean,isolate?:boolean,parallel?:string}} opts `isolate:false` = 关自动隔离
- *   （回退开关，等价 `--no-isolate`）；`parallel='1'` = 同一计划内有意并行多分段（越过 ①b2，见上）
+ *          dryRun:boolean,isolate?:boolean,parallel?:string,base?:string}} opts `isolate:false` = 关自动隔离
+ *   （回退开关，等价 `--no-isolate`）；`parallel='1'` = 同一计划内有意并行多分段（越过 ①b2，见上）；
+ *   `base` = 显式定基（等价 `--base <ref>`），未给则由上一 seg 分支 tip 推导。
  */
 export function spawnLane(opts = {}) {
-  const { card = '', owner = '', seg: segArg = '', backend = 'claude', dryRun = false } = opts;
+  const { card = '', owner = '', seg: segArg = '', backend = 'claude', dryRun = false, base = '' } = opts;
   const role = opts.role || 'exec';
   const allowParallel = parallelDeclared(opts.parallel);
   // 自动隔离开关：CLI `--no-isolate` 与 env `OPENCLAW_LANE_ISOLATION` 任一关闭即关闭（两者都须为「开」）
@@ -417,6 +434,9 @@ export function spawnLane(opts = {}) {
   }
   const isoPlan = laneIsolationPlan({
     taskId, seg, role, cwd: baseCwd, fm: c.fm, enabled: isolateEnabled, dryRun,
+    // 续接定基（T-20261014-112936）：既有 seg 登记 + 显式 --base ⇒ 由 lane-isolation 推导建树基准
+    sessions: sessionsBySeg(c.body),
+    base,
   });
   if (isoPlan.mode === 'serialize') {
     const withIds = isoPlan.conflicts.map((x) => x.card).join(',');
@@ -582,7 +602,7 @@ export function spawnLane(opts = {}) {
   };
 }
 
-const HELP = `用法: bash scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [phase=<p>] [role=exec|review] [parallel=1] [--review] [--dry-run] [--no-isolate]
+const HELP = `用法: bash scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [phase=<p>] [role=exec|review] [parallel=1] [--review] [--dry-run] [--no-isolate] [--base <ref>]
 
 新 lane 起会话的单一强制入口（claim → handoff 自检 → settings 预置 → spawn → session-set 卡+registry 同写）。
 role=exec（默认）起执行 lane（in_progress 卡）；role=review（--review 等价）起复核 lane（in_review 卡，
@@ -591,12 +611,15 @@ role=exec（默认）起执行 lane（in_progress 卡）；role=review（--revie
 = 本 seg 确定性 id 任一命中）⇒ 拒绝复用既有 session；执行 lane 遇该卡**已有任意活跃 lane** ⇒ 拒绝第二条
 执行 lane（card_busy）。同一计划内有意并行多分段须显式声明 parallel=1。
 同仓已有并发非终态 lane ⇒ 自动建隔离 worktree（cwd 指向该树）；同文件冲突 ⇒ 拒绝并提示串行；
---no-isolate（或 OPENCLAW_LANE_ISOLATION=0）关闭该自动化（回退为显式纪律）。
+隔离树的 base：续接上一 seg ⇒ 上一 seg 的 lane 分支 tip（首 seg ⇒ HEAD）；--base <ref> 显式指定且
+不可解析即拒绝。--no-isolate（或 OPENCLAW_LANE_ISOLATION=0）关闭该自动化（回退为显式纪律）。
 禁「直跑 claude -p 不登记」；见 guides/spawn-lane-sop.md、guides/worktree-isolation-sop.md 与 PROTOCOL §⑥。
 
 示例:
   bash scripts/spawn-lane.sh T-20261010-052210 linus --dry-run
   bash scripts/spawn-lane.sh T-20261010-052210 linus seg=seg1 backend=claude
+  bash scripts/spawn-lane.sh T-20261010-052210 linus seg=seg2            # 续接 seg1 ⇒ base=lane/<card>-seg1
+  bash scripts/spawn-lane.sh T-20261010-052210 linus seg=seg2 --base 43bdf5f   # 显式定基
   bash scripts/spawn-lane.sh T-20261010-052210 turing --review backend=codex
   OPENCLAW_LANE_ISOLATION=0 bash scripts/spawn-lane.sh T-20261010-052210 linus   # 显式纪律回退
 `;

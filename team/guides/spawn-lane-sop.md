@@ -116,6 +116,8 @@ node ~/.openclaw/team/scripts/lane-worktree.mjs <repo> <lane> [--branch <b>] [--
 #    prompt or on the card `target`), then dispatch through §4 as usual.
 ```
 
+Hand-building a worktree to **continue a card** (the `--base <previous-seg-tip>` workaround) is **no longer needed**: since `T-20261014-112936` the automatic path derives the base for a continuation spawn itself (`§11`, `worktree-isolation-sop.md §9`). The manual form survives only for a base that is neither `HEAD` nor the previous seg's tip.
+
 **Full rule, judging criteria, naming/branch/base discipline, and cleanup**: `guides/worktree-isolation-sop.md` (§9 = the automatic path). Serialize instead when the card says so or `depends_on` is unmet (`PROTOCOL §⑥.3`).
 
 ## 9. Review lanes (`role=review`) — the single entry, not a side registry
@@ -157,9 +159,11 @@ Where it sits in the sequence (`§3`): the **decision** runs at **①c**, *befor
 **Two new refusals** (exit 1, both zero-side-effect, both greppable):
 
 - `lane_samefile_conflict(with=…,overlap=…):serialize` — a same-repo non-terminal card shares a file with this one. Isolation does not fix that (the collision would just move to a branch merge), so the lane **waits**: serialize (`PROTOCOL §⑥.3` case ②).
-- `lane_isolation_failed(<inner reason>):serialize_or_fix` — the worktree could not be taken (path occupied by a non-worktree directory, lane branch checked out elsewhere, `bad_lane`, `worktree_add_failed`). **Fail-closed**: the entry refuses rather than starting the lane in the shared checkout, because "could not isolate" silently read as "green" is precisely the failure this closes. Fix the obstacle (`git worktree list`, remove the stale path) or serialize; do not work around it by spawning directly.
+- `lane_isolation_failed(<inner reason>):serialize_or_fix` — the worktree could not be taken (path occupied by a non-worktree directory, lane branch checked out elsewhere, `bad_lane`, `worktree_add_failed`, or an explicit `--base` that does not resolve ⇒ `base_unresolved:<ref>`). **Fail-closed**: the entry refuses rather than starting the lane in the shared checkout, because "could not isolate" silently read as "green" is precisely the failure this closes. Fix the obstacle (`git worktree list`, remove the stale path, correct the ref) or serialize; do not work around it by spawning directly.
 
-**Output**: `isolation: { mode, lane, branch, path, main_repo, same_repo_lanes, action, applied }`; `cwd` equals `isolation.path` when isolated, and the sub-session prompt gains one line stating the worktree + branch and asking for the branch/sha in the Report. The card's `target` is **not** rewritten (it is the declaration and the `samefile-guard` fallback write set — rewriting it would silently disarm the same-file guard); the *effective* tree is `isolation.path`.
+**Output**: `isolation: { mode, lane, branch, path, main_repo, same_repo_lanes, action, applied, base }`; `cwd` equals `isolation.path` when isolated, and the sub-session prompt gains one line stating the worktree + branch and asking for the branch/sha in the Report. The card's `target` is **not** rewritten (it is the declaration and the `samefile-guard` fallback write set — rewriting it would silently disarm the same-file guard); the *effective* tree is `isolation.path`.
+
+**Base — a continuation is not a fresh start (T-20261014-112936).** `isolation.head` is no longer always `HEAD`. A spawn that **continues an existing seg** is built on the **previous seg's lane-branch tip** (`isolation.base = {ref, source: "prev_seg", prev_seg, resolved}`), so the earlier segment's committed work is in the tree; a **first** seg is still built on `HEAD` (`base.source: "head"`, behaviour unchanged). `--base <ref>` (or `base=<ref>`) pins the base explicitly and is **refused if unresolvable** (`lane_isolation_failed(base_unresolved:<ref>):serialize_or_fix`) rather than silently falling back to `HEAD`. Full rule and evidence: `worktree-isolation-sop.md §9`.
 
 **Rollback switch**: `--no-isolate`, or `OPENCLAW_LANE_ISOLATION=0` (`off`/`false`/`no`/`disabled`) ⇒ the pre-change behaviour, `isolation.mode = "disabled"`.
 
@@ -167,6 +171,8 @@ Where it sits in the sequence (`§3`): the **decision** runs at **①c**, *befor
 # Default: automatic isolation (a worktree appears only if the repo really has a concurrent lane)
 bash ~/.openclaw/team/scripts/spawn-lane.sh <card> linus --dry-run     # rehearse: prints cwd + isolation, zero side effects
 bash ~/.openclaw/team/scripts/spawn-lane.sh <card> linus              # may create <repo>-wt-<card>-seg1
+bash ~/.openclaw/team/scripts/spawn-lane.sh <card> linus seg=seg2     # continuation: base = lane/<card>-seg1
+bash ~/.openclaw/team/scripts/spawn-lane.sh <card> linus --base 43bdf5f   # pin the base explicitly
 # Rollback to the explicit discipline
 bash ~/.openclaw/team/scripts/spawn-lane.sh <card> linus --no-isolate
 ```
@@ -182,3 +188,5 @@ bash ~/.openclaw/team/scripts/spawn-lane.sh <card> linus --no-isolate
 > **Deploy note**: `scripts/registry.mjs` is imported by the provider ACL (`task.sessionSet` / `sessionClose` write the registry **through this file**), so the lane-identity dedupe + `duplicate_running_lane` refusal only take effect **after the changed files are deployed to the live team dir** (`install.sh`), not by the repo commit alone.
 
 > **Doc-sync note (T-20261012-022948-2)**: §8 + §11 (automatic same-repo lane isolation) are likewise **method-library level**. They **implement** existing clauses — `PROTOCOL §⑥.3` case ② (same-file/same-resource ⇒ serialize; parallelism-first otherwise), `§⑨.1` (single writer per file) and `PROTOCOL §⑥` cwd normalization — and **redefine nothing**, so no PROTOCOL edit is triggered. Scope of the change: `scripts/lane-isolation.mjs` (new decision module), `scripts/spawn-lane.mjs` (①c/③b wiring + `--no-isolate`), `scripts/lane-worktree.mjs` + `scripts/tests/lane-worktree.test.mjs` (the 074754-2 mechanism, **backfilled into the repo** — it previously existed only in the deployed instance) and the tests `tests/lane-isolation.test.mjs` / `tests/spawn-lane-isolation.test.mjs`. Response: `guides/worktree-isolation-sop.md §9`.
+
+> **Doc-sync note (T-20261014-112936)**: §8 + §11's base rule (a continuation spawn is built on the **previous seg's branch tip**, not `HEAD`; `--base <ref>` pins and is refused when unresolvable) is likewise **method-library level** — it implements the "the base is a snapshot" discipline of `guides/worktree-isolation-sop.md §5` on the automatic path and **adds no clause**, so no `PROTOCOL §⑥` edit is triggered. Scope: `scripts/lane-isolation.mjs` (`deriveLaneBase` / `prevSegCandidates` + `isolation.base`), `scripts/lane-worktree.mjs` (exports `branchHead`/`revParse`; its own `base` default stays `HEAD`), `scripts/spawn-lane.mjs` (`--base`/`base=` + `sessions` plumbing) and the test `tests/lane-continuation-base.test.mjs`. Response: `guides/worktree-isolation-sop.md §9`.
