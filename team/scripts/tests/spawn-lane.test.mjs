@@ -64,7 +64,7 @@ const LAYOUT = PROVIDER ? (() => {
 // 这些名字在 live 版里是模块级常量；此处由受保护的 setup 赋值（无 provider ⇒ 保持 undefined，
 // 但那时所有 test 都 SKIP，回调不会执行）。
 let TASKS, WS, BIN, REG, STUB, CODEX_STUB;
-let spawnLane, parseArgs, sessionIdFor, sessionSet, checkSessions, checkHandoff, anchorGaps, upsertSessionEntry;
+let spawnLane, parseArgs, buildCommand, sessionIdFor, sessionSet, checkSessions, checkHandoff, anchorGaps, upsertSessionEntry;
 let spawnRunningCount, pollRunningCount, pollClaimBudget;
 
 if (LAYOUT) {
@@ -75,7 +75,7 @@ if (LAYOUT) {
   process.env.OPENCLAW_TEAM_ROOT = LAYOUT;
 
   const staged = (rel) => import(pathToFileURL(path.join(LAYOUT, rel)).href);
-  ({ spawnLane, parseArgs, runningCount: spawnRunningCount } = await staged('scripts/spawn-lane.mjs'));
+  ({ spawnLane, parseArgs, buildCommand, runningCount: spawnRunningCount } = await staged('scripts/spawn-lane.mjs'));
   ({ runningCount: pollRunningCount, claimBudget: pollClaimBudget } = await staged('scripts/poll.mjs'));
   ({ sessionIdFor, sessionSet } = await staged('skills/task-ops/lib/task.mjs'));
   ({ checkSessions } = await staged('scripts/check-sessions.mjs'));
@@ -519,5 +519,69 @@ test('GREEN. 同卡不同 seg（复核 lane segR1 对执行侧 seg1 在跑）⇒
   const r = spawnLane({ card: id, owner: 'turing', backend: 'codex', role: 'review', dryRun: true });
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.equal(r.seg, 'segR1');
+});
+
+// ── 项3：codex lane 的报告落点写权（T-20261013-164816） ────────────────────────
+// 缺陷：codex 分支原仅发 `exec <prompt>`，未授予复核报告落点 `{team}/workspace/<id>/` 的写权；
+// 而 claude 分支有 `--add-dir wsDir` + `--add-dir team`。后果：codex 复核 lane 写 report.md 得 EPERM。
+//
+// codex 沙箱语义（CLI 0.161.0，本卡实测）：
+//   · cwd 为受信 git 仓 ⇒ 默认 `sandbox: workspace-write [workdir, /tmp, $TMPDIR]`（仅 cwd 可写）；
+//   · cwd 非 git / 未受信 ⇒ 默认 `sandbox: read-only`；
+//   · `--add-dir <DIR>` 只**追加可写根**，且**仅在 workspace-write 下生效**——read-only 下被静默忽略
+//     （实测：`--add-dir X` 单独给，头部仍打印 `sandbox: read-only`）。
+// ⇒ 等效写权 = `--sandbox workspace-write`（根因，缺则 read-only 下 --add-dir 无效）+ `--add-dir <wsDir>`
+//   （报告落点）+ `--add-dir <team>`（与 claude 分支同面）。
+
+/** argv 里 flag 紧跟的值（缺失/无值 ⇒ null）。 */
+const flagValue = (argv, flag) => {
+  const i = argv.indexOf(flag);
+  return i >= 0 && i + 1 < argv.length ? argv[i + 1] : null;
+};
+
+test('RED-8. buildCommand：codex 分支须授予报告落点写权（--sandbox workspace-write + --add-dir wsDir/team）', { skip: SKIP }, () => {
+  const wsDir = path.join(WS, 'T-20260101-100023-codex');
+  const got = buildCommand({ backend: 'codex', bin: 'codex', prompt: 'P', wsDir, sid: 'S', name: 'turing-segR1', team: LAYOUT });
+
+  // ① 显式 workspace-write：read-only 下 --add-dir 被忽略（实测）⇒ 这是写权的前提
+  assert.equal(flagValue(got.args, '--sandbox') ?? flagValue(got.args, '-s'), 'workspace-write',
+    `codex argv 须显式 --sandbox workspace-write，实际 ${JSON.stringify(got.args)}`);
+  // ② 报告落点作为可写根（EPERM 消失的充分条件）
+  assert.equal(flagValue(got.args, '--add-dir'), wsDir,
+    `codex argv 首个 --add-dir 须指向 workspace 报告落点，实际 ${JSON.stringify(got.args)}`);
+  assert.ok(got.args.includes(LAYOUT), `codex argv 须含 team 根可写（与 claude 同面），实际 ${JSON.stringify(got.args)}`);
+  // ③ 仍是 `codex exec`，且 prompt 在**最后一个**位置参数（`exec [OPTIONS] [PROMPT]`：旗标须在 prompt 前）
+  assert.equal(got.args[0], 'exec');
+  assert.equal(got.args[got.args.length - 1], 'P', `prompt 须在末位（旗标前置），实际 ${JSON.stringify(got.args)}`);
+});
+
+test('RED-9. codex 复核 lane 经单一入口产出的 cmd 含等效写权参数（缺则红）', { skip: SKIP }, () => {
+  const id = 'T-20260101-100024-codex-write';
+  writeCard(id, { status: 'in_review', claimed: 'linus', segs: [] });
+  const r = spawnLane({ card: id, owner: 'turing', backend: 'codex', role: 'review', dryRun: true });
+  assert.equal(r.ok, true, JSON.stringify(r));
+
+  const wsDir = path.join(WS, id);
+  assert.equal(flagValue(r.cmd, '--sandbox'), 'workspace-write', `实际 argv=${JSON.stringify(r.cmd)}`);
+  assert.equal(flagValue(r.cmd, '--add-dir'), wsDir, `实际 argv=${JSON.stringify(r.cmd)}`);
+  assert.ok(r.cmd.includes(wsDir) && r.cmd.includes(LAYOUT), `实际 argv=${JSON.stringify(r.cmd)}`);
+  // prompt 末位：命令须能被 codex 解析（旗标在 prompt 前）
+  assert.match(r.cmd[r.cmd.length - 1], /report\.md\.?$/, `prompt 须在末位，实际 ${JSON.stringify(r.cmd)}`);
+});
+
+test('GREEN-8. buildCommand：claude 分支 argv 逐字节不变（本卡只动 codex 分支）', { skip: SKIP }, () => {
+  const wsDir = path.join(WS, 'T-20260101-100025-claude');
+  const got = buildCommand({ backend: 'claude', bin: 'claude', prompt: 'P', wsDir, sid: 'S', name: 'linus-seg1', team: LAYOUT });
+  assert.deepEqual(got.args, [
+    '-p', 'P',
+    '--output-format', 'stream-json',
+    '--verbose',
+    '--permission-mode', 'acceptEdits',
+    '--settings', path.join(wsDir, '.claude', 'settings.json'),
+    '--add-dir', wsDir,
+    '--add-dir', LAYOUT,
+    '--session-id', 'S',
+    '--name', 'linus-seg1',
+  ]);
 });
 

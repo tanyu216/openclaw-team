@@ -37,6 +37,10 @@
  *   ⑤ session id = ACL `task.session-id <card> <owner> <seg>`（确定性 UUIDv5）；
  *   ⑥ 起子会话：Node `child_process.spawn(..., { detached:true, stdio:[ignore,fd,fd] })` + `unref()`
  *      ——等价于 Python `subprocess.Popen(..., start_new_session=True)`（macOS 无 `setsid`；勿用 `nohup … &`）；
+ *   ⑥b 后端分派（`buildCommand`）：claude 分支照 `PROTOCOL §⑥` 模板（含 `--add-dir wsDir/team`）；
+ *      codex 分支（T-20261013-164816）显式 `--sandbox workspace-write` + `--add-dir <wsDir>` + `--add-dir <team>`
+ *      ——否则 codex 沙箱的可写根只有 cwd（主 workspace），复核报告落点 `{team}/workspace/<id>/` 在 cwd 之外
+ *      ⇒ lane 写 `report.md` 得 EPERM（须父回合手工回迁）。`--add-dir` 只在 workspace-write 下生效（实测）；
  *   ⑦ 起后**立即** ACL `task.session-set`（seg/owner/backend/phase/pid/log/status=running；卡 + registry 同写）。
  *   `--dry-run`：只做校验 + 打印计划命令行，**不起进程、不写 registry/卡/handoff/settings**。
  *
@@ -237,7 +241,21 @@ export function buildPrompt({ handoffPath, cardPath, reportPath, isolation = nul
 
 /** 组装子进程命令（argv 数组；claude 参数照 PROTOCOL §⑥ 模板） */
 export function buildCommand({ backend, bin, prompt, wsDir, sid, name, team = TEAM_ROOT }) {
-  if (backend === 'codex') return { bin, args: ['exec', prompt] };
+  if (backend === 'codex') {
+    // T-20261013-164816：codex 分支原仅发 `exec <prompt>` ⇒ 沙箱可写根只有 cwd（主 workspace），
+    // 复核报告落点 {team}/workspace/<id>/ 在 cwd 之外 ⇒ lane 写 report.md 得 EPERM，须父回合手工回迁。
+    // 等效写权（机制可与 claude 不同形；codex 0.161.0 实测语义）：
+    //   · `--sandbox workspace-write`：**必须显式**。cwd 非 git / 未受信时默认沙箱是 read-only，而
+    //     `--add-dir` 只**追加可写根**且**仅在 workspace-write 下生效**（read-only 下被静默忽略）⇒
+    //     缺此旗标则 --add-dir 形同虚设。
+    //   · `--add-dir <wsDir>`：把本卡报告落点并入可写根（EPERM 消失的充分条件）。
+    //   · `--add-dir <team>`：报告落点之根（与 claude 分支同面，lane 亦须能写回卡/登记）。
+    // 旗标须在 prompt **之前**（`codex exec [OPTIONS] [PROMPT]`）。
+    return {
+      bin,
+      args: ['exec', '--sandbox', 'workspace-write', '--add-dir', wsDir, '--add-dir', team, prompt],
+    };
+  }
   return {
     bin,
     args: [
