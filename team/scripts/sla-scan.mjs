@@ -12,8 +12,11 @@
 // ── 落地要点（逐条对契约）────────────────────────────────────────────────────────
 // ① 六行 + 1：blocked_clarification / confirmation_gate / defect_card_creation /
 //    acceptance_card_creation / heartbeat_stale / leader_stalled（§⑮ 六行）+
-//    inspector_liveness（契约 §5.3 新增行，threshold_min=null）。输出为契约 §4 的 25 字段元组
-//    （另附建卡草图别名 kind/id/ageMin，见 toAlert）。契约 §10.1 信封：{fire, alerts, dropped, state}。
+//    inspector_liveness（契约 §5.3 新增行，threshold_min=null）。输出为契约 §4 的**发射元组**
+//    （#1–#22 + #25；另附建卡草图别名 kind/id/ageMin，见 toAlert）。契约 §10.1 信封：
+//    {fire, alerts, dropped, state}。
+//    注：契约 §4 #23/#24（first_seen/last_seen/observed_by）是 **Req.=ledger 的账本元数据**，
+//    **不随 alerts[] 发行** —— 只落在账本条目里（契约 §4.1 / 钩子 H10，T-20261014-044112-2）。
 // ② 现态二次核对 + fail-safe：候选**发出前**按卡现态重核（scanSla 与 recheckSla **共用同一判定源**
 //    `evaluateCard`，口径不可能漂移，契约 §9.6）；重核抛错/信封畸变 ⇒ **保留原候选照常告警**；
 //    起点不可读 ⇒ unverifiable/warn/threshold_min=null（绝不假绿，契约 §6.5/§9.3）。
@@ -758,6 +761,13 @@ function stripNull(o) {
 /**
  * 候选 → 契约 §4 告警元组。`origin === null` ⇒ unverifiable（契约 §6.5：绝不假绿，绝不静默）。
  * 另附建卡草图别名 `kind`/`id`/`ageMin`（`T-20261014-022254-3` 卡面用名），便于按卡核对。
+ *
+ * **发射面恰为契约 §4 的 #1–#22 + #25（+ 三个别名）。** #23/#24（`first_seen`/`last_seen`/
+ * `observed_by`）是 **Req.=ledger 的账本元数据**，绝不进本函数：账本条目才是它们的家
+ * （`record()`，契约 §8.3/§4.1）。原因（契约 §4.1）：① #24 的用途是「被抑制的重复仍可审计」，
+ * 而被抑制者按定义不进 `alerts[]`；② 本函数只被「账本内无此键」的候选调用（有键即被抑制），
+ * 回填只能写出 `first_seen=last_seen=发射瞬时`、`observed_by=[本方]`，会把「两机制同一值」的
+ * 共享账本语义谎报成机制本地值；③ 现态重核（§9.6）路径不参与账本 ⇒ 无法在所有发射路径上填。
  */
 export function toAlert(cand, ctx) {
   const row = cand.row;
