@@ -436,3 +436,36 @@ test('APPLY-4. 清理纪律（A4）：--remove 仅 clean 时可清理；清理�
   );
   assert.equal(porcelain(MAIN), '', '清理全程不得污染共享 checkout');
 });
+
+// ── T-20261014-214625-2：`todo`（canonical 新卡词）必须参与同仓/同文件判定 ─────────
+// 红（修前实测）：`NON_TERMINAL` 用 legacy 词 `ready` 顶替 canonical `todo` ⇒ `status: todo`
+// 的他卡在 `scanNonTerminal` 里隐形 ⇒ 同文件冲突漏判（退化成并行写同一文件）、同仓并发漏判
+// （退化成 none，lane 落进共享 checkout —— 正是 SOP §1 要防的事故）。
+test('TODO-1. `status: todo` 他卡 ⇒ 同文件串行（serialize）与同仓隔离（worktree）都生效', { skip: SKIP }, () => {
+  // ① 同文件：写集与一张 `todo` 卡重叠 ⇒ 必须串行（修前退化为 none/no_concurrent_lane）
+  clearBoard();
+  writeCard('T-20260102-300000-self', { status: 'in_progress', target: MAIN, writes: 'team/scripts/lib.mjs' });
+  writeCard('T-20260102-300101-todo', { status: 'todo', target: MAIN, writes: 'team/scripts/lib.mjs' });
+  const p1 = plan();
+  assert.equal(p1.mode, 'serialize', `todo 卡的同文件冲突必须被看见：${JSON.stringify(p1)}`);
+  assert.equal(p1.reason, 'same_file_conflict');
+  assert.deepEqual(p1.conflicts, [{ card: 'T-20260102-300101-todo', overlap: ['team/scripts/lib.mjs'] }]);
+
+  // ② 同仓不同文件：看板上唯一他卡是 `todo` ⇒ 必须隔离（修前 none/no_concurrent_lane）
+  clearBoard();
+  writeCard('T-20260102-300000-self', { status: 'in_progress', target: MAIN, writes: 'team/a.mjs' });
+  writeCard('T-20260102-300102-todo', { status: 'todo', target: MAIN });
+  const p2 = plan();
+  assert.equal(p2.mode, 'worktree', `todo 卡的同仓并发必须被看见：${JSON.stringify(p2)}`);
+  assert.deepEqual(p2.lanes, ['T-20260102-300102-todo']);
+});
+
+test('TODO-2. 负向不回退：`backlog`/`done` 他卡仍不触发（守卫未被放宽）', { skip: SKIP }, () => {
+  for (const st of ['backlog', 'done', 'failed', 'canceled']) {
+    clearBoard();
+    writeCard('T-20260102-300000-self', { status: 'in_progress', target: MAIN, writes: 'team/scripts/lib.mjs' });
+    writeCard('T-20260102-300103-notlive', { status: st, target: MAIN, writes: 'team/scripts/lib.mjs' });
+    const p = plan();
+    assert.equal(p.mode, 'none', `${st} 卡不得触发并发判定，实际 ${JSON.stringify(p)}`);
+  }
+});
