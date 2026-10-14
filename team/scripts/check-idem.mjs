@@ -28,11 +28,18 @@
  * 非空且相同的 target 本身即「同人同目标」的真实区分信号 ⇒ 命中即真重复倾向，应报警交人工/LLM。仅当组内**全部**
  * 卡 target 空且 review_of 空（纯 parent 派键、零区分信号）时才降 hints（见上「判重路由」）。
  *
- * 基线豁免（**机制保留、当前空/退役**）：`scripts/idem-baseline.json` 现为 `{ "groups": [] }`。
+ * 基线豁免（**机制保留、当前空/退役**）：`scripts/idem-baseline.json` 现为 `{ "groups": [] }`
+ * （外加说明性 `retired:true` / `note`；`loadBaseline` 只读 `groups`，多余键不入判据）。
  * 机制：判据 = `key` 相同 **且** `ids` 排序后与该组卡 id 集合**完全一致** ⇒ 移入 `exempt`（不判红）；
  * 集合一旦变化（增卡/删卡/换卡）即**豁免失效**，重新报警（防「登记一次、永久放行」）。
  * 豁免仅对 duplicates（真重复档）生效；hints 本身已非阻断，无需登记。
  * 新增豁免须人工核对后追加；`--no-baseline` 可忽略基线（全部按 duplicates）。
+ *
+ * **部署 / provider 断言耦合（T-20261014-123216）**：本文件随 `install.sh` §1 的 `deploy_file` 部署到
+ * 实例（默认 upgrade ⇒ **仓内副本覆盖实例副本**）⇒ 仓内副本是唯一权威；直接手改实例副本会在下次部署
+ * 被覆盖，且在覆盖**之前**就会让 provider 契约测试 `skills/task-ops/tests/idem.test.mjs:483`
+ * （断言本文件 `groups` 为空 = 退役态）失败 ⇒ check-all 慢段 fail-closed 转红。故登记豁免必须与该校验
+ * **成对**落地（provider 侧由 task-ops 归属方改），否则慢段红会随每次登记复现。
  *
  * 退出码：0 无非豁免重复（含仅有 hints）；1 有非豁免 duplicates（报警）。
  * 隔离：OPENCLAW_TEAM_ROOT 覆盖（与 team-paths.mjs 同源），便于单测用 mkdtemp。
