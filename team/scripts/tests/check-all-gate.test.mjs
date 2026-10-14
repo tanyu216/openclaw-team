@@ -80,6 +80,44 @@ test('readSlowCache: missing / unparseable / fresh / stale', () => {
   assert.ok(viaIso.ageMs >= 59_000 && viaIso.ageMs <= 61_000, `age from ISO, got ${viaIso.ageMs}`);
 });
 
+// ---- pure: the freshness BOUND matches its stated intent (T-20261015-005519) ------
+
+/**
+ * The bound must sit strictly between TWO and THREE cron periods (P = 60 min). The cache is
+ * refilled once per period, so a healthy read ages ~1P, one missed evaluation ~2P, two ~3P.
+ * The old 90 min = 1.5P sat BELOW 2P, so the first missed period already alarmed: a host that
+ * slept across a cron hour (skipping that evaluation and its refresh) woke to a fail-closed
+ * false alarm — the reported defect (a 1 h 47 m old cache read as stale).
+ */
+const CRON_PERIOD_MS = 60 * 60 * 1000;
+
+test('the default slow TTL tolerates exactly ONE missed refresh: it lies in (2P, 3P)', () => {
+  assert.ok(DEFAULT_SLOW_TTL_MS > 2 * CRON_PERIOD_MS,
+    `a single missed refresh (~2P) must NOT be stale, got ${DEFAULT_SLOW_TTL_MS / 60_000}m`);
+  assert.ok(DEFAULT_SLOW_TTL_MS < 3 * CRON_PERIOD_MS,
+    `two missed refreshes (~3P) must still alarm, got ${DEFAULT_SLOW_TTL_MS / 60_000}m`);
+});
+
+test('the freshness bound classifies the reported incident green and a multi-period stale red', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-gate-ttl-'));
+  scratch.push(dir);
+  const f = path.join(dir, 'cache.json');
+  const now = 1_800_000_000_000;
+  const at = (ageMs) => fs.writeFileSync(f, JSON.stringify({ ok: true, at: now - ageMs }));
+
+  // the reported incident: 23:03 CST cache read by the 00:50 CST evaluation ⇒ 1 h 47 m 03 s
+  at(60 * 60_000 + 47 * 60_000 + 3_000);
+  assert.equal(readSlowCache(f, now, DEFAULT_SLOW_TTL_MS).status, 'fresh', 'a single skipped evaluation is tolerated');
+  // one missed evaluation is still tolerated; the second one is not (the intent, stated in code)
+  at(2 * CRON_PERIOD_MS);
+  assert.equal(readSlowCache(f, now, DEFAULT_SLOW_TTL_MS).status, 'fresh', 'one missed refresh');
+  at(3 * CRON_PERIOD_MS + 1);
+  assert.equal(readSlowCache(f, now, DEFAULT_SLOW_TTL_MS).status, 'stale', 'a second missed refresh alarms');
+  // a long-standing cache (evaluations running, refresh never landing) stays RED — never silent green
+  at(5 * CRON_PERIOD_MS);
+  assert.equal(readSlowCache(f, now, DEFAULT_SLOW_TTL_MS).status, 'stale', 'multi-period true staleness');
+});
+
 // ---- pure: the verdict ------------------------------------------------------
 
 const FAST_OK = { ok: true, unconfirmed: false, failed: [] };
@@ -430,6 +468,23 @@ test('gate: a STALE cache is unconfirmed (fail closed), not a stale green', () =
   assert.equal(r.exit, 1, 'a 5h-old green cache must not pass the gate');
   assert.equal(r.envelope.state.slow.status, 'stale');
   assert.match(r.envelope.message, /slow suite UNCONFIRMED/);
+});
+
+test('gate: one SKIPPED evaluation (host sleep) is tolerated; two are not (T-20261015-005519)', () => {
+  // The reported false alarm: the cache written by the 22:03 CST evaluation's refresh was read
+  // by the 00:50 CST one, 1 h 47 m later, after the host slept through the 00:00 evaluation.
+  const slept = mkGateRoot({}, { ok: true, at: Date.now() - (60 * 60_000 + 47 * 60_000 + 3_000), segment: 'slow', failed: [] });
+  const r = runGate(slept.root, { checkall: slept.entry, OPENCLAW_TEAM_CHECKALL_NO_REFRESH: '1' });
+  assert.equal(r.envelope.state.slow.status, 'fresh', 'a single skipped hourly evaluation is tolerated');
+  assert.equal(r.exit, 0, 'the wake-up evaluation must not fail closed on a single missed refresh');
+  assert.equal(r.envelope.message, undefined);
+
+  // …but a shadowed refresh is NOT silenced: two missed periods stay RED (never a silent green).
+  const twoMissed = mkGateRoot({}, { ok: true, at: Date.now() - 3 * 60 * 60_000, segment: 'slow', failed: [] });
+  const r2 = runGate(twoMissed.root, { checkall: twoMissed.entry, OPENCLAW_TEAM_CHECKALL_NO_REFRESH: '1' });
+  assert.equal(r2.envelope.state.slow.status, 'stale');
+  assert.equal(r2.exit, 1, 'a second missed refresh must still alarm');
+  assert.match(r2.envelope.message, /slow suite UNCONFIRMED/);
 });
 
 test('gate: a live refresh lock suppresses a second concurrent refresh', () => {
