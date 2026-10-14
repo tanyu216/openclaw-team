@@ -499,6 +499,76 @@ test('①/F8 §4 #19 blocked_reason 取卡当前值 —— 缺陷行不再恒 nu
   for (const a of env3.alerts) assert.equal(a.blocked_reason, null, `${a.sla_row} 应取到 null（卡未携带该键）`);
 });
 
+// F1-23/24（契约 §4 #23/#24 + §4.1 + 钩子 H10；T-20261014-044112-2）：账本元数据**不随 alerts[] 发行**。
+test('①/§4.1 §4 #23/#24 是账本元数据：发射元组不含、账本条目必含（负例断言 H10）', () => {
+  const LEDGER_ONLY = ['first_seen', 'last_seen', 'observed_by'];
+  // 契约 §4 的**发射面** = 行 #1–#22 + 行 #25（evidence）+ 三个建卡草图别名（kind/id/ageMin）
+  const EMITTED_KEYS = [
+    'action', 'ageMin', 'alert_id', 'blocked_reason', 'card_id', 'confidence', 'dedup_key', 'due_at',
+    'elapsed_basis', 'elapsed_working_min', 'evidence', 'id', 'kind', 'measure_start_at',
+    'measure_start_kind', 'measure_start_source', 'mechanism', 'mechanism_host', 'notify',
+    'releasable', 'releasable_basis', 'severity', 'sla_ref', 'sla_row', 'target', 'threshold_min',
+  ].sort();
+
+  const root = newRoot();
+  writeCard(root, progressCard({ status: 'blocked', blocked_at: '2026-01-05T00:30:00.000Z' }));
+  const { envelope, record } = S.decide(OPTS(root, { peerState: null }));
+  assert.ok(envelope.alerts.length >= 2, 'fixture 至少命中 blocked_clarification + leader_stalled');
+
+  // 负例①：发射的每一条 alert 都**不得**携带 #23/#24，且发射面恰为 §4 的发射字段集
+  for (const a of envelope.alerts) {
+    for (const k of LEDGER_ONLY) {
+      assert.ok(!(k in a), `发射元组不得携带账本元数据 ${k}（契约 §4.1）：${a.sla_row}`);
+    }
+    assert.deepEqual(Object.keys(a).sort(), EMITTED_KEYS, `发射面字段集必须是 §4 的 #1–#22+#25：${a.sla_row}`);
+  }
+  // 发射时该键必是**新键**（有键即被抑制）⇒ 回填只可能写成 first_seen=last_seen=发射瞬时（§4.1 理由②）
+  assert.equal(fs.existsSync(root.ledgerFile), false, 'record() 之前不得落账本 ⇒ 被发射的键在发射时必为新键');
+
+  // 正例：账本条目**必须**携带三者（#23/#24 的家）
+  record();
+  const led = JSON.parse(fs.readFileSync(root.ledgerFile, 'utf8'));
+  for (const a of envelope.alerts) {
+    const e = led.entries[a.dedup_key];
+    assert.ok(e, `账本必须为该 dedup_key 落条目：${a.dedup_key}`);
+    for (const k of LEDGER_ONLY) assert.ok(k in e, `账本条目必须携带 ${k}（契约 §4.1 / H10）`);
+    assert.deepEqual(e.observed_by, [S.MECHANISM]);
+    assert.equal(e.first_seen, e.last_seen);
+    assert.equal(e.first_seen, '2026-01-05T03:00:00.000Z'); // = 该键首次被观测的瞬时（本 tick）
+  }
+
+  // 负例②：被抑制的重复（#24 存在的理由）同样不进 alerts[]，其审计面仍在账本
+  const dup = S.decide(OPTS(root, { peerState: null })).envelope;
+  assert.equal(dup.alerts.length, 0);
+  for (const d of dup.dropped) {
+    assert.equal(d.dropped_reason, 'duplicate');
+    for (const k of LEDGER_ONLY) assert.ok(!(k in d), `被抑制项不得携带 ${k}（审计面在账本）`);
+  }
+});
+
+// 文档不漂移：契约 §4/§4.1 的声明必须与实现同口径（否则本卡的裁定会被下一次编辑悄悄回退）。
+test('①/§4.1 契约 §4 行 23/24 标 ledger、发射骨架不含 #23/#24、账本骨架必含、H10 已登记', () => {
+  const doc = fs.readFileSync(path.join(TEAM_DIR, 'guides', 'sla-inspection-contract.md'), 'utf8');
+  for (const n of [23, 24]) {
+    const row = new RegExp(`^\\| ${n} \\|(.*)$`, 'm').exec(doc);
+    assert.ok(row, `契约 §4 必须仍有序号 ${n} 的行`);
+    assert.match(row[1], /\*\*ledger\*\*/, `§4 行 ${n} 必须标为 ledger（§4.1）`);
+    assert.doesNotMatch(row[1], /\| ✅ \|/, `§4 行 ${n} 不得再标 ✅（那会把账本元数据说成发射字段）`);
+  }
+  const block = (label) => {
+    const m = new RegExp(`\\*\\*${label}[^\\n]*\\*\\*\\n\\n\`\`\`json\\n([\\s\\S]*?)\`\`\``).exec(doc);
+    assert.ok(m, `契约必须给出「${label}」骨架块`);
+    return m[1];
+  };
+  const emitted = block('Emitted-tuple skeleton');
+  const ledger = block('Ledger-entry skeleton');
+  for (const k of ['first_seen', 'last_seen', 'observed_by']) {
+    assert.ok(!emitted.includes(k), `发射骨架不得含 ${k}（§4.1）`);
+    assert.ok(ledger.includes(k), `账本骨架必须含 ${k}（§4.1）`);
+  }
+  assert.match(doc, /\*\*H10\*\*/, '契约 §11 必须登记钩子 H10（发射面不含 #23/#24）');
+});
+
 test('① inspector_liveness：对端标记缺失 ⇒ 可见注记不告警；标记超界 ⇒ warn（threshold_min=null）', () => {
   const root = newRoot();
   // 对端未发布标记（C4 未落地）：不告警，但 state 里可见

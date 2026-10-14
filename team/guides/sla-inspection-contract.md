@@ -102,11 +102,13 @@ One alert = one **(card, `§⑮` row)** pair at its highest newly-crossed tier (
 | 20 | `confidence` | enum | ✅ | `high` (an exact origin field was read) \| `low` (the origin was derived/fallback — §6.2) |
 | 21 | `mechanism` | enum | ✅ | `openclaw-cron` \| `loop-patrol` |
 | 22 | `mechanism_host` | string | ✅ | opaque host/agent id of the observer (diagnostics only, never used for routing) |
-| 23 | `first_seen` / `last_seen` | ISO-8601 UTC ms | ✅ | maintained by the shared de-duplication ledger (§8.3); identical for both mechanisms |
-| 24 | `observed_by` | string[] | ✅ | mechanisms that have *seen* this `dedup_key` (ledger), so a suppressed duplicate is still auditable |
+| 23 | `first_seen` / `last_seen` | ISO-8601 UTC ms | **ledger** | maintained by the shared de-duplication ledger (§8.3) and therefore **never a field of the emitted tuple** (§4.1); read from the ledger entry of the `dedup_key`. Identical for both mechanisms *because* it is that ledger's record, never a per-mechanism re-derivation |
+| 24 | `observed_by` | string[] | **ledger** | mechanisms that have *seen* this `dedup_key` — **ledger metadata, never a field of the emitted tuple** (§4.1), so a suppressed duplicate stays auditable in the ledger |
 | 25 | `evidence` | object | ✅ | machine-checkable keys only (no line anchors, `§⑥.1` #11): `{ status, status_changed_at, has_sessions, has_workspace, threshold_ref, open_predicate }` |
 
-**Tuple skeleton**
+**The `Req.` column has two values.** `✅` = a field of the **emitted** tuple. **`ledger`** = a field of the **de-duplication ledger's** record (§4.1): it is part of the wait's machine record, but **not** published in `alerts[]`. Rows #23/#24 are the only two below that line; every other row is emitted.
+
+**Emitted-tuple skeleton (`alerts[]` — exactly what a mechanism publishes)**
 
 ```json
 {
@@ -132,9 +134,6 @@ One alert = one **(card, `§⑮` row)** pair at its highest newly-crossed tier (
   "confidence": "high",
   "mechanism": "openclaw-cron",
   "mechanism_host": "<opaque>",
-  "first_seen": "2026-10-14T02:22:54.000Z",
-  "last_seen": "2026-10-14T02:22:54.000Z",
-  "observed_by": ["openclaw-cron"],
   "evidence": {
     "status": "blocked",
     "status_changed_at": "2026-10-14T02:22:54.000Z",
@@ -146,7 +145,39 @@ One alert = one **(card, `§⑮` row)** pair at its highest newly-crossed tier (
 }
 ```
 
+**Ledger-entry skeleton (`record()`, §8.3 — where #23/#24 live)**
+
+```json
+{
+  "<dedup_key>": {
+    "first_seen": "2026-10-14T02:22:54.000Z",
+    "last_seen": "2026-10-14T02:22:54.000Z",
+    "observed_by": ["openclaw-cron"],
+    "card_id": "T-20261014-022254-2",
+    "sla_row": "blocked_clarification",
+    "severity": "overdue",
+    "target": "leader"
+  }
+}
+```
+
+> The three **normative** names here are `first_seen` / `last_seen` / `observed_by` (§4.1); the accompanying identification keys are the current landing's (openclaw `sla-scan`) and are shown for concreteness. The ledger is also where the `superseded` low-tier records of §5.2 rule 4 live — which is the point: the **ledger** is the audit surface, `alerts[]` is the notification surface.
+
 > **Why the tuple is flat and mechanism-tagged**: `§⑮` is one table, but two independent implementations read it. A shared *shape* is what makes "same field ⇒ same semantics" checkable (Acceptance item 2) — a nested, mechanism-specific shape would let the two sides drift field by field.
+
+---
+
+### 4.1 #23/#24 are ledger metadata — not fields of the emitted tuple
+
+**Adopted 2026-10-15 (`T-20261014-044112-2`; closure of defect F1 of the independent verification `T-20261014-022254-5`).** Rows #23/#24 are declared `ledger`: `first_seen` / `last_seen` / `observed_by` are maintained by the de-duplication ledger (§8.3) and are **never published inside `alerts[]`**. The emitted tuple carries rows **#1–#22 and #25** (the landing adds its three card-draft aliases `kind`/`id`/`ageMin`, which are not §4 rows).
+
+The declaration follows the implementation here — and for three reasons it *must*:
+
+1. **#24's own justification is only servable in the ledger.** Its semantics line justifies the field by "so a **suppressed** duplicate is still auditable" — and a suppressed duplicate is by definition the alert that is **not** emitted (§8.3 rule 4: `observed_by` grows, nothing is notified). Emitting the field would hand the audit fact to the one case that needs it least and withhold it from the case that needs it.
+2. **An emit-time backfill would assert an invariant that is false.** An alert reaches `alerts[]` only because its `dedup_key` was **absent** from the ledger on this tick (a known key is suppressed, never emitted). A backfill could therefore only ever write `first_seen = last_seen = <emit instant>` and `observed_by = [<this mechanism>]`. #23's semantics ("identical for both mechanisms") describes a property of a **shared** ledger; under the sanctioned backendless fallback (§8.3 rule 5, §12 G-10 ⑧) no shared ledger exists, so the emitted value would be a mechanism-local number wearing a cross-mechanism label — a false statement to every consumer (the peer mechanism, the leader's digest, any dashboard).
+3. **It is not fillable on every emit path anyway.** Alerts are also re-derived without ledger participation by the pre-emit re-check mode (§9.6) — so a `Req. ✅` row that only one emit path could satisfy would make the tuple's declared shape path-dependent, which is exactly the drift §4's "one flat shape" rule exists to prevent.
+
+**Consequence — what the contract now obliges.** Not silence, but two provable halves: the emitted tuple must **not** carry #23/#24, and the ledger entry `record()` writes for that `dedup_key` **must** carry them. Both halves are machine-checked (§11 hook **H10**; the assertion lands in `team/scripts/tests/sla-scan.test.mjs`). If a shared ledger is ever landed (§12 G-10 ⑧ — owned by C4/Elon), promoting these rows back into the emitted tuple is a **contract change** and must be made for **both** mechanisms in the same step; a one-sided addition would break the shared shape while looking like a local fix.
 
 ---
 
@@ -329,7 +360,7 @@ record(dedup_key, meta)      // idempotent
 1. **Key** = `dedup_key` (§4 #2) = `<card>#<row>#<tier>@<origin>`. Three deliberate properties: the **row** separates distinct waits on one card; the **tier** means a promotion is a new key (an escalation is **never** de-duplicated away); the **origin** means a *new* wait on the same card/row/tier re-notifies (a re-blocked card is a new wait, not a duplicate).
 2. **Notify, then record.** The marker is written **after** a successful emit. If recording fails, the next tick re-notifies — a duplicate is the admissible failure; a *lost* alert is not.
 3. **Unreadable ledger ⇒ notify anyway** (never suppress on a failed read).
-4. **`observed_by` grows even for suppressed duplicates**, so a suppressed second observation stays auditable (`§㉒` clause 4's audit spirit; different object).
+4. **`observed_by` grows even for suppressed duplicates**, so a suppressed second observation stays auditable (`§㉒` clause 4's audit spirit; different object). **Where these three fields live**: in the ledger entry, **not** in the emitted tuple — `first_seen` / `last_seen` / `observed_by` are §4 **`ledger`** rows (#23/#24) and are never published in `alerts[]` (§4.1, hook H10).
 5. **Trail-write budget**: the marker is written **only on a newly crossed tier**, i.e. at most a handful of trail entries per wait per card — not one per tick. If a project judges any card-trail write unacceptable, the fallback is **backendless de-duplication**: each mechanism de-duplicates only *within itself*, and the cross-mechanism residual is **at most one duplicate notification per key**. That fallback must be recorded as a deliberate deviation, not discovered as a defect.
 6. **Dropped, never silently.** Every candidate the pre-emit re-check drops (§10.2) must appear in `dropped` with a reason — the existing patrol's "绝不静默丢弃" discipline, reused.
 
@@ -433,6 +464,7 @@ The existing heartbeat behaviour (`in_progress` + stale heartbeat ⇒ alert, wit
 | **H7** | An absent `blocked_reason` behaves as `clarify`; an unknown enum value round-trips unmodified; a card without the field is byte-identical after a read/write cycle | C3/C6's byte-stability items |
 | **H8** | An idle board produces `fire:false` and writes no trail entry | zero-cost idle is a hard requirement, not a nicety |
 | **H9** | Degrades produce `fire:true` (§10.2) | the failure mode this repo has already been bitten by |
+| **H10** | `first_seen` / `last_seen` / `observed_by` are **absent from every emitted `alerts[]` entry** and **present in the ledger entry** `record()` writes for that `dedup_key` (§4.1) | a row marked `Req. ✅` invites an implementation to satisfy it by bolting the three fields onto the tuple, which would assert the cross-mechanism invariant of §4 #23 that the backendless fallback (§8.3 rule 5) cannot provide |
 
 ---
 
@@ -451,7 +483,7 @@ The existing heartbeat behaviour (`in_progress` + stale heartbeat ⇒ alert, wit
 | **G-7** | **Trail writes for de-duplication** (§8.3 backend (a)) — a purist reading of "巡检不写" may object. | default backend is the card-trail marker with a bounded budget; the backendless fallback and its residual duplicate are documented, so the choice is explicit rather than accidental (Elon may pick backend (b) if both mechanisms are ever co-resident) |
 | **G-8** | **`blocked_reason` as a provider known key** (C3) vs. a team-side convention field. | specified as a **provider known key** (ruling ④ "一步到位立结构字段"); the enum lives here, the serialization/round-trip rules live in the provider contract (`guides/task-interface.md`) |
 | **G-9** | **Who signs the tier ladder (DF-1).** | **signed** — Elon's `§⑭` dual-sign adopted **option A** (`warn = L − P`) on 2026-10-13T18:47Z (card `T-20261014-022254-2`); the contract **is** a downstream basis as of v1.1 |
-| **G-10** | **Recorded cross-mechanism deviations pending sync** (from design confirmation `T-20261014-022327`; **no threshold affected**). | registered with an owner each: ① `leader_stalled` attribution set — C4 pending (§6.3‑D as amended); ② `heartbeat_stale` channel asymmetry — C4 pending (§4 tuple / §10.4); ③ `confidence` values for `defect_card_creation` / `leader_stalled` — C4 pending (§6.2 / §6.3‑B/D as amended); ④ `releasable_basis: assignee_changed` channel — C4 pending (§7.4); ⑤ C2 wrote a *kind* value into `measure_start_source` — C2 fix (§4 #9); ⑥ C2 dropped the pre-lookback `leader_stalled` origin (emitted `warn` instead of `low`) — C2 fix (§6.3‑D); ⑦ C2 emitted `blocked_reason: null` on non-`blocked_clarification` rows — C2 fix (§4 #19); ⑧ §8.3 backend (a) is implemented by **neither** mechanism ⇒ both use the rule‑5 **backendless** fallback (residual ≤ 1 duplicate per key, explicitly recorded). Until ①–⑦ land the two mechanisms are **not** yet at `§8.1` E1–E7 equivalence. |
+| **G-10** | **Recorded cross-mechanism deviations pending sync** (from design confirmation `T-20261014-022327`; **no threshold affected**). | registered with an owner each: ① `leader_stalled` attribution set — C4 pending (§6.3‑D as amended); ② `heartbeat_stale` channel asymmetry — C4 pending (§4 tuple / §10.4); ③ `confidence` values for `defect_card_creation` / `leader_stalled` — C4 pending (§6.2 / §6.3‑B/D as amended); ④ `releasable_basis: assignee_changed` channel — C4 pending (§7.4); ⑤ C2 wrote a *kind* value into `measure_start_source` — C2 fix (§4 #9); ⑥ C2 dropped the pre-lookback `leader_stalled` origin (emitted `warn` instead of `low`) — C2 fix (§6.3‑D); ⑦ C2 emitted `blocked_reason: null` on non-`blocked_clarification` rows — C2 fix (§4 #19); ⑧ §8.3 backend (a) is implemented by **neither** mechanism ⇒ both use the rule‑5 **backendless** fallback (residual ≤ 1 duplicate per key, explicitly recorded). Until ①–⑦ land the two mechanisms are **not** yet at `§8.1` E1–E7 equivalence. ⑨ **§4 #23/#24 were declared `Req. ✅` while neither mechanism could fill them** (defect F1 of `T-20261014-022254-5`: the emitted alert lacked `first_seen`/`last_seen`/`observed_by`) — **closed 2026-10-15** by declaring them **ledger metadata** (§4.1) and pinning both halves with hook H10, *not* by changing the alert shape (card `T-20261014-044112-2`). No threshold and no emitted field changed; the C4 landing inherits the same declaration. |
 
 ---
 
@@ -459,6 +491,7 @@ The existing heartbeat behaviour (`in_progress` + stale heartbeat ⇒ alert, wit
 
 - **v1** (this document, `T-20261014-022254-2`, jobs, design-only) — initial contract: object declaration · alert tuple · six-row `§⑮` mapping + tier ladder (DF-1) · measurement origins incl. `gate_at` · `blocked_reason` structural field · cross-mechanism equivalence + AlertLedger de-duplication + mutual liveness · safe-operation envelope (read-only / notify-only / fail-safe / zero-cost idle / working hours / pre-emit re-check) · envelope + fail-closed degrade duty · verification hooks · open items. *(append change rows over time.)*
 - **v1.1** (`T-20261014-082826`, jobs, design-only) — post-design-confirmation write-back (`T-20261014-022327` findings F1–F12): DF-1 / G‑9 dual-sign recorded (option A, `T-20261014-022254-2` 2026-10-13T18:47Z) · `measure_start_kind` gains `created_at`; `measure_start_source` re-affirmed as **read-location only** · §6.2 confidence value-rule pinned; §6.3‑B/D confidence pinned and `leader_stalled`'s attribution set written in (**`author=leader` filter**, F2) · §7.4 `assignee_changed` evidence channel named (F7) · §10.4 heartbeat SLA-channel note (F4) · §12 deviation register **G‑10** added. **No threshold changed** — the single source remains `PROTOCOL §⑮`.
+- **v1.2** (`T-20261014-044112-2`, linus, contract declaration + test) — §4 **declaration fix** (defect F1 of `T-20261014-022254-5`): `first_seen` / `last_seen` / `observed_by` are **ledger metadata, never fields of the emitted tuple** — §4.1 added (adopted decision + the three reasons), the `Req.` column gains the `ledger` value, the single tuple skeleton split into **emitted tuple** vs **ledger entry**, §8.3 rule 4 cross-references §4.1, hook **H10** added, §12 G‑10 ⑨ registers the closure. **No emitted field changed, no threshold changed** (the single source remains `PROTOCOL §⑮`); the two mechanisms' shape obligation is unchanged — only its description now matches it.
 
 ---
 
