@@ -152,14 +152,18 @@ export function slotRegex(id) {
   return new RegExp(`(^|\\n)[ \\t]*(?:[-*+][ \\t]+)?(?:\\*\\*)?${id}(?![0-9])`);
 }
 
-/** D3 判据：sha 规则（guide §1 A2）——`7–40 位小写 hex`，或 40 位**全大写** sha-1 真值
- *  （某些工具会大写输出，且它是真 sha ⇒ 不得被拒）；或**显式声明无提交**。
- *  `commit`/`提交` 字段**在**时只看字段值（裸 `commit:` / 6 位缩写 ⇒ 提示），字段不在时才退回
- *  整段扫描（兼容「不标注直接写 hash」的写法）——扫描前先抹掉卡路径 `T-YYYYMMDD-HHMMSS`：
- *  它的 8 位日期是合法 hex，否则任何带卡路径的 A2 都会「白捡」一个 hash。 */
-const SHA_LOWER = /^[0-9a-f]{7,40}$/;
-const SHA_UPPER40 = /^[0-9A-F]{40}$/;
-const NO_COMMIT_VALUE = /^(?:none|n\/?a|—|-|无|no commit)$/i;
+/** D3 判据：sha 规则（guide §1 A2）——字段值里出现 `7–40 位小写 hex`，或 40 位**全大写** sha-1
+ *  真值（某些工具大写输出，且它是真 sha ⇒ 不得被拒）；或**显式声明无提交**。
+ *  `commit`/`提交` 字段**在**时只看字段值，不要求「值恰为一个 sha」：线上实测（2026-10-15 全库扫描）
+ *  真实的 A2 都带注记，如 `` `270cce9` (7 files, +2956/−133) ``、`` `cf3a45c` (docs) + `f5b3e76` (cli) ``、
+ *  以及 `无（写面 tasks/*.md 不在任何 git 仓）` 式的显式无提交 —— 按整值全等判定会把这 12 张全判成
+ *  误报。收紧的着力点是「**裸 `commit:`（无值）/ 6 位缩写不算数**」，不是「值必须纯 sha」。
+ *  字段**不在**时才退回整段扫描（兼容「不标注直接写 hash」的写法）——扫描前先抹掉卡路径
+ *  `T-YYYYMMDD-HHMMSS`：它的 8 位日期是合法 hex，否则任何带卡路径的 A2 都会「白捡」一个 hash
+ *  （旧口径实测如此：只写卡路径的 A2 从不提示 commit 缺失）。 */
+const SHA_LOWER = /\b[0-9a-f]{7,40}\b/;
+const SHA_UPPER40 = /\b[0-9A-F]{40}\b/;
+const NO_COMMIT_VALUE = /^(?:none\b|n\/?a\b|—|-|无|no commit\b)/i;
 const NO_COMMIT_PHRASE = /\bno commit\b|无提交|未提交/i;
 function commitField(seg) {
   const m = /(?:^|[\s·|;；])(?:commit|提交)\s*[:：]\s*([^\n·|;；]*)/i.exec(seg);
@@ -173,9 +177,7 @@ export function commitCoordinate(seg) {
     return { ok: false, reason: field ? `commit 字段值不是合法 sha：\`${field}\`` : 'commit 字段为空' };
   }
   const scrubbed = String(seg).replace(/T-\d{8}-\d{6}[^\s·|,，;；]*/g, ' ');
-  if (/\b[0-9a-f]{7,40}\b/.test(scrubbed) || /\b[0-9A-F]{40}\b/.test(scrubbed) || NO_COMMIT_PHRASE.test(scrubbed)) {
-    return { ok: true };
-  }
+  if (SHA_LOWER.test(scrubbed) || SHA_UPPER40.test(scrubbed) || NO_COMMIT_PHRASE.test(scrubbed)) return { ok: true };
   return { ok: false, reason: 'A2 里既无小写 hex sha（7–40 位）也无显式无提交声明' };
 }
 
