@@ -7,8 +7,9 @@
  *   实证：`T-20261013-154930-2` 打回续做时 seg2 被建在错基线上（D42 会修在没有 seg1 成果的树上），
  *   编排者察觉后 kill + `worktree remove --force` + 人工 `--base 43bdf5f` 重建才续上——此前**只能**
  *   靠人肉 `lane-worktree --base <prev-tip>` 绕开（worktree-isolation-sop §⑤ 的 workaround）。
- * 绿（本卡的修复，§②）：**续接上一 seg** ⇒ base = **上一 seg 的 lane 分支 tip**；首 seg 行为不变（仍 HEAD）；
- *   显式 `--base <ref>` 优先且**不可解析即拒绝**（显式意图绝不静默回落成 HEAD——那又是隐性错基）。
+ * 绿（本卡的修复，§②）：**续接上一 seg** ⇒ base = **上一 seg 的 lane 分支 tip**；首 seg ⇒ 缺省 base
+ *   （`OPENCLAW_LANE_BASE` 或 `dev`，T-20261015-devbranch，`PROTOCOL §⑥.4`）；
+ *   显式 `--base <ref>` 优先，且缺省/显式**不可解析即拒绝**（绝不静默回落成 HEAD——那又是隐性错基）。
  *
  * 判据分三层，缺一层都算不上「修好了」：
  *   ① **纯函数**（`segOrdinal` / `prevSegCandidates`）：前驱候选的有序性与去重；
@@ -19,8 +20,8 @@
  *      `lane-worktree` 仍按缺省 HEAD 建树的 bug 只能在这一层被抓住。
  *
  * 负向（§③ 的另一半）：
- *   · 首 seg（`seg1`，无前驱）⇒ `base.source='head'`、`head = main tip`（**旧行为不变**；且此时
- *     `merge-base --is-ancestor <seg1 tip> → NO` 正是本卡修复前的形状）；
+ *   · 首 seg（`seg1`，无前驱）⇒ `base.source='default'`、`base.ref='dev'`、`head = dev tip`（夹具里 == main tip）；
+ *   · 缺 dev 的仓 ⇒ `deriveLaneBase` 回 `error:'base_unresolved:dev'`（缺省同样 fail-closed）；
  *   · `--base <不可解析>` ⇒ `blocked(base_unresolved:*):` ⇒ `spawn-lane` 拒绝起会话，零副作用；
  *   · 隔离**不适用**（单 lane）却给了 `--base` ⇒ 输出带 `base_ignored`（显式意图被记账，不静默丢弃）。
  *
@@ -142,6 +143,8 @@ const FIX = LAYOUT ? (() => {
   g('add', '--', '.gitignore', 'tracked.txt');
   g('commit', '-q', '-m', 'init');
   const mainTip = g('rev-parse', 'HEAD');
+  g('branch', 'dev', mainTip); // 缺省 base = dev（开发集成分支，PROTOCOL §⑥.4）；建在 main tip 上
+  const devTip = g('rev-parse', 'dev');
   // 前段 seg 的产物只存在于其 lane 分支、**不在** main 上——正是「续接丢掉前段成果」的那个差
   const seg1Branch = `lane/${SELF}-seg1`;
   const seg1Tip = commitOnBranch(seg1Branch, mainTip, [['seg1-product.txt', 'seg1 work\n']], 'seg1 product');
@@ -149,7 +152,7 @@ const FIX = LAYOUT ? (() => {
   const m1Tip = commitOnBranch(m1Branch, mainTip, [['m1-product.txt', 'm1 work\n']], 'multi seg1');
   const m2Branch = `lane/${MULTI}-seg2`;
   const m2Tip = commitOnBranch(m2Branch, m1Tip, [['m2-product.txt', 'm2 work\n']], 'multi seg2');
-  return { mainTip, seg1Branch, seg1Tip, m1Branch, m1Tip, m2Branch, m2Tip };
+  return { mainTip, devTip, seg1Branch, seg1Tip, m1Branch, m1Tip, m2Branch, m2Tip };
 })() : null;
 
 const porcelain = (dir) => gOut(dir, 'status', '--porcelain');
@@ -232,22 +235,60 @@ test('契约. deriveLaneBase：三档来源 + 显式不可解析回 error（纯�
   assert.equal(B({ base: 'no-such-ref-xyz' }).ref, undefined, 'error 形状下不给出 ref，调用方无从误用');
   assert.deepEqual(
     { ref: B({ taskId: FRESH, seg: 'seg1' }).ref, source: B({ taskId: FRESH, seg: 'seg1' }).source, fallback: B({ taskId: FRESH, seg: 'seg1' }).fallback },
-    { ref: 'HEAD', source: 'head', fallback: undefined },
-    '③ 首 seg（无候选）⇒ HEAD，且**不算**回落（它本来就没有前段可接）'
+    { ref: 'dev', source: 'default', fallback: undefined },
+    '③ 首 seg（无候选）⇒ 缺省 base=dev，且**不算**回落（它本来就没有前段可接）'
   );
+  // ③ 的 fail-closed：缺 dev 的仓 ⇒ error（绝不静默回落 HEAD）——与①同样的不可解析语义
+  assert.equal(B({ base: 'dev' }).error, undefined, '前置：夹具确有 dev 分支');
 });
 
-// ── ② 判定层：续接 ⇒ 上一 seg 分支 tip；首 seg ⇒ HEAD（不变） ────────────────
+test('契约. 缺省 base=dev 的三个覆盖面（env / 显式 / 缺失 fail-closed）', { skip: SKIP }, () => {
+  const B = (o) => deriveLaneBase({ repo: LAYOUT, taskId: FRESH, seg: 'seg1', ...o });
+  // env 覆盖：OPENCLAW_LANE_BASE=main ⇒ 缺省 base 变成 main
+  const prev = process.env.OPENCLAW_LANE_BASE;
+  process.env.OPENCLAW_LANE_BASE = 'main';
+  try {
+    const b = B({ taskId: FRESH, seg: 'seg1' });
+    assert.deepEqual({ ref: b.ref, source: b.source, resolved: b.resolved }, { ref: 'main', source: 'default', resolved: FIX.mainTip },
+      'OPENCLAW_LANE_BASE 覆盖缺省 base（未迁移历史仓的逃生口）');
+  } finally {
+    if (prev === undefined) delete process.env.OPENCLAW_LANE_BASE; else process.env.OPENCLAW_LANE_BASE = prev;
+  }
+  // 显式 base 仍优先于 dev 缺省
+  const ex = B({ base: 'main', taskId: FRESH, seg: 'seg1' });
+  assert.deepEqual({ ref: ex.ref, source: ex.source }, { ref: 'main', source: 'explicit' }, '显式恒胜出');
+});
 
-test('NEGATIVE. 首 seg（seg1，无前驱）⇒ base 仍 HEAD（旧行为不变，本卡不扩大改动面）', { skip: SKIP }, () => {
+test('REJECT. 仓无 dev 分支 ⇒ deriveLaneBase 返回 error（fail-closed）', { skip: SKIP }, () => {
+  // 用一个没有 dev 的临时仓（不动 FIX 主夹具）
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-nodev-cb-'));
+  const g = (...a) => gOut(dir, ...a);
+  try {
+    g('init', '-q', '-b', 'main');
+    g('config', 'user.email', 't@example.invalid');
+    g('config', 'user.name', 'test');
+    fs.writeFileSync(path.join(dir, 'x.txt'), 'x\n');
+    g('add', '--', 'x.txt');
+    g('commit', '-q', '-m', 'init');
+    const b = deriveLaneBase({ repo: dir, taskId: FRESH, seg: 'seg1' });
+    assert.equal(b.error, 'base_unresolved:dev', `缺 dev 必须 fail-closed：${JSON.stringify(b)}`);
+    assert.equal(b.ref, undefined, 'error 形状下不给出 ref，调用方无从误用');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ── ② 判定层：续接 ⇒ 上一 seg 分支 tip；首 seg ⇒ 缺省 dev ──────────────────
+
+test('NEGATIVE. 首 seg（seg1，无前驱）⇒ base = 缺省 dev（开发集成分支，PROTOCOL §⑥.4）', { skip: SKIP }, () => {
   concurrentBoard(FRESH);
   const p = planFor(FRESH, 'seg1');
   assert.equal(p.mode, 'worktree', JSON.stringify(p));
-  assert.equal(p.base.source, 'head', JSON.stringify(p.base));
-  assert.equal(p.base.ref, 'HEAD');
-  assert.equal(p.base.resolved, FIX.mainTip, '首 seg 的基准就是仓 HEAD（与修复前一致）');
-  assert.equal(p.head, FIX.mainTip);
-  // 修复前的形状：首 seg 的树**不含** seg1 的产物——这对首 seg 是正确的（seg1 就是第一段）
+  assert.equal(p.base.source, 'default', JSON.stringify(p.base));
+  assert.equal(p.base.ref, 'dev');
+  assert.equal(p.base.resolved, FIX.devTip, '首 seg 的基准是缺省 dev（夹具里 == main tip）');
+  assert.equal(p.head, FIX.devTip);
+  // 首 seg 的树**不含** seg1 的产物——这对首 seg 是正确的（seg1 就是第一段）
   assert.equal(isAncestor(LAYOUT, FIX.seg1Tip, p.head), false, '首 seg 本就不该含 seg1 产物');
 });
 
@@ -280,16 +321,16 @@ test('FIX-2. 非数值续接（seg2-container 续 seg2）⇒ 由卡 `## Sessions
   assert.equal(isAncestor(LAYOUT, FIX.m1Tip, p.head), true, '续在 seg2 上 ⇒ seg1 的产物仍在祖先链上');
 });
 
-test('FIX-3. 续接但前驱**无 lane 分支**（未隔离过 / 分支已删）⇒ 退回 HEAD，不猜（但**不静默**）', { skip: SKIP }, () => {
+test('FIX-3. 续接但前驱**无 lane 分支**（未隔离过 / 分支已删）⇒ 退回缺省 base，不猜（但**不静默**）', { skip: SKIP }, () => {
   concurrentBoard(FRESH);
   const p = planFor(FRESH, 'seg2');
   assert.equal(p.mode, 'worktree', JSON.stringify(p));
-  assert.equal(p.base.source, 'head', '无前驱可循 ⇒ 旧行为（HEAD）；绝不臆造一个 tip');
-  assert.equal(p.base.ref, 'HEAD');
-  assert.equal(p.base.resolved, FIX.mainTip);
+  assert.equal(p.base.source, 'default', '无前驱可循 ⇒ 缺省 base（dev）；绝不臆造一个 tip');
+  assert.equal(p.base.ref, 'dev');
+  assert.equal(p.base.resolved, FIX.devTip);
   assert.equal(
     p.base.fallback, 'no_prev_seg_branch',
-    '「这是一次续接、但没接上任何前段产物」必须可见——回落是旧行为，静默才是缺陷'
+    '「这是一次续接、但没接上任何前段产物」必须可见——回落是缺省行为，静默才是缺陷'
   );
   // 对照组：**首** seg 不叫 fallback（它本来就没有前段可接）
   assert.equal(planFor(FRESH, 'seg1').base.fallback, undefined);

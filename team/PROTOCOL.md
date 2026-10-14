@@ -268,6 +268,13 @@ Rules:
 - **Queue/serialize only in these cases**: ① an unmet prerequisite (`depends_on` ⇒ `deps_unmet`); ② a **same-file / same-resource write conflict** (single writer, `§⑨.1`); ③ the card explicitly says "must serialize"; ④ any other hard dependency (data / environment).
 - **Elon throughput patrol (a new team-health duty)**: Elon's routine patrol must **check each worker's running concurrency and the cards they occupy**; on finding "a queue holds parallelizable cards while the worker is running only one (not fanned out)" or "a stale `in_progress` with no taker" ⇒ **push for parallelism** (dispatch / chase / reassign per `§①`); included in the daily health patrol.
 
+### ⑥.4 Development-Branch and Integration-Base Discipline (since 2026-10-15)
+
+- **Development integrates on the long-lived branch `dev`.** Every development task runs on its own **lane branch `lane/<lane>`** — one lane per task, in a **dedicated git worktree** whenever the concurrency condition of `§⑥.3` holds (`guides/worktree-isolation-sop.md`). A lane's product **merges into `dev`**; `dev` is merged into the protected release branch **`main`** only as an explicit integration/release step.
+- **The isolation base is `dev`, not `HEAD`.** `scripts/lane-worktree.mjs` bases a new lane tree on `dev` by default; a **continuation** segment instead bases on its previous segment's lane-branch tip (`scripts/lane-isolation.mjs` `deriveLaneBase`). Override per run with `--base <ref>`, or process-wide with `OPENCLAW_LANE_BASE=<ref>` (the escape hatch for a repo not yet migrated). A base that does not resolve is **refused** (`base_unresolved:<ref>`) — it never silently falls back to `HEAD`/`main`.
+- **Never commit on the protected branch.** A direct commit on a protected branch (default `main`; `OPENCLAW_PROTECTED_BRANCHES` overrides the set) is **refused** by `scripts/branch-guard.mjs`; run it before committing. This is **not** "only `dev`": commits legitimately land on `lane/<lane>` (and on `dev` for the integration step) — the rule is "not on the protected branch". The `dev → main` step is the one sanctioned direct-to-protected action and must pass the guard's explicit `--allow-protected` escape, whose `overridden:true` is its trail.
+- **Bootstrapping a repo**: a repo with no `dev` branch will refuse lane isolation — create it once (`git branch dev <base>` and push).
+
 ---
 
 ## ⑦ Ambiguity Handling
