@@ -86,9 +86,9 @@ One alert = one **(card, `§⑮` row)** pair at its highest newly-crossed tier (
 | 4 | `sla_row` | enum | ✅ | `blocked_clarification` \| `confirmation_gate` \| `defect_card_creation` \| `acceptance_card_creation` \| `heartbeat_stale` \| `leader_stalled` \| `inspector_liveness` (last one is not a `§⑮` row — see §5.3) |
 | 5 | `sla_ref` | string | ✅ | the citation string, e.g. `"PROTOCOL §⑮ <row name>"` — **never** a line anchor. Makes the alert self-explaining and lets a reader re-derive the threshold |
 | 6 | `severity` | enum | ✅ | `warn` \| `overdue` \| `escalate` (§5.2) |
-| 7 | `measure_start_kind` | enum | ✅ | `blocked_at` \| `status_changed_at` \| `heartbeat_at` \| `gate_at` \| `trail_event` \| `unverifiable` (§6) |
+| 7 | `measure_start_kind` | enum | ✅ | `blocked_at` \| `status_changed_at` \| `heartbeat_at` \| `gate_at` \| `trail_event` \| `created_at` \| `unverifiable` (§6) |
 | 8 | `measure_start_at` | ISO-8601 UTC ms | ✅ | the origin instant `T` counts from |
-| 9 | `measure_start_source` | string | ✅ | where the origin was read from (`frontmatter` \| `comments` \| `progress` \| `missing`) — audit trail for a derived origin |
+| 9 | `measure_start_source` | string | ✅ | **the read location only** (`frontmatter` \| `comments` \| `progress` \| `missing`) — **never** the `measure_start_kind` value; a frontmatter field ⇒ `frontmatter`, a `## Comments` entry ⇒ `comments`, a `## Progress` entry ⇒ `progress`, nothing readable ⇒ `missing`. Audit trail for a derived origin |
 | 10 | `elapsed_working_min` | number | ✅ | `T` in **working-hours minutes** (§6.4) |
 | 11 | `elapsed_basis` | enum | ✅ | `working_hours` (default, `§⑮` rolls off-hours over) \| `wall_clock` (only when a row explicitly needs it — none does today) |
 | 12 | `threshold_min` | number \| null | ✅ | the value **taken from `PROTOCOL §⑮` at runtime**; `null` ⇔ the row has **no** `§⑮` threshold (§5.3, §7.4) ⇒ no `due_at`, no tier above `warn` |
@@ -98,7 +98,7 @@ One alert = one **(card, `§⑮` row)** pair at its highest newly-crossed tier (
 | 16 | `notify` | enum | ✅ | `digest` (routine) \| `immediate` (tier promotion to `escalate`) |
 | 17 | `releasable` | boolean | ✅ | the *hint* — the card looks releasable (§7.4) |
 | 18 | `releasable_basis` | enum \| null | ✅ | `deps_satisfied` \| `clarification_trail_after_block` \| `assignee_changed` \| null |
-| 19 | `blocked_reason` | enum \| null | ✅ | the card's current `blocked_reason` (§7) — context for the reader, `null` when absent |
+| 19 | `blocked_reason` | enum \| null | ✅ | the card's **current** `blocked_reason` (§7) — on **every** row, not only `blocked_clarification`; `null` **iff** the card carries none (never a row-specific substitute) |
 | 20 | `confidence` | enum | ✅ | `high` (an exact origin field was read) \| `low` (the origin was derived/fallback — §6.2) |
 | 21 | `mechanism` | enum | ✅ | `openclaw-cron` \| `loop-patrol` |
 | 22 | `mechanism_host` | string | ✅ | opaque host/agent id of the observer (diagnostics only, never used for routing) |
@@ -178,7 +178,9 @@ Rows are identified by **name, never by index or position** — `PROTOCOL §⑮`
 5. **The `leader_stalled` row is exempt from rule 1's `−P` lead**: its published bound is already a *"no action for"* bound, and a `warn` one period earlier would fire on a normally busy leader whose board simply happened to be quiet for one period. It therefore has exactly two states: `warn` (at `L`) and `escalate` (at the `§⑮.1` stall bound, `F`).
 6. **The ladder is a formula over `L`, `F` and `P` only.** `P` is a *mechanism parameter* pinned by the operator's ruling ③, **not** a new SLA number; `L` and `F` come from `§⑮` and nowhere else. This is what keeps the contract free of self-invented thresholds.
 
-> **Decision fork DF-1 (needs Elon's `§⑭` dual-sign on this contract).** `§⑮` publishes **two** points per row while the epic asks for a **three**-tier ladder, so the `warn` boundary has to come from somewhere. **Adopted (option A)**: `warn` = one *own period* before `L` (rule 1) — it invents no SLA number, is testable with a fixed clock, and makes "到点提醒" literal. **Rejected (option B)**: `warn` = `L`, `overdue` = `F`, `escalate` = the leader-stalled row only — it needs no lead at all, but then `overdue` and `escalate` are not comparable across rows (`heartbeat_stale` and `leader_stalled` publish different kinds of "further" point), and the two mechanisms would label a card differently *because of their cadence*, not because of the card. Under option A the tier is a pure function of `(card state, own period)`, and the cross-mechanism shared ledger (§8.3) makes the *emitted* label identical as well.
+> **Decision fork DF-1 — decided.** Elon's `§⑭` dual-sign **adopted option A** (`warn = L − P`) on 2026-10-13T18:47Z (card `T-20261014-022254-2`); option B is rejected. `§⑮` publishes **two** points per row while the epic asks for a **three**-tier ladder, so the `warn` boundary has to come from somewhere. **Adopted (option A)**: `warn` = one *own period* before `L` (rule 1) — it invents no SLA number, is testable with a fixed clock, and makes "到点提醒" literal. **Rejected (option B)**: `warn` = `L`, `overdue` = `F`, `escalate` = the leader-stalled row only — it needs no lead at all, but then `overdue` and `escalate` are not comparable across rows (`heartbeat_stale` and `leader_stalled` publish different kinds of "further" point), and the two mechanisms would label a card differently *because of their cadence*, not because of the card. Under option A the tier is a pure function of `(card state, own period)`, and the cross-mechanism shared ledger (§8.3) makes the *emitted* label identical as well.
+>
+> **As of v1.1 this contract is a downstream basis** — the dual-sign it was waiting for has landed (§12 G‑9).
 
 ### 5.3 Rows the contract adds (explicitly **not** in `§⑮`)
 
@@ -201,6 +203,7 @@ Rows are identified by **name, never by index or position** — `PROTOCOL §⑮`
 | `heartbeat_at` | card frontmatter | `heartbeat_stale` |
 | `gate_at` | *derived* — see §6.3-A | `confirmation_gate` |
 | `trail_event` | the **process trail** (`## Comments` / `## Progress`) — earliest matching entry | rows 3 and 6 |
+| `created_at` | card frontmatter (`PROTOCOL §①`; a card **created** by the leader) | `leader_stalled` (§6.3‑D) |
 | `unverifiable` | nothing readable | any row — **fail-safe**, see §6.5 |
 
 ### 6.2 Derivation discipline
@@ -208,6 +211,7 @@ Rows are identified by **name, never by index or position** — `PROTOCOL §⑮`
 - **Prefer an exact frontmatter field.** If one exists, `confidence: "high"`.
 - **Otherwise derive, and say so.** Every derived or fallback origin sets `confidence: "low"` and `measure_start_source` to where it was read. A derived origin must be **deterministic** (same board ⇒ same origin, both mechanisms) and **monotone-safe** — when in doubt, choose the **earlier** candidate: the fail-safe direction of an inspector is *over-alert*, never *silent miss* (§9.3).
 - **Never re-derive per mechanism.** The derivation lives in one place per implementation and is exercised by the shared fixtures of §11.
+- **Confidence value rule (pinned).** `confidence: "high"` ⇔ the origin instant was **read verbatim** from a single, unambiguous source (a frontmatter field, or one uniquely-identified trail entry). `confidence: "low"` ⇔ the origin came from a **fallback** (§6.3‑A step 3), an **approximate / pattern match**, or **no readable candidate** (§6.5). Choosing deterministically among several *exact* candidates (§6.3‑B "earliest of", §6.3‑D "latest of") does **not** by itself lower confidence — each candidate is exact and the choice is reproducible.
 
 ### 6.3 Row-specific derivations
 
@@ -218,10 +222,12 @@ Rows are identified by **name, never by index or position** — `PROTOCOL §⑮`
 The *open* predicate: the request has **no later leader confirmation** in the trail.
 
 **B — `defect_card_creation` (defect fix card creation).** Origin = the **earliest** of: the card's `status_changed_at` when it entered `blocked`/`canceled` in the `§⑨` step-1 transition, and the timestamp of the earliest `kind=defect` trail entry on the card (the defect ticket lives in the Report, which is not timestamped ⇒ the trail is the observable). The *open* predicate: **no card exists that references this card as its fix card** — detected by the `category:bug` label convention of `guides/task-interface.md` §15 plus a reference back to the origin card. If the predicate cannot be decided, treat it as **open** with `confidence: "low"` (fail-safe).
+**Confidence**: the chosen origin is an exact timestamp (the frontmatter `status_changed_at`, or one `kind=defect` trail entry) ⇒ `confidence: "high"`; only the undecidable-predicate path (treated as open) ⇒ `confidence: "low"`.
 
 **C — `acceptance_card_creation` (product/UX acceptance queued).** Applicable **only to flow A** (`§⑩.5`): an absent `flow` field is treated as A (fail-safe). Origin = `status_changed_at` of the delivered card (its entry into the delivery/`in_review` state per `§①`). *Open* predicate: **no card with `review_of = <this card>`** exists yet, and Jobs is the assignee of such a card when it does (`§⑨.1` clause 3: the leader creates it).
 
-**D — `leader_stalled`.** `§⑮` measures "no action". Action is observable only through the board, so the inspector takes the **latest board-side timestamp on a leader-attributed event**: a `kind=confirm` / `kind=decision` / `kind=change` comment authored by the leader, a card created by the leader, or a card whose `status_changed_at` moved through a leader-only transition (`done` is leader-only per `guides/task-interface.md` §4). The *open* predicate is the conditioning rule of §5.1. If the board shows no leader event at all within the lookback window, the row is emitted with `confidence: "low"` — an inspector that has never seen the leader act must say so rather than stay quiet.
+**D — `leader_stalled`.** `§⑮` measures "no action". Action is observable only through the board, so the inspector takes the **latest board-side timestamp on a leader-attributed event**, where *leader-attributed* is **one** of: (a) a `kind ∈ {confirm, decision, change}` comment whose `author` is the leader; (b) a card **created** by the leader (`created_at`, §6.1); (c) a card whose `status_changed_at` moved through a leader-only transition (`done` is leader-only per `guides/task-interface.md` §4). **The filter is on `author`, not on `kind`** — a `kind=change` entry written by a *worker* does **not** reset the stall clock; one written by the *leader* does. **This attribution set is the single set both mechanisms must use** (F2); no mechanism may add or drop a member. The *open* predicate is the conditioning rule of §5.1. If the board shows no leader event at all within the lookback window, the row is emitted with `confidence: "low"` — an inspector that has never seen the leader act must say so rather than stay quiet.
+**Confidence**: an exact leader-event timestamp ⇒ `confidence: "high"`; a lookback window containing **no** leader event ⇒ `confidence: "low"` (the sentence above).
 
 ### 6.4 Measurement basis — working hours (the "到点" question, answered)
 
@@ -276,8 +282,10 @@ The `§⑮` row *blocked awaiting the leader's clarification* is *one* row today
 |---|---|
 | `deps_satisfied` | `blocked_reason = dependency` **and** every `depends_on` entry is in a terminal state |
 | `clarification_trail_after_block` | `blocked_reason ∈ {clarify, decision}` **and** a newer `kind=change` / `kind=confirm` trail entry exists after `blocked_at` |
-| `assignee_changed` | `blocked_reason = out_of_bounds` **and** the card's `assignee` changed after `blocked_at` |
+| `assignee_changed` | `blocked_reason = out_of_bounds` **and** a newer `kind=change` trail entry records the reassignment after `blocked_at` (**evidence channel** = the `§7` substantive-change trail; the board snapshot carries only the *current* `assignee`, so the trail is the only machine-readable change channel) |
 | `null` | nothing establishes releasability ⇒ `releasable: false`. **The alert is still emitted** — an unknown must not become silence |
+
+> **Evidence channel (F7).** Both trail-based bases (`clarification_trail_after_block`, `assignee_changed`) read the **same** channel — the `kind=change` / `kind=confirm` entries of the card trail; a pre-emit snapshot alone is never sufficient, because it carries no change history.
 
 ---
 
@@ -408,6 +416,7 @@ The inspector must fit the scheduled trigger's evaluation budget. Card reads (fr
 ### 10.4 No regression on the existing heartbeat patrol
 
 The existing heartbeat behaviour (`in_progress` + stale heartbeat ⇒ alert, with its `stale_kind` / reason vocabulary and its `{stale:[…]}` envelope) is a **published contract** consumed by the current job and by its pre-emit re-check. The new coverage must be **additive**: either a new job/entry alongside it, or a strictly superset entry that still honours the old envelope for the old consumer. Folding the old job into the new one is a **separate, later card** — never a side effect of this contract.
+**SLA channel note (F4).** The legacy alert stays as the old consumer's envelope, but for `heartbeat_stale` to participate in the shared §4 tuple / ledger (§8.3), each mechanism **must also emit the §4 tuple** for that row; the legacy `type:"stale"` shape is **not** a substitute for the SLA channel.
 
 ---
 
@@ -437,17 +446,19 @@ The existing heartbeat behaviour (`in_progress` + stale heartbeat ⇒ alert, wit
 | **G-2** | **`§⑮`'s further-timeout column reads "escalate to operator"**, which the operator's ruling ① supersedes (all tiers → leader). | **the inspector never emits an operator target** (ruling ① wins); whether L1's wording is re-worded is a backfill for Elon. Consequence: the `escalate` tier's *target* is unchanged but its *meaning* narrows to "louder, immediate reminder to the leader" |
 | **G-3** | **`§⑮` has no row for a card blocked on a dependency / an external / a resource** — invisible to both mechanisms today. | visibility-only alert (`threshold_min: null`, `warn`) + this backfill proposal (a row, if Elon wants a limit) |
 | **G-4** | **No `§⑮` row for the inspectors' own liveness.** | `inspector_liveness` with a **derived** bound (`k × P_peer`) — no invented SLA number |
-| **G-5** | **`§⑭`'s confirmation request has no stable machine marker** (§6.3-A priority 2). | derive from the request shape, then fall back to `status_changed_at` with `confidence: "low"` (over-alerts only); a `[confirm-request]` Progress marker is proposed as the `§⑭` landing |
+| **G-5** | **`§⑭`'s confirmation request has no stable machine marker** (§6.3-A priority 2). | derive from the request shape, then fall back to `status_changed_at` with `confidence: "low"` (over-alerts only); a `[confirm-request]` Progress marker is proposed as the `§⑭` landing. **Status**: the `PROTOCOL §⑭` backfill card is **pending** (to be opened by Elon — a worker does not create governance cards); until then `[confirm-request]` is a **contract-level** convention only and §6.3‑A priority 2 stays the live path |
 | **G-6** | **Cadence mismatch.** The operator's ruling ③ says the openclaw side keeps "cron ~30 min", but the framework's declared cadence for its existing patrol job is *not* 30 min (the repo declaration and the live store also differ from each other — see `team/AUTOMATIONS.md` §"Job Overview", the cadence caveat). | the contract is written **cadence-agnostic** (all formulas use the mechanism's own `P`), so no implementation depends on the number; the ruling's "~30 min" should be reconciled with the declared/live values on the card that wires the trigger (**C2**), and the reconciliation recorded |
 | **G-7** | **Trail writes for de-duplication** (§8.3 backend (a)) — a purist reading of "巡检不写" may object. | default backend is the card-trail marker with a bounded budget; the backendless fallback and its residual duplicate are documented, so the choice is explicit rather than accidental (Elon may pick backend (b) if both mechanisms are ever co-resident) |
 | **G-8** | **`blocked_reason` as a provider known key** (C3) vs. a team-side convention field. | specified as a **provider known key** (ruling ④ "一步到位立结构字段"); the enum lives here, the serialization/round-trip rules live in the provider contract (`guides/task-interface.md`) |
-| **G-9** | **Who signs the tier ladder (DF-1).** | option A adopted (§5.2); the contract is not a downstream basis until Elon's `§⑭` dual-sign (the card says so) |
+| **G-9** | **Who signs the tier ladder (DF-1).** | **signed** — Elon's `§⑭` dual-sign adopted **option A** (`warn = L − P`) on 2026-10-13T18:47Z (card `T-20261014-022254-2`); the contract **is** a downstream basis as of v1.1 |
+| **G-10** | **Recorded cross-mechanism deviations pending sync** (from design confirmation `T-20261014-022327`; **no threshold affected**). | registered with an owner each: ① `leader_stalled` attribution set — C4 pending (§6.3‑D as amended); ② `heartbeat_stale` channel asymmetry — C4 pending (§4 tuple / §10.4); ③ `confidence` values for `defect_card_creation` / `leader_stalled` — C4 pending (§6.2 / §6.3‑B/D as amended); ④ `releasable_basis: assignee_changed` channel — C4 pending (§7.4); ⑤ C2 wrote a *kind* value into `measure_start_source` — C2 fix (§4 #9); ⑥ C2 dropped the pre-lookback `leader_stalled` origin (emitted `warn` instead of `low`) — C2 fix (§6.3‑D); ⑦ C2 emitted `blocked_reason: null` on non-`blocked_clarification` rows — C2 fix (§4 #19); ⑧ §8.3 backend (a) is implemented by **neither** mechanism ⇒ both use the rule‑5 **backendless** fallback (residual ≤ 1 duplicate per key, explicitly recorded). Until ①–⑦ land the two mechanisms are **not** yet at `§8.1` E1–E7 equivalence. |
 
 ---
 
 ## 13. Change Log
 
 - **v1** (this document, `T-20261014-022254-2`, jobs, design-only) — initial contract: object declaration · alert tuple · six-row `§⑮` mapping + tier ladder (DF-1) · measurement origins incl. `gate_at` · `blocked_reason` structural field · cross-mechanism equivalence + AlertLedger de-duplication + mutual liveness · safe-operation envelope (read-only / notify-only / fail-safe / zero-cost idle / working hours / pre-emit re-check) · envelope + fail-closed degrade duty · verification hooks · open items. *(append change rows over time.)*
+- **v1.1** (`T-20261014-082826`, jobs, design-only) — post-design-confirmation write-back (`T-20261014-022327` findings F1–F12): DF-1 / G‑9 dual-sign recorded (option A, `T-20261014-022254-2` 2026-10-13T18:47Z) · `measure_start_kind` gains `created_at`; `measure_start_source` re-affirmed as **read-location only** · §6.2 confidence value-rule pinned; §6.3‑B/D confidence pinned and `leader_stalled`'s attribution set written in (**`author=leader` filter**, F2) · §7.4 `assignee_changed` evidence channel named (F7) · §10.4 heartbeat SLA-channel note (F4) · §12 deviation register **G‑10** added. **No threshold changed** — the single source remains `PROTOCOL §⑮`.
 
 ---
 
