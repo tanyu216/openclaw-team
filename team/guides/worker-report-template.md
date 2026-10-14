@@ -292,8 +292,8 @@ un-acceptable as delivery evidence until the deliverer's own Report exists.
 > evidence `T-20261015-010749-3` §T6). A frozen absolute is not merely *stale* here — it is
 > **un-derivable**, for two reasons:
 >
-> - **the population is live.** 584 card files / 471 non-empty Reports at 02:34Z → 594 / 490
->   at 03:53Z on 2026-10-15 — two readings, ninety minutes apart. **Almost all** of that
+> - **the population is live.** 584 card files / 471 non-empty Reports at 18:34Z → 594 / 490
+>   at 19:53Z on 2026-10-14 — two readings, eighty minutes apart. **Almost all** of that
 >   population is **terminal** (`done`/`failed`/`canceled`; compare `--status=terminal` with
 >   `--status=nonterminal`), i.e. exactly the surface `check-report.mjs` **never inspects**;
 >   the table therefore describes *history*, not the enforced surface, and its denominator
