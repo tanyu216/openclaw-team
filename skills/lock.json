@@ -723,7 +723,7 @@
       "name": "setup-matt-pocock-skills",
       "targets": [
         "claude",
-        "agent:linus"
+        "openclaw"
       ],
       "ref": "f3fc5632f401156837ee3872f14fe33ccf1024ea",
       "repo": "https://github.com/mattpocock/skills",
