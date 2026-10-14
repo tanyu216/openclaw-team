@@ -79,7 +79,7 @@ node ~/.openclaw/team/tools/ui-align/check.mjs --config ./.ui-align.json overvie
 | `styleProps` | | computed style 属性集，缺省 31 项（字体/字号/字重/行高/字距/颜色/背景/边框/圆角/盒模型/布局） |
 | `styleTargets` | | 项目级样式对比目标（每个页面都跑，如全局壳层）。页级目标写在清单里，见 §4 |
 | `style` | | `{ enabled, blocking, targets, widths }`。`blocking` 缺省 `false`（差异只上屏、不判失败） |
-| `settleMs` | | 导航后静置，缺省 350（等 Vue 挂载/图表渲染） |
+| `settleMs` | | 导航后静置，缺省 350（等 Vue 挂载/图表渲染）。**「等就绪」的清单侧开关是 `readySelector`**（§4）——别用调大 `settleMs` 替代它 |
 | `browsers` | | `{ executablePath, extraPaths }` |
 
 **最小可用示例**：
@@ -122,6 +122,7 @@ node ~/.openclaw/team/tools/ui-align/check.mjs --config ./.ui-align.json overvie
   "route": "/overview",
   "widths": [1512, 1240, 980, 760, 430],
   "height": 900,
+  "readySelector": "[data-card]",
   "overflowTargets": [{ "selector": "html", "desc": "文档根" }],
   "console": { "allowlist": [{ "pattern": "favicon", "reason": "…", "evidence": "…" }] },
   "style": {
@@ -143,6 +144,39 @@ node ~/.openclaw/team/tools/ui-align/check.mjs --config ./.ui-align.json overvie
   ]
 }
 ```
+
+**清单顶层字段**：
+
+| 键 | 必填 | 说明 |
+|---|---|---|
+| `page` | ✅ | 与文件名一致（载入时自检） |
+| `blocks` | ✅ | 区块清单，非空数组（见下） |
+| `name` | | 报告里的可读页名，缺省 `page` |
+| `route` | | 拼到实现侧基址后，缺省 `/` |
+| `widths` | | 本页视口档位，缺省取配置 `viewports` |
+| `height` | | 视口高度，缺省取配置 `height` |
+| `overflowTargets` | | 无溢出判定目标，缺省 `html` + `body` |
+| `console` | | `{ allowlist: [{ pattern, reason, evidence }] }` |
+| `styleTargets` | | 页级 computed style 目标（裸数组，或 `style.targets` 分组写法）；同名时页级优先于项目级（§3） |
+| `readySelector` | | **就绪选择器轮询，跑在 `settleMs` 之前**（见下） |
+
+**`readySelector` —— 就绪轮询（跑在 `settleMs` 之前）**：
+
+导航到**实现侧**后，工具按 `120ms` 间隔轮询 `document.querySelector(readySelector)`（上界 `15s`），
+**就绪通过后才进 `settleMs` 静置**——「等应用把首屏挂出来」与「再等渲染收敛」是两段，
+前者不该靠调大 `settleMs` 去祈祷。
+
+- **语义**：命中即算就绪；未命中就一直轮询（选择器只要**存在**即可，不判数量/可见性）。
+- **缺省回退**：未配置时取**首个 `delivered` 块的首条 check 的 `selector`**
+  （`manifest.readySelector ?? 首个 delivered 块首条 check`）⇒ 只写清单不写该键也照常就绪。
+  首个 `delivered` 块的 check 若选的是懒加载元素（如图表 canvas），建议显式给 `readySelector`；
+  全是 `pending` 块的清单没有回退值，就不轮询、只静置。
+- **超时不判失败**：`15s` 内没等到只上屏告警
+  `[!] 就绪选择器超时的档位：…（断言已如实执行）`，**退出码不变**——超时是「慢」不是「错」。
+  选择器写错（非法 CSS）会退化成每档白等 `15s`，靠这行告警定位。
+- **只作用于实现侧**：原型侧是静态设计稿，仍只用 `settleMs`。
+
+例句：`"readySelector": "[data-card]"`。
 
 **check 词汇表**（只此六种，够用且可判定）：
 
@@ -285,6 +319,8 @@ lib/report.mjs       文本 / JSON 报告
 - **console 只判实现侧**：原型侧的设计稿引用可能自带噪声，不参与判定。
 - **需要交互才出现的元素**（开抽屉、切 tab）不在本工具范围——静态断言只覆盖默认态。
 - **`settleMs` 是保守静置**：图表/动画未收敛时会读到中间态；必要时按项目调大。
+- **`readySelector` 轮询超时不算失败**：`15s` 没等到只上屏告警，退出码不变（超时是「慢」不是「错」）；
+  它与 `settleMs` 是**先后两段**——先等就绪、再静置（见 §4）。
 - **主题媒体特性**：`theme` 未配置时不注入 `prefers-color-scheme`，页面按环境默认走。
 
 ---
