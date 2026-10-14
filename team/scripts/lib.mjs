@@ -255,8 +255,8 @@ function mkdirLock(lockDir) {
 // `ready`，反把**规范值** `todo` 挡在门外（T-20261014-204530：卡被送回为 `todo` 后 claim 静默
 // `status=todo` 拒领，换人/换脚本即卡死）。归一：`todo`（规范）与 `ready`（兼容别名）**同视为
 // new**；仅此二者，不引入第三种语义。
-const NEW_STATUSES = new Set(['todo', 'ready']);
-const isNewStatus = (s) => NEW_STATUSES.has(s);
+export const NEW_STATUSES = new Set(['todo', 'ready']);
+export const isNewStatus = (s) => NEW_STATUSES.has(s);
 
 /** 尝试清理陈旧锁；返回 true=已清理（可重试加锁） */
 function clearStaleLockIfAllowed(lockDir, fm, now) {
