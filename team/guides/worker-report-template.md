@@ -9,8 +9,10 @@
 > (`PROTOCOL §④` reporting discipline) — this guide governs the **card-facing** Report.
 > **Language.** English by default (`PROTOCOL §④`); keep code/technical terms in English.
 > **Enforcement.** The common core is machine-checked by `team/scripts/check-report.mjs`
-> in the `check-all` fast segment (`PROTOCOL §⑳.1`, `AUTOMATIONS.md §3.5.1/§6`). The
-> role-specific sections are audited by the role's own review, not mechanically.
+> in the `check-all` fast segment (`PROTOCOL §⑳.1`, `AUTOMATIONS.md §3.5.1/§6`) — slot
+> **presence**, plus the two declared-semantic rules of §1: the **A0 report origin**
+> (`delivery` | `import`) and the **A4 → A6 coupling** for unmet items. The role-specific
+> sections are audited by the role's own review, not mechanically.
 
 ## 0. How the slots work (the anchor grammar)
 
@@ -32,9 +34,35 @@ Every required item is introduced by a **slot label** at the start of a line:
 Role-specific slots continue the same grammar: `L1…L6` (Linus), `J1…J5` (Jobs),
 `T1…T7` (Turing).
 
+One slot is **optional**: `A0` (§1) — the report origin. Omitting it means `delivery`
+(the deliverer wrote their own Report). Writing it is how a migration / proxy-collected
+Report states what it is.
+
 ---
 
 ## 1. Common core — required for every worker
+
+### A0 (optional) Report origin — who wrote this Report
+
+- **Write** — only when the Report is **not** the deliverer's own: one line with the origin
+  token, the **author** and the **source**:
+  `- **A0 Report origin** — import; author: elon; source: collected from workspace/T-…/handoff.md after the owning session died.`
+  A Report the deliverer wrote themselves may state `- **A0 Report origin** — delivery` (optional).
+- **Vocabulary** — one machine-readable token: **`delivery` | `import`**. Chinese
+  equivalents are accepted: `交付者本人` = delivery, `代收口` / `迁移` / `补写` / `导入` = import.
+  Any other wording is read as **unrecognised** and fails closed (see below).
+- **Why acceptance needs it**: `delivery` is the deliverer's own claim and can be used as
+  acceptance evidence; `import` says *somebody else* collected it (a migration, or a proxy
+  pick-up for a dead session) — it is **not** delivery evidence. TaskPanel's
+  `task_reports.origin = delivery | import` draws exactly this line, and the four cards that
+  reached `in_review` with a blank Report on 2026-10-14 were of the proxy kind: the evidence
+  was not missing so much as **not the deliverer's**.
+- **Default**: no `A0` line ⇒ `delivery` (the normal case).
+- **Machine consequence** (`in_review` only): an `import` Report must name **both**
+  `author` and `source`, and it can **never** clear an `in_review` card on its own — the gate
+  reports it as not-delivery-evidence so a proxy Report cannot open the acceptance door. The
+  route out is a real Report from the deliverer, or a reviewed register entry (`§5`).
+- **Minimal example**: `- **A0 Report origin** — delivery.`
 
 ### A1 Conclusion — verdict first
 
@@ -48,6 +76,11 @@ Role-specific slots continue the same grammar: `L1…L6` (Linus), `J1…J5` (Job
 
 - **Write**: the **card path**, the **commit hash**, the **branch / base**, and whether
   it is **pushed**.
+- **If the card has been sent back** (its frontmatter carries a `blocked_at`, i.e. this is
+  round ≥ 2): also state the **delivery time / round** of *this* round. Nothing on the card
+  face records *when* the Report was written, so without it acceptance cannot tell a fresh
+  Report from the previous round's reused one, and the gate can only raise an advisory hint
+  (`§5`).
 - **Why acceptance needs it**: without the card path the auditor cannot tell *which*
   card the Report belongs to; without the hash the claim is not reproducible.
   (Historical hit rate for the card path is the worst of the whole core — see §4.)
@@ -64,18 +97,24 @@ Role-specific slots continue the same grammar: `L1…L6` (Linus), `J1…J5` (Job
 
 ### A4 Acceptance item-by-item
 
-- **Write**: a table or list mapping **every** Acceptance item on the card to the
-  evidence that discharges it. Unfinished items are marked "not done" — never hidden.
+- **Write**: a table mapping **every** Acceptance item on the card to the evidence that
+  discharges it, each with a **status from the fixed vocabulary `met | partial | not_met`**
+  — no other words (`done`, `ok`, `yes`, emoji are not statuses).
+- **Coupling rule**: a row that is **not** `met` must **also** appear in **A6**, with its
+  owner. `partial`/`not_met` in A4 with no matching A6 entry means the item was quietly
+  dropped — and a `partial` row next to an A6 that says "none" is a contradiction the gate
+  flags as a hint. Unfinished work is declared, never hidden.
 - **Why acceptance needs it**: this is the spine of the audit; a missing row is an
-  unauditable Acceptance item.
+  unauditable Acceptance item, and an unmet item with no A6 entry is an unowned gap.
 - **Minimal example**:
 
   ```
   - **A4 Acceptance item-by-item**
     | # | item | status | evidence |
     |---|---|---|---|
-    | ① | guide with common core | done | team/guides/worker-report-template.md §1 |
-    | ② | machine check | done | team/scripts/check-report.mjs + tests |
+    | ① | guide with common core | met | team/guides/worker-report-template.md §1 |
+    | ② | machine check | met | team/scripts/check-report.mjs + tests |
+    | ③ | A/B before-after table | partial | no pre-fix reading taken → A6 #2 |
   ```
 
 ### A5 Re-run evidence
@@ -89,9 +128,10 @@ Role-specific slots continue the same grammar: `L1…L6` (Linus), `J1…J5` (Job
 ### A6 Residuals / risks / open items + owner
 
 - **Write**: what is left undone, what could bite later, what is still undecided — each
-  with a named **owner** for the follow-up.
+  with a named **owner** for the follow-up. Every A4 row that is not `met` belongs here
+  (the §1 A4 coupling rule).
 - **Why acceptance needs it**: an unowned residual is a silent gap; acceptance must be
-  able to route it. "None" is a valid answer when true.
+  able to route it. "None" is a valid answer **only when every A4 row is `met`**.
 - **Minimal example**: `- **A6 Residuals** — the roles AGENTS.md leg cannot be deployed from a lane (outside its roots) → owner: integration leg / Elon.`
 
 ### A7 Out-of-literal handling
@@ -163,11 +203,24 @@ Role-specific slots continue the same grammar: `L1…L6` (Linus), `J1…J5` (Job
 
 ---
 
-## 3. Minimal compliant Report
+## 3. Skeleton — fill this in and it IS a legal Report
+
+The block below **passes `check-report.mjs` as written** (that is asserted by the suite: the
+fence is extracted and fed to the gate). Copy it into the card's `## Report` section and
+replace every value with yours. Three rules for filling it in:
+
+1. **Defaults are `not_met`.** Copy the rows out of the card's own `## Acceptance` list —
+   never write them from memory — and a row stays `not_met` until you hold the evidence that
+   upgrades it. `not_met` is a legal, honest status; an invented `met` is not.
+2. **Evidence: explicit first, never invented.** Prefer a path / command / exit code / hash
+   you actually produced over a sentence about it; if you have nothing, the row's evidence is
+   "none yet → A6", not a plausible-looking pointer.
+3. **Every non-`met` row reappears in A6** with an owner (§1 A4 coupling rule).
 
 ```markdown
 ## Report
 
+- **A0 Report origin** — delivery.
 - **A1 Conclusion** — acceptable; all Acceptance items met, live gate exit 0.
 - **A2 Delivery coordinates** — card: tasks/T-20261015-010749-2.md · commit: a1b2c3d ·
   branch: lane/T-20261015-010749-2-seg1 (base 1c54cec) · pushed: no (A8).
@@ -176,11 +229,13 @@ Role-specific slots continue the same grammar: `L1…L6` (Linus), `J1…J5` (Job
 - **A4 Acceptance item-by-item**
   | # | item | status | evidence |
   |---|---|---|---|
-  | ① | guide | done | guides/worker-report-template.md |
-  | ② | machine check | done | scripts/check-report.mjs |
+  | ① | guide with the common core | met | guides/worker-report-template.md §1 |
+  | ② | machine check + tests | met | scripts/check-report.mjs + scripts/tests/check-report.test.mjs |
+  | ③ | A/B before-after table | partial | no pre-fix reading was taken → A6 #1 |
 - **A5 Re-run evidence** — cmd: node --test scripts/tests/check-report.test.mjs · exit: 0 ·
   artifact: workspace/<id>/test-output.txt
-- **A6 Residuals** — none outstanding (or: <item> → owner <role>).
+- **A6 Residuals** — ③ A/B table carries no before-reading (`partial`) → owner: integration
+  leg; and: <item> → owner <role>.
 - **A7 Out-of-literal handling** — none (or: <item> · revertible yes/no).
 - **A8 Not pushed** — no push; branch <branch> @ <hash>; worktree clean, reclaimable.
 
@@ -192,6 +247,10 @@ Role-specific slots continue the same grammar: `L1…L6` (Linus), `J1…J5` (Job
 - **L5 Build/deploy evidence** — cmd + exit + instance sha before/after.
 - **L6 Commit discipline** — `git commit -- <paths>`; explicit paths; no destructive git.
 ```
+
+When the Report is **not** yours to write (§1 A0) the first line becomes
+`- **A0 Report origin** — import; author: <who>; source: <from where>` — and the card stays
+un-acceptable as delivery evidence until the deliverer's own Report exists.
 
 ---
 
@@ -230,10 +289,21 @@ habit), but three families leak systematically.
 5. **The empty-Report accident.** On the night of 2026-10-14, four cards reached
    `in_review` with a **blank `## Report`** — the shape was not the problem, the absence
    was. `check-report.mjs` hard-checks exactly that case (`in_review` ⇒ Report present,
-   non-empty, all eight slots); see its header for the trigger surface, the effective
-   cutoff, and the exemption switch.
+   non-empty, all eight slots); see §5 for the trigger surface, the effective cutoff, and
+   the exemption switch.
+6. **The proxy Report — the sharper half of that accident.** A Report that exists but was
+   written by **someone other than the deliverer** (a migration, or a proxy pick-up for a
+   dead session) carries no delivery evidence, yet it *looks* complete: all eight slots can
+   be filled and the card still has nothing in it to accept. That is why the origin is a
+   slot of its own (`§1 A0`) and why `import` can never clear an `in_review` card on its own.
+   **A0 is the one slot where saying nothing is the normal case** — which makes the
+   undeclared proxy Report the residual risk (§1 A0, §5).
+7. **The reused Report — the round gap.** When a card is sent back and re-delivered, the
+   previous round's Report may simply stay on the card and satisfy every slot. There is no
+   write-timestamp on a `## Report` section, so the only counter is A2's delivery
+   time/round declaration for sent-back cards — a hint, not a block (§5).
 
-## 5. Effective date and grandfathering
+## 5. Effective date, grandfathering and the gate surface
 
 - **Effective from 2026-10-15** (the local day Terry's instruction landed). Cards created
   before the gate's cutover are **grandfathered** — violations are reported as warnings
@@ -241,5 +311,31 @@ habit), but three families leak systematically.
 - **Terminal cards** (`done` / `canceled` / `failed`) are never checked at all.
 - **Only `in_review` is a hard trigger.** Cards still being worked
   (`in_progress` / `blocked` / `todo` / `ready` / `backlog`) are at most a warning.
-- Full trigger surface, cutoff and exemption switches: `team/scripts/check-report.mjs`
-  header (`PROTOCOL §⑳.1` machine-checkable gate row).
+
+What `check-report.mjs` actually decides (this section and the script header are the
+contract; `PROTOCOL §⑳.1` carries the registry row):
+
+| surface | rule | effect |
+|---|---|---|
+| slots `A1…A8` | label present **and** carrying text (§0/§1) | `in_review` + past cutoff ⇒ **violation** |
+| empty / missing `## Report` | the 2026-10-14 accident shape (§4 #5) | violation (same class) |
+| origin `A0` | no line ⇒ `delivery`; `import` without `author:`+`source:` ⇒ violation; `import` **at all** ⇒ not-delivery-evidence violation (§1 A0) | violation; `import` is cleared only by a real Report or a register entry |
+| origin `A0` unreadable | a present `A0` whose token is neither `delivery` nor `import` | violation (fails closed — an unreadable provenance claim must not open the door) |
+| A4 → A6 coupling | a `partial`/`not_met` row while A6 claims "none" | **hint only** (non-blocking) |
+| round (sent-back card) | `blocked_at` set and `status_changed_at` later, Report declares no delivery time/round | **hint only** (non-blocking) |
+| A2 card path / commit, A5 exit code | content shape | **hint only** (non-blocking) |
+| role slots `L*` / `J*` / `T*` | — | never machine-checked (§2) |
+
+- **Grandfathering wins over every new rule**: a pre-cutoff card is reported at most as a
+  warning, so none of the rules above retro-redden history. The hints in the last two rows
+  are computed **only** for cards past the cutoff, so historical cards are not nagged either.
+- **Escapes**: `OPENCLAW_TEAM_REPORT_EFFECTIVE_AT` moves the cutoff; the register
+  (`scripts/report-baseline.json` ∪ `<tasks>/.report-baseline.json`) exempts a card whose
+  **current** gap set matches exactly (so an exemption cannot hide a *new* gap);
+  `--no-baseline` ignores both sources for a true-violation reading.
+- **Known limit of the origin rule**: the gate reads what the card **declares**. A proxy
+  Report that simply omits `A0` is indistinguishable from a delivered one; closing that needs
+  the provider ACL to stamp `origin` at write time (`skills/task-ops/lib/task.mjs#writeReport`)
+  — a base-side change, tracked as a residual on T-20261015-010749-2, not enforced here.
+- Full trigger surface, cutoff and exemption switches: `team/scripts/check-report.mjs` header
+  (`PROTOCOL §⑳.1` machine-checkable gate row).

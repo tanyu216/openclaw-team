@@ -14,7 +14,14 @@
  *   ④ 生效截止：`created_at < EFFECTIVE_AT` ⇒ grandfather（warn、退出 0）；前缀截止（env）⇒ 转硬；
  *   ⑤ 豁免机制：① 托管模板（**仓内副本必须为空**，被本文件钉住）∪ ② 运行时登记（tasks 目录内）；
  *      判据 = id + 缺口集合全等 ⇒ 集合一变即失效（防「登记一次、永久放行」）；
- *   ⑥ `--no-baseline` 忽略两源；内容提示（A2 卡路径/hash、A5 退出码）**永远非阻断**。
+ *   ⑥ `--no-baseline` 忽略两源；内容提示（A2 卡路径/hash、A5 退出码）**永远非阻断**；
+ *   ⑦ **guide ↔ gate 契约**：guide §3 骨架逐字过判定 ⇒ 0 缺口 / 0 来源缺口 / 0 提示；
+ *   ⑧+ **增补轮 Δ1/Δ2/Δ4**（Elon 2026-10-14T18:05:24Z kind=change）：
+ *      Δ1 —— A4 状态词表 `met|partial|not_met`：未达成项而 A6 写「无残留」⇒ 提示（非阻断）；
+ *      Δ2 —— 报告作者来源 `delivery`（默认）vs `import`（迁移/代收口）：import 须标注 author+source，
+ *            且**一律不得当交付证据开门**（`in_review` ⇒ 判红）；含**判定变异自证**与登记豁免口径；
+ *      Δ4 —— 轮次语义 warn-only：被退回后重新交付而 Report 未声明本轮时间/轮次 ⇒ 提示（非阻断）。
+ *      两条新提示**只对生效截止之后的卡**生效（历史卡不制造噪声）。
  *
  * 隔离：`OPENCLAW_TEAM_ROOT` = mkdtemp（TASKS_DIR 于 lib.mjs 模块加载期读取，须先设 env 再 import）
  * ⇒ 绝不碰真实看板、绝不写仓内模板。
@@ -61,13 +68,17 @@ process.env.OPENCLAW_TEAM_ROOT = ROOT;
 
 let scanReports, slotGaps, slotRegex, reportBody, contentHints, REQUIRED_SLOTS,
   EFFECTIVE_AT, effectiveAt, BASELINE_PATH, RUNTIME_BASELINE_NAME, runtimeBaselinePath,
-  loadBaseline, loadExemptions;
+  loadBaseline, loadExemptions,
+  reportOrigin, originGaps, roundHint, deliveryHints, ORIGIN_DELIVERY, ORIGIN_IMPORT, ORIGIN_UNKNOWN,
+  GAP_ORIGIN_UNKNOWN, GAP_IMPORT_NO_PROVENANCE, GAP_IMPORT_NOT_DELIVERY;
 if (PROVIDER) {
   process.env.OPENCLAW_TASK_OPS_DIR = PROVIDER;
   ({
     scanReports, slotGaps, slotRegex, reportBody, contentHints, REQUIRED_SLOTS,
     EFFECTIVE_AT, effectiveAt, BASELINE_PATH, RUNTIME_BASELINE_NAME, runtimeBaselinePath,
     loadBaseline, loadExemptions,
+    reportOrigin, originGaps, roundHint, deliveryHints, ORIGIN_DELIVERY, ORIGIN_IMPORT, ORIGIN_UNKNOWN,
+    GAP_ORIGIN_UNKNOWN, GAP_IMPORT_NO_PROVENANCE, GAP_IMPORT_NOT_DELIVERY,
   } = await import('../check-report.mjs'));
 }
 
@@ -78,13 +89,15 @@ beforeEach(() => {
 
 // ---------- fixtures ----------
 
-/** 合规 Report 正文（8 槽位齐备 + A2 带卡路径/hash + A5 带退出码）。slot 省略 ⇒ 整行删掉（变异）。 */
+/** 合规 Report 正文（8 槽位齐备 + A0 delivery + A2 带卡路径/hash + A5 带退出码）。
+ *  slot 省略 ⇒ 整行删掉（变异）；`report` 可整体替换（Δ2/Δ4 用）。 */
 function goodReport(mutate = () => {}) {
   const lines = {
+    A0: '- **A0 Report origin** — delivery.',
     A1: '- **A1 Conclusion** — acceptable; all Acceptance items met, gate exit 0.',
     A2: '- **A2 Delivery coordinates** — card: tasks/T-20261015-010749-2.md · commit: a1b2c3d4e5 · branch: lane/x (base 1c54cec) · pushed: no.',
     A3: '- **A3 Change surface** — 6 files; no implementation change; no out-of-bounds edits.',
-    A4: '- **A4 Acceptance item-by-item**\n  | # | item | status | evidence |\n  |---|---|---|---|\n  | ① | guide | done | guides/worker-report-template.md |',
+    A4: '- **A4 Acceptance item-by-item**\n  | # | item | status | evidence |\n  |---|---|---|---|\n  | ① | guide | met | guides/worker-report-template.md |',
     A5: '- **A5 Re-run evidence** — cmd: node --test tests/x.test.mjs · exit: 0 · artifact: workspace/x/out.txt',
     A6: '- **A6 Residuals** — none outstanding.',
     A7: '- **A7 Out-of-literal handling** — none.',
@@ -100,12 +113,17 @@ function goodReport(mutate = () => {}) {
   return Object.entries(lines).filter(([k]) => !removed.has(k)).map(([, v]) => v).join('\n');
 }
 
+/** 把合规 Report 的第一行换成给定的 A0 声明（Δ2 用）。 */
+const withOrigin = (a0) => [a0, ...goodReport().split('\n').slice(1)].join('\n');
+
 const CUTOVER = '2026-10-15T00:00:00.000Z';   // 晚于 EFFECTIVE_AT ⇒ 硬触发
 const ANCIENT = '2026-01-01T00:00:00.000Z';   // 早于 EFFECTIVE_AT ⇒ grandfather
+/** 退回后重新交付的卡头（Δ4：blocked_at 有值 且 status_changed_at 晚于它）。 */
+const SENT_BACK = { blocked_at: '2026-10-14T18:05:24.600Z', status_changed_at: '2026-10-15T01:30:00.000Z' };
 
 function cardText({
   id, status = 'in_review', report = goodReport(), created_at = CUTOVER,
-  title = 't', alreadyHasReportSection = true,
+  title = 't', alreadyHasReportSection = true, blocked_at = '', status_changed_at = '',
 }) {
   const body = [
     '## Background', 'x',
@@ -116,7 +134,9 @@ function cardText({
     ...(alreadyHasReportSection ? ['## Report', report] : []),
     '',
   ].join('\n');
-  return `---\nid: ${id}\ntitle: ${title}\nassignee: linus\nstatus: ${status}\ncreated_at: "${created_at}"\nproject: __team__\ntarget: /x\n---\n${body}`;
+  return `---\nid: ${id}\ntitle: ${title}\nassignee: linus\nstatus: ${status}\n`
+    + `created_at: "${created_at}"\nblocked_at: "${blocked_at}"\nstatus_changed_at: "${status_changed_at}"\n`
+    + `project: __team__\ntarget: /x\n---\n${body}`;
 }
 function writeCard(opts) {
   fs.writeFileSync(path.join(TASKS, `${opts.id}.md`), cardText(opts), 'utf8');
@@ -373,6 +393,219 @@ test('⑥ 内容提示：A2 缺卡路径/hash、A5 缺退出码 ⇒ hint；齐�
   assert.match(cli.err, /内容提示/);
   // 中文等价写法同样被识别为「有退出码」
   assert.deepEqual(contentHints(goodReport((s) => s.set('A5', '- **A5 复跑证据** — 命令: node x · 退出码 0'))), []);
+});
+
+// ---------- ⑦ guide ↔ gate 契约（Δ3：§3 骨架「填进去即合法报告」） ----------
+
+const GUIDE = path.join(HERE, '..', '..', 'guides', 'worker-report-template.md');
+
+/** 抽 guide §3 的 ```markdown 骨架（与 workspace/verify-guide-example.mjs 同取法）。 */
+function guideSkeleton() {
+  const md = fs.readFileSync(GUIDE, 'utf8');
+  const start = md.indexOf('## 3. ');
+  assert.ok(start >= 0, 'guide §3 必须存在');
+  const fenceStart = md.indexOf('```markdown', start);
+  const fenceEnd = md.indexOf('```', fenceStart + '```markdown'.length);
+  assert.ok(fenceStart >= 0 && fenceEnd > fenceStart, 'guide §3 必须含 ```markdown 骨架');
+  return md.slice(fenceStart + '```markdown'.length, fenceEnd);
+}
+
+test('⑦ guide↔gate：§3 骨架逐字过判定 ⇒ 0 缺口 / 0 来源缺口 / 0 提示（骨架即合法报告）', { skip: SKIP }, () => {
+  const block = guideSkeleton();
+  assert.deepEqual(slotGaps(block), [], 'guide 自己的骨架不得被判缺槽位');
+  const origin = reportOrigin(block);
+  assert.equal(origin.origin, ORIGIN_DELIVERY, '骨架声明的来源应为 delivery');
+  assert.equal(origin.declared, true, '骨架应显式写出 A0（示范用法）');
+  assert.deepEqual(originGaps(origin), []);
+  assert.deepEqual(contentHints(block), [], '合规骨架不得产生 A2/A5 提示');
+  // 未声明被退回 ⇒ 不应触发轮次提示；A4 有 partial 但 A6 已交代 ⇒ 不应触发耦合提示
+  assert.deepEqual(deliveryHints(block, { status: 'in_review', blocked_at: '', status_changed_at: '' }), [],
+    'guide 骨架必须是零提示的范例（否则标准本身在制造假信号）');
+});
+
+test('⑦ guide 文本钉住 Δ1/Δ2 口径与状态词表（标准与机检不能各说各话）', { skip: SKIP }, () => {
+  const md = fs.readFileSync(GUIDE, 'utf8');
+  assert.match(md, /met \| partial \| not_met/, 'guide 必须写死 A4 状态词表');
+  assert.match(md, /A0 Report origin/, 'guide 必须给出 A0 槽位的可复制写法');
+  assert.match(md, /import; author:/, 'guide 必须示范代收口的 author/source 标注');
+  assert.match(md, /never invented/i, 'guide 必须写明「证据绝不臆造」');
+  assert.match(md, /not_met/, 'guide 骨架默认值须可用 not_met');
+});
+
+// ---------- Δ1：A4 状态词表 + A4→A6 耦合（提示，非阻断） ----------
+
+test('Δ1 耦合：A4 有 partial/not_met 而 A6 写「无残留」⇒ 提示；A6 有交代 ⇒ 无提示；均不阻断', { skip: SKIP }, () => {
+  const partial = goodReport((s) => s.set('A4',
+    '- **A4 Acceptance item-by-item**\n  | # | item | status | evidence |\n  |---|---|---|---|\n'
+    + '  | ① | guide | partial | guides/x.md → A6 |'));
+  const consistent = goodReport((s) => {
+    s.set('A4', partial.split('\n').slice(0, 5).join('\n'));
+    s.set('A6', '- **A6 Residuals** — ① guide is `partial` (no example yet) → owner: integration leg.');
+  });
+  // A4=partial 且 A6=none ⇒ 矛盾 ⇒ 提示（点名 A6）
+  assert.deepEqual(deliveryHints(partial, { status: 'in_review' }).map((h) => h.slot), ['A6']);
+  // A6 交代了 ⇒ 无提示
+  assert.deepEqual(deliveryHints(consistent, { status: 'in_review' }), []);
+  // 全 met ⇒ 无提示（goodReport 的 A6 正是「none outstanding」）
+  assert.deepEqual(deliveryHints(goodReport(), { status: 'in_review' }), []);
+
+  writeCard({ id: 'T-20261015-000018-i', report: partial });
+  const r = scan();
+  assert.equal(r.ok, true, 'Δ1 只是提示，绝不阻断');
+  assert.equal(r.hints.filter((h) => h.slot === 'A6').length, 1);
+  assert.equal(runCli().code, 0);
+  assert.match(runCli().err, /A4 有未达成项/);
+});
+
+test('Δ1 提示只对生效截止之后的卡生效（历史卡不制造噪声）', { skip: SKIP }, () => {
+  const partial = goodReport((s) => s.set('A4',
+    '- **A4 Acceptance item-by-item**\n  | # | item | status | evidence |\n  |---|---|---|---|\n'
+    + '  | ① | guide | not_met | none yet → A6 |'));
+  writeCard({ id: 'T-20261015-000019-i', created_at: ANCIENT, report: partial });
+  const r = scan();
+  assert.equal(r.ok, true);
+  assert.equal(r.hints.length, 0, 'grandfather 档不得被新口径回溯提示');
+});
+
+// ---------- Δ2：报告作者来源（delivery vs import/代收口） ----------
+
+test('Δ2 来源解析：无 A0 ⇒ delivery；显式 delivery ⇒ delivery；import ⇒ 须交代 author+source', { skip: SKIP }, () => {
+  // 无 A0 ⇒ 默认 delivery（正常情形：交付者本人写自己的 Report）
+  assert.deepEqual(reportOrigin(goodReport((s) => s.remove('A0'))), { origin: ORIGIN_DELIVERY, declared: false, author: '', source: '' });
+  // 显式 delivery（含中文等价写法）
+  assert.equal(reportOrigin(goodReport()).origin, ORIGIN_DELIVERY);
+  assert.equal(reportOrigin(withOrigin('- **A0 报告来源** — 交付者本人自写。')).origin, ORIGIN_DELIVERY);
+  // import：交代齐 ⇒ 只剩「非交付证据」一条
+  const full = reportOrigin(withOrigin('- **A0 Report origin** — import; author: elon; source: workspace/T-1/handoff.md'));
+  assert.deepEqual(full, { origin: ORIGIN_IMPORT, declared: true, author: 'elon', source: 'workspace/T-1/handoff.md' });
+  assert.deepEqual(originGaps(full), [GAP_IMPORT_NOT_DELIVERY]);
+  // 中文写法同样识别
+  const cn = reportOrigin(withOrigin('- **A0 报告来源** — 代收口补写；作者：elon；来源：workspace/T-1/handoff.md'));
+  assert.equal(cn.origin, ORIGIN_IMPORT);
+  assert.equal(cn.author, 'elon');
+  assert.equal(cn.source, 'workspace/T-1/handoff.md');
+  // import 缺 author/source ⇒ 两条缺口（交代 + 不开门）
+  const bare = reportOrigin(withOrigin('- **A0 Report origin** — import; the owning session died.'));
+  assert.equal(bare.author, '');
+  assert.deepEqual(originGaps(bare), [GAP_IMPORT_NO_PROVENANCE, GAP_IMPORT_NOT_DELIVERY]);
+  // 自报来源不可识别 ⇒ fail-closed（不得当交付证据开门）
+  const odd = reportOrigin(withOrigin('- **A0 Report origin** — collected by whoever was around.'));
+  assert.equal(odd.origin, ORIGIN_UNKNOWN);
+  assert.deepEqual(originGaps(odd), [GAP_ORIGIN_UNKNOWN]);
+  // delivery 槽位不是必需项：缺 A0 不进槽位缺口
+  assert.deepEqual(slotGaps(goodReport((s) => s.remove('A0'))), []);
+});
+
+test('Δ2 硬判定：槽位齐备但来源=import ⇒ 仍判红、退出 1（代收口报告不得当交付证据开门）', { skip: SKIP }, () => {
+  const imported = withOrigin('- **A0 Report origin** — import; author: elon; source: workspace/T-1/handoff.md');
+  assert.deepEqual(slotGaps(imported), [], '前提：槽位本身齐备（这正是「看起来完整」的代收口报告）');
+  writeCard({ id: 'T-20261015-000020-j', report: imported });
+
+  const r = scan();
+  assert.equal(r.ok, false, '代收口报告不得开门');
+  assert.deepEqual(r.violations.map((v) => [v.id, v.gaps]), [['T-20261015-000020-j', [GAP_IMPORT_NOT_DELIVERY]]]);
+  assert.equal(r.violations[0].origin, ORIGIN_IMPORT);
+  const cli = runCli();
+  assert.equal(cli.code, 1);
+  assert.match(cli.err, /代收口/);
+  assert.match(cli.err, /origin=import/);
+
+  // 交付者本人补写 ⇒ 恢复绿（同一张卡、唯一变量是 A0 那一行）
+  writeCard({ id: 'T-20261015-000020-j', report: goodReport() });
+  assert.equal(scan().ok, true);
+  assert.equal(runCli().code, 0);
+
+  // 缺 author/source ⇒ 两条缺口（登记集合必须全等，不能只登记一条蒙混）
+  for (const f of fs.readdirSync(TASKS)) fs.rmSync(path.join(TASKS, f));
+  writeCard({ id: 'T-20261015-000021-j', report: withOrigin('- **A0 Report origin** — import; no provenance recorded.') });
+  assert.deepEqual(scan().violations.map((v) => v.gaps), [[GAP_IMPORT_NO_PROVENANCE, GAP_IMPORT_NOT_DELIVERY]]);
+
+  // 来源自称不可识别 ⇒ 同样判红（fail-closed）
+  for (const f of fs.readdirSync(TASKS)) fs.rmSync(path.join(TASKS, f));
+  writeCard({ id: 'T-20261015-000022-j', report: withOrigin('- **A0 Report origin** — someone collected it, unclear who.') });
+  assert.deepEqual(scan().violations.map((v) => v.gaps), [[GAP_ORIGIN_UNKNOWN]]);
+});
+
+test('Δ2 判定变异：摘掉来源判定后「import 报告」不再被测出 ⇒ 证明上一条有杀伤力', { skip: SKIP }, async () => {
+  const src = fs.readFileSync(CHECK_REPORT, 'utf8');
+  const patched = src.replace('const hardGaps = [...gaps, ...originGaps(origin)];', 'const hardGaps = [...gaps];');
+  assert.notEqual(patched, src, '变异必须真的改到判定（来源缺口不再并入硬缺口集），否则本测试无意义');
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-report-mut2-'));
+  TMP.push(dir);
+  fs.symlinkSync(path.join(HERE, '..', 'lib.mjs'), path.join(dir, 'lib.mjs'));
+  fs.writeFileSync(path.join(dir, 'check-report.mjs'), patched, 'utf8');
+  const mut = await import(pathToFileURL(path.join(dir, 'check-report.mjs')).href);
+
+  const imported = withOrigin('- **A0 Report origin** — import; author: elon; source: workspace/T-1/handoff.md');
+  writeCard({ id: 'T-20261015-000023-k', report: imported });
+  assert.equal(mut.scanReports(TASKS, { baseline: [] }).violations.length, 0, '判定被摘掉 ⇒ import 报告不再判红（= 变异存活）');
+  assert.equal(scanReports(TASKS, { baseline: [] }).violations.length, 1, '真实判定必须测出该缺口');
+});
+
+test('Δ2 与既有机制的边界：grandfather 优先 / 软档不消费 / 登记可豁免（人工核对后）', { skip: SKIP }, () => {
+  const imported = withOrigin('- **A0 Report origin** — import; author: elon; source: workspace/T-1/handoff.md');
+  // ① 截止前的卡：来源规则也不追溯转红
+  writeCard({ id: 'T-20261015-000024-k', created_at: ANCIENT, report: imported });
+  let r = scan();
+  assert.equal(r.ok, true, 'grandfather 优先于来源判定（历史卡不翻旧账）');
+  assert.deepEqual(r.grandfathered.map((g) => [g.id, g.gaps]), [['T-20261015-000024-k', [GAP_IMPORT_NOT_DELIVERY]]]);
+  assert.equal(runCli().code, 0);
+
+  // ② 软触发档（in_progress）：来源判定只作用于 in_review
+  for (const f of fs.readdirSync(TASKS)) fs.rmSync(path.join(TASKS, f));
+  writeCard({ id: 'T-20261015-000025-k', status: 'in_progress', report: imported });
+  r = scan();
+  assert.equal(r.violations.length, 0, '草稿态不因来源判红');
+  assert.equal(r.ok, true);
+
+  // ③ 人工核对后的登记（迁移期一次性补写）⇒ 豁免；缺口集合一变即失效
+  for (const f of fs.readdirSync(TASKS)) fs.rmSync(path.join(TASKS, f));
+  writeCard({ id: 'T-20261015-000026-k', report: imported });
+  registerRuntime([{ id: 'T-20261015-000026-k', gaps: [GAP_IMPORT_NOT_DELIVERY], reason: '迁移期一次性补写' }]);
+  r = scan();
+  assert.deepEqual(r.exempt.map((e) => [e.id, e.reason]), [['T-20261015-000026-k', '迁移期一次性补写']]);
+  assert.equal(runCli().code, 0);
+  assert.equal(runCli(['--no-baseline']).code, 1, '--no-baseline 下露出真违规（登记不掩盖）');
+  fs.rmSync(runtimeBaselinePath(TASKS), { force: true });
+});
+
+// ---------- Δ4：轮次语义（warn-only，防复用旧轮报告） ----------
+
+test('Δ4 轮次：被退回后重新交付且 Report 未声明本轮时间 ⇒ 提示（不阻断）；声明了 ⇒ 无提示', { skip: SKIP }, () => {
+  writeCard({ id: 'T-20261015-000027-l', ...SENT_BACK });
+  let r = scan();
+  assert.equal(r.ok, true, '轮次提示绝不阻断');
+  assert.deepEqual(r.hints.map((h) => h.slot), ['A2']);
+  assert.match(r.hints[0].hint, /复用旧轮报告/);
+  assert.equal(runCli().code, 0);
+  assert.match(runCli().err, /复用旧轮报告/);
+
+  // A2 声明了本轮交付时间/轮次 ⇒ 无提示
+  writeCard({ id: 'T-20261015-000027-l', ...SENT_BACK, report: goodReport((s) => s.set('A2',
+    '- **A2 Delivery coordinates** — card: tasks/T-20261015-010749-2.md · commit: a1b2c3d4e5 · branch: lane/x · pushed: no · round 2 delivered 2026-10-15.') )});
+  assert.deepEqual(scan().hints, []);
+
+  // 未被退回的卡（无 blocked_at）⇒ 无提示（零噪声）
+  writeCard({ id: 'T-20261015-000028-l', status_changed_at: SENT_BACK.status_changed_at });
+  assert.deepEqual(scan().hints, []);
+
+  // 非 in_review ⇒ 不判（轮次只对交付待验收态有意义）
+  writeCard({ id: 'T-20261015-000029-l', status: 'in_progress', ...SENT_BACK });
+  assert.deepEqual(scan().hints, []);
+
+  // 截止前的被退回卡 ⇒ 不提示（历史卡不制造噪声）
+  writeCard({ id: 'T-20261015-000030-l', created_at: ANCIENT, ...SENT_BACK });
+  assert.deepEqual(scan().hints, []);
+});
+
+test('Δ4 直连判定：roundHint 只在「in_review + 被退回 + 无时间/轮次声明」时出提示', { skip: SKIP }, () => {
+  const body = goodReport();
+  assert.ok(roundHint({ status: 'in_review', ...SENT_BACK }, body));
+  assert.equal(roundHint({ status: 'in_review', blocked_at: '', status_changed_at: SENT_BACK.status_changed_at }, body), null, '无 blocked_at ⇒ 不是退回后重交付');
+  assert.equal(roundHint({ status: 'in_progress', ...SENT_BACK }, body), null);
+  assert.equal(roundHint({ status: 'in_review', ...SENT_BACK }, `${body}\n- delivered 2026-10-15T01:30Z`), null, '有日期 ⇒ 不提示');
+  assert.equal(roundHint({ status: 'in_review', ...SENT_BACK }, `${body}\n- round 3`), null, '有轮次 ⇒ 不提示');
 });
 
 // ---------- CLI 单卡模式 ----------
