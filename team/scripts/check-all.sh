@@ -2,7 +2,8 @@
 # check-all.sh — 日常巡检门禁聚合（PROTOCOL §⑳.1）
 # 用法：bash check-all.sh [--segment fast|slow|all] [--report <path>]
 #   --segment fast  只跑「快门禁」（秒级）：红线一致 / 术语抽象 / §引用可解析 / 依赖 CVE 扫描 /
-#                   防漂移巡检 / 卡 schema / handoff / 关系不变量 / 幂等 / 会话一致性 / 契约测试 /
+#                   防漂移巡检 / 卡 schema / handoff / 关系不变量 / 幂等 / 会话一致性 /
+#                   建卡完备性（epic 子卡完整性 + 路线图×卡 对账）/ 契约测试 /
 #                   ACL 终态守卫 / 项目解析 / 调度求值（provider ACL 4 套快测在此，in-band 即时信号）/ 归档预览
 #   --segment slow  只跑「慢套件」（带外刷新）：framework 套件 `node --test scripts/tests/*.test.mjs`
 #                   **+ provider ACL 全量** `node --test skills/task-ops/tests/*.test.mjs`（glob 全目录）
@@ -168,6 +169,14 @@ if [ "$provider_missing" = 0 ]; then
   run "关系不变量 check-relations"         node "$S/check-relations.mjs"
   run "建卡幂等(同 idem 非终态>1)"          node "$S/check-idem.mjs"
   run "卡↔registry session 一致性 check-sessions" node "$S/check-sessions.mjs"
+  # 建卡完备性门禁（epic 子卡完整性 + 「路线图 × 卡」对账；悬空路线图巡检为软告警，§⑩.2/§⑩.3/§⑳.1）。
+  # 只在脚本已部署时跑（部署前显式 skip，与 sla-scan 同款口径：避免「仓里已修 ≠ 线上已修」制造既存红）。
+  if [ -f "$S/check-epic-completeness.mjs" ]; then
+    run "建卡完备性 check-epic-completeness" node "$S/check-epic-completeness.mjs"
+  else
+    echo "── 建卡完备性 check-epic-completeness"
+    echo "   (skip) $S/check-epic-completeness.mjs 未部署（install.sh 部署后本步生效）"
+  fi
   run "契约测试（task-interface v1）"      node "$TEAM/skills/task-ops/tests/contract.test.mjs"
   run "ACL 终态不可逆守卫"                node "$TEAM/skills/task-ops/tests/terminal-guard.test.mjs"
   run "ACL 项目解析（identity code）"      node --test "$TEAM/skills/task-ops/tests/projects.test.mjs"
