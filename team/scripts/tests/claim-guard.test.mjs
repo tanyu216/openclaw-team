@@ -394,3 +394,95 @@ test('6. 终态（done）释放跨回合锁 ⇒ 后续可恢复', () => {
   assert.equal(again.ok, true, `done 释放锁后应可恢复，实际 ${JSON.stringify(again)}`);
   assert.equal(again.mode, 'recover_same');
 });
+
+// ---- 状态归一：todo（规范值）| ready（兼容别名）同视为 new（T-20261014-204530）----------
+// 缺陷：claimCard 原判据是**字面量** `status === 'ready'`，未做状态归一；而规范词表
+// （skills/task-ops/lib/task.mjs：CANONICAL_STATUSES 含 `todo`，`ready` 仅 STATUS_ALIASES 别名）
+// 明示 `todo` 才是规范值 ⇒ 卡被 Elon 送回为 `todo`（in_review|blocked|in_review → todo）后 claim
+// 静默 `status=todo` 拒领（换人/换脚本即卡死）。修复仅归一 new 档位（todo|ready），不引入第三种语义。
+// 下列四组：① todo 可领 ② ready 仍可领（兼容不回退）③ backlog 仍拒 ④ 其余守卫（epic/deps_unmet/
+// wrong_assignee/in_progress_fresh/turn_locked）仍拒（证明未放宽）。
+
+test('12. 状态归一①：`todo`（规范值）卡可领 ⇒ mode=new, status→in_progress', () => {
+  const id = 'T-20260101-020050-todo';
+  writeCard(id, { id, title: 'todo claimable', assignee: 'linus', status: 'todo' });
+
+  const r = claimCard(id, 'linus');
+  assert.equal(r.ok, true, `todo 卡应可领（规范化前为 status=todo 拒领），实际 ${JSON.stringify(r)}`);
+  assert.equal(r.mode, 'new', 'todo 与 ready 同档 ⇒ 应走 new');
+  assert.equal(readFm(id).status, 'in_progress');
+  assert.equal(readFm(id).claimed_by, 'linus');
+});
+
+test('12.1 状态归一②：`ready`（兼容别名）卡仍可领（兼容不回退）', () => {
+  const id = 'T-20260101-020051-ready';
+  writeCard(id, { id, title: 'ready claimable', assignee: 'linus', status: 'ready' });
+
+  const r = claimCard(id, 'linus');
+  assert.equal(r.ok, true, `ready 卡应可领（既有行为不得回退），实际 ${JSON.stringify(r)}`);
+  assert.equal(r.mode, 'new');
+  assert.equal(readFm(id).status, 'in_progress');
+});
+
+test('12.2 状态归一③负向：`backlog`（未排期）仍不可领 ⇒ status=backlog', () => {
+  const id = 'T-20260101-020052-backlog';
+  writeCard(id, { id, title: 'backlog not claimable', assignee: 'linus', status: 'backlog' });
+
+  const r = claimCard(id, 'linus');
+  assert.equal(r.ok, false, `backlog 不在 new 档，应仍拒领，实际 ${JSON.stringify(r)}`);
+  assert.equal(r.reason, 'status=backlog');
+  assert.equal(readFm(id).status, 'backlog', '拒领不得改写状态');
+});
+
+test('12.3 状态归一④负向：其余守卫逐条仍拒（epic/deps_unmet/wrong_assignee/in_progress_fresh/turn_locked）', () => {
+  // epic 容器：不可领
+  {
+    const id = 'T-20260101-020053-epic';
+    writeCard(id, { id, title: 'epic', assignee: 'linus', status: 'todo', kind: 'epic' });
+    const r = claimCard(id, 'linus');
+    assert.equal(r.ok, false, `epic 容器应仍拒，实际 ${JSON.stringify(r)}`);
+    assert.equal(r.reason, 'epic_container');
+  }
+  // deps_unmet：前置未 done
+  {
+    const dep = 'T-20260101-020054-dep';
+    const id = 'T-20260101-020055-depsum';
+    writeCard(dep, { id: dep, title: 'dep', assignee: 'jobs', status: 'todo' });
+    writeCard(id, { id, title: 'card', assignee: 'linus', status: 'todo', depends_on: [dep] });
+    const r = claimCard(id, 'linus');
+    assert.equal(r.ok, false, `前置未完成应仍拒，实际 ${JSON.stringify(r)}`);
+    assert.equal(r.reason, 'deps_unmet');
+    assert.deepEqual(r.deps, [dep]);
+  }
+  // wrong_assignee：assignee 不匹配（即便 status=todo）
+  {
+    const id = 'T-20260101-020056-wrong';
+    writeCard(id, { id, title: 'card', assignee: 'jobs', status: 'todo' });
+    const r = claimCard(id, 'linus');
+    assert.equal(r.ok, false, `assignee 不匹配应仍拒，实际 ${JSON.stringify(r)}`);
+    assert.equal(r.reason, 'wrong_assignee(assignee=jobs)');
+  }
+  // in_progress_fresh：心跳新鲜仍拒（执行唯一性）
+  {
+    const id = 'T-20260101-020057-fresh';
+    writeCard(id, {
+      id, title: 'card', assignee: 'linus', status: 'in_progress',
+      claimed_by: 'linus', claimed_at: OLD, heartbeat_at: new Date().toISOString(),
+    });
+    const r = claimCard(id, 'linus');
+    assert.equal(r.ok, false, `心跳新鲜应仍拒，实际 ${JSON.stringify(r)}`);
+    assert.equal(r.reason, 'in_progress_fresh');
+  }
+  // turn_locked：心跳陈旧但跨回合锁新鲜仍拒（同卡跨回合互斥）
+  {
+    const id = 'T-20260101-020058-turnlock';
+    writeCard(id, staleCardFm(id, 45 * MIN));
+    assert.equal(claimCard(id, 'linus').ok, true, '先恢复领取以落跨回合锁');
+    const rr = readCard(id);
+    rr.fm.heartbeat_at = new Date(Date.now() - 45 * MIN).toISOString();
+    writeCardAtomic(rr.cardPath, rr.fm, rr.body);
+    const r = claimCard(id, 'linus');
+    assert.equal(r.ok, false, `跨回合锁新鲜应仍拒，实际 ${JSON.stringify(r)}`);
+    assert.equal(r.reason, 'turn_locked');
+  }
+});
