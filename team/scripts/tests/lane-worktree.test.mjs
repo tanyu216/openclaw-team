@@ -6,6 +6,9 @@
  * 绿：幂等 create/reuse、两 lane 隔离（写不污染主 checkout）、复现既有手工 worktree 形状
  *   （`<repo>-wt-<lane>` + 显式 `--branch`）、`--dry-run` 零副作用、`--remove` 仅 clean 时清理、
  *   CLI 末行 JSON 契约、**绝不使用 `--force`**（自证）。
+ * RED→GREEN（T-20261014-053826-2）：「**登记在册 ≠ 可用**」—— 注册仍在、工作目录已删（或 `.git` 链断）
+ *   ⇒ **点名拒绝**（`worktree_stale_registration(<why>)`，绝不静默 `reused`），且 `--remove` 能摘掉该残留注册
+ *   （非破坏 git：分支保留、无需 `--force`）⇒ 重跑即附着重建。目录**还在**时一律不走近路（非破坏性自证）。
  *
  * 隔离：全部跑在 `os.tmpdir()` 下的临时 git 仓；不起子会话/不触网/不碰真实仓。
  * 运行：node --test scripts/tests/lane-worktree.test.mjs
@@ -58,6 +61,9 @@ function wtList(dir) {
   return map;
 }
 const porcelain = (dir) => spawnSync('git', ['-C', dir, 'status', '--porcelain'], { encoding: 'utf8' }).stdout.trim();
+/** `refs/heads/<branch>` 的 sha（不存在 ⇒ 空串）——用于断言「清理保留分支」 */
+const branchSha = (dir, b) =>
+  spawnSync('git', ['-C', dir, 'rev-parse', '--verify', '--quiet', `refs/heads/${b}`], { encoding: 'utf8' }).stdout.trim();
 
 // 前置：模块必须在实现后存在（红阶段此处抛错即红）
 const mod = await import(MOD.url ?? MOD);
@@ -117,6 +123,74 @@ test('GREEN-2. 幂等：首次 created=true；同参重跑 created=false（reuse
 
   const l = wtList(dir);
   assert.equal(l.size, 2, `应恰为 main + 1 个 lane worktree，实际 ${[...l.keys()].join(',')}`);
+});
+
+test('RED→GREEN. 「分支 ref 在、worktree 目录已删」⇒ 绝不读成 reused（点名拒绝 + --remove 恢复）(T-20261014-053826-2)', () => {
+  const { dir } = makeRepo();
+  const a = laneWorktree({ repo: dir, lane: 'laneA' });
+  assert.equal(a.ok, true, JSON.stringify(a));
+
+  // 构造真态：工作目录被删（半完成的建树被杀 / 人工 `rm -rf`），而 git 的 worktree **注册仍在**
+  fs.rmSync(a.path, { recursive: true, force: true });
+  assert.equal(fs.existsSync(a.path), false);
+  assert.equal(wtList(dir).has(a.path), true, '前置条件：注册仍在 —— 这正是「登记在、目录已删」');
+
+  // 红：修复前此处 `{ok:true, action:'reused'}` ⇒ 调用方（spawn-lane）把 lane 的 cwd 指向不存在的目录
+  const re = laneWorktree({ repo: dir, lane: 'laneA' });
+  assert.equal(re.ok, false, `残留注册不得读成可用：${JSON.stringify(re)}`);
+  assert.match(re.reason, /^worktree_stale_registration\(dir_missing\)/, re.reason);
+  assert.equal(re.stale, true);
+  assert.equal(re.stale_reason, 'dir_missing');
+  assert.equal(re.dir_exists, false);
+  assert.equal(fs.existsSync(a.path), false, '拒绝须零副作用：不重建、不落盘');
+  assert.equal(wtList(dir).has(a.path), true, '拒绝不得顺手摘注册（摘除是 --remove 的职责，见下）');
+
+  // 预演同判：自动隔离路径的 ①c 预演走的正是这条 ⇒ lane-isolation 判 blocked ⇒ spawn fail-closed
+  const dry = laneWorktree({ repo: dir, lane: 'laneA', dryRun: true });
+  assert.equal(dry.ok, false, JSON.stringify(dry));
+  assert.equal(dry.reason, re.reason, '预演与真跑同判（预演拒绝得早 ⇒ 连 claim 都不会发生）');
+
+  // 恢复路径（同一入口、非破坏 git）：--remove 摘掉残留注册、**保留分支** ⇒ 重跑即附着重建
+  const would = laneWorktree({ repo: dir, lane: 'laneA', remove: true, dryRun: true });
+  assert.equal(would.ok, true, JSON.stringify(would));
+  assert.equal(would.action, 'would_remove');
+  assert.equal(would.stale, true);
+  assert.equal(fs.existsSync(a.path), false, 'remove --dry-run 零副作用');
+
+  const rm = laneWorktree({ repo: dir, lane: 'laneA', remove: true });
+  assert.equal(rm.ok, true, JSON.stringify(rm));
+  assert.equal(rm.action, 'removed');
+  assert.equal(rm.stale, true, '残留注册的摘除须自证走的是「目录已不在」捷径');
+  assert.equal(rm.cmd.includes('--force'), false, '绝不使用 --force（目录已不在，remove 本就不需要）');
+  assert.equal(wtList(dir).has(a.path), false, '残留注册须被遗忘（`git worktree list` 无该条目）');
+  assert.equal(branchSha(dir, 'lane/laneA').length, 40, '清理保留分支（可能承载已提交产物）');
+
+  const again = laneWorktree({ repo: dir, lane: 'laneA' });
+  assert.equal(again.ok, true, JSON.stringify(again));
+  assert.equal(again.action, 'created');
+  assert.equal(again.branchReused, true, '分支仍在 ⇒ 附着复用');
+  assert.equal(fs.existsSync(again.path), true);
+});
+
+test('REJECT. 目录**还在**、`.git` 链断（只剩裸目录）⇒ 同样点名拒绝，且非破坏（目录与其内容不得被删）', () => {
+  const { dir } = makeRepo();
+  const a = laneWorktree({ repo: dir, lane: 'laneA' });
+  assert.equal(a.ok, true, JSON.stringify(a));
+  fs.writeFileSync(path.join(a.path, 'uncommitted.txt'), 'in-progress work\n'); // 树里可能有真产物
+  fs.rmSync(path.join(a.path, '.git'), { force: true }); // 只断链：目录与内容都还在
+
+  const re = laneWorktree({ repo: dir, lane: 'laneA' });
+  assert.equal(re.ok, false, JSON.stringify(re));
+  assert.match(re.reason, /^worktree_stale_registration\(gitlink_missing\)/, re.reason);
+  assert.equal(re.dir_exists, true);
+
+  // 目录还在 ⇒ **不走** `--remove` 的「残留注册照摘」捷径（那里可能真有未提交产物）
+  const rm = laneWorktree({ repo: dir, lane: 'laneA', remove: true });
+  assert.equal(rm.ok, false, JSON.stringify(rm));
+  assert.match(rm.reason, /^worktree_unreadable/, rm.reason);
+  assert.equal(fs.existsSync(a.path), true, '目录不得被删');
+  assert.equal(fs.readFileSync(path.join(a.path, 'uncommitted.txt'), 'utf8'), 'in-progress work\n', '未提交产物不得丢');
+  assert.equal(porcelain(dir), '', '主 checkout 全程未被污染');
 });
 
 test('GREEN-3. 两 lane 隔离：worktree 写不污染主 checkout，lane 之间互不可见', () => {

@@ -20,6 +20,8 @@
  *   半完成的建树/清理（高负载下 git 失败或被杀）都会让后续用例的前提静默失效，并且会**反转** fail-closed
  *   用例——`lane-worktree` 的「复用」分支排在「路径被占」守卫**之前**，残留注册让判定走 `reused`，
  *   `spawn-lane` 于是**真的起了会话**（`ok:true`）而不是拒绝。
+ *   （行为面已于 `T-20261014-053826-2` 收紧：注册在、目录已删 ⇒ `worktree_stale_registration(<why>)` 点名
+ *   拒绝、fail-closed；本文件的夹具自持纪律仍然保留——它挡的是**另一类**静默失效。）
  *   两条加固（均为**收紧**，不削弱任何拒止语义）：
  *     ① 每条 lane 自持：fail-closed 用例改用**专属卡**，其隔离路径与本文件其它用例零交集；
  *     ② 每个用例前**回收**这些 lane 路径（`beforeEach`），回收不掉即显式报红（绝不静默带病继续）。
@@ -134,7 +136,7 @@ beforeEach(() => {
   STUB_ARGS = path.join(BIN, `claude-stub.${process.pid}.${(stubSeq += 1)}.args`);
   process.env.OC_STUB_ARGS = STUB_ARGS;
   // lane 隔离产物归零：断言「路径空闲」的用例**不得继承**上一用例的状态（见文件头「夹具自持性」）。
-  for (const lane of [LANE, CLASH_LANE]) {
+  for (const lane of [LANE, CLASH_LANE, STALE_LANE]) {
     const r = reclaimLane(lane);
     assert.equal(r.ok, true, `beforeEach 未能回收 lane 隔离产物（前置条件无法成立）：${JSON.stringify(r)}`);
   }
@@ -173,6 +175,13 @@ const LANE = `${SELF}-seg1`;
  */
 const CLASH = 'T-20260103-400010-clash';
 const CLASH_LANE = `${CLASH}-seg1`;
+/**
+ * 「登记在、目录已删」用例的**专属卡**（同 CLASH 的自持纪律：路径与本文件其余用例零交集）。
+ * 该态是**真的会发生**的：半完成的建树被高负载杀掉、人工 `rm -rf` 掉工作目录、磁盘清理……
+ * 而 `git worktree list` 对残留注册**照列不误** ⇒ 只看注册表就会把「目录已删」读成 `reused`。
+ */
+const STALE = 'T-20260103-400020-stale';
+const STALE_LANE = `${STALE}-seg1`;
 
 function writeCard(id, { status = 'in_progress', claimed = 'linus', project = '__team__', target = '', writes = '' } = {}) {
   const body = '## Background\nx\n## Acceptance\n- [ ] a\n## Progress\n## Comments\n## Sessions\n## Report\n';
@@ -371,9 +380,10 @@ test('FAIL-CLOSED. 隔离被拒（预定路径被非 worktree 目录占用）⇒
   writeCard(OTHER, { claimed: 'jobs', writes: 'team-b.mjs' });
   const clash = laneWtPath(CLASH_LANE);
   // 前置条件（**显式断言**，不是假设）：路径既无目录也**无 worktree 注册**。这两件事在
-  // lane-worktree.mjs 里分属两条分支——「已注册且分支相符」⇒ `reused`（排在「路径被占」守卫**之前**），
-  // 只有「有目录、无注册」才走 `path_exists_not_worktree`。前置条件被污染时此断言直接点名病因，
-  // 而不是让 fail-closed 断言被静默反转成 `ok:true`（T-20261014-034118-2 的实证形状）。
+  // lane-worktree.mjs 里分属两条分支：「有目录、无注册」⇒ `path_exists_not_worktree`（本用例走的这条）；
+  // 「有注册」⇒ 该注册必须**真的站在那里**才可复用（T-20261014-053826-2 起：注册在、目录已删 ⇒
+  // `worktree_stale_registration` 点名拒绝，既不 `reused`、也不落到本守卫）。前置条件被污染时此断言
+  // 直接点名病因，而不是让 fail-closed 断言被静默反转成 `ok:true`（T-20261014-034118-2 的实证形状）。
   assert.equal(fs.existsSync(clash), false, '前置条件：pre-计划隔离路径须为空');
   assert.equal(isRegisteredWt(clash), false, '前置条件：该路径不得已有 worktree 注册');
 
@@ -389,4 +399,51 @@ test('FAIL-CLOSED. 隔离被拒（预定路径被非 worktree 目录占用）⇒
   assert.equal(fs.readFileSync(path.join(clash, 'keep.txt'), 'utf8'), 'x', '占用目录不得被动');
   assert.equal(fs.existsSync(STUB_ARGS), false, '不得起进程');
   assert.equal(porcelain(LAYOUT), '');
+});
+
+test('FAIL-CLOSED. 隔离树「注册在、目录已删」⇒ 拒绝起会话（绝不把 lane 起进不存在的 cwd）(T-20261014-053826-2)', { skip: SKIP }, () => {
+  writeCard(STALE, { writes: 'team-s.mjs' });
+  writeCard(OTHER, { claimed: 'jobs', writes: 'team-b.mjs' });
+  const wt = laneWtPath(STALE_LANE);
+  assert.equal(fs.existsSync(wt), false, '前置条件：pre-计划隔离路径须为空');
+  assert.equal(isRegisteredWt(wt), false, '前置条件：该路径不得已有 worktree 注册');
+
+  // 经**规范入口**造出真态：先正常建树（目录 + 注册），再删掉工作目录（半完成清理 / 人工 rm -rf）
+  SIBLINGS.push(wt);
+  const made = laneWorktree({ repo: LAYOUT, lane: STALE_LANE });
+  assert.equal(made.ok, true, JSON.stringify(made));
+  fs.rmSync(wt, { recursive: true, force: true });
+  assert.equal(fs.existsSync(wt), false);
+  assert.equal(isRegisteredWt(wt), true, '前置条件：注册仍在 —— 这正是「登记在、目录已删」');
+
+  const r = spawnLane({ card: STALE, owner: 'linus', seg: 'seg1', backend: 'claude', dryRun: false });
+  // 修复前：复用分支早于一切校验 ⇒ 判定 `reused` ⇒ 会话**真的起在那个不存在的目录里**（`ok:true`、pid 非空）
+  assert.equal(r.ok, false, `残留注册不得读成可用（会把 lane 起进虚空）：${JSON.stringify(r)}`);
+  assert.match(r.reason, /^lane_isolation_failed\(worktree_stale_registration\(dir_missing\)/, r.reason);
+  assert.match(r.reason, /:serialize_or_fix$/);
+  // fail-closed = 零副作用：不起进程、不写 registry、不建树、不碰那棵树
+  assert.equal(fs.existsSync(STUB_ARGS), false, '不得起进程（起进不存在的 cwd 是本缺陷的实际危害）');
+  assert.equal(fs.existsSync(REG), false, '预演即在 claim 前拒绝 ⇒ 连 registry 都不该写');
+  // 比「没起进程」更强：拒绝发生在 ①c（隔离预演），早于 ④handoff/⑦spawn ⇒ 连 lane 的 workspace 都不该被建
+  // （修复前走到 ⑦ 才炸 ⇒ 这里会留下一份「起不来的 lane」的 workspace 产物）
+  assert.equal(fs.existsSync(path.join(WS, STALE)), false, '拒绝不得为一起不来的 lane 留 workspace 产物');
+  assert.equal(fs.existsSync(wt), false, '拒绝不得顺手重建目录');
+  assert.equal(isRegisteredWt(wt), true, '拒绝不得顺手摘注册');
+  assert.equal(porcelain(LAYOUT), '', '拒绝不得改仓');
+
+  // 恢复路径（同一入口、非破坏 git）：--remove 遗忘残留注册、保留分支 ⇒ 再建树即成功
+  const rm = laneWorktree({ repo: LAYOUT, lane: STALE_LANE, remove: true });
+  assert.equal(rm.ok, true, JSON.stringify(rm));
+  assert.equal(rm.action, 'removed');
+  assert.equal(rm.stale, true);
+  assert.equal(isRegisteredWt(wt), false, '残留注册须被遗忘');
+  assert.equal(gitOut(LAYOUT, 'rev-parse', '--verify', '--quiet', `refs/heads/lane/${STALE_LANE}`).length, 40, '分支保留（可能承载已提交产物）');
+
+  const again = laneWorktree({ repo: LAYOUT, lane: STALE_LANE });
+  assert.equal(again.ok, true, JSON.stringify(again));
+  assert.equal(again.created, true);
+  assert.equal(again.branchReused, true, '分支仍在 ⇒ 附着复用（幂等可重入）');
+  assert.equal(fs.existsSync(wt), true);
+  // 收尾：clean ⇒ 摘树（不留在 tmpdir 里，也不留给下一个用例）
+  assert.equal(laneWorktree({ repo: LAYOUT, lane: STALE_LANE, remove: true }).action, 'removed');
 });
