@@ -11,7 +11,7 @@
 |---|---|---|---|
 | <标题（人类可读）> | <状态> | <Jobs/Linus/Turing/Simons/Assistant/Elon> | <问题 / 前置依赖 deps / 是否 blocked / 结论 / 证据（卡路径·commit）> |
 
-- 状态取值：`ready` / `in_progress` / `in_review` / `blocked` / `done` / `failed`
+- 状态取值：`todo` / `in_progress` / `in_review` / `blocked` / `done` / `canceled`（旧词 `ready` / `failed` 为兼容别名，仍接受）
 - 卡片一律用**标题**（人类可读）；机器 id 仅作附注。
 
 ## 2. 目前遇到的问题
