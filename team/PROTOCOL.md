@@ -579,6 +579,7 @@ Each role's AGENTS.md keeps 3–5 lines of startup self-check (read card + read 
 - **Responsibility**: the worker `sessions_send`s back to Elon (plan/doc path + goal + key decision summary + open items).
 - **Action**: Elon reviews against Acceptance/Background; routinely confirms on its own; major/disputed/involving-funds-security/architectural-direction items are escalated to the operator.
 - **Evidence**: the confirmation message goes into the card's Progress; product design docs must record "Elon confirmed (dual-signed)".
+- **Machine marker**: a confirmation request recorded in a card's Progress carries the stable marker `[confirm-request]` (optionally `[confirm-request: <topic>]`). The `§⑮` "Confirmation gate awaiting review" row detects the request by this marker first, and falls back to the request shape + `status_changed_at` with `confidence: "low"` (over-alerts only) when the marker is absent.
 - **Check**: without confirmation, do not proceed to execution and do not use it as a downstream basis.
 - **Timeout**: see §⑮ for wait limits; timeouts are handled by Elon's patrol.
 
