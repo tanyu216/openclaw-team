@@ -33,7 +33,28 @@ import {
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // team/scripts/tests
 const SCRIPTS = path.join(HERE, '..');                     // team/scripts
-const REPO = path.resolve(HERE, '..', '..', '..');         // <repo>
+const TEAM_DIR = path.join(SCRIPTS, '..');                 // <team> (repo/team, or ~/.openclaw/team live)
+
+/**
+ * `<repo>` = 拥有 `install.sh` 的框架检出。**install.sh 从不部署**（它住在仓里、驱动部署），
+ * 所以任何对它的断言必须读**仓**而非实例；两种布局下 HERE/../../.. 指代不同：
+ *   - 仓检出：  HERE = <repo>/team/scripts/tests ⇒ HERE/../../.. = <repo>（有 install.sh）；
+ *   - 部署实例：HERE = <team>/scripts/tests       ⇒ HERE/../../.. = $OPENCLAW_HOME（无 install.sh）。
+ * 显式解析（口径同 check-all.sh 的防漂移基线）：先 $OPENCLAW_TEAM_REPO，再读
+ * `<team>/.install-state.json.repoPath`；都没有再回退到布局猜测。
+ */
+function resolveRepoRoot() {
+  let recorded = null;
+  try {
+    recorded = JSON.parse(fs.readFileSync(path.join(TEAM_DIR, '.install-state.json'), 'utf8')).repoPath;
+  } catch { /* 无状态文件 / 不可读 ⇒ 忽略 */ }
+  const guess = path.resolve(HERE, '..', '..', '..');
+  for (const c of [process.env.OPENCLAW_TEAM_REPO, recorded, guess].filter(Boolean)) {
+    if (fs.existsSync(path.join(c, 'install.sh'))) return c;
+  }
+  return guess;
+}
+const REPO = resolveRepoRoot();
 
 /** 定位携带 ACL 库的 provider 安装目录（与 poll-multi/poll-guard 同口径）。 */
 function resolveProviderRoot() {

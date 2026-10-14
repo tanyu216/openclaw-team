@@ -156,9 +156,14 @@ test('{repo} resolves from $OPENCLAW_TEAM_REPO and is passed through to the entr
 });
 
 test('an unresolvable {repo} degrades to an ALARM, never an empty substitution', () => {
-  // No env override here on purpose: the template must come from providers.json so the
-  // `{repo}` placeholder is actually present and has to be resolved.
-  const out = capture(['skills-update'], { OPENCLAW_TEAM_REPO: '' });
+  // The template must come from providers.json (no CMD override) so `{repo}` is actually present.
+  // `{repo}` has two legs: $OPENCLAW_TEAM_REPO, then the install-state `repoPath`. A DEPLOYED
+  // instance always carries TEAM_DIR/.install-state.json, so "no env override" alone is NOT
+  // unresolvable there — kill both legs: empty env + point the state leg at a missing file.
+  const out = capture(['skills-update'], {
+    OPENCLAW_TEAM_REPO: '',
+    OPENCLAW_TEAM_INSTALL_STATE: path.join(os.tmpdir(), 'oc-no-such-install-state.json'),
+  });
   assert.equal(out.fire, true, 'a job that cannot even locate its entry must alarm');
   assert.equal(out.state.reason, 'repo-not-found');
 });

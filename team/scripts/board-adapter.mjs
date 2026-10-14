@@ -58,6 +58,11 @@ export const BOARD_WIRE_SHAPE = 'project';
  * 冻结的对标字段表 = board `project` wire 的字段名 → JSON 类型
  * （来源：provider `src/shared/wire.mjs#projectToWire`，经 contract snapshot `shape:"project"` 冻结）。
  * 该表是**声明**：运行时与实取对象逐字段比对，漂移即告警。
+ *
+ * `prefix`（project 有效前缀，如 `OPENCLAW-TEAM`）是 provider 卡 `T-20261014-030233` 新增的**只读**
+ * wire 字段（`projectToWire` 增 `prefix: projectPrefix(project)`，contract snapshot wire fields
+ * 116→117）；team 侧声明随之跟随（加性字段，`schema_version` 不变 —— 该号只随快照**布局**而非
+ * 区块字段变动，见上文）。漏声明会让结构腿每次实跑都报 `wire_field_added(prefix)` 告警。
  */
 export const PROJECT_WIRE_FIELDS = Object.freeze({
   archived_at: 'string',
@@ -66,6 +71,7 @@ export const PROJECT_WIRE_FIELDS = Object.freeze({
   labels: 'array',
   meta: 'object',
   name: 'string',
+  prefix: 'string',
   readme: 'string',
   task_count: 'number',
   updated_at: 'string',

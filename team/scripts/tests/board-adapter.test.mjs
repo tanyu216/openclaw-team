@@ -43,6 +43,7 @@ function wire(over = {}) {
   return {
     id: 'demo',
     name: 'demo',
+    prefix: 'DEMO',
     labels: [],
     meta: { kind: 'code', root: '/abs/dir', repos: [{ path: 'src' }], guides: [] },
     readme: null,
@@ -235,8 +236,11 @@ test('漂移门：一致 ⇒ 绿（无 findings；null 值不算类型漂移）'
   assert.equal(d.ok, true);
 });
 
-test('漂移门：声明表跟随 provider wire —— `task_count` 已声明为 number（加性字段不得漏decl）', () => {
+test('漂移门：声明表跟随 provider wire —— `task_count`/`prefix` 已声明（加性字段不得漏decl）', () => {
   assert.equal(PROJECT_WIRE_FIELDS.task_count, 'number');
+  // provider `T-20261014-030233` 增 `projectToWire.prefix`（有效前缀，只读，快照 116→117）——
+  // team 侧声明必须跟随，否则每次实跑都报 wire_field_added(prefix) 告警（见 board-adapter.mjs）。
+  assert.equal(PROJECT_WIRE_FIELDS.prefix, 'string');
 });
 
 test('漂移门：`task_count` 整数 ⇒ 绿；null（本次未取计数）⇒ 也不算类型漂移；错类型 ⇒ 红', () => {

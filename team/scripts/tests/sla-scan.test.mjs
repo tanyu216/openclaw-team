@@ -31,6 +31,27 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPTS = path.join(HERE, '..');
 const TEAM_DIR = path.join(SCRIPTS, '..');
 
+/**
+ * `<repo>` = 拥有 `install.sh` 的框架检出。**install.sh 从不部署**（它住在仓里、驱动部署），故对
+ * §12 G-6 cadence / sla-scan 注册形态的断言必须读**仓**而非实例。两种布局下 `<team>/..` 指代不同：
+ *   - 仓检出：  TEAM_DIR = <repo>/team ⇒ <team>/.. = <repo>（有 install.sh）；
+ *   - 部署实例：TEAM_DIR = ~/.openclaw/team ⇒ <team>/.. = $OPENCLAW_HOME（无 install.sh）。
+ * 显式解析（口径同 check-all.sh 的防漂移基线）：先 $OPENCLAW_TEAM_REPO，再读
+ * `<team>/.install-state.json.repoPath`；都没有再回退到 `<team>/..`。
+ */
+function resolveRepoRoot() {
+  let recorded = null;
+  try {
+    recorded = JSON.parse(fs.readFileSync(path.join(TEAM_DIR, '.install-state.json'), 'utf8')).repoPath;
+  } catch { /* 无状态文件 / 不可读 ⇒ 忽略 */ }
+  const guess = path.join(TEAM_DIR, '..');
+  for (const c of [process.env.OPENCLAW_TEAM_REPO, recorded, guess].filter(Boolean)) {
+    if (fs.existsSync(path.join(c, 'install.sh'))) return c;
+  }
+  return guess;
+}
+const REPO = resolveRepoRoot();
+
 /** 定位携带 ACL 库的 provider 安装（与 patrol.test.mjs / frontmatter.test.mjs 同口径）。 */
 function resolveProviderRoot() {
   const candidates = [
@@ -177,7 +198,7 @@ test('§12 G-6 cadence 口径对齐：注册周期 P 必须小于最紧的 §⑮
     `P=${S.CADENCE_PERIOD_MIN} 必须 < 最紧 L=${tightest}（否则该行 warn 界钳 0 ⇒ 每周期恒告警，违 §9.4）`,
   );
   // install.sh 声明的 interval 必须与运行期 P 同值（单一事实源：两侧默认都由这条断言钉住）
-  const install = fs.readFileSync(path.join(TEAM_DIR, '..', 'install.sh'), 'utf8');
+  const install = fs.readFileSync(path.join(REPO, 'install.sh'), 'utf8');
   const m = /OPENCLAW_TEAM_SLA_INTERVAL:-([0-9]+)([smhd])/.exec(install);
   assert.ok(m, 'install.sh 必须声明 OPENCLAW_TEAM_SLA_INTERVAL（sla-scan 的注册 cadence）');
   const declaredMin = m[2] === 'h' ? Number(m[1]) * 60 : Number(m[1]);
@@ -712,7 +733,7 @@ test('⑥ dispatch sla-scan 端到端：入口的 alerts 进 message；入口缺
 });
 
 test('⑥ install.sh：注册 sla-scan（interval + trigger 形态），且 cadence 与 P 一致', () => {
-  const install = fs.readFileSync(path.join(TEAM_DIR, '..', 'install.sh'), 'utf8');
+  const install = fs.readFileSync(path.join(REPO, 'install.sh'), 'utf8');
   assert.match(install, /openclaw-team:sla-scan/, 'manifest 必须声明 sla-scan 的 declarationKey');
   assert.match(install, /sla-scan\)\s*register_automation[^\n]*--every "\$SLA_INTERVAL"/, 'sla-scan 走 interval 注册（沿用现形态）');
 });
