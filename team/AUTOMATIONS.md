@@ -191,12 +191,29 @@ therefore **segmented** — this is a routing change, not a coverage change:
 
 | Piece | Where | Bounded? |
 |---|---|---|
-| **fast segment** — every check except the framework test suite (`check-all.sh --segment fast`, ~1.6 s) | **in-band**, inside the evaluation | yes (fast bound 6000 ms) |
-| **slow segment** — the framework test suite only (`check-all.sh --segment slow`) | **detached**, launched by the gate and run to completion *after* the evaluation returns | no (it is ~17 s by nature) |
+| **fast segment** — every check except the test suites (`check-all.sh --segment fast`) | **in-band**, inside the evaluation | yes (fast bound 6000 ms) |
+| **slow segment** — the framework test suite **and the full provider ACL suite** (`check-all.sh --segment slow`) | **detached**, launched by the gate and run to completion *after* the evaluation returns | no (it is ~17 s by nature) |
 | the slow verdict | **cached** at `<team>/.check-all-slow.json` and **folded into the next evaluation** | freshness-bounded (TTL default 90 min) |
 
+**Provider ACL coverage — `skills/task-ops/tests/*.test.mjs` (T-20261014-034118).** The provider
+suites used to be enumerated **file by file** in the fast segment, so any suite not on that list
+was simply **outside the gate**: `spawn-body`, `idem`, `relations`, `actor-gate` and `status-guard`
+rode in that blind spot, and the next new suite would have joined them. The blind spot is now closed
+**structurally**: the slow segment runs `node --test "$TEAM/skills/task-ops/tests/"*.test.mjs` —
+**a glob over the whole directory**, so a new provider suite is in the gate the moment the file
+exists, with no gate edit. A glob that matches **nothing** is an explicit red (fail-closed), never a
+silent pass. The four suites that were already in the fast segment (contract / terminal-guard /
+projects / schedule) still run there for **in-band** signal and are **deliberately run again** by the
+slow sweep, which is the authoritative one; the overlap costs ~2 s and lands out of band. **Why the
+slow segment and not the fast one**: the five missing suites measure **~6.1 s**, while the fast
+segment's in-band bound is 6000 ms and the fast segment itself already measures **~2.4–3.7 s warm
+(≈6 s on a cold first run)** on a live-shaped board (485 cards) — adding them there would produce
+`fast-timeout` → `unconfirmed` every period, i.e. exactly the §⑳.1 masking this segmentation exists
+to remove. A provider red therefore lands in `failed[]` / `slowFailedFiles` and reaches the operator
+through `message` (directly under `--segment all`, and via the cached verdict under the scheduled gate).
+
 `check-all.sh` is still the single source of every check (`--segment all` is the default and
-is byte-for-byte the historical full run, for humans and CI). The scheduled entry is
+is the historical full run plus the provider ACL sweep recorded above, for humans and CI). The scheduled entry is
 `scripts/check-all-gate.mjs`: it runs the fast segment in-band, reads the cached slow verdict,
 emits `{"ok":…,"message":…}` and launches the detached slow refresh. Consequences:
 
