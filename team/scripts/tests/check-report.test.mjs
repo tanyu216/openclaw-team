@@ -360,6 +360,9 @@ test('⑥ 内容提示：A2 缺卡路径/hash、A5 缺退出码 ⇒ hint；齐�
 
   const noExit = goodReport((s) => s.set('A5', '- **A5 Re-run evidence** — cmd: node --test tests/x.test.mjs · artifact: out.txt'));
   assert.deepEqual(contentHints(noExit).map((h) => h.slot), ['A5'], 'A5 缺退出码应生成单条 A5 提示');
+  // 表格形态的 A5（列头含 `exit`、单元格为数字）不得误报——判据取宽（hint 是非阻断信号，宁可漏报）
+  const tbl = goodReport((s) => s.set('A5', '- **A5 Re-run evidence**\n  | what | command | exit | artifact |\n  |---|---|---|---|\n  | unit | node --test x | 0 | out.txt |'));
+  assert.deepEqual(contentHints(tbl), [], '表格形态 A5 不得误报');
 
   writeCard({ id: 'T-20261015-000015-g', report: noPath });
   const r = scan();
