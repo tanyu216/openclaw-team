@@ -328,7 +328,7 @@ export function contentHints(body) {
   const a2 = /(^|\n)[ \t]*(?:[-*+][ \t]+)?(?:\*\*)?A2(?![0-9])[\s\S]*?(?=\n[ \t]*(?:[-*+][ \t]+)?(?:\*\*)?A[0-9]|\n#{1,6}\s|$)/.exec(body);
   if (a2) {
     const seg = a2[0];
-    if (!/T-\d{8}-\d{6}/.test(seg)) hints.push({ slot: 'A2', hint: '未含卡路径（`tasks/T-YYYYMMDD-HHMMSS….md`）——实测全岗最缺槽位（16–19%）' });
+    if (!/T-\d{8}-\d{6}/.test(seg)) hints.push({ slot: 'A2', hint: '未含卡路径（`tasks/T-YYYYMMDD-HHMMSS….md`）——实测全岗最缺槽位（口径相关：guide §4 只给相对结论，不引百分比；取数 scripts/report-census.mjs）' });
     const cc = commitCoordinate(seg);                      // D3
     if (!cc.ok) {
       hints.push({ slot: 'A2', hint: `未提交坐标：${cc.reason} —— 规则＝**7–40 位小写 hex**（大写 40 位 sha-1 真值亦可），或 \`commit: none\` 式**显式声明无提交**` });
@@ -341,7 +341,7 @@ export function contentHints(body) {
     const seg = a5[0];
     const hasWord = /\bexit\b|退出码|返回码|\brc\b/i.test(seg);
     const hasNumber = /\d/.test(seg);
-    if (!(hasWord && hasNumber)) hints.push({ slot: 'A5', hint: '未含**退出码**（命令 + 退出码）——实测 Jobs 仅 17% 命中（gate 只提示不阻断，审计仍按 §6）' });
+    if (!(hasWord && hasNumber)) hints.push({ slot: 'A5', hint: '未含**退出码**（命令 + 退出码）——实测 Jobs 是最常漏此项的岗位（取数 scripts/report-census.mjs；gate 只提示不阻断，审计仍按 §6）' });
   }
   return hints;
 }
