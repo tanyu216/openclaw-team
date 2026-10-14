@@ -329,7 +329,7 @@ until resolved. Provenance notes: [`skills/PROVENANCE.md`](skills/PROVENANCE.md)
 **Ownership boundary**: `openclaw-team` owns the **scheduling** and the **ACL
 abstraction**; the task base (meerkat-taskpanel / Jira / Plane / …) is only a **callee**
 behind the ACL. The full contract is `team/guides/task-interface.md` (cards, atomic
-claim + heartbeat, the `ready → in_progress → in_review → done | failed` state
+claim + heartbeat, the `todo → in_progress → in_review → done | canceled` state
 machine, comments/process trail, and a parent/child + dependency DAG); this README
 does not restate it.
 
