@@ -40,6 +40,17 @@
 //     才告警。需要「缺失即告警」的口径时置 `OPENCLAW_TEAM_SLA_PEER_REQUIRED=1`。
 //  D4 跨机制共享账本需共享通道；契约 §8.3 给定的是「卡内 trail」，异主机场景由 C4/Elon 裁定
 //     （本文件只做机制内去重 + 己方 liveness 落盘，见 §8.4 的发布职责）。
+//
+// ── 契约 v1.1 回灌的实现修正（§12 G-10 ⑤⑥⑦ = 设计确认 T-20261014-022327 的 F1/F5/F8）──────────
+//  F1 §4 #9：`measure_start_source` **只**写读取位置（`frontmatter|comments|progress|missing`），
+//     `trail_event`/`created_at`/`status_changed_at` 是 §4 #7 的 **kind** 词汇，曾越界写进 source。
+//     现在两者各归其位：全部行的 source 取自读取位置（见 MEASURE_START_SOURCES），
+//     `leader_stalled` 的 kind 亦随真实事件而定（轨迹条目 / 建卡 / leader 驱动的终态迁移）。
+//  F5 §6.3-D：`leader_stalled` 的起点**照发真实值**，回溯窗只把 confidence 降为 `low`（窗外）——
+//     不再「丢起点 ⇒ threshold_min=null ⇒ 最深停摆被降成 warn」。看板完全无 leader 事件时才走
+//     §6.5 的 unverifiable/warn 兜底。
+//  F8 §4 #19：`blocked_reason` 在**每一行**取「卡当前值」（缺失 ⇒ null），不再只有
+//     `blocked_clarification` 填、其余行落 null。
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -151,6 +162,19 @@ export const SLA_ROWS = [
     noWarnLead: true, // 契约 §5.2 规则 5：本行的界本身就是「无动作」界，warn 前导不适用
   },
 ];
+
+/**
+ * 契约 §4 #9：`measure_start_source` 的**唯一合法取值** = **读取位置**，绝不是 `measure_start_kind`
+ * （F1：`trail_event` / `created_at` / `status_changed_at` 是 kind 词汇，写进 source 即越出本枚举）。
+ * 映射：frontmatter 字段 ⇒ `frontmatter`；`## Comments` 条目 ⇒ `comments`；`## Progress` 条目 ⇒
+ * `progress`；无可读起点 ⇒ `missing`。
+ */
+export const MEASURE_START_SOURCES = Object.freeze(['frontmatter', 'comments', 'progress', 'missing']);
+
+/** trail 条目所在小节 ⇒ §4 #9 的读取位置（`splitSections` 已把节名小写化）。 */
+function sourceOfSection(section) {
+  return section === 'comments' ? 'comments' : 'progress';
+}
 
 /** 契约 §5.3 新增行（**非** §⑮ 行）：threshold_min = null，只有 warn。 */
 export const LIVENESS_ROW = {
@@ -396,10 +420,12 @@ export function evaluateCard(card, ctx) {
   const { fm, body, id } = card;
   const { board, nowMs, periodMin } = ctx;
   const status = String(fm.status || '').trim();
+  // 契约 §4 #19：`blocked_reason` 在**每一行**取「卡当前值」（缺失 ⇒ null，绝不用行专属替身）
+  const blockedReason = normalizeBlockedReason(fm.blocked_reason);
 
   // 行 1 — blocked_clarification（§⑮ blocked awaiting clarification）
   if (status === 'blocked') {
-    const reason = normalizeBlockedReason(fm.blocked_reason);
+    const reason = blockedReason;
     const blockedMs = parseIso(fm.blocked_at);
     const changedMs = parseIso(fm.status_changed_at);
     let origin = null;
@@ -463,6 +489,7 @@ export function evaluateCard(card, ctx) {
           },
           thresholdMin: ROW_BY_NAME.get('confirmation_gate').normalMin,
           furtherMin: ROW_BY_NAME.get('confirmation_gate').furtherMin,
+          blocked_reason: blockedReason,
           row: ROW_BY_NAME.get('confirmation_gate'),
           evidence: {
             status,
@@ -498,11 +525,13 @@ export function evaluateCard(card, ctx) {
             kind: 'trail_event',
             ms,
             at: iso(ms),
-            source: ms === defects[0].tsMs ? 'comments' : 'frontmatter',
+            // §4 #9：读取位置 = 该缺陷条目的**所在小节**（Comments/Progress），frontmatter 字段才是 frontmatter
+            source: ms === defects[0].tsMs ? sourceOfSection(defects[0].section) : 'frontmatter',
             confidence: Number.isFinite(changedMs) ? 'high' : 'low',
           },
           thresholdMin: ROW_BY_NAME.get('defect_card_creation').normalMin,
           furtherMin: ROW_BY_NAME.get('defect_card_creation').furtherMin,
+          blocked_reason: blockedReason,
           row: ROW_BY_NAME.get('defect_card_creation'),
           evidence: {
             status,
@@ -534,6 +563,7 @@ export function evaluateCard(card, ctx) {
             : null,
           thresholdMin: ROW_BY_NAME.get('acceptance_card_creation').normalMin,
           furtherMin: ROW_BY_NAME.get('acceptance_card_creation').furtherMin,
+          blocked_reason: blockedReason,
           row: ROW_BY_NAME.get('acceptance_card_creation'),
           evidence: {
             status,
@@ -573,6 +603,7 @@ export function evaluateCard(card, ctx) {
           origin: null, // fail-safe：心跳不可读 ⇒ unverifiable（契约 §6.5）
           thresholdMin: null,
           furtherMin: null,
+          blocked_reason: blockedReason,
           row: ROW_BY_NAME.get('heartbeat_stale'),
           evidence: { ...live, threshold_ref: null, heartbeat_unparseable: true, claimed_by: fm.claimed_by || '' },
         }));
@@ -584,6 +615,7 @@ export function evaluateCard(card, ctx) {
         origin: { kind: 'heartbeat_at', ms: hbMs, at: iso(hbMs), source: 'frontmatter', confidence: 'high' },
         thresholdMin: ROW_BY_NAME.get('heartbeat_stale').normalMin,
         furtherMin: ROW_BY_NAME.get('heartbeat_stale').furtherMin,
+        blocked_reason: blockedReason,
         row: ROW_BY_NAME.get('heartbeat_stale'),
         evidence: { ...live, heartbeat_at: fm.heartbeat_at, claimed_by: fm.claimed_by || '' },
       }));
@@ -616,25 +648,93 @@ function releasability({ reason, blockedMs, deps, entries, board, id }) {
 /**
  * leader 侧「可归属事件」的最新时间戳（契约 §6.3-D）：leader 作者的 confirm/decision/change 轨迹、
  * leader 建卡、以及只由 leader 驱动的终态迁移（`done`）。
+ *
+ * 返回值同时携带 `kind`（§4 #7 的 kind 词汇：`trail_event` / `created_at` / `status_changed_at`，
+ * 随事件本身而定 —— F1：kind 必须与来源自洽）与 `source`（§4 #9 的**读取位置**：轨迹条目 ⇒
+ * `comments`/`progress`；`created_at` / `status_changed_at` 是 frontmatter 字段 ⇒ `frontmatter`）。
+ * 回溯窗**只**决定 `inLookback`（供 confidence 取值），**不**决定起点有无（F5，见 `stalledCandidate`）。
+ * @returns {{ms:number, at:string, kind:string, source:string, inLookback:boolean}|null}
  */
 function latestLeaderEvent(board, lookbackMs, nowMs) {
   let best = null;
   let bestInLookback = false;
-  const consider = (ms, src) => {
+  const consider = (ms, kind, source) => {
     if (!Number.isFinite(ms)) return;
     if (best === null || ms > best.ms) {
-      best = { ms, at: iso(ms), source: src };
+      best = { ms, at: iso(ms), kind, source };
       bestInLookback = nowMs - ms <= lookbackMs;
     }
   };
   for (const c of board.list) {
     for (const e of trailEntries(c.body)) {
-      if (e.author === LEADER && ['confirm', 'decision', 'change'].includes(e.kind)) consider(e.tsMs, 'trail_event');
+      if (e.author === LEADER && ['confirm', 'decision', 'change'].includes(e.kind)) {
+        consider(e.tsMs, 'trail_event', sourceOfSection(e.section));
+      }
     }
-    if (String(c.fm.created_by || '').trim().toLowerCase() === LEADER) consider(parseIso(c.fm.created_at), 'created_at');
-    if (String(c.fm.status || '').trim() === 'done') consider(parseIso(c.fm.status_changed_at), 'status_changed_at');
+    if (String(c.fm.created_by || '').trim().toLowerCase() === LEADER) consider(parseIso(c.fm.created_at), 'created_at', 'frontmatter');
+    if (String(c.fm.status || '').trim() === 'done') consider(parseIso(c.fm.status_changed_at), 'status_changed_at', 'frontmatter');
   }
   return best ? { ...best, inLookback: bestInLookback } : null;
+}
+
+/**
+ * `leader_stalled` 的证据承载卡：该行**不属于单张卡**，取**字典序最小**的合格卡承载（同看板恒得同一
+ * 承载卡 ⇒ 去重键稳定，否则承载卡漂移会重复告警）。
+ */
+function stalledHolder(board, otherCands) {
+  const holders = otherCands
+    .filter((c) => ['acceptance_card_creation', 'blocked_clarification', 'confirmation_gate', 'defect_card_creation'].includes(c.sla_row))
+    .map((c) => c.card_id)
+    .concat(board.list.filter((c) => String(c.fm.status || '').trim() === 'in_review').map((c) => c.id))
+    .sort();
+  return holders.length ? holders[0] : '';
+}
+
+/**
+ * `leader_stalled` 候选（契约 §5.1 条件规则 + §6.3-D）—— **scan 与现态重核共用的单一构造源**（§9.6）。
+ *
+ * 起点 = 最近一次 leader 归属事件，**照发真实起点**（F5）：即便它早于 `LEADER_LOOKBACK_DAYS` 回溯窗，
+ * 也只把 `confidence` 降为 `low`，**不**丢弃起点、**不**把 threshold 降成 null —— 否则最深的停摆
+ * （> 窗无 leader 动作，T 早已 ≥ F）会被降级成最弱信号 `warn`，与契约 §6.3-D 的「照发 + confidence:low」
+ * 相反。看板**完全无** leader 事件 ⇒ 无起点可量 ⇒ 按 §6.5 的 `unverifiable`/`warn` 兜底（仍发，不假绿）。
+ * @returns {object|null} 未去重候选（调用方自行 `toAlert`）；条件规则不成立 ⇒ null
+ */
+function stalledCandidate(board, ctx, otherCands) {
+  if (!leaderOwed(board, otherCands)) return null;
+  const ev = latestLeaderEvent(board, LEADER_LOOKBACK_DAYS * DAY_MS, ctx.nowMs);
+  const row = ROW_BY_NAME.get('leader_stalled');
+  const holder = stalledHolder(board, otherCands);
+  const holderCard = holder ? board.byId.get(holder) : null;
+  return {
+    card_id: holder,
+    sla_row: 'leader_stalled',
+    origin: ev
+      ? { kind: ev.kind, ms: ev.ms, at: ev.at, source: ev.source, confidence: ev.inLookback ? 'high' : 'low' }
+      : null,
+    thresholdMin: ev ? row.normalMin : null,
+    furtherMin: ev ? row.furtherMin : null,
+    blocked_reason: holderCard ? normalizeBlockedReason(holderCard.fm.blocked_reason) : null,
+    row,
+    evidence: {
+      status: 'board',
+      status_changed_at: null,
+      has_sessions: null,
+      has_workspace: null,
+      threshold_ref: ev ? row.thresholdRef : null,
+      open_predicate: 'leader-owed work present',
+      leader_event_at: ev ? ev.at : null,
+      leader_event_kind: ev ? ev.kind : null,
+      leader_event_source: ev ? ev.source : null,
+      leader_event_in_lookback: ev ? ev.inLookback : null,
+      leader_lookback_days: LEADER_LOOKBACK_DAYS,
+      holder_card: holder || null,
+      confidence_reason: ev
+        ? ev.inLookback
+          ? 'latest leader-attributed event is inside the lookback window'
+          : `latest leader-attributed event predates the ${LEADER_LOOKBACK_DAYS}d lookback ⇒ real origin kept, confidence low (契约 §6.3-D)`
+        : 'no leader-attributed event on the board ⇒ no readable origin (契约 §6.5 fail-safe)',
+    },
+  };
 }
 
 /** 「leader 有待动作」条件（契约 §5.1 leader_stalled 的条件规则）。 */
@@ -789,40 +889,10 @@ export function scanSla(opts = {}) {
   }
 
   // 行 6 — leader_stalled（条件规则：仅当看板确有 leader 待动作，契约 §5.1）
-  if (leaderOwed(board, candidates.map((x) => x.cand))) {
-    const ev = latestLeaderEvent(board, LEADER_LOOKBACK_DAYS * DAY_MS, nowMs);
-    const row = ROW_BY_NAME.get('leader_stalled');
-    const cand = {
-      card_id: '', // 该行不属于单张卡 ⇒ 以证据卡承载：取最早一张待处置卡（见 evidence.holder_card）
-      sla_row: 'leader_stalled',
-      origin: ev && ev.inLookback ? { kind: 'trail_event', ms: ev.ms, at: ev.at, source: ev.source, confidence: 'high' } : null,
-      thresholdMin: ev && ev.inLookback ? row.normalMin : null,
-      furtherMin: ev && ev.inLookback ? row.furtherMin : null,
-      row,
-      evidence: {
-        status: 'board',
-        status_changed_at: null,
-        has_sessions: null,
-        has_workspace: null,
-        threshold_ref: ev && ev.inLookback ? row.thresholdRef : null,
-        open_predicate: 'leader-owed work present',
-        leader_event_at: ev ? ev.at : null,
-        leader_event_source: ev ? ev.source : null,
-        leader_lookback_days: LEADER_LOOKBACK_DAYS,
-        confidence_reason: ev && ev.inLookback ? 'leader event within lookback' : 'no leader event in lookback ⇒ unverifiable',
-      },
-    };
-    // 该行没有「本卡」：以 leader 待处置工作的一张证据卡承载（审计可定位）。
-    // 取**字典序最小**的合格卡 ⇒ 同一看板恒得同一承载卡 ⇒ 去重键稳定（否则承载卡漂移会重复告警）。
-    const holders = candidates
-      .filter((x) => ['acceptance_card_creation', 'blocked_clarification', 'confirmation_gate', 'defect_card_creation'].includes(x.cand.sla_row))
-      .map((x) => x.cand.card_id)
-      .concat(board.list.filter((c) => String(c.fm.status || '').trim() === 'in_review').map((c) => c.id))
-      .sort();
-    cand.card_id = holders.length ? holders[0] : '';
-    cand.evidence.holder_card = cand.card_id || null;
-    const alert = toAlert(cand, ctx);
-    if (alert) candidates.push({ alert, cand });
+  const stalledCand = stalledCandidate(board, ctx, candidates.map((x) => x.cand));
+  if (stalledCand) {
+    const alert = toAlert(stalledCand, ctx);
+    if (alert) candidates.push({ alert, cand: stalledCand });
   }
 
   // 行 7 — inspector_liveness（契约 §5.3；非 §⑮ 行）
@@ -920,9 +990,15 @@ export function recheckCandidates(candidates, opts = {}) {
         continue;
       }
       if (row === 'leader_stalled') {
-        const fresh = scanStalledOnly(board, ctx);
-        if (fresh) kept.push(item);
-        else dropped.push({ ...alert, dropped_reason: 'live:no_leader_owed_work' });
+        // 与扫描**同源**重建该候选（§9.6）：条件规则 + 起点都要现态成立才算「仍成立」。
+        // 起点在回溯窗外**不是**收口条件（F5）—— 它只影响 confidence，故这里同样照常保留。
+        const fresh = stalledCandidate(board, ctx, otherRowCands(board, ctx));
+        const freshAlert = fresh ? toAlert(fresh, ctx) : null;
+        if (freshAlert && freshAlert.measure_start_at === alert.measure_start_at) {
+          kept.push({ alert: freshAlert, cand: fresh });
+        } else {
+          dropped.push({ ...alert, dropped_reason: freshAlert ? 'live:leader_stalled_origin_changed' : 'live:no_leader_owed_work' });
+        }
         continue;
       }
       const card = board.byId.get(alert.card_id);
@@ -949,19 +1025,16 @@ function R_BY_NAME_HAS(row) {
   return ROW_BY_NAME.has(row);
 }
 
-/** leader_stalled 的现态重核：只重算条件规则（不重算其余行）。 */
-function scanStalledOnly(board, ctx) {
-  const others = [];
+/** leader_stalled 之外的「leader 待处置」行候选（现态重核用；与 scan 同一 `evaluateCard` 判定源）。 */
+function otherRowCands(board, ctx) {
+  const rows = ['acceptance_card_creation', 'blocked_clarification', 'confirmation_gate', 'defect_card_creation'];
+  const out = [];
   for (const card of board.list) {
     for (const c of evaluateCard(card, ctx)) {
-      if (['acceptance_card_creation', 'blocked_clarification', 'confirmation_gate', 'defect_card_creation'].includes(c.sla_row)) {
-        others.push(c);
-      }
+      if (rows.includes(c.sla_row)) out.push(c);
     }
   }
-  if (!leaderOwed(board, others)) return null;
-  const ev = latestLeaderEvent(board, LEADER_LOOKBACK_DAYS * DAY_MS, ctx.nowMs);
-  return ev && ev.inLookback ? ev : null;
+  return out;
 }
 
 // ── 信封（契约 §10.1）───────────────────────────────────────────────────────────

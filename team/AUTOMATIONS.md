@@ -1,7 +1,7 @@
 # AUTOMATIONS.md — Scheduled Jobs / Patrol List
 
 > Overview and decision record of all scheduled jobs (cron / every / trigger) on the team Gateway. Maintainer: Elon.
-> Last updated: 2026-10-14 (added `sla-scan`, T-20261014-022254-3). View live: `automations list` (or Control UI → Automations).
+> Last updated: 2026-10-14 (added `sla-scan`, T-20261014-022254-3; + the contract-v1.1 conformance fixes F1/F5/F8, T-20261014-084606). View live: `automations list` (or Control UI → Automations).
 > Related: `PROTOCOL §⑳` (gates and archiving), `§⑥.4` (poll to terminal state), `README §3` (operations commands), `guides/task-interface.md` (task-provider ACL).
 
 ## 0. Boundary — framework owns scheduling; provider is only a callee (ACL)
@@ -351,6 +351,30 @@ this section references the guide, it does not restate it (`PROTOCOL §⑰`).
    acceptance wait. Consequence: a board where many `in_review` cards are older than the row's limit
    produces one alert per such card (de-duplicated thereafter) — the measured first-run shape is in
    the landing card's report.
+
+**Contract-v1.1 conformance fixes (F1 / F5 / F8, `T-20261014-084606`).** Three deviations the design
+confirmation `T-20261014-022327` found in this landing (registered as §12 **G-10 ⑤⑥⑦**) are fixed;
+`§⑮` thresholds, the tier ladder and the coverage set are untouched:
+
+- **F1 — `measure_start_source` is the read location only.** The field had been fed the
+  `measure_start_kind` vocabulary (`trail_event` / `created_at` / `status_changed_at`), which is
+  outside the contract §4 #9 enum (`frontmatter|comments|progress|missing`). Source and kind now have
+  separate vocabularies (`MEASURE_START_SOURCES`), and `leader_stalled`'s `kind` follows the real
+  event again (`trail_event` for a leader-authored trail entry, `created_at` for a leader-created
+  card, `status_changed_at` for a leader-only terminal transition).
+- **F5 — the `leader_stalled` origin is emitted, not dropped.** Previously a latest leader event older
+  than the 7-day lookback window was treated as "no origin", which nulled `threshold_min` and capped
+  the row at the weakest signal (`warn`) — so the *deepest* stall was reported as the *mildest* one.
+  The lookback window now only lowers `confidence` to `low` (contract §6.3-D); the real origin and the
+  row's `L`/`F` are kept, so a long stall can still reach `escalate`. Only a board with **no**
+  leader-attributed event at all falls back to §6.5 (`unverifiable` / `warn`, still emitted).
+  The pre-emit re-check uses the same construction, so it can no longer drop the row for being
+  outside the window.
+- **F8 — `blocked_reason` is the card's current value on every row.** It had been filled only on
+  `blocked_clarification`, so the `defect_card_creation` (and every other) tuple carried `null` even
+  when the card held a reason — contrary to §4 #19 ("on **every** row"). It is now read once per card
+  and carried by every row of that card (`null` iff the card carries none), including `leader_stalled`,
+  which takes the value of its evidence-holder card.
 
 ## 4. Decision Record
 - **Keep per-worker poll; do not do a "single board scan → dispatch"**: per-worker `*-poll` is an **independent fallback** (each worker atomically claims, so cards already created can still be claimed when Elon/main is stalled). Merging into "main scans → dispatch" would converge to a single Elon point and change the `PROTOCOL §①` "claim timing belongs to poll" semantics; the only gain is a few zero-cost config lines ⇒ not adopted.

@@ -331,24 +331,151 @@ test('① defect_card_creation：§⑨ kind=defect 留痕 + 无修复卡 ⇒ 告
 
 test('① leader_stalled：条件规则 —— 有 leader 待动作才告警；安静看板不告警', () => {
   const root = newRoot();
-  // 一张 in_review（leader 待验收）+ 一条 70min 前的 leader 动作 ⇒ warn（T≥L=60，无 −P 前导）
+  // 一张 in_review（leader 待验收）+ 一张 70min 前由 leader 建的卡 ⇒ warn（T≥L=60，无 −P 前导）
   writeCard(root, progressCard({ status: 'in_review', status_changed_at: '2026-01-05T01:00:00.000Z' }));
   writeCard(root, {
     ...progressCard({ id: 'T-20260105-000003', status: 'todo', heartbeat_at: '' }),
     created_at: '2026-01-05T01:50:00.000Z',
   });
-  const env = S.decide(OPTS(root)).envelope;
+  const env = S.decide(OPTS(root, { peerState: null })).envelope;
   const a = env.alerts.find((x) => x.sla_row === 'leader_stalled');
   assert.ok(a, '看板有 leader 待动作 ⇒ 必须告警');
-  assert.equal(a.measure_start_kind, 'trail_event');
-  assert.equal(a.measure_start_at, '2026-01-05T01:50:00.000Z'); // 最新 leader 事件（建卡）
+  // F1（契约 §4 #7/#9）：最新 leader 事件 = leader **建卡** ⇒ kind 随事件而定（`created_at`，不是 `trail_event`），
+  // source 只写**读取位置**（`created_at` 是 frontmatter 字段 ⇒ `frontmatter`）。修复前两者都写成了 kind 词汇。
+  assert.equal(a.measure_start_kind, 'created_at');
+  assert.equal(a.measure_start_source, 'frontmatter');
+  assert.equal(a.measure_start_at, '2026-01-05T01:50:00.000Z');
   assert.equal(a.elapsed_working_min, 70);
   assert.equal(a.severity, 'warn');
   assert.equal(a.threshold_min, 60);
+  assert.equal(a.confidence, 'high'); // 起点在回溯窗内（§6.3-D）
+  // 最新 leader 事件是**轨迹条目** ⇒ kind=trail_event，source=该条目所在小节（§4 #9）
+  const root1 = newRoot();
+  writeCard(
+    root1,
+    progressCard({ status: 'in_review', status_changed_at: '2026-01-05T01:00:00.000Z' }),
+    '## Comments\n- 2026-01-05T01:45:00.000Z · change · elon — leader 改了点什么\n',
+  );
+  const b = S.decide(OPTS(root1, { peerState: null })).envelope.alerts.find((x) => x.sla_row === 'leader_stalled');
+  assert.equal(b.measure_start_kind, 'trail_event');
+  assert.equal(b.measure_start_source, 'comments');
+  assert.equal(b.measure_start_at, '2026-01-05T01:45:00.000Z');
   // 安静看板（无任何 leader 待动作）⇒ 该行不产生条目（零成本空转，§5.1 条件规则）
   const root2 = newRoot();
   writeCard(root2, progressCard({ heartbeat_at: '2026-01-05T02:55:00.000Z' }));
   assert.equal(S.decide(OPTS(root2)).envelope.alerts.filter((x) => x.sla_row === 'leader_stalled').length, 0);
+});
+
+// F5（契约 v1.1 §6.3-D / §12 G-10 ⑥）：回溯窗只决定 confidence，**不**决定起点有无。
+test('①/F5 leader_stalled：起点早于回溯窗 ⇒ 照发真实起点 + confidence:low（不丢起点、不降成 warn）', () => {
+  const root = newRoot();
+  // 注意：验收等待卡**不是** leader 事件（created_by 非 leader、非终态），唯一 leader 事件 = 下方建卡
+  writeCard(
+    root,
+    progressCard({ status: 'in_review', created_by: 'linus', created_at: '2025-12-20T01:00:00.000Z', status_changed_at: '2026-01-05T01:00:00.000Z' }),
+  );
+  writeCard(root, {
+    ...progressCard({ id: 'T-20260105-000003', status: 'todo', heartbeat_at: '' }),
+    created_at: '2025-12-28T01:00:00.000Z', // 8 天前 > LEADER_LOOKBACK_DAYS(7)
+  });
+  const decided = S.decide(OPTS(root, { peerState: null }));
+  const a = decided.envelope.alerts.find((x) => x.sla_row === 'leader_stalled');
+  assert.ok(a, '窗外的真实起点必须照发（契约 §6.3-D：巡检必须说出来，不静默）');
+  assert.equal(a.measure_start_at, '2025-12-28T01:00:00.000Z');
+  assert.equal(a.measure_start_source, 'frontmatter');
+  assert.equal(a.confidence, 'low'); // 窗外的唯一后果 = 降 confidence
+  assert.equal(a.threshold_min, 60); // 阈值**不**被降成 null（修复前 origin:null ⇒ threshold_min:null）
+  assert.equal(a.severity, 'escalate'); // 最深停摆（T=6840 ≥ F=360）仍能到 escalate；修复前只到 warn
+  assert.equal(a.evidence.leader_event_in_lookback, false);
+  assert.match(a.evidence.confidence_reason, /lookback/);
+  // 现态重核也不得因「起点在窗外」而剔除它（drop 同样会丢掉起点）
+  const rc = S.recheckCandidates(decided.envelope.alerts, OPTS(root, { peerState: null }));
+  assert.ok(
+    rc.kept.some((k) => (k.alert || k).sla_row === 'leader_stalled'),
+    '窗外起点的 leader_stalled 必须通过现态重核',
+  );
+  // 看板**完全无** leader 事件 ⇒ 无起点可量 ⇒ §6.5 兜底（仍发、不假绿）
+  const root2 = newRoot();
+  writeCard(root2, progressCard({ status: 'in_review', created_by: 'linus', status_changed_at: '2026-01-05T01:00:00.000Z' }));
+  const c = S.decide(OPTS(root2, { peerState: null })).envelope.alerts.find((x) => x.sla_row === 'leader_stalled');
+  assert.ok(c, '无 leader 事件也必须说出来（绝不静默）');
+  assert.equal(c.measure_start_kind, 'unverifiable');
+  assert.equal(c.measure_start_source, 'missing');
+  assert.equal(c.threshold_min, null);
+  assert.equal(c.severity, 'warn');
+  assert.equal(c.confidence, 'low');
+  assert.equal(c.evidence.leader_event_in_lookback, null);
+});
+
+// F1（契约 §4 #9 / §12 G-10 ⑤）：`measure_start_source` 恒为**读取位置**枚举，与 `measure_start_kind` 不混用。
+test('①/F1 measure_start_source 恒取 §4 #9 枚举；kind 与来源自洽（全行机检）', () => {
+  const KINDS = ['blocked_at', 'status_changed_at', 'heartbeat_at', 'gate_at', 'trail_event', 'created_at', 'unverifiable'];
+  const alerts = [];
+  const root = newRoot();
+  // 一张 blocked 卡同时命中 blocked_clarification + defect_card_creation（缺陷留痕在 Progress，足够老 ⇒ 跨档）
+  writeCard(
+    root,
+    progressCard({ status: 'blocked', blocked_at: '2026-01-05T00:30:00.000Z', blocked_reason: 'defect' }),
+    '## Progress\n- 2025-12-31T01:00:00.000Z · defect · turing — 缺陷票\n',
+  );
+  // 确认门（Comments 里的 §⑭ 请求）+ 验收等待（in_review，起点足够老 ⇒ 跨档）
+  writeCard(
+    root,
+    progressCard({ id: 'T-20260105-000004', status: 'in_review', status_changed_at: '2026-01-01T01:00:00.000Z' }),
+    '## Comments\n- 2026-01-04T02:00:00.000Z 阶段2.5 回发 Elon 待确认\n',
+  );
+  // 心跳陈旧（frontmatter 起点）
+  writeCard(root, progressCard({ id: 'T-20260105-000005', heartbeat_at: '2026-01-05T02:30:00.000Z' }));
+  alerts.push(...S.decide(OPTS(root, { peerState: null })).envelope.alerts);
+  // 对端标记超界 ⇒ inspector_liveness（无起点 ⇒ missing）
+  alerts.push(...S.decide(OPTS(root, { peerState: { last_ok: '2026-01-05T01:00:00.000Z' } })).envelope.alerts);
+
+  const rows = new Set(alerts.map((a) => a.sla_row));
+  for (const r of ['blocked_clarification', 'defect_card_creation', 'confirmation_gate', 'acceptance_card_creation', 'heartbeat_stale', 'leader_stalled', 'inspector_liveness']) {
+    assert.ok(rows.has(r), `fixture 未覆盖 ${r}`);
+  }
+  for (const a of alerts) {
+    assert.ok(
+      S.MEASURE_START_SOURCES.includes(a.measure_start_source),
+      `measure_start_source 越出 §4 #9 枚举：${a.sla_row} → ${a.measure_start_source}`,
+    );
+    assert.ok(KINDS.includes(a.measure_start_kind), `measure_start_kind 越界：${a.sla_row} → ${a.measure_start_kind}`);
+    assert.notEqual(a.measure_start_source, a.measure_start_kind, `source 不得写成 kind（§4 #9）：${a.sla_row}`);
+  }
+  assert.ok(alerts.some((a) => a.sla_row === 'confirmation_gate' && a.measure_start_source === 'comments'));
+  assert.ok(alerts.some((a) => a.sla_row === 'defect_card_creation' && a.measure_start_source === 'progress'));
+  assert.ok(alerts.some((a) => a.sla_row === 'blocked_clarification' && a.measure_start_source === 'frontmatter'));
+  assert.ok(alerts.some((a) => a.sla_row === 'inspector_liveness' && a.measure_start_source === 'missing'));
+});
+
+// F8（契约 §4 #19 / §12 G-10 ⑦）：`blocked_reason` 在**每一行**取卡当前值。
+test('①/F8 §4 #19 blocked_reason 取卡当前值 —— 缺陷行不再恒 null；卡无该键则各行 null', () => {
+  const root = newRoot();
+  writeCard(
+    root,
+    progressCard({ status: 'blocked', blocked_at: '2026-01-05T00:30:00.000Z', blocked_reason: 'defect' }),
+    '## Comments\n- 2025-12-31T01:00:00.000Z · defect · turing — 缺陷票\n',
+  );
+  const env = S.decide(OPTS(root, { peerState: null })).envelope;
+  const blocked = env.alerts.find((x) => x.sla_row === 'blocked_clarification');
+  const defect = env.alerts.find((x) => x.sla_row === 'defect_card_creation');
+  assert.equal(blocked.blocked_reason, 'defect');
+  assert.equal(defect.blocked_reason, 'defect'); // 修复前该行恒 null（越出 §4 #19「在每一行」）
+  // leader_stalled 的承载卡也就是这张 blocked 卡 ⇒ 同样取到卡当前值
+  assert.equal(env.alerts.find((x) => x.sla_row === 'leader_stalled').blocked_reason, 'defect');
+  // 卡不带该键 ⇒ null（「null iff the card carries none」，绝不用行专属替身兜底）
+  const root2 = newRoot();
+  writeCard(root2, progressCard({ status: 'blocked', blocked_at: '2026-01-05T00:30:00.000Z' }), '## Comments\n- 2025-12-31T01:00:00.000Z · defect · turing — 缺陷票\n');
+  const env2 = S.decide(OPTS(root2, { peerState: null })).envelope;
+  assert.equal(env2.alerts.find((x) => x.sla_row === 'blocked_clarification').blocked_reason, null);
+  assert.equal(env2.alerts.find((x) => x.sla_row === 'defect_card_creation').blocked_reason, null);
+  // 非 blocked 行（in_review / heartbeat）同样取卡当前值：卡无 ⇒ null
+  const root3 = newRoot();
+  writeCard(root3, progressCard({ status: 'in_review', status_changed_at: '2026-01-05T01:00:00.000Z' }));
+  writeCard(root3, progressCard({ id: 'T-20260105-000007', heartbeat_at: '2026-01-05T02:30:00.000Z' }));
+  const env3 = S.decide(OPTS(root3, { peerState: null })).envelope;
+  assert.ok(env3.alerts.length >= 2);
+  for (const a of env3.alerts) assert.equal(a.blocked_reason, null, `${a.sla_row} 应取到 null（卡未携带该键）`);
 });
 
 test('① inspector_liveness：对端标记缺失 ⇒ 可见注记不告警；标记超界 ⇒ warn（threshold_min=null）', () => {
