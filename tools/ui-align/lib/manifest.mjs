@@ -8,6 +8,9 @@
  *   "route": "/overview",                   // 拼到 implBaseUrl 后
  *   "widths": [1512, 1240, 980, 760, 430],  // 缺省取配置 viewports
  *   "height": 900,
+ *   "readySelector": "[data-card]",         // 可选：实现侧就绪轮询（**跑在 settleMs 之前**，
+ *                                           //   120ms × 15s 上界，超时只告警不判失败）
+ *                                           //   缺省 = 首个 delivered 块的首条 check 的 selector
  *   "overflowTargets": [{ "selector": "html", "desc": "文档根" }],
  *   "console": { "allowlist": [{ "pattern": "favicon", "reason": "…", "evidence": "…" }] },
  *   "styleTargets": [{ "name": "topbar", "selector": ".topbar" }],   // 可选：computed style 对比目标
