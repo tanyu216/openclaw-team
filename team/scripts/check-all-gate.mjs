@@ -34,8 +34,10 @@
  *
  * Residual (deliberate, documented): the slow verdict is up to one cron period old, so a
  * regression that only the slow suite catches is reported within one period rather than
- * instantly. That is strictly better than the previous behaviour (never confirmed), and it
- * is the only shape that fits a <10 s evaluation without dropping coverage.
+ * instantly. The freshness bound itself tolerates ONE missed period (a host that sleeps across
+ * a cron hour skips that evaluation, and with it that period's refresh) — see
+ * `DEFAULT_SLOW_TTL_MS`. That is strictly better than the previous behaviour (never confirmed),
+ * and it is the only shape that fits a <10 s evaluation without dropping coverage.
  *
  * Usage:  node check-all-gate.mjs          → last stdout line is the {"ok":…} envelope
  * Overrides (ops/tests — all default to the deployed layout):
@@ -44,7 +46,7 @@
  *   OPENCLAW_TEAM_CHECKALL_CACHE           slow-verdict cache file
  *   OPENCLAW_TEAM_CHECKALL_LOCK            refresh lock file
  *   OPENCLAW_TEAM_CHECKALL_LOG             detached refresh log
- *   OPENCLAW_TEAM_CHECKALL_SLOW_TTL_MS     max accepted cache age (default 90 min)
+ *   OPENCLAW_TEAM_CHECKALL_SLOW_TTL_MS     max accepted cache age (default 150 min; see below)
  *   OPENCLAW_TEAM_CHECKALL_FAST_TIMEOUT_MS fast-segment wall-clock bound (default 6000 ms)
  *   OPENCLAW_TEAM_CHECKALL_LOCK_MAX_MS     refresh treated as in-flight up to this age
  *   OPENCLAW_TEAM_CHECKALL_NO_REFRESH=1    do not launch the detached slow refresh
@@ -57,9 +59,19 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // <TEAM_DIR>/scripts
 
-/** Accepted cache age by default: > one hourly cron period, so a single missed refresh is
- *  tolerated and a second one alarms. */
-export const DEFAULT_SLOW_TTL_MS = 90 * 60 * 1000;
+/** Accepted cache age by default — the slow axis' freshness bound (T-20261015-005519).
+ *
+ *  The cache is refilled by ONE detached refresh per hourly cron period (P = 60 min), so the
+ *  age a healthy evaluation reads is ~1P; ONE missed evaluation makes it ~2P, TWO make it ~3P.
+ *  For the bound to mean what it says — "a single missed refresh is tolerated, a second one
+ *  alarms" — it must sit strictly BETWEEN 2P and 3P. 90 min (1.5P) sat below 2P, so the FIRST
+ *  missed period already read as stale: any host that sleeps across a cron hour (a sleeping
+ *  laptop skips the evaluation, and with it that period's refresh) produced a fail-closed false
+ *  alarm on the next wake — the reported defect, where a 1 h 47 m old cache was called stale.
+ *  150 min = 2.5P is the midpoint of (2P, 3P): ~30 min of margin over a single missed period,
+ *  and a second consecutive miss (≥3P) still alarms. Note the bound is deliberately NOT wider
+ *  than 3P: that would tolerate two missed refreshes and read green on a genuinely lost one. */
+export const DEFAULT_SLOW_TTL_MS = 150 * 60 * 1000;
 /** In-band bound for the fast segment. The dispatcher gives the entry the 8000 ms budget
  *  minus its 500 ms emission reserve (7500 ms); the fast segment measures ~1.6 s, so 6000 ms
  *  is a wide margin that still leaves room to print. */
