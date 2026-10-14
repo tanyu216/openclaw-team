@@ -66,7 +66,7 @@ for a in "$@"; do
 done
 cat <<'JSON'
 {"ok":true,"data":{"projects":[
- {"id":"boardproj","name":"boardproj","labels":[],"meta":{"kind":"code","root":"/from-board","repos":[{"path":"src"}],"guides":[]},"readme":null,"task_count":2,"archived_at":null,"created_at":"2026-01-01T00:00:00.000Z","updated_at":"2026-01-01T00:00:00.000Z"}
+ {"id":"boardproj","name":"boardproj","prefix":"BOARDPROJ","labels":[],"meta":{"kind":"code","root":"/from-board","repos":[{"path":"src"}],"guides":[]},"readme":null,"task_count":2,"archived_at":null,"created_at":"2026-01-01T00:00:00.000Z","updated_at":"2026-01-01T00:00:00.000Z"}
 ]}}
 JSON
 `,

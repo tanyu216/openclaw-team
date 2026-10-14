@@ -293,12 +293,19 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
  *   2. else the `repoPath` install.sh recorded in TEAM_DIR/.install-state.json.
  * Returns "" when neither resolves — the caller degrades (never silently expands to "").
  * Mirrors check-all.sh's REPO_DIR resolution so both agree on which tree is "the repo".
+ *
+ * `$OPENCLAW_TEAM_INSTALL_STATE` overrides the leg-2 state-file location (default
+ * TEAM_DIR/.install-state.json). On a DEPLOYED instance that file always exists, so without the
+ * override the second leg can never be pinned dead — the seam keeps the "neither leg resolves ⇒
+ * alarm, never an empty substitution" contract testable in both the repo and the instance layout.
+ * Unset ⇒ byte-for-byte the previous behaviour.
  */
 export function resolveRepoDir(env = process.env) {
   const fromEnv = String(env.OPENCLAW_TEAM_REPO || "").trim();
   if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
+  const stateFile = String(env.OPENCLAW_TEAM_INSTALL_STATE || "").trim() || path.join(TEAM_DIR, ".install-state.json");
   try {
-    const st = JSON.parse(fs.readFileSync(path.join(TEAM_DIR, ".install-state.json"), "utf8"));
+    const st = JSON.parse(fs.readFileSync(stateFile, "utf8"));
     const p = String(st.repoPath || "").trim();
     if (p && fs.existsSync(p)) return p;
   } catch { /* no state file / unreadable ⇒ unresolved */ }
