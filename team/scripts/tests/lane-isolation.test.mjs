@@ -82,6 +82,7 @@ function makeRepo(name) {
   fs.writeFileSync(path.join(dir, 'README.md'), '# fixture\n');
   g('add', '--', 'README.md');
   g('commit', '-q', '-m', 'init');
+  g('branch', 'dev'); // 缺省 base = dev（开发集成分支，PROTOCOL §⑥.4）
   return { dir, g };
 }
 
@@ -107,6 +108,7 @@ const MAIN = LAYOUT ? (() => {
   fs.writeFileSync(path.join(LAYOUT, 'tracked.txt'), 'base\n');
   spawnSync('git', ['-C', LAYOUT, 'add', '--', '.gitignore', 'tracked.txt'], { encoding: 'utf8' });
   spawnSync('git', ['-C', LAYOUT, 'commit', '-q', '-m', 'init'], { encoding: 'utf8' });
+  spawnSync('git', ['-C', LAYOUT, 'branch', 'dev'], { encoding: 'utf8' }); // 缺省 base = dev（PROTOCOL §⑥.4）
   return LAYOUT;
 })() : null;
 const porcelain = (dir) => spawnSync('git', ['-C', dir, 'status', '--porcelain'], { encoding: 'utf8' }).stdout.trim();

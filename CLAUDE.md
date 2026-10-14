@@ -158,7 +158,12 @@ refreshes that cache out of band.
   [team/scripts/lane-worktree.mjs](team/scripts/lane-worktree.mjs),
   [team/scripts/spawn-lane.mjs](team/scripts/spawn-lane.mjs). Same repo + a
   concurrent lane ⇒ one git worktree per lane (automatic; `--no-isolate` opts
-  out). Contract: [team/guides/worktree-isolation-sop.md](team/guides/worktree-isolation-sop.md),
+  out). The lane base defaults to **`dev`** ([PROTOCOL §⑥.4](team/PROTOCOL.md);
+  continuation segs use the previous seg's branch tip; `OPENCLAW_LANE_BASE`
+  overrides; an unresolvable base is refused, never silently `HEAD`). A lane's
+  product merges into `dev`; [team/scripts/branch-guard.mjs](team/scripts/branch-guard.mjs)
+  refuses a direct commit on the protected branch (`main`). Contract:
+  [team/guides/worktree-isolation-sop.md](team/guides/worktree-isolation-sop.md),
   [team/guides/spawn-lane-sop.md](team/guides/spawn-lane-sop.md).
 
 ### Content layers

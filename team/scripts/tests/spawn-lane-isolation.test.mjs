@@ -74,6 +74,7 @@ const LAYOUT = PROVIDER ? (() => {
   fs.writeFileSync(path.join(root, 'tracked.txt'), 'base\n');
   g('add', '--', '.gitignore', 'tracked.txt');
   g('commit', '-q', '-m', 'init');
+  g('branch', 'dev'); // 缺省 base = dev（开发集成分支，PROTOCOL §⑥.4）
   return root;
 })() : null;
 
