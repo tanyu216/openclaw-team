@@ -116,6 +116,9 @@ if (LAYOUT) {
   ].join('\n'));
   fs.chmodSync(STUB, 0o755);
   process.env.OPENCLAW_CLAUDE_BIN = STUB;
+  // 本套件真起 lane（stub）：关掉会话终态看守（`lane-reaper`），否则每个 stub 一个看守进程会
+  // 活到套件结束后才收口（本套件只测隔离判定，终态收口由 lane-reaper.test.mjs 覆盖）。
+  process.env.OPENCLAW_TEAM_REAPER = '0';
 }
 
 const spawnPids = [];

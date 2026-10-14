@@ -18,6 +18,10 @@
  *       但不报出来就等于静默丢审计痕迹；写入侧已去重 + 拒写（`registry.upsertSessionEntry`），此处只做可见性。
  * 只读：绝不写卡 / 写 registry。扫描 OPENCLAW_TEAM_ROOT（import 期读取；隔离测试在 import 前设该环境变量）。
  * 用法：node check-sessions.mjs
+ *
+ * note（mismatch 类）的**收口工具** = `session-reconcile.mjs`（清单 + 归口 fixable/manual/immutable +
+ * `--apply` 逐条留痕修复）；poll 侧对这类**不一致态**不再重领（`session-lifecycle.mjs#classifyClaimBlock`）。
+ * 见 guides/lane-session-lifecycle-sop.md（T-20261015-045724）。
  */
 import fs from 'node:fs';
 import path from 'node:path';
