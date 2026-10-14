@@ -9,24 +9,26 @@
  * **无 source（无 review_of 且无 parent）⇒ 不产键**（`idemKey` 返回空串）⇒ 不参与机械判重、
  * 扫描时直接跳过（同项目同人不再误撞）；机械判重仅对「有 source」的卡兜底（review_of/子卡）。
  *
- * 判重路由（T-20261010-064006-2 收口）——机械键对「同 parent + 同 assignee + 空 target」的**兄弟卡**
- * 不含任何区分信息（三者相同恰是子卡常态），必然撞键（本轮 Elon 建 meerkat 改名卡实测触发）。故组内 >1
- * 时按「键是否携带真实区分信号」分两档：
- *   - duplicates（红，阻断）：组内**任一**卡有非空 `review_of`（显式复核同一张卡）或非空 `target`
- *     （同人同目标）⇒ 键有实义，判真重复，置退出码 1。
- *   - hints（非阻断）：组内**全部**卡由 parent 派键（review_of 空）且 target 空 ⇒ 兄弟卡弱信号，
- *     仅打印提示、**不影响退出码**（主闸仍是 LLM 语义判重；机械键只兜底，不该对子卡常态误报）。
+ * 判重路由（T-20261010-064006-2 收口；T-20261014-214625 细化）——机械键对「同 parent + 同 assignee +
+ * 同 target」的**兄弟卡**不含任何区分信息（三者相同恰是 epic 子卡常态：同一项目的多个子任务），必然撞键。
+ * 故组内 >1 时按「source 是显式复核（review_of）还是 parent 派生」分两档：
+ *   - duplicates（红，阻断）：组内**任一**卡有非空 `review_of`（显式复核同一张卡）⇒ 键有实义，判真重复，置退出码 1。
+ *   - hints（非阻断）：组内**全部**卡由 parent 派键（review_of 全空）⇒ 兄弟卡弱信号，仅打印提示、**不影响退出码**
+ *     （主闸仍是 LLM 语义判重；机械键只兜底，不该对子卡常态误报）。
  * 注：显式 idem 口径（把卡面 `idem` 并入键）需 create 路径写回卡面，属 provider（skills/task-ops/lib/task.mjs）
- * 职责；本脚本不改 provider，故取「子卡降级提示」一档。判据为 review_of/target 自身字段，不解析键字符串。
+ * 职责；本脚本不改 provider，故取「子卡降级提示」一档。判据为 review_of 自身字段，不解析键字符串。
  *
- * **hints 的消费方（T-20261010-081140 裁定）**：`hints` 为**仅供人工**的提示（CLI stderr / 人工巡检），
+ * **hints 的消费方（T-20261010-081140 裁定；其「非空 target 不降级」部分已由 T-20261014-214625 取代，
+ * 「hints 仅供人工」部分保留）**：`hints` 为**仅供人工**的提示（CLI stderr / 人工巡检），
  * **不接入任何自动化告警消费**——`patrol-scan`、月报等一律**不得**以 hints 为告警源或阻断依据。理由：hints
  * 的定义即「机械键无区分信号」的兄弟卡常态；一旦接入告警/阻断，等于回归 064006-2 已消除的误报。主闸始终是
  * LLM 语义判重，机械键只对 duplicates 兜底。未来若确需观测，仅可为**信息性计数**（不报警、不阻断），且须另立卡。
  *
- * **非空 target 的兄弟卡（同裁定）**：**不降级，维持 duplicates（红）**。同一 idem 键 ⇒ 同一 target 字符串；
- * 非空且相同的 target 本身即「同人同目标」的真实区分信号 ⇒ 命中即真重复倾向，应报警交人工/LLM。仅当组内**全部**
- * 卡 target 空且 review_of 空（纯 parent 派键、零区分信号）时才降 hints（见上「判重路由」）。
+ * **target 不再是 parent 派生组的区分信号（T-20261014-214625 细化，取代 081140 的「非空 target 不降级」）**：
+ * 同一 parent 的子卡**共享 target 是常态**（同一项目的多个子任务），非空且相同的 target 对 parent 派生组**无区分
+ * 信息** ⇒ **即便 target 非空也降 hints**。`target` 仍参与 idem 键本身（决定两组子卡是否同组）；它只在
+ * **review_of 组**（显式复核同一张卡）里仍是「同人同目标 ⇒ 真重复倾向」的实义信号 ⇒ review_of 非空的组维持
+ * duplicates。判红依据因此收窄为「组内是否有非空 review_of」单一判据。
  *
  * 基线豁免（**机制保留**）——**登记来源已解耦（T-20261014-131423）**：一个文件不能同时是「随 install
  * 部署的托管物」与「运行时可变数据」（T-20261014-123216 现场即此：登记被升级清回，且在清回前就令慢段
@@ -79,7 +81,7 @@ export function runtimeBaselinePath(tasksDir = TASKS_DIR) {
 }
 
 /** 兄弟卡降级理由（hints 的 reason 文案，单测/复核按此核对口径） */
-export const SIBLING_HINT_REASON = '同 parent 兄弟卡（review_of/target 均空）⇒ 机械键无区分信息，降级为非阻断提示';
+export const SIBLING_HINT_REASON = '同 parent 兄弟卡（review_of 空；共享 target 属常态）⇒ 机械键无区分信息，降级为非阻断提示';
 
 /** 读基线文件：缺失/损坏/形状不对 ⇒ 视为空组列表（**不报错**，退化为全量判红）。 */
 export function loadBaseline(file = BASELINE_PATH) {
@@ -124,8 +126,9 @@ export function scanIdem(tasksDir = TASKS_DIR, { baseline } = {}) {
       if (!groups.has(key)) groups.set(key, { cards: [], genuine: false });
       const g = groups.get(key);
       g.cards.push({ id, status: fm.status, assignee: fm.assignee || '', title: fm.title || '' });
-      // 区分信号：显式复核同一卡（review_of）或同人同目标（target）⇒ 键有实义；二者全空 ⇒ 兄弟卡弱信号
-      if (str(fm.review_of) || str(fm.target)) g.genuine = true;
+      // 区分信号：仅「显式复核同一卡」（review_of 非空）⇒ 键有实义；parent 派生的兄弟卡共享 target 属常态，
+      // 非空 target 不再构成区分信号（T-20261014-214625），故不再并入判据。
+      if (str(fm.review_of)) g.genuine = true;
     }
   }
   const base = baseline === undefined
@@ -166,7 +169,7 @@ try {
       }
     }
     if (r.hints.length) {
-      console.error(`建卡幂等提示：${r.hints.length} 组同 parent 兄弟卡（review_of/target 均空）—— 机械键无区分信息，非阻断、不置退出码（需区分请补 target 或经 LLM 语义判重）`);
+      console.error(`建卡幂等提示：${r.hints.length} 组同 parent 兄弟卡（review_of 空；共享 target 属常态）—— 机械键无区分信息，非阻断、不置退出码（需区分请经 LLM 语义判重）`);
       for (const g of r.hints) {
         console.error(`  · hint ${g.idem}`);
         for (const c of g.cards) console.error(`      ${c.id} [${c.status}] ${c.title}`);
