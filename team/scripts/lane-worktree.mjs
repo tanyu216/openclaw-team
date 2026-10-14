@@ -16,6 +16,9 @@
  *   ③ `--remove`：**仅当该 worktree clean（无未提交）且分支匹配**才 `git worktree remove`；**绝不 `--force`**；
  *      **不删除分支**（分支可能承载已提交产物，如 rename/meerkat-taskpanel @ c6ead89）。
  *   命名：默认 path = `<主仓目录>-wt-<lane>`；默认 branch = `lane/<lane>`（命名空间化）。
+ *   定基（T-20261014-112936）：`--base <ref>` 缺省 `HEAD` —— 这是**本入口**的默认。`spawn-lane` 的
+ *   自动隔离路径在「续接上一 seg」时不再用 HEAD，改传**上一 seg 分支 tip**（`lane-isolation.mjs`
+ *   的 `deriveLaneBase`）；本入口保持无卡面知识（不猜 seg 语义），仅照传入的 `base` 建树。
  *   既有手工实例 `/Users/tanyu/Documents/meerkat-taskpanel-wt-meerkat`（branch `rename/meerkat-taskpanel`）
  *   = 本机制的手工形状，脚本以 `--branch rename/meerkat-taskpanel` 复现同形状（增量、不改现流程）。
  *
@@ -73,11 +76,13 @@ function worktreeList(repo) {
   return map;
 }
 
-const branchHead = (repo, branch) => {
+/** `refs/heads/<branch>` 的 tip（分支不存在 ⇒ null）。导出供 `lane-isolation.mjs` 做前驱 seg 定基探测。 */
+export const branchHead = (repo, branch) => {
   const r = git(repo, ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`]);
   return r.code === 0 ? r.stdout.trim() : null;
 };
-const revParse = (repo, ref) => {
+/** 任意 ref 的 sha（不可解析 ⇒ null）。导出理由同上。 */
+export const revParse = (repo, ref) => {
   const r = git(repo, ['rev-parse', '--verify', '--quiet', ref]);
   return r.code === 0 ? r.stdout.trim() : null;
 };
