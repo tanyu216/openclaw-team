@@ -28,18 +28,24 @@
  * 非空且相同的 target 本身即「同人同目标」的真实区分信号 ⇒ 命中即真重复倾向，应报警交人工/LLM。仅当组内**全部**
  * 卡 target 空且 review_of 空（纯 parent 派键、零区分信号）时才降 hints（见上「判重路由」）。
  *
- * 基线豁免（**机制保留、当前空/退役**）：`scripts/idem-baseline.json` 现为 `{ "groups": [] }`
- * （外加说明性 `retired:true` / `note`；`loadBaseline` 只读 `groups`，多余键不入判据）。
- * 机制：判据 = `key` 相同 **且** `ids` 排序后与该组卡 id 集合**完全一致** ⇒ 移入 `exempt`（不判红）；
- * 集合一旦变化（增卡/删卡/换卡）即**豁免失效**，重新报警（防「登记一次、永久放行」）。
- * 豁免仅对 duplicates（真重复档）生效；hints 本身已非阻断，无需登记。
- * 新增豁免须人工核对后追加；`--no-baseline` 可忽略基线（全部按 duplicates）。
- *
- * **部署 / provider 断言耦合（T-20261014-123216）**：本文件随 `install.sh` §1 的 `deploy_file` 部署到
- * 实例（默认 upgrade ⇒ **仓内副本覆盖实例副本**）⇒ 仓内副本是唯一权威；直接手改实例副本会在下次部署
- * 被覆盖，且在覆盖**之前**就会让 provider 契约测试 `skills/task-ops/tests/idem.test.mjs:483`
- * （断言本文件 `groups` 为空 = 退役态）失败 ⇒ check-all 慢段 fail-closed 转红。故登记豁免必须与该校验
- * **成对**落地（provider 侧由 task-ops 归属方改），否则慢段红会随每次登记复现。
+ * 基线豁免（**机制保留**）——**登记来源已解耦（T-20261014-131423）**：一个文件不能同时是「随 install
+ * 部署的托管物」与「运行时可变数据」（T-20261014-123216 现场即此：登记被升级清回，且在清回前就令慢段
+ * 转红），故拆成**两类来源**。判据（`key` 相同 **且** `ids` 排序后与该组卡 id 集合**完全一致** ⇒ 移入
+ * `exempt`、不判红；集合一旦变化（增卡/删卡/换卡）即**豁免失效**，防「登记一次、永久放行」）与豁免
+ * 语义**一字未动**，变的只是「从哪里读登记」：
+ *   ① **托管模板** `BASELINE_PATH = <本目录>/idem-baseline.json`：随 `install.sh` §1 `deploy_file` 部署
+ *      到实例（默认 upgrade ⇒ **仓内副本覆盖实例副本**）⇒ **只读**，仓内副本是唯一权威。provider 契约
+ *      测试 `skills/task-ops/tests/idem.test.mjs:483` 断言它 `groups` 为空 ⇒「仓内不得夹带豁免」仍是
+ *      被机械检查的不变量。**运行时登记一律不写此文件**（写了必被下次部署清回，且清回前即令慢段红）。
+ *   ② **运行时登记** `runtimeBaselinePath(dir)` = `<被巡检的 tasks 目录>/.idem-baseline.json`
+ *      （`RUNTIME_BASELINE_NAME`）：不属任何部署树（`install.sh` 跳过 `tasks/`，防漂移巡检亦忽略
+ *      `tasks/`）⇒ 升级**不再清回**登记；且因随 `tasksDir` 派生，provider 契约测试（自设 `OPENCLAW_TEAM_ROOT`
+ *      隔离 root）读到的是隔离目录内的空登记 ⇒ **登记不再可能令慢段转红**（结构性，而非靠约定）。
+ *   生效登记 = ① ∪ ②（同键重复先命中者胜；`loadExemptions`）。新增豁免**只写 ②**并人工核对；豁免仅对
+ *   duplicates（真重复档）生效，hints 本身已非阻断、无需登记；`--no-baseline` 忽略**两者**（全部按
+ *   duplicates，用于核查真重复或登记是否已过期）。
+ *   遗留归口：`idem.test.mjs:483` 解耦后断言的主体只是**托管模板**（「仓内不得夹带豁免」）；若要它进一步
+ *   钉「运行时无豁免」，须由 provider 归属方另立卡（本脚本不改 provider，见卡 T-20261014-131423 ③）。
  *
  * 退出码：0 无非豁免重复（含仅有 hints）；1 有非豁免 duplicates（报警）。
  * 隔离：OPENCLAW_TEAM_ROOT 覆盖（与 team-paths.mjs 同源），便于单测用 mkdtemp。
@@ -64,6 +70,14 @@ const { idemKey, NON_TERMINAL } = await import(pathToFileURL(TASK_MJS).href);
 
 export const BASELINE_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), 'idem-baseline.json');
 
+/** 运行时登记文件名：落在**被巡检的 tasks 目录**内（随 tasksDir 派生 ⇒ 非部署托管、单测自动隔离）。 */
+export const RUNTIME_BASELINE_NAME = '.idem-baseline.json';
+
+/** 运行时登记路径（来源②）：与巡检目录同根；`install.sh` 不部署 `tasks/` ⇒ 升级不清回登记。 */
+export function runtimeBaselinePath(tasksDir = TASKS_DIR) {
+  return path.join(tasksDir, RUNTIME_BASELINE_NAME);
+}
+
 /** 兄弟卡降级理由（hints 的 reason 文案，单测/复核按此核对口径） */
 export const SIBLING_HINT_REASON = '同 parent 兄弟卡（review_of/target 均空）⇒ 机械键无区分信息，降级为非阻断提示';
 
@@ -73,6 +87,14 @@ export function loadBaseline(file = BASELINE_PATH) {
     const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
     return Array.isArray(raw && raw.groups) ? raw.groups : [];
   } catch { return []; }
+}
+
+/**
+ * 生效登记 = 托管模板（①，只读、由 provider 断言钉为空）∪ 运行时登记（②，tasks 目录内、不随部署）。
+ * 两源参数可注入，便于单测在不触碰仓内模板文件的前提下覆盖合取行为。同键重复时先命中者胜（find 语义）。
+ */
+export function loadExemptions(tasksDir = TASKS_DIR, { template = BASELINE_PATH, runtime = runtimeBaselinePath(tasksDir) } = {}) {
+  return [...loadBaseline(template), ...loadBaseline(runtime)];
 }
 
 /** 两个 id 集合是否**完全一致**（排序后逐项相等；顺序无关，长度不同 ⇒ 否）。 */
@@ -107,7 +129,7 @@ export function scanIdem(tasksDir = TASKS_DIR, { baseline } = {}) {
     }
   }
   const base = baseline === undefined
-    ? loadBaseline()
+    ? loadExemptions(tasksDir)
     : (Array.isArray(baseline) ? baseline : []);
 
   const duplicates = [];
@@ -136,6 +158,8 @@ try {
     console.log(JSON.stringify(r, null, 2));
     if (r.duplicates.length) {
       console.error(`建卡幂等违例：${r.duplicates.length} 组同 idem 的非终态卡（>1）—— 机械键兜底命中，需人工裁定（LLM 语义判重为主闸）`);
+      // 逃生口可发现性：登记处只报一次（人工核对后追加），免去「翻头注才知道登记在哪」
+      console.error(`  如需登记良性豁免（人工核对后）：追加 ${RUNTIME_BASELINE_NAME} @ ${runtimeBaselinePath(TASKS_DIR)}（运行时不随部署；判据 = key + id 集合全等，集合变化即失效）`);
       for (const g of r.duplicates) {
         console.error(`  · ${g.idem}`);
         for (const c of g.cards) console.error(`      ${c.id} [${c.status}] ${c.title}`);
@@ -149,7 +173,7 @@ try {
       }
     }
     if (r.exempt.length) {
-      console.error(`建卡幂等基线豁免：${r.exempt.length} 组（exempt）—— 既存良性组，登记于 scripts/idem-baseline.json；集合变化即失效`);
+      console.error(`建卡幂等基线豁免：${r.exempt.length} 组（exempt）—— 既存良性组；登记处＝运行时 ${runtimeBaselinePath(TASKS_DIR)} ∪ 托管模板 ${BASELINE_PATH}（只读）；集合变化即失效`);
       for (const g of r.exempt) {
         console.error(`  · exempt ${g.key}${g.reason ? `（${g.reason}）` : ''}`);
         for (const c of g.cards) console.error(`      ${c.id} [${c.status}] ${c.title}`);

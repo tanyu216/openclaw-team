@@ -1,5 +1,5 @@
 {
   "groups": [],
-  "retired": true,
-  "note": "退役态：零豁免登记（T-20261014-123216）。本文件由 install.sh §1 deploy_file 部署到实例（默认 upgrade ⇒ 仓内副本覆盖实例副本）⇒ 仓内副本是唯一权威，请勿直接手改实例副本。provider 契约测试 skills/task-ops/tests/idem.test.mjs:483 断言本文件 groups 为空（退役）；如需登记豁免，必须与该校验成对落地，否则 check-all 慢段 fail-closed 转红。"
+  "role": "template",
+  "note": "托管模板（只读，零豁免）：本文件由 install.sh §1 deploy_file 部署到实例（默认 upgrade ⇒ 仓内副本覆盖实例副本）⇒ 仓内副本是唯一权威，请勿直接手改实例副本；provider 契约测试 skills/task-ops/tests/idem.test.mjs:483 断言本文件 groups 为空 ⇒ 仓内不得夹带豁免（T-20261014-123216）。运行时豁免登记**不写本文件**：登记处为 <被巡检 tasks 目录>/.idem-baseline.json（install.sh 不部署 tasks/ ⇒ 升级不清回登记、亦不令慢段转红），见 check-idem.mjs 头注「登记来源已解耦」（T-20261014-131423）。"
 }
