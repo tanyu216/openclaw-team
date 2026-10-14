@@ -148,8 +148,9 @@ Report states what it is.
 ### A6 Residuals / risks / open items + owner
 
 - **Write**: what is left undone, what could bite later, what is still undecided — each
-  with a named **owner** for the follow-up. Every A4 row that is not `met` belongs here
-  (the §1 A4 coupling rule).
+  with a named **owner** for the follow-up. Every A4 row that is **`partial` or `not_met`**
+  belongs here; a `not_applicable` row does not (it is not residual work — the §1 A4
+  coupling rule).
 - **Why acceptance needs it**: an unowned residual is a silent gap; acceptance must be
   able to route it. "None" is a valid answer **only when every A4 row is `met` or
   `not_applicable`** — and it has to be an actual claim that there are no residuals:
