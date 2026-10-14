@@ -22,6 +22,13 @@ run, unchanged.
 fresh install has no dangling entry path — the former "entry-path coupling" gap
 (`team/automations/README.md` gap #2).
 
+Not in the table above (they are **not** job entries — they are helpers a turn or an
+entry arms): `spawn-lane.sh`/`spawn-lane.mjs` (+ `lane-isolation.mjs`, `lane-worktree.mjs`)
+start a lane, `lane-reaper.mjs` is the detached **session-terminal watchdog** that
+`spawn-lane` arms for every lane, `session-lifecycle.mjs` holds the shared criterion +
+two-sided close, and `session-reconcile.mjs` sweeps the historical card↔registry drift
+(`team/guides/lane-session-lifecycle-sop.md`).
+
 ## Vendoring contract
 
 These files are **byte-identical copies of the deployed runtime**

@@ -105,6 +105,9 @@ if (LAYOUT) {
   ].join('\n'));
   fs.chmodSync(STUB, 0o755);
   process.env.OPENCLAW_CLAUDE_BIN = STUB;
+  // 本套件真起 lane（stub）：关掉会话终态看守（`lane-reaper`）——否则每条 stub lane 各留一个看守
+  // 进程活到套件收尾之后（本套件测的是入口校验/登记面；终态收口由 lane-reaper.test.mjs 覆盖）。
+  process.env.OPENCLAW_TEAM_REAPER = '0';
 
   // 假 codex（复核 lane backend=codex）：无 --settings 前置校验，起后写 init 行并保持存活
   CODEX_STUB = path.join(BIN, 'codex-stub');
