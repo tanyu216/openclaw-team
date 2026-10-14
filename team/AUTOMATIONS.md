@@ -1,7 +1,7 @@
 # AUTOMATIONS.md — Scheduled Jobs / Patrol List
 
 > Overview and decision record of all scheduled jobs (cron / every / trigger) on the team Gateway. Maintainer: Elon.
-> Last updated: 2026-10-15 (added `check-report` — card-face Report completeness — to the fast segment, T-20261015-010749-2; + `check-epic-completeness`, T-20261012-171026-2; + `sla-scan`, T-20261014-022254-3; + the contract-v1.1 conformance fixes F1/F5/F8, T-20261014-084606). View live: `automations list` (or Control UI → Automations).
+> Last updated: 2026-10-15 (added `check-report` — card-face Report completeness — to the fast segment, T-20261015-010749-2; + the SLA alert-tuple clarification `#23/#24`-are-ledger-metadata, T-20261014-044112-2; + `check-epic-completeness`, T-20261012-171026-2; + `sla-scan`, T-20261014-022254-3; + the contract-v1.1 conformance fixes F1/F5/F8, T-20261014-084606). View live: `automations list` (or Control UI → Automations).
 > Related: `PROTOCOL §⑳` (gates and archiving), `§⑥.4` (poll to terminal state), `README §3` (operations commands), `guides/task-interface.md` (task-provider ACL).
 
 ## 0. Boundary — framework owns scheduling; provider is only a callee (ACL)
@@ -350,7 +350,8 @@ contract fixes **one semantics** both implement.
   candidates the pre-emit re-check removed **and** the ones the de-duplication ledger suppressed —
   nothing is ever dropped silently.
 - **契约**: `guides/sla-inspection-contract.md` §4 (alert tuple: `sla_row` / `severity` / tier /
-  `measure_start_*` / `threshold_min` / `target:"leader"` / `evidence` …), §5 (six `§⑮` rows +
+  `measure_start_*` / `threshold_min` / `target:"leader"` / `evidence` …; §4.1 — rows #23/#24 are
+  **ledger metadata and are not published in `alerts[]`**), §5 (six `§⑮` rows +
   the contract's `inspector_liveness`), §9 (read-only / notify-only / fail-safe / zero-cost idle /
   working hours / pre-emit re-check), §8.3 (de-duplication ledger).
 - **Never changes a card.** The inspector's only writes are its own host-local runtime artefacts in
@@ -395,6 +396,15 @@ this section references the guide, it does not restate it (`PROTOCOL §⑰`).
    acceptance wait. Consequence: a board where many `in_review` cards are older than the row's limit
    produces one alert per such card (de-duplicated thereafter) — the measured first-run shape is in
    the landing card's report.
+4. **The three ledger-metadata fields are not alert fields** (`first_seen` / `last_seen` /
+   `observed_by`). The emitted `alerts[]` carries contract §4 rows **#1–#22 and #25** (the landing
+   adds the card-draft aliases `kind`/`id`/`ageMin`); the three fields live **only in the
+   de-duplication ledger entry** (`<team>/.sla-scan-ledger.json`, §8.3 `record()`) — declared as
+   `Req. = ledger` rows #23/#24 with the rationale in the contract (§4.1) and pinned by hook **H10**
+   (`scripts/tests/sla-scan.test.mjs`). A backfill at emit time could only ever write
+   `first_seen = last_seen = <emit instant>` and `observed_by = [<this mechanism>]`, i.e. it would
+   label a mechanism-local number as the "identical for both mechanisms" figure of a shared ledger
+   that the backendless fallback (deviation 1) does not have. Not a shape change — a declaration fix.
 
 **Contract-v1.1 conformance fixes (F1 / F5 / F8, `T-20261014-084606`).** Three deviations the design
 confirmation `T-20261014-022327` found in this landing (registered as §12 **G-10 ⑤⑥⑦**) are fixed;
