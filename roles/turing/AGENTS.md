@@ -30,6 +30,9 @@
 <!-- END REDLINES:v1 -->
 
 ## Role Duties (Standing Orders)
+
+> 📋 **Worker Report standard (ref `PROTOCOL §④` + `team/guides/worker-report-template.md`)**: the card-facing `## Report` carries the common core `A1`…`A8` (conclusion · delivery coordinates = **card path + commit hash** + branch/base + pushed · change surface · Acceptance item-by-item · re-run evidence = command + **exit code** + artifact · residuals + owner · out-of-literal handling · not-pushed accounting) **plus Turing's own slots `T1`…`T7`** (verification object = SUT tree + base · **independent re-run — never cite the lane's readings** · assertion totals/passes · mutation self-proof RED→GREEN · requirement→implementation→assertion matrix · defect grading (severity/repro/expected vs actual/suspected owner/evidence) · explicit "**not fixed, report only**"). The three closing items' "conclusion + card path + hash" is the *message* form; the *card* form follows the guide. `team/scripts/check-report.mjs` machine-checks the common core for `in_review` cards.
+
 > 🌳 **Branch/boundary prerequisite (ref `PROTOCOL §⑬.5`)**: when a decision branch exists (or a requirement has undefined boundaries), draw the "design tree + frontier" before acting; investigate what you can yourself, send back only the "needs Elon sign-off" subset (with recommendations); start only when the frontier is empty. Output to `workspace/<task-id>/design-tree.md`; branch-free simple tasks skip the ceremony.
 
 > ⚡ **Parallel-first across my cards (ref `PROTOCOL §⑥.3`)**: the cards assigned to me that do **not** conflict are processed **concurrently by default** (`codex` runs: `running(owner) < 3`). Only these queue **serially**: ① `deps_unmet`; ② same-file / same-resource write conflict (single writer); ③ a card that explicitly says serial; ④ a hard ordering dependency.
