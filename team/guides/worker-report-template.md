@@ -12,7 +12,8 @@
 > in the `check-all` fast segment (`PROTOCOL §⑳.1`, `AUTOMATIONS.md §3.5.1/§6`) — slot
 > **presence**, plus the two declared-semantic rules of §1: the **A0 report origin**
 > (`delivery` | `import`) and the **A4 → A6 coupling** for unmet items. The role-specific
-> sections are audited by the role's own review, not mechanically.
+> sections are audited by the role's own review, not mechanically. Payload bounds (§6) are
+> the provider's and are **not** re-checked here.
 
 ## 0. How the slots work (the anchor grammar)
 
@@ -76,6 +77,14 @@ Report states what it is.
 
 - **Write**: the **card path**, the **commit hash**, the **branch / base**, and whether
   it is **pushed**.
+- **Commit hash rule** — what counts as a commit reference: a **7–40 character lowercase
+  hex** sha (git's own shape, `^[0-9a-f]{7,40}$`), or a 40-character uppercase sha-1 (some
+  tooling prints shas in uppercase; that is a real sha, not a violation). If the card
+  genuinely has **no commit** — a read-only / docs-only leg, or work that never landed —
+  say so **explicitly**: `commit: none` (also accepted: `no commit`, `commit: —`,
+  `无提交`, `未提交`). Anything else is *not* a commit reference: the word "commit" with no
+  value, a branch name, or a 6-hex abbreviation. The gate raises an A2 hint when neither
+  form is present (§5); stating a bare `commit:` no longer satisfies it.
 - **If the card has been sent back** (its frontmatter carries a `blocked_at`, i.e. this is
   round ≥ 2): also state the **delivery time / round** of *this* round. Nothing on the card
   face records *when* the Report was written, so without it acceptance cannot tell a fresh
@@ -98,12 +107,23 @@ Report states what it is.
 ### A4 Acceptance item-by-item
 
 - **Write**: a table mapping **every** Acceptance item on the card to the evidence that
-  discharges it, each with a **status from the fixed vocabulary `met | partial | not_met`**
-  — no other words (`done`, `ok`, `yes`, emoji are not statuses).
-- **Coupling rule**: a row that is **not** `met` must **also** appear in **A6**, with its
-  owner. `partial`/`not_met` in A4 with no matching A6 entry means the item was quietly
-  dropped — and a `partial` row next to an A6 that says "none" is a contradiction the gate
-  flags as a hint. Unfinished work is declared, never hidden.
+  discharges it, each with a **status from the fixed vocabulary** — the same four values
+  the provider's `ACCEPTANCE_STATUSES` uses:
+  **`met | partial | not_met | not_applicable`** — no other words (`done`, `ok`, `yes`,
+  emoji are not statuses).
+- **`not_applicable`** means *this Acceptance item does not apply to this card* — the card
+  was narrowed, or the item is another leg's. It is **not** an unmet item: it needs no A6
+  entry and never makes the Report incomplete. Reach for it instead of writing a false
+  `met`; the provider draws the same line, so a `not_applicable` row survives a round trip
+  through TaskPanel unchanged.
+- **Coupling rule**: a row that is **`partial`** or **`not_met`** must **also** appear in
+  **A6**, with its owner. `partial`/`not_met` in A4 with no matching A6 entry means the
+  item was quietly dropped — and an unmet row next to an A6 that **declares no residuals**
+  (`none`, `nothing outstanding`, `无`, `n/a`) is a contradiction the gate flags as a hint.
+  The gate matches **row by row**: if A6 already accounts for that item — its ordinal
+  (`③`) or its item name — there is **no** hint, which is why a qualifier such as
+  "none *critical*" in A6 is not read as a claim of no residuals. **`not_applicable` rows
+  are outside this rule entirely.** Unfinished work is declared, never hidden.
 - **Why acceptance needs it**: this is the spine of the audit; a missing row is an
   unauditable Acceptance item, and an unmet item with no A6 entry is an unowned gap.
 - **Minimal example**:
@@ -131,7 +151,10 @@ Report states what it is.
   with a named **owner** for the follow-up. Every A4 row that is not `met` belongs here
   (the §1 A4 coupling rule).
 - **Why acceptance needs it**: an unowned residual is a silent gap; acceptance must be
-  able to route it. "None" is a valid answer **only when every A4 row is `met`**.
+  able to route it. "None" is a valid answer **only when every A4 row is `met` or
+  `not_applicable`** — and it has to be an actual claim that there are no residuals:
+  `none` / `nothing outstanding` / `无` qualify; `none critical` does not (residuals exist,
+  they are just not severe — say *that*, and name them).
 - **Minimal example**: `- **A6 Residuals** — the roles AGENTS.md leg cannot be deployed from a lane (outside its roots) → owner: integration leg / Elon.`
 
 ### A7 Out-of-literal handling
@@ -215,7 +238,8 @@ replace every value with yours. Three rules for filling it in:
 2. **Evidence: explicit first, never invented.** Prefer a path / command / exit code / hash
    you actually produced over a sentence about it; if you have nothing, the row's evidence is
    "none yet → A6", not a plausible-looking pointer.
-3. **Every non-`met` row reappears in A6** with an owner (§1 A4 coupling rule).
+3. **Every `partial`/`not_met` row reappears in A6** with an owner (§1 A4 coupling rule).
+   `not_applicable` rows do **not** — they are not unmet work.
 
 ```markdown
 ## Report
@@ -232,6 +256,7 @@ replace every value with yours. Three rules for filling it in:
   | ① | guide with the common core | met | guides/worker-report-template.md §1 |
   | ② | machine check + tests | met | scripts/check-report.mjs + scripts/tests/check-report.test.mjs |
   | ③ | A/B before-after table | partial | no pre-fix reading was taken → A6 #1 |
+  | ④ | <an item this card narrows away> | not_applicable | out of scope here → owner: whoever owns it |
 - **A5 Re-run evidence** — cmd: node --test scripts/tests/check-report.test.mjs · exit: 0 ·
   artifact: workspace/<id>/test-output.txt
 - **A6 Residuals** — ③ A/B table carries no before-reading (`partial`) → owner: integration
@@ -321,21 +346,61 @@ contract; `PROTOCOL §⑳.1` carries the registry row):
 | empty / missing `## Report` | the 2026-10-14 accident shape (§4 #5) | violation (same class) |
 | origin `A0` | no line ⇒ `delivery`; `import` without `author:`+`source:` ⇒ violation; `import` **at all** ⇒ not-delivery-evidence violation (§1 A0) | violation; `import` is cleared only by a real Report or a register entry |
 | origin `A0` unreadable | a present `A0` whose token is neither `delivery` nor `import` | violation (fails closed — an unreadable provenance claim must not open the door) |
-| A4 → A6 coupling | a `partial`/`not_met` row while A6 claims "none" | **hint only** (non-blocking) |
+| A4 → A6 coupling | an **unmet** row (`partial`/`not_met` — `not_applicable` is exempt) that A6 does not account for, while A6 **declares no residuals** | **hint only** (non-blocking; matched row by row and qualifier-aware, so "none *critical*" is not a claim) |
 | round (sent-back card) | `blocked_at` set and `status_changed_at` later, Report declares no delivery time/round | **hint only** (non-blocking) |
-| A2 card path / commit, A5 exit code | content shape | **hint only** (non-blocking) |
+| A2 card path / commit, A5 exit code | content shape — a commit is 7–40 **lowercase** hex (or a 40-char uppercase sha-1), or an explicit no-commit declaration | **hint only** (non-blocking) |
+| exemption register entry | `{id, gaps}` matching the card's *current* gaps but with **no `reason`** of ≥8 characters | **does not exempt** — the card is still a violation, and the entry is named on stderr for repair |
+| payload bounds (§6) | ≤64 items per list · ≤64 KiB · `truncated` | **not checked** — bounded upstream at write time, and checking it here would duplicate a rule that cannot fire on a well-formed card (§6) |
 | role slots `L*` / `J*` / `T*` | — | never machine-checked (§2) |
 
 - **Grandfathering wins over every new rule**: a pre-cutoff card is reported at most as a
-  warning, so none of the rules above retro-redden history. The hints in the last two rows
-  are computed **only** for cards past the cutoff, so historical cards are not nagged either.
+  warning, so none of the rules above retro-redden history. The hint rows are computed
+  **only** for cards past the cutoff, so historical cards are not nagged either.
 - **Escapes**: `OPENCLAW_TEAM_REPORT_EFFECTIVE_AT` moves the cutoff; the register
   (`scripts/report-baseline.json` ∪ `<tasks>/.report-baseline.json`) exempts a card whose
-  **current** gap set matches exactly (so an exemption cannot hide a *new* gap);
+  **current** gap set matches exactly (so an exemption cannot hide a *new* gap) **and whose
+  entry carries a `reason`** of ≥8 characters (see the `exemption register entry` row above);
   `--no-baseline` ignores both sources for a true-violation reading.
+- **The register needs a reason.** An entry exempts only if it carries `{id, gaps, reason}`
+  with a `reason` of **≥8 characters** after trimming. The reason is not ceremony: `gaps`
+  proves only that the gap *set* did not change; it cannot say *why this gap is benign* —
+  and that judgement is the entire legitimacy of an exemption. A structurally matching entry
+  with a missing or too-short reason **does not exempt**: the card is still reported as a
+  violation, and the entry is named on stderr (`invalid-exempt …`) so it can be repaired.
 - **Known limit of the origin rule**: the gate reads what the card **declares**. A proxy
   Report that simply omits `A0` is indistinguishable from a delivered one; closing that needs
   the provider ACL to stamp `origin` at write time (`skills/task-ops/lib/task.mjs#writeReport`)
   — a base-side change, tracked as a residual on T-20261015-010749-2, not enforced here.
 - Full trigger surface, cutoff and exemption switches: `team/scripts/check-report.mjs` header
   (`PROTOCOL §⑳.1` machine-checkable gate row).
+
+---
+
+## 6. Bounds — the payload limits a Report inherits
+
+The provider bounds every Report payload it stores: **at most 64 items per list**, **at
+most 64 KiB per payload**, with anything over the bound marked **`truncated`** rather than
+silently dropped. Those are the provider's numbers (`boundEvidence` in the TaskPanel report
+layer; taken here from defect ticket `T-20261015-010749-3` §T6 **D4** — that layer is not
+read first-hand from this side of the boundary, so treat the exact constants as the
+provider's, not this guide's). This standard **inherits** them, because a Report that
+exceeds the bound reaches the auditor already cut.
+
+In practice:
+
+- Keep each list — the A4 table, the A6 residual list — under **64 items**. If a card's
+  Acceptance genuinely has more, group them instead of truncating.
+- Keep the whole `## Report` under **64 KiB**. Near the limit, the bulk belongs in
+  `workspace/<id>/` (the artifact A5 points at), not on the card face.
+- A `truncated` marker on a stored Report is a **defect to report**, not a normal state.
+
+**The gate does not validate size or item counts — deliberately.** Three reasons:
+
+1. The bound is enforced **upstream, at write time**; the card face the gate reads is
+   already the post-bound artifact, so a size check here cannot fire on a well-formed card.
+2. `check-report.mjs` is a **read-only slot-presence check** by design (§0, §5); adding a
+   second, weaker copy of a provider rule would blur which layer owns the bound.
+3. A size limit at this layer would red on exactly what the bound exists to protect —
+   **legitimately long Reports**. The framework has already refused one such Report for
+   size (the report-volume guard misfiring on a 9.7× legitimate write,
+   `T-20261015-010749-3` §T6 **D8**); duplicating that failure mode at the gate is not a fix.
