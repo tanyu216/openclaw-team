@@ -193,7 +193,7 @@ therefore **segmented** — this is a routing change, not a coverage change:
 |---|---|---|
 | **fast segment** — every check except the test suites (`check-all.sh --segment fast`) | **in-band**, inside the evaluation | yes (fast bound 6000 ms) |
 | **slow segment** — the framework test suite **and the full provider ACL suite** (`check-all.sh --segment slow`) | **detached**, launched by the gate and run to completion *after* the evaluation returns | no (it is ~17 s by nature) |
-| the slow verdict | **cached** at `<team>/.check-all-slow.json` and **folded into the next evaluation** | freshness-bounded (TTL default 90 min) |
+| the slow verdict | **cached** at `<team>/.check-all-slow.json` and **folded into the next evaluation** | freshness-bounded (TTL default 150 min = 2.5 cron periods: one missed refresh tolerated, the second alarms — T-20261015-005519) |
 
 **Provider ACL coverage — `skills/task-ops/tests/*.test.mjs` (T-20261014-034118).** The provider
 suites used to be enumerated **file by file** in the fast segment, so any suite not on that list
