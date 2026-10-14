@@ -44,11 +44,11 @@ const SKIP = PROVIDER
 // provider 依赖为**条件动态 import**：仓内 team/skills 有意不 vendor，静态相对导入在缺 provider 时
 // import 期即 ERR_MODULE_NOT_FOUND 硬红。仅当 PROVIDER 存在时加载，缺则保持 undefined（对应测试
 // 全部 { skip: SKIP }，不会执行到）。顶层 await 合法（ESM）。
-let scanIdem, SIBLING_HINT_REASON, idemKey;
+let scanIdem, SIBLING_HINT_REASON, idemKey, BASELINE_PATH, RUNTIME_BASELINE_NAME, loadBaseline, loadExemptions, runtimeBaselinePath;
 if (PROVIDER) {
   // 先设 env：check-idem.mjs → lib.mjs 经 OPENCLAW_TASK_OPS_DIR 解析 provider，须在 import 前就位。
   process.env.OPENCLAW_TASK_OPS_DIR = PROVIDER;
-  ({ scanIdem, SIBLING_HINT_REASON } = await import('../check-idem.mjs'));
+  ({ scanIdem, SIBLING_HINT_REASON, BASELINE_PATH, RUNTIME_BASELINE_NAME, loadBaseline, loadExemptions, runtimeBaselinePath } = await import('../check-idem.mjs'));
   ({ idemKey } = await import(pathToFileURL(path.join(PROVIDER, 'lib', 'task.mjs')).href));
 }
 
@@ -276,6 +276,96 @@ test('基线/hints 解耦：兄弟卡组不消耗基线豁免；同 root 内真�
   assert.equal(plain.hints.length, 1);
   assert.equal(plain.duplicates.length, 1);
   assert.equal(plain.duplicates[0].idem, bkey);
+});
+
+// ---- 登记来源解耦（T-20261014-131423）：托管模板 ① ∪ 运行时登记 ② ----
+// 契约动机：一个文件不能同时是「install.sh 部署托管物」与「运行时可变登记处」——登记会被升级清回，
+// 且在清回前就令 provider 契约测试 idem.test.mjs:483（钉实例模板 groups 空）fail-closed 转红。
+// 解耦后：① 托管模板只读（仓内不得夹带豁免）；② 运行时登记落在**被巡检 tasks 目录**内（不随部署）。
+
+const DUP_A = [
+  card('T-20260101-200000-a', { review_of: 'T-20260101-000000-xsrc', target: '/x' }),
+  card('T-20260101-200001-b', { review_of: 'T-20260101-000000-xsrc', target: '/x', status: 'in_review' }),
+];
+const KEY_A = 'task | linus | T-20260101-000000-xsrc | /x';
+/** 把登记写进运行时登记文件（②）：位于被巡检 tasks 目录内 */
+const registerRuntime = (root, groups) => fs.writeFileSync(
+  runtimeBaselinePath(tasksOf(root)), `${JSON.stringify({ groups }, null, 2)}\n`, 'utf8');
+
+test('解耦：运行时登记（tasks/.idem-baseline.json）经默认读生效 ⇒ exempt、不判红、CLI 退出 0', { skip: SKIP }, () => {
+  const root = mkRoot(DUP_A);
+  registerRuntime(root, [{ key: KEY_A, ids: ['T-20260101-200001-b', 'T-20260101-200000-a'], reason: '运行时登记' }]);
+
+  const r = scanIdem(tasksOf(root));           // 不注入 baseline：走默认（① ∪ ②）
+  assert.equal(r.duplicates.length, 0, '运行时登记应生效（豁免）');
+  assert.equal(r.exempt.length, 1);
+  assert.equal(r.exempt[0].key, KEY_A);
+  assert.equal(r.exempt[0].reason, '运行时登记');
+
+  const { code, out, err } = runCli(root);
+  assert.equal(code, 0, `运行时登记后不应判红；stderr=${err}`);
+  assert.equal(JSON.parse(out).exempt.length, 1);
+  assert.match(err, /建卡幂等基线豁免/, '应打印豁免明细');
+  assert.doesNotMatch(err, /建卡幂等违例/);
+
+  // 解耦不变量（a）：托管模板保持退役空 —— 运行时登记**绝不**写仓内模板（写了必被下次部署清回）
+  assert.deepEqual(loadBaseline(BASELINE_PATH), [], '托管模板必须保持 groups 空（只读）');
+  // 解耦不变量（b）：运行时登记落在被巡检 tasks 目录内，且在部署托管的 scripts/ 之外
+  assert.equal(RUNTIME_BASELINE_NAME, '.idem-baseline.json');
+  assert.equal(runtimeBaselinePath(tasksOf(root)), path.join(tasksOf(root), '.idem-baseline.json'));
+  assert.ok(
+    !path.resolve(runtimeBaselinePath(tasksOf(root))).startsWith(`${path.resolve(path.dirname(BASELINE_PATH))}${path.sep}`),
+    '运行时登记不得落在部署托管目录（本文件所在 scripts/）内'
+  );
+});
+
+test('解耦：运行时登记集合漂移（加第 3 张）⇒ 豁免失效、仍判红退出 1', { skip: SKIP }, () => {
+  const root = mkRoot(DUP_A);
+  registerRuntime(root, [{ key: KEY_A, ids: ['T-20260101-200000-a', 'T-20260101-200001-b'], reason: '运行时登记' }]);
+  assert.equal(scanIdem(tasksOf(root)).exempt.length, 1, '集合一致 ⇒ 豁免');
+  fs.writeFileSync(path.join(tasksOf(root), 'T-20260101-200002-c.md'),
+    cardText(card('T-20260101-200002-c', { review_of: 'T-20260101-000000-xsrc', target: '/x', status: 'blocked' })), 'utf8');
+  const r = scanIdem(tasksOf(root));
+  assert.equal(r.exempt.length, 0, 'id 集合变化 ⇒ 运行时登记同样失效（防「登记一次、永久放行」）');
+  assert.equal(r.duplicates.length, 1);
+  assert.equal(runCli(root).code, 1);
+});
+
+test('解耦区分力：一组已登记豁免的同时，**另一组**未登记真重复仍判红（exit 1）', { skip: SKIP }, () => {
+  const root = mkRoot([
+    ...DUP_A,
+    card('T-20260101-210000-a', { review_of: 'T-20260101-000000-ysrc', target: '/y' }),
+    card('T-20260101-210001-b', { review_of: 'T-20260101-000000-ysrc', target: '/y', status: 'in_progress' }),
+  ]);
+  registerRuntime(root, [{ key: KEY_A, ids: ['T-20260101-200000-a', 'T-20260101-200001-b'], reason: '运行时登记' }]);
+  const r = scanIdem(tasksOf(root));
+  assert.equal(r.exempt.length, 1, '已登记组豁免');
+  assert.equal(r.duplicates.length, 1, '未登记组照常判红 —— 登记不放行全量');
+  assert.equal(r.duplicates[0].idem, 'task | linus | T-20260101-000000-ysrc | /y');
+  const { code, out } = runCli(root);
+  assert.equal(code, 1, '有未登记的 duplicates ⇒ 退出码仍为 1');
+  const parsed = JSON.parse(out);
+  assert.equal(parsed.exempt.length, 1);
+  assert.equal(parsed.duplicates.length, 1);
+  // --no-baseline 忽略两源 ⇒ 两组都判红
+  assert.equal(scanIdem(tasksOf(root), { baseline: [] }).duplicates.length, 2);
+  assert.equal(runCli(root, ['--no-baseline']).code, 1);
+});
+
+test('解耦合取：① 托管模板 与 ② 运行时登记 双双参与（两源参数可注入，不触碰仓内模板）', { skip: SKIP }, () => {
+  const root = mkRoot(DUP_A);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-idem-src-'));   // TMP 回收
+  TMP.push(dir);
+  const tpl = path.join(dir, 'template.json');
+  const rt = path.join(dir, 'runtime.json');
+  fs.writeFileSync(tpl, JSON.stringify({ groups: [{ key: KEY_A, ids: ['T-20260101-200000-a', 'T-20260101-200001-b'], reason: '模板' }] }), 'utf8');
+  assert.equal(loadExemptions(tasksOf(root), { template: tpl, runtime: rt }).length, 1, '仅模板有登记');
+  fs.writeFileSync(rt, JSON.stringify({ groups: [{ key: 'k2', ids: ['x', 'y'], reason: '运行时' }] }), 'utf8');
+  const both = loadExemptions(tasksOf(root), { template: tpl, runtime: rt });
+  assert.equal(both.length, 2, '两源合取（模板 ∪ 运行时）');
+  assert.deepEqual(both.map((g) => g.reason), ['模板', '运行时']);
+  // 两源皆缺/损坏 ⇒ 视为空（不报错）
+  assert.deepEqual(loadExemptions(tasksOf(root), { template: path.join(dir, 'nope.json'), runtime: path.join(dir, 'nope2.json') }), []);
 });
 
 // ---- 终态卡不参与分组 ----
