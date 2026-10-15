@@ -495,6 +495,13 @@ export function resolveSpawnBase({ repo, taskId = '', seg = '', fm = {}, session
     if (tip) cands.push({ ref: branch, source: 'prev_seg', prev_seg: c, resolved: tip });
   }
   // ② 跨卡叠卡：depends_on 链上前置的**产物 tip**（分支名由前置卡自己的 seg 反推；只认**末段**）
+  // **本层不判前置的状态**（terminality）：`depends_on` 面按**写的**读，前置是 done 与否都照解析。
+  // 「前置已 done」这层保证在**上游**：自动路径上卡先经 `claimCard`（`lib.mjs`：任一 `depends_on`
+  // 非 done ⇒ `deps_unmet` 拒领）⇒ 领得到的卡其前置必然 done，与本卡前提（当日两度实证）一致。
+  // 反例（今日实板普查，2026-10-15）：`T-20261015-075845` 的前置 `T-20261015-051046-2` 仍在 `in_review`
+  // ⇒ 它领不到（自动路径到此为止），但**显式领取**仍可起 —— 此时按前置产物 tip 建树比静默回落 `HEAD`
+  // 更接近意图（人本来就会 `--base <那个 tip>`）。故此处**不加**状态门：加了等于把一个已判定的意图
+  // 换回「静默落 main」，正是本卡要消灭的形状。
   for (const depId of dependencyChain(taskId, readCard)) {
     const dep = readCard(depId);
     if (!dep || !dep.body) continue; // 前置卡读不到 ⇒ 无从确认分支归属，不猜
