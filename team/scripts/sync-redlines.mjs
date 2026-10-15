@@ -19,7 +19,7 @@ const BLOCK = m[0];
 const HARD = '> 🚦 **Hard prerequisite for starting**: the **first step of this turn is to read `team/PROTOCOL.md` (at minimum §① Board / §⑬ Hard Discipline + the sections relevant to this role); do not execute or claim any task card until it is read**. After reading, log one line "read PROTOCOL §…" in the card\'s Progress.';
 const HARD_RE = /开工硬前置|Hard prerequisite for starting/;
 
-const roles = ['elon', 'jobs', 'linus', 'turing', 'simons', 'assistant'];
+const roles = ['elon', 'jobs', 'linus', 'turing', 'assistant'];
 let n = 0;
 for (const r of roles) {
   const p = path.join(HOME, `.openclaw/workspace-${r}/AGENTS.md`);

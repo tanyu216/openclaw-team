@@ -51,7 +51,7 @@ export const HEARTBEAT_FRESH_MS = 10 * 60 * 1000;     // 心跳新鲜：距上�
 export const CLAIM_STALE_SAME_MS = 30 * 60 * 1000;    // 陈旧 claim：> 30min 同 assignee 可重领
 export const CLAIM_STALE_ANY_MS = 6 * 60 * 60 * 1000; // > 6h 任意 assignee 可领并升级上报
 
-export const AGENTS = ['elon', 'jobs', 'linus', 'simons', 'turing', 'assistant'];
+export const AGENTS = ['elon', 'jobs', 'linus', 'turing', 'assistant'];
 // 卡 id：T-YYYYMMDD-HHMMSS + 可选多段后缀（如 -designaudit-v1 / -fe-login-review）。
 // 每段以字母开头（T-…-v1 这类「段首数字」用 [A-Za-z][A-Za-z0-9]* 兜住整段）。
 export const CARD_ID_RE = /^T-\d{8}-\d{6}(-[A-Za-z0-9]+)*$/;

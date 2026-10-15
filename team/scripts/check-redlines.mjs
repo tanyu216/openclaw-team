@@ -13,7 +13,7 @@ const core = fs.readFileSync(path.join(TEAM, 'guides/redlines.core.md'), 'utf8')
 const BLOCK = (/<!-- BEGIN REDLINES:v1[\s\S]*?<!-- END REDLINES:v1 -->/.exec(core) || [])[0];
 if (!BLOCK) { console.error('canonical 缺标记块'); process.exit(2); }
 
-const roles = ['elon', 'jobs', 'linus', 'turing', 'simons', 'assistant'];
+const roles = ['elon', 'jobs', 'linus', 'turing', 'assistant'];
 let bad = 0;
 for (const r of roles) {
   const p = path.join(HOME, `.openclaw/workspace-${r}/AGENTS.md`);

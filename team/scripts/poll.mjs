@@ -44,8 +44,8 @@ import { activeSessions, formatActiveReason, loadRegistry, isPidAlive } from './
 import { pollRunMessage } from './poll-run.mjs';
 import { parseSessionRows, laneRow, classifyClaimBlock } from './session-lifecycle.mjs';
 
-/** 并发额度（PROTOCOL §⑥ 第 2 条 / §⑥.3）：Linus/Jobs/Simons=8、Turing=3；其余 agent 未定义 */
-export const CONCURRENCY_QUOTA = { linus: 8, jobs: 8, simons: 8, turing: 3 };
+/** 并发额度（PROTOCOL §⑥ 第 2 条 / §⑥.3）：Linus/Jobs=8、Turing=3；其余 agent 未定义 */
+export const CONCURRENCY_QUOTA = { linus: 8, jobs: 8, turing: 3 };
 
 export function resolveAssignee() {
   const argv = process.argv.slice(2);

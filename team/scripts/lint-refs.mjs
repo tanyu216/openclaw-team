@@ -13,7 +13,7 @@ const TEAM = path.join(HOME, '.openclaw/team');
 const P = fs.readFileSync(path.join(TEAM, 'PROTOCOL.md'), 'utf8');
 
 const targets = [];
-for (const a of ['elon', 'jobs', 'linus', 'turing', 'simons', 'assistant']) {
+for (const a of ['elon', 'jobs', 'linus', 'turing', 'assistant']) {
   const p = path.join(HOME, `.openclaw/workspace-${a}/AGENTS.md`);
   if (fs.existsSync(p)) targets.push(p);
 }

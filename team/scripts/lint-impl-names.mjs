@@ -23,7 +23,7 @@ function files() {
   const list = [];
   const proto = path.join(TEAM, 'PROTOCOL.md');
   if (fs.existsSync(proto)) list.push({ path: proto, skipSection: '## ①' });
-  for (const a of ['elon', 'jobs', 'linus', 'turing', 'simons', 'assistant']) {
+  for (const a of ['elon', 'jobs', 'linus', 'turing', 'assistant']) {
     const p = path.join(HOME, `.openclaw/workspace-${a}/AGENTS.md`);
     if (fs.existsSync(p)) list.push({ path: p });
   }
