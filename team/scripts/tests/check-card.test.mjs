@@ -34,11 +34,14 @@ const SKIP = PROVIDER
 const test = SKIP ? nodeTest.skip : nodeTest;
 
 // provider 依赖为**条件动态 import**：缺 provider 时 check-card.mjs/lib.mjs 在 import 期即硬红。
-let checkOne, STATUS, PRIORITY, TERMINAL, pathViolations, PATH_EFFECTIVE_AT;
+let checkOne, PRIORITY, pathViolations, PATH_EFFECTIVE_AT;
 if (PROVIDER) {
   process.env.OPENCLAW_TASK_OPS_DIR = PROVIDER;
-  ({ checkOne, STATUS, PRIORITY, TERMINAL, pathViolations, PATH_EFFECTIVE_AT } = await import('../check-card.mjs'));
+  ({ checkOne, PRIORITY, pathViolations, PATH_EFFECTIVE_AT } = await import('../check-card.mjs'));
 }
+// 词表模块零依赖（不碰 provider）⇒ 无条件 import；词表本身由 tests/status.test.mjs 主测，
+// 此处只钉「check-card 读侧白名单 = 该词表」这一条接线。
+const { READ_STATUSES, TERMINAL } = await import('../status.mjs');
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-cc-'));
 after(() => fs.rmSync(TMP, { recursive: true, force: true }));
@@ -78,11 +81,11 @@ test('PRIORITY 枚举 = low|medium|high|urgent', () => {
 });
 
 test('STATUS 白名单 = canonical 7 ∪ 旧词别名 {ready, failed}（对齐 PROTOCOL.md §①）', () => {
-  assert.deepEqual(STATUS, ['backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done', 'canceled', 'ready', 'failed']);
+  assert.deepEqual(READ_STATUSES, ['backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done', 'canceled', 'ready', 'failed']);
 });
 
 test('合法 status（canonical 7 + 别名 ready/failed）通过', () => {
-  for (const s of STATUS) assert.deepEqual(checkOne(mkCard(null, s)), [], `${s} 应通过`);
+  for (const s of READ_STATUSES) assert.deepEqual(checkOne(mkCard(null, s)), [], `${s} 应通过`);
 });
 
 test('非法 status（未知词 archived）报错', () => {

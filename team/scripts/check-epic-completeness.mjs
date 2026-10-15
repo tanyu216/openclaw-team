@@ -43,9 +43,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseFrontmatter, TASKS_DIR, TEAM_ROOT, CARD_ID_RE } from './lib.mjs';
+import { isTerminal } from './status.mjs';
 
-/** 终态（与 check-card.mjs TERMINAL / provider TERMINAL_STATUSES 同口径）：终态 epic 走 grandfather。 */
-export const TERMINAL = new Set(['done', 'failed', 'canceled']);
+// 终态判据来自 `scripts/status.mjs`（与 check-card / provider TERMINAL_STATUSES 同口径）：
+// 终态 epic 走 grandfather。
 /** 非卡 id 的「卡列」单元须达成的**显式理由**最小词字符数（CJK/字母/数字，余皆剥离）。 */
 export const REASON_MIN_CHARS = 4;
 /** 阶段列表头判据 / 卡列表头判据（归一后匹配）。 */
@@ -153,7 +154,7 @@ export function checkEpicCompleteness({ tasksDir = TASKS_DIR, workspaceDir, root
   for (const { id, fm, body } of cards.values()) {
     if ((fm.kind || 'task') !== 'epic') continue;
     epicCount++;
-    const terminal = TERMINAL.has(String(fm.status == null ? '' : fm.status).trim());
+    const terminal = isTerminal(fm.status);
     const tables = parseLedgerTables(body).filter((t) => t.hasCardColumn);
     const kids = childrenOf[id] || [];
 

@@ -56,6 +56,8 @@ if (PROVIDER) {
   process.env.OPENCLAW_TASK_OPS_DIR = PROVIDER;
   S = await import('../report-census.mjs');
 }
+// 终态词表已上移到零依赖的 status.mjs（census 不再从 check-report 转出口取它）⇒ 无条件 import。
+const { TERMINAL: STATUS_TERMINAL } = await import('../status.mjs');
 
 const scratchDirs = [];
 after(() => {
@@ -119,7 +121,7 @@ test('② --status：all / nonterminal / terminal 三档，终态集合与 check
   assert.equal(n(['nonterminal']).selected, 1); // canceled 是终态
   assert.equal(n(['terminal']).selected, 2);
   assert.equal(n(['done', 'in_progress']).selected, 2); // csv 面
-  assert.deepEqual(S.TERMINAL, ['done', 'failed', 'canceled']);
+  assert.deepEqual(STATUS_TERMINAL, ['done', 'failed', 'canceled']);
   // byStatus 回显（分母的形状要看得见：本卡实测历史看板 ~98% 是终态卡）
   assert.deepEqual(n(['all']).byStatus, { done: 1, in_progress: 1, canceled: 1 });
 });
