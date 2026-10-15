@@ -44,15 +44,21 @@ export const TERMINAL = ['done', 'failed', 'canceled'];
  *
  * 生效截止 `PATH_EFFECTIVE_AT`（缺省常量；`OPENCLAW_TEAM_PATH_EFFECTIVE_AT` 可覆盖，ISO 8601；
  * 非法值 ⇒ 回退常量，绝不静默变严）：`created_at < 截止` ⇒ **grandfather**（不报、不置退出码）。
- * 取值理据：截止必须**晚于既存非终态卡的 `created_at`**，否则上线即对历史卡转红
- * （2026-10-15 实测 live 非 `__team__` 非终态 19 张**全带绝对 target**，且都等于各自项目 root、
- * 无一真实越界；max `created_at` = `2026-10-15T05:37:20.997Z`）。一次性迁移卡把它们改成项目内
- * 相对后（等价形态 `.`，`resolveCwd` 结果不变）即可收紧本截止。
+ *
+ * 取值理据（**两条，缺一即「上线即红」**）：
+ *   ① 晚于**既存**非终态卡的 `created_at`。2026-10-15 实测 live 非 `__team__` 非终态 **19 张全带
+ *      绝对 target**（且都等于各自项目 root、无一真实越界）；max `created_at` = `2026-10-15T05:37:20.997Z`。
+ *   ② 晚于**本门禁的部署时刻**。否则「普查 → 部署」之间按旧习惯新建的绝对 target 卡，会在部署
+ *      瞬间被追溯转红 —— 与 ① 是同一个坑的两种进入路径。
+ * ⇒ 本常量是**部署期参数，不是冻结值**：**部署卡必须先重跑普查、再按当时 max `created_at` 重定**
+ *   （用 `OPENCLAW_TEAM_PATH_EFFECTIVE_AT` 临时覆盖即可验证）。一次性迁移卡把在飞 19 张改成项目内
+ *   相对（等价形态 `.`，`resolveCwd` 结果不变、纯 no-op）后，本截止可收紧到部署日。
+ *
  * `created_at` 缺失/不可解析 ⇒ 同按 grandfather（保守：绝不因缺字段转红；口径同 check-report.mjs）。
  * 规则域 = **非终态**（`!TERMINAL.includes(status)`，故 `backlog` 亦在域内）；`project: __team__`
  * 排除（其 target 绝对形态由 §⑩.4 硬门管辖，见上）。
  */
-export const PATH_EFFECTIVE_AT = '2026-10-16T00:00:00Z';
+export const PATH_EFFECTIVE_AT = '2026-11-01T00:00:00Z';
 
 /** 生效截止（env 覆盖；非法 ⇒ 回退常量） */
 export function pathEffectiveAt() {
