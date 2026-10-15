@@ -462,11 +462,13 @@ const defaultReadCard = (id) => readCardById(id);
  * 候选（高 → 低）：
  *   ① **上一 seg 的 lane 分支 tip**（同卡续接；`prevSegCandidates` + `laneNameFor`，与
  *      `lane-isolation.deriveLaneBase` ② 档同一口径 —— 此处复算只为**与其他候选比大小**）；
- *   ② **`depends_on` 链上尚未并入 `HEAD` 的 lane 分支 tip**（跨卡叠卡；本卡新增）。
- *      分支由前置卡 `## Sessions` 的 seg 反推（见 `depLaneBranches`：前缀 glob 会把兄弟卡/本卡自己
- *      的分支读成前置 tip）。「未并入」判据 = tip **不是** `HEAD` 的祖先。「已并入」时 tip 必是 `HEAD`
- *      的祖先（本仓 git 纪律要求 ff 或 `--no-ff` 合并并留 merge commit ⇒ 分支 tip 成为 main 的祖先），
- *      故已合并的前置**不产生候选**、`base` 仍是 `HEAD`（旧行为不变）。
+ *   ② **`depends_on` 链上前置的产物 tip**（跨卡叠卡；本卡新增）—— 即前置卡**最后登记的一段**的 lane
+ *      分支 tip，**其自身**尚未并入 `HEAD`。分支由前置卡 `## Sessions` 的 seg 反推（见 `depLaneBranches`：
+ *      前缀 glob 会把兄弟卡/本卡自己的分支读成前置 tip）。「未并入」判据 = tip **不是** `HEAD` 的祖先。
+ *      「已并入」时 tip 必是 `HEAD` 的祖先（本仓 git 纪律要求 ff 或 `--no-ff` 合并并留 merge commit ⇒
+ *      分支 tip 成为 main 的祖先），故已合并的前置**不产生候选**、`base` 仍是 `HEAD`（旧行为不变）。
+ *      **只认末段**的理由见下方循环内注释（作废支线陷阱：卡被「收掉重起」过时，早期那段未并入的分支
+ *      不是「缺的前置」，拿它建树会丢掉 main 上后来的一切）。
  * 选择：取唯一「最大元」（其余候选皆其祖先 —— 即**信息最全**的那个 tip）。可比的候选集若没有最大元
  *   （两个未合并且互不包含的前置），**无法判定** ⇒ 回 `error`，由调用方 fail-closed 拒绝起 lane。
  * @param {{repo:string,taskId:string,seg:string,fm?:object,sessions?:object[],readCard?:Function,headRef?:string}} o
@@ -485,15 +487,23 @@ export function resolveSpawnBase({ repo, taskId = '', seg = '', fm = {}, session
     const tip = branchHead(repo, branch);
     if (tip) cands.push({ ref: branch, source: 'prev_seg', prev_seg: c, resolved: tip });
   }
-  // ② 跨卡叠卡：depends_on 链上**未并入 HEAD** 的分支 tip（分支名由前置卡自己的 seg 反推）
+  // ② 跨卡叠卡：depends_on 链上前置的**产物 tip**（分支名由前置卡自己的 seg 反推；只认**末段**）
   for (const depId of dependencyChain(taskId, readCard)) {
     const dep = readCard(depId);
     if (!dep || !dep.body) continue; // 前置卡读不到 ⇒ 无从确认分支归属，不猜
-    for (const branch of depLaneBranches(repo, depId, sessionsBySeg(dep.body))) {
-      const tip = branchHead(repo, branch);
-      if (!tip || isAncestor(repo, tip, head)) continue; // 已并入 ⇒ 不是「缺的前置」
-      cands.push({ ref: branch, source: 'dependency', dep: depId, resolved: tip });
-    }
+    // 只取**最后登记的一段**已存在的分支（`depLaneBranches` 保 `## Sessions` 序）：前置卡的产物 tip
+    // 就是它最后那段的落点。**不可**把该卡每一段未合并的分支都当候选 —— 卡被「收掉重起」过时（今日
+    // 两度实测 `T-20261015-075826` / `T-20261015-132952` 的收尾形状），早期那段是**作废支线**（基于
+    // 当时的 main、与重起后的真产物**互不包含**）；一旦最终段的 tip 已并入 `HEAD` 而分支仍在（SOP §7
+    // 只收工作树、**不收分支**），作废支线恰恰**不是** `HEAD` 的祖先 ⇒ 会被读成「缺的前置」，把新树
+    // 建在被丢弃的尝试上（丢掉 main 上后来的一切）—— 本卡要消灭的错基换个形状回来。
+    // 边界（如实记）：一张卡**显式并行**多段（`parallel=1`）且都未合并时，产物 tip 本无单一定论，
+    // 此处取末段（人可判定的场景请用显式 `--base` 钉住）。
+    const branches = depLaneBranches(repo, depId, sessionsBySeg(dep.body));
+    const branch = branches.length ? branches[branches.length - 1] : '';
+    const tip = branch ? branchHead(repo, branch) : null;
+    if (!tip || isAncestor(repo, tip, head)) continue; // 末段分支不存在 / 已并入 ⇒ 前置已满足，无候选
+    cands.push({ ref: branch, source: 'dependency', dep: depId, resolved: tip });
   }
   const uniq = [];
   for (const c of cands) if (!uniq.some((u) => u.resolved === c.resolved)) uniq.push(c);
