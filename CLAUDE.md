@@ -82,6 +82,12 @@ docker/ui-fidelity/verify.sh                       # pixel-deterministic UI-fide
 # Skill upstream drift (read-only unless --apply)
 node skills/update.mjs
 node skills/update.mjs --apply
+
+# Branch / worktree discipline (dev is the integration base; main is protected)
+node team/scripts/branch-guard.mjs                    # refuse a direct commit on the protected branch
+node team/scripts/lane-worktree.mjs <repo> <lane> --dry-run   # one lane = one worktree = one branch
+node team/scripts/lane-worktree.mjs <repo> <lane>             # create it (idempotent reuse)
+node team/scripts/lane-worktree.mjs <repo> <lane> --remove    # refuses a dirty tree; keeps the branch
 ```
 
 CI (`.github/workflows/verify.yml`) runs exactly `docker/verify-in-container.sh`,
@@ -179,7 +185,8 @@ refreshes that cache out of band.
   [team/scripts/lane-worktree.mjs](team/scripts/lane-worktree.mjs),
   [team/scripts/spawn-lane.mjs](team/scripts/spawn-lane.mjs). Same repo + a
   concurrent lane ⇒ one git worktree per lane (automatic; `--no-isolate` opts
-  out). Contract: [team/guides/worktree-isolation-sop.md](team/guides/worktree-isolation-sop.md),
+  out). Branch and base rules: [Branch and worktree discipline](#branch-and-worktree-discipline).
+  Contract: [team/guides/worktree-isolation-sop.md](team/guides/worktree-isolation-sop.md),
   [team/guides/spawn-lane-sop.md](team/guides/spawn-lane-sop.md).
 
 ### Content layers
@@ -200,6 +207,62 @@ refreshes that cache out of band.
   fetches them. Entries with `needs_source: true` are skipped until resolved.
 - **[tools/](tools/)** — `ui-fidelity/` (L1 structural · L2 pixel regression ·
   L3 prototype-as-oracle) and `ui-align/`.
+
+## Branch and worktree discipline
+
+Development **integrates on the long-lived branch `dev`**; `main` is the protected
+release branch. Every task runs on its own lane branch `lane/<lane>` — one lane,
+one branch, one worktree — and the lane's product merges into `dev` before the card
+is closed. `dev → main` is the explicit integration/release step.
+
+| Branch | Role |
+|---|---|
+| `main` | protected release branch; the only direct write is the `dev → main` step |
+| `dev` | integration base — the default parent of every lane |
+| `lane/<lane>` | one task / one segment; holds that lane's commits until it merges |
+
+- **One lane = one worktree = one branch.** A same-repo concurrent lane is isolated
+  automatically by [spawn-lane.mjs](team/scripts/spawn-lane.mjs) into a sibling
+  tree `<repo>-wt-<lane>` (`--no-isolate` opts out). Never put two lanes in one
+  worktree — that recreates the shared-checkout hazard *inside* the isolation.
+- **No role develops on `main`.** It is never a development base (nor a lane's
+  base): the only write to it is the explicit `dev → main` step. Linus, Jobs and
+  Turing alike work on `lane/<lane>`.
+- **The base is a snapshot, not whatever `HEAD` is now.** A first segment bases on
+  `dev`; a continuation segment bases on **its previous segment's lane-branch
+  tip** — an implicit `HEAD` silently drops the earlier segment's committed work.
+  `--base <ref>` pins explicitly; `OPENCLAW_LANE_BASE` overrides process-wide. An
+  unresolvable base is **refused** (`base_unresolved:<ref>`), never a silent
+  fallback.
+- **Never commit on the protected branch.** [branch-guard.mjs](team/scripts/branch-guard.mjs)
+  refuses a direct commit on `main` (`OPENCLAW_PROTECTED_BRANCHES` overrides the
+  set); `dev → main` is the one sanctioned exception and must pass
+  `--allow-protected`, whose `overridden:true` is the trail. Note the mechanism:
+  like `commit-guard.mjs`, the guard is **invoked by SOP, not wired as a git hook**
+  (`.git/hooks/` is empty) — run it yourself; nothing blocks a bare `git commit`.
+- **A lane's product merges into `dev` before the card is closed.** On a non-`dev`
+  branch or in a worktree — i.e. every lane — the merge is a **precondition of the
+  terminal `done`**, not a step after it: the lane owner merges `lane/<lane>` into
+  `dev` and reports the merged sha, and Elon records it on the card before closing.
+  An unmerged lane branch is **not** delivery — `dev` does not contain it, so the
+  next task bases on a tree without it. Remove the worktree only **after** the
+  merge.
+- **Keep the main checkout on `main`.** The gate's drift patrol
+  ([check-all.sh](team/scripts/check-all.sh)) diffs this repo's *working tree*
+  against the deployed `~/.openclaw/team/`, so unreleased `team/scripts/**`
+  content sitting in the main checkout reads as drift and reds the live gate. Do
+  the work in a lane worktree, then put the main checkout back on `main`.
+- **Bootstrapping:** a repo with no `dev` refuses lane isolation — create it once
+  (`git branch dev <base>`) before the first isolated lane.
+
+Normative source: [team/PROTOCOL.md](team/PROTOCOL.md) §⑥.4. Mechanics:
+[worktree-isolation-sop.md](team/guides/worktree-isolation-sop.md) §5/§9,
+[spawn-lane-sop.md](team/guides/spawn-lane-sop.md).
+
+> **Migration state:** `PROTOCOL §⑥.4`, the `dev` base default and
+> `branch-guard.mjs` land as one change. If your tree has no `dev` branch and no
+> `branch-guard.mjs`, it predates that change — there lanes base on `HEAD` and the
+> guard does not exist. Create `dev` before the first isolated lane.
 
 ## Conventions
 

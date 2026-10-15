@@ -36,8 +36,9 @@
  *      ①c-b **续接定基**（T-20261014-112936）：隔离树的基准 ⇏ 恒为 `HEAD`。**续接上一 seg** 时
  *      （多 seg 续做 / 打回续做）以**上一 seg 的 lane 分支 tip**为 base —— 派单者此前只能靠人工
  *      `lane-worktree --base <prev-tip>` 手建树绕开（`T-20261013-154930-2` 实证：seg2 默认建在 HEAD ⇒
- *      `merge-base --is-ancestor <seg1 tip> → NO`，前段产物被丢）。首 seg / 无前驱 ⇒ 仍 `HEAD`（不变）；
- *      显式 `--base <ref>` 优先且**不可解析即拒绝**（显式意图绝不静默回落）。证据在输出 `isolation.base`。
+ *      `merge-base --is-ancestor <seg1 tip> → NO`，前段产物被丢）。首 seg / 无前驱 ⇒ 缺省 base = `OPENCLAW_LANE_BASE`
+ *      或 `dev`（开发集成分支，`PROTOCOL §⑥.4`，T-20261015-devbranch）；缺省与显式 `--base <ref>` **不可解析即拒绝**（绝不静默回落）。
+ *      证据在输出 `isolation.base`。
  *   ①c-c **叠卡定基**（T-20261015-133720）：自动起 lane 路径（`poll-run` 的移交指令、无 `--base`）此前
  *      只认「同卡续接」⇒ **跨卡**叠卡（`depends_on` 的前置卡已 done、而其 lane 分支 tip **未并入 main**）
  *      静默落仓 `HEAD`（= main），新树丢掉前置产物（`T-20261015-075826` / `T-20261015-132952` 实测）。
@@ -390,7 +391,8 @@ export function buildPrompt({ handoffPath, cardPath, reportPath, isolation = nul
   if (isolation && isolation.mode === 'worktree') {
     lines.push(
       `You are isolated in a lane worktree: ${isolation.path} (branch ${isolation.branch}) — another non-terminal lane is writing the same repo. ` +
-      `Commit there with explicit paths, and report the branch + commit sha in your Report so it can be integrated and the worktree removed.`,
+      `Commit there with explicit paths, and report the branch + commit sha in your Report so it can be integrated and the worktree removed. ` +
+      `Do not commit on the protected branch (main): integration happens on the dev branch (ref PROTOCOL §⑥.4, scripts/branch-guard.mjs).`,
     );
   }
   return lines.join('\n');
