@@ -80,9 +80,8 @@ The skills pipeline (`manifest.json` + `lock.json` + `fetch.mjs` + `update.mjs`)
 into `{team}/`, because `{team}/skills/` is the task provider's own ACL directory
 (`task-ops/`). `{repo}` therefore resolves at dispatch time to the framework checkout —
 `$OPENCLAW_TEAM_REPO` first, else the `repoPath` recorded in
-`{team}/.install-state.json` (the same resolution `check-all.sh` uses for its drift
-baseline). If neither resolves, the job degrades to an **alarm** rather than substituting
-an empty path.
+`{team}/.install-state.json`. If neither resolves, the job degrades to an **alarm** rather
+than substituting an empty path.
 
 So `task-patrol` → `dispatch.mjs patrol` → `providers.json` **`patrol` =
 `node {team}/scripts/patrol.mjs`** — a **scan + re-check before emit**: `patrol.mjs`
@@ -254,8 +253,8 @@ emits `{"ok":…,"message":…}` and launches the detached slow refresh. Consequ
   alarms (no cache yet); every run after it is green.
 
 Runtime state written by the gate (`<team>/.check-all-slow.json`, `.check-all-slow.lock`,
-`.check-all-slow.log`) is excluded from the repo↔instance drift patrol — it is host-local,
-like `.install-state.json`.
+`.check-all-slow.log`) is **host-local**: it lives only in the instance, is never part of
+the repository, and is not carried by `install.sh`.
 
 ## 3.6 Live trigger drift (item 1 — the re-check must reach the *live* trigger)
 

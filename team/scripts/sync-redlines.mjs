@@ -1,33 +1,27 @@
 #!/usr/bin/env node
 /**
  * sync-redlines.mjs — 把 canonical 红线块 + 开工硬前置 灌入各 AGENTS.md（幂等）
- * canonical：team/guides/redlines.core.md 的 <!-- BEGIN REDLINES:v1 -->…<!-- END --> 块。
+ * canonical：`<doc root>/guides/redlines.core.md` 的 <!-- BEGIN REDLINES:v1 -->…<!-- END --> 块。
  * 用法：node sync-redlines.mjs              # LIVE 模式：安装实例的 workspace-<role>/AGENTS.md
  *       node sync-redlines.mjs --repo <R>   # 仓内模式：重生成 <R>/roles/<role>/AGENTS.md 的块
- */
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-
-/**
- * 目标面解析：
- *   默认（无 `--repo`）= **LIVE 模式**：canonical 与目标都在安装实例（`~/.openclaw/team`、
- *     `~/.openclaw/workspace-<role>/AGENTS.md`）—— 行为与历史逐字节一致。
+ *
+ * 目标面解析（root 一律解析自 host-paths.mjs ⇒ OPENCLAW_TEAM_ROOT / OPENCLAW_HOME 都生效）：
+ *   默认（无 `--repo`）= **LIVE 模式**：canonical 与目标都在安装实例 —— 行为与历史逐字节一致。
  *   `--repo <R>` = **仓内模式**：以仓内 `<R>/team/guides/redlines.core.md` 重生成仓内
  *     `<R>/roles/<role>/AGENTS.md` 的标记块。用途：改红线时不必**手抄** 5 份仓内块
  *     （§⑰ 禁逐字复制；手抄正是「无检查守着、只靠当前恰好一致」的成因）。
- *     仓内无 `roles/simons/`（simons 是 LIVE-only 角色）⇒ 缺目录**跳过**，不是错误。
- * 注意：`--repo` 只改**仓内种子**；LIVE 的 `workspace-<role>/AGENTS.md` 由 install.sh §3 部署，
- *   而 simons 不经 install ⇒ 部署腿仍须在 install 后跑一次 LIVE 模式的本脚本（见 §②.1 落地卡）。
+ * 本脚本是**写者**：仓内模式只认**显式** `--repo`，绝不按 host-paths#resolveMode 的自动判定去写仓。
+ * 目标文件缺失 ⇒ 跳过（`skip(no file)`），不是错误 —— 仓与实例各自可能只带部分角色。
  */
-const argv = process.argv.slice(2);
-let REPO = '';
-for (let i = 0; i < argv.length; i++) if (argv[i] === '--repo' && argv[i + 1]) REPO = path.resolve(argv[++i]);
+import fs from 'node:fs';
+import path from 'node:path';
+import { ROLES, teamRoot, openclawHome, parseArgs } from './host-paths.mjs';
 
-const HOME = os.homedir();
-const TEAM = path.join(HOME, '.openclaw', 'team');
+const { repo: REPO } = parseArgs();
+const TEAM = teamRoot();
+const OC_HOME = openclawHome();
 const CORE = REPO ? path.join(REPO, 'team/guides/redlines.core.md') : path.join(TEAM, 'guides/redlines.core.md');
-const roleFile = (r) => (REPO ? path.join(REPO, 'roles', r, 'AGENTS.md') : path.join(HOME, `.openclaw/workspace-${r}/AGENTS.md`));
+const roleFile = (r) => (REPO ? path.join(REPO, 'roles', r, 'AGENTS.md') : path.join(OC_HOME, `workspace-${r}`, 'AGENTS.md'));
 const core = fs.readFileSync(CORE, 'utf8');
 const m = /<!-- BEGIN REDLINES:v1[\s\S]*?<!-- END REDLINES:v1 -->/.exec(core);
 if (!m) { console.error('canonical 缺 REDLINES:v1 标记块'); process.exit(2); }
@@ -37,9 +31,8 @@ const BLOCK = m[0];
 const HARD = '> 🚦 **Hard prerequisite for starting**: the **first step of this turn is to read `team/PROTOCOL.md` (at minimum §① Board / §⑬ Hard Discipline + the sections relevant to this role); do not execute or claim any task card until it is read**. After reading, log one line "read PROTOCOL §…" in the card\'s Progress.';
 const HARD_RE = /开工硬前置|Hard prerequisite for starting/;
 
-const roles = ['elon', 'jobs', 'linus', 'turing', 'assistant'];
 let n = 0;
-for (const r of roles) {
+for (const r of ROLES) {
   const p = roleFile(r);
   if (!fs.existsSync(p)) { console.warn('skip(no file):', r); continue; }
   let s = fs.readFileSync(p, 'utf8');
