@@ -41,11 +41,17 @@
  *   ①c-c **叠卡定基**（T-20261015-133720）：自动起 lane 路径（`poll-run` 的移交指令、无 `--base`）此前
  *      只认「同卡续接」⇒ **跨卡**叠卡（`depends_on` 的前置卡已 done、而其 lane 分支 tip **未并入 main**）
  *      静默落仓 `HEAD`（= main），新树丢掉前置产物（`T-20261015-075826` / `T-20261015-132952` 实测）。
- *      现入口自行解析「本卡应有的 base」：`--base` > 同卡上一 seg tip > **`depends_on` 链上未并入 `HEAD`
- *      的分支 tip**（取**信息最全**的最大元）。前两档行为与证据**不变**；第三档命中时以该 tip 建树并把
- *      `isolation.base.source` 标为 `dependency`（+ 点名 `dep`）。无法判定（两个未合并且互不包含的前置）
- *      ⇒ `base_undeterminable(base_ambiguous)` 拒绝；应有 base 却**不会建隔离树**（单 lane，lane 将落在
- *      共享 checkout 的 `HEAD`）⇒ `base_required_not_isolated(...)` 拒绝 —— 两者都**绝不静默落 main**。
+ *      现入口自行解析「本卡应有的 base」：`--base` 显式最优先（不改判）；否则在候选集
+ *      {①同卡上一 seg 的 lane tip、②`depends_on` 链上未并入 `HEAD` 的分支 tip} 中取**信息最全的最大元**。
+ *      选到②时以该 tip 建树并把 `isolation.base.source` 标为 `dependency`（+ 点名 `dep`）；选到①时
+ *      **不把 base 传下去**（续接档仍走 `lane-isolation` 的原推导 ⇒ 该档证据逐字节不变）。
+ *      **行为边界（如实记，勿读成「续接档不变」）**：①与②**同台比大小、无先天优先级** ⇒ 两者互不包含时
+ *      （本卡的上一 seg 不含未并入的前置 tip，反之亦然）同为 `base_ambiguous` ⇒ **续接档在「本卡旧段 vs
+ *      前置」发散时由「继续」变为「拒绝」**（改前会静默沿上一 seg tip 继续、丢掉前置产物）。这是有意的
+ *      fail-closed 取舍（选哪一档属策略问题，人可 `--base` 钉定）。
+ *      另：无法判定（两个互不包含的未合并前置）⇒ `base_undeterminable(base_ambiguous)` 拒绝；
+ *      应有 base 却**不会建隔离树**（单 lane，lane 将落在共享 checkout 的 `HEAD`）⇒
+ *      `base_required_not_isolated(...)` 拒绝 —— 两者都**绝不静默落 main**。
  *      证据在输出 `base`（候选集）与 `isolation.base`（实际建树基准）。
  *   ② 并发额度：linus/jobs running>=8 或 turing running>=3 ⇒ 拒绝；
  *   ③ cwd：由 project 经 ACL 解析（`__team__` ⇒ team 根），叠加 target；若 ①c 判定需隔离，
@@ -459,7 +465,7 @@ const defaultReadCard = (id) => readCardById(id);
 /**
  * 「本卡应有的 base」解析（**只读**；自动路径专用，显式 `--base` 不走这里）。
  *
- * 候选（高 → 低）：
+ * 候选（**无先天优先级** —— ①与②同台比大小，由下方「选择」按祖先关系取最大元）：
  *   ① **上一 seg 的 lane 分支 tip**（同卡续接；`prevSegCandidates` + `laneNameFor`，与
  *      `lane-isolation.deriveLaneBase` ② 档同一口径 —— 此处复算只为**与其他候选比大小**）；
  *   ② **`depends_on` 链上前置的产物 tip**（跨卡叠卡；本卡新增）—— 即前置卡**最后登记的一段**的 lane
@@ -469,8 +475,9 @@ const defaultReadCard = (id) => readCardById(id);
  *      分支 tip 成为 main 的祖先），故已合并的前置**不产生候选**、`base` 仍是 `HEAD`（旧行为不变）。
  *      **只认末段**的理由见下方循环内注释（作废支线陷阱：卡被「收掉重起」过时，早期那段未并入的分支
  *      不是「缺的前置」，拿它建树会丢掉 main 上后来的一切）。
- * 选择：取唯一「最大元」（其余候选皆其祖先 —— 即**信息最全**的那个 tip）。可比的候选集若没有最大元
- *   （两个未合并且互不包含的前置），**无法判定** ⇒ 回 `error`，由调用方 fail-closed 拒绝起 lane。
+ * 选择：取唯一「最大元」（其余候选皆其祖先 —— 即**信息最全**的那个 tip）。候选集若没有最大元
+ *   （两个互不包含的未合并前置；**或**本卡上一 seg 与一个未并入的前置发散），**无法判定** ⇒ 回
+ *   `error`，由调用方 fail-closed 拒绝起 lane（**续接档因此也会拒绝**，不再静默沿上一 seg 继续）。
  * @param {{repo:string,taskId:string,seg:string,fm?:object,sessions?:object[],readCard?:Function,headRef?:string}} o
  *   `readCard` = 卡 id ⇒ `{fm, body}`（注入缝；默认经 ACL/lib 读真实看板）
  * @returns {{ref:string,source:'prev_seg'|'dependency',resolved:string,prev_seg?:string,dep?:string,
@@ -586,7 +593,7 @@ export function spawnLane(opts = {}) {
   // ---- ①c-b2 定基解析（T-20261015-133720）：显式 `--base` ⇒ 不介入（显式意图绝不改判）；
   //      否则解析「本卡应有的 base」，其中**跨卡叠卡**（depends_on 链上未并入 main 的前置）是本卡的修复面。
   //      「同卡续接」仍交给 lane-isolation 自己推导（那里是它的正本），此处复算只为与依赖候选**比大小**：
-  //      只有当选出的最大元**确实来自依赖**时才把 base 显式传下去 —— 选到 prev_seg 时一律不传，
+  //      只有当选出的最大元**确实来自依赖**时才把 base 显式传下去 —— 选到 prev_seg 时（**若它胜出**）一律不传，
   //      保持 `T-20261014-112936` 的推导路径与 `isolation.base` 证据**逐字节不变**（不回归）。
   //      role=review 不参与：复核 lane 是**读者**（不隔离、不建树，靠 pin commit），它没有「建在哪个
   //      tip 上」这回事；给读者加一道写者的拒绝门是错位的（隔离政策同款：隔离写者，不隔离读者）。----

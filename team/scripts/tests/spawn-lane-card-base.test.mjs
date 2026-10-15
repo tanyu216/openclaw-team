@@ -138,6 +138,7 @@ const RETRY = 'T-20260102-100090-retry';  // 前置「收掉重起」过：seg1 
 const RETRY2 = 'T-20260102-100091-retry2';// 前置同形但真产物**未**并入 ⇒ 应认出末段 tip（而非判歧义）
 const RETRY_SELF  = 'T-20260102-100092-rself';  // 依赖 RETRY（前置已并入 ⇒ 旧行为：HEAD）
 const RETRY_SELF2 = 'T-20260102-100093-rself2'; // 依赖 RETRY2（⇒ base = 末段真产物 tip）
+const DIVG    = 'T-20260102-100045-divg';  // 发散续接：本卡 seg1 基于 main（**不含** DEP 产物）+ 未并入的 DEP
 
 const FIX = LAYOUT ? (() => {
   const g = (...a) => gOut(LAYOUT, ...a);
@@ -156,6 +157,8 @@ const FIX = LAYOUT ? (() => {
   g('branch', `lane/${MERGED_DEP}-seg1`, mainTip);
   // 同卡续接：seg1 的 tip **包含** DEP 的产物
   const selfSeg1 = commitOnBranch(`lane/${SELF}-seg1`, depTip, [['self-seg1.txt', 'seg1 work\n']], 'self seg1');
+  // 发散续接：本卡的 seg1 基于 main（**不含** DEP 产物）——「本卡上一 seg」与「未并入的前置」互不包含
+  const divgSeg1 = commitOnBranch(`lane/${DIVG}-seg1`, mainTip, [['divg-1.txt', 'd1\n']], 'divg seg1');
   // 名字空间用：同一张卡的两段 lane 分支 + 一张 **id 互为前缀**的兄弟卡分支（前缀 glob 的陷阱）
   const contSeg1 = commitOnBranch(`lane/${CONT}-seg1`, mainTip, [['cont-1.txt', 'c1\n']], 'cont seg1');
   const contSeg2 = commitOnBranch(`lane/${CONT}-seg2`, mainTip, [['cont-2.txt', 'c2\n']], 'cont seg2');
@@ -170,7 +173,7 @@ const FIX = LAYOUT ? (() => {
   g('branch', `lane/${RETRY}-seg2`, mainTip); // 末段已并入 main（同 MERGED_DEP 的建模方式：tip 即 main tip）
   const retry2Abandoned = commitOnBranch(`lane/${RETRY2}-seg1`, mainTip, [['doomed2.txt', 'doomed attempt\n']], 'abandoned seg1 (收掉重起)');
   const retry2Final = commitOnBranch(`lane/${RETRY2}-seg2`, mainTip, [['retry2-product.txt', 'real work\n']], 'final seg2 (未并入)');
-  return { mainTip, depTip, dep2Tip, selfSeg1, contSeg1, contSeg2, retryAbandoned, retry2Abandoned, retry2Final };
+  return { mainTip, depTip, dep2Tip, selfSeg1, divgSeg1, contSeg1, contSeg2, retryAbandoned, retry2Abandoned, retry2Final };
 })() : null;
 
 const porcelain = (dir) => gOut(dir, 'status', '--porcelain');
@@ -414,6 +417,30 @@ test('REJECT. 扇入歧义（两个未合并且互不包含的前置）⇒ 拒�
   assert.match(r.reason, /^base_undeterminable\(base_ambiguous\):specify_base$/, r.reason);
   assert.equal(r.base.candidates.length, 2, '拒绝时把两个候选都交出来（可判定由人来做）');
   assert.equal(fs.existsSync(`${LAYOUT}-wt-${MULTI}-seg1`), false, '拒绝路径零副作用（不建树）');
+  assert.equal(fs.existsSync(path.join(LAYOUT, 'claude-sessions.json')), false, '拒绝路径零副作用（不写 registry）');
+  assert.equal(porcelain(LAYOUT), '');
+});
+
+test('REGRESSION. 续接与未并入的前置发散 ⇒ 拒绝（不静默沿上一 seg 继续；改前会继续）', { skip: SKIP }, () => {
+  // ①（同卡上一 seg）与②（未并入的前置）**同台比大小、无先天优先级**：本卡 seg1 基于 main、不含 DEP 产物
+  // ⇒ 两候选互不包含 ⇒ 无最大元。改前（T-20261014-112936 的续接档）会**静默**建在 seg1 tip 上、丢掉前置
+  // 产物；本卡的 fail-closed 口径把它换成「拒绝 + 交全候选集」（选哪一档属策略，人可 `--base` 钉定）。
+  // 这条钉住的正是该行为边界 —— 它是**行为变更**，不是「续接档不变」。
+  concurrentBoard(DIVG, { deps: [DEP], sessions: ['seg1'] });
+  fs.rmSync(path.join(LAYOUT, 'claude-sessions.json'), { force: true });
+  const B = resolveSpawnBase({ repo: LAYOUT, taskId: DIVG, seg: 'seg2', fm: fmOf(DIVG), sessions: [{ seg: 'seg1' }] });
+  assert.equal(B.error, 'base_ambiguous', JSON.stringify(B));
+  assert.deepEqual(
+    B.candidates.map((c) => c.ref).sort(),
+    [`lane/${DEP}-seg1`, `lane/${DIVG}-seg1`].sort(),
+    '两候选都点名（本卡上一 seg + 未并入的前置）—— 不猜、也不按「档位」偷偷择一'
+  );
+  assert.equal(isAncestor(LAYOUT, FIX.depTip, FIX.divgSeg1), false, '夹具前提：两候选确实互不包含');
+
+  const r = spawnLane({ card: DIVG, owner: 'linus', seg: 'seg2', backend: 'claude', dryRun: false });
+  assert.equal(r.ok, false, JSON.stringify(r));
+  assert.match(r.reason, /^base_undeterminable\(base_ambiguous\):specify_base$/, r.reason);
+  assert.equal(fs.existsSync(`${LAYOUT}-wt-${DIVG}-seg2`), false, '拒绝路径零副作用（不建树）');
   assert.equal(fs.existsSync(path.join(LAYOUT, 'claude-sessions.json')), false, '拒绝路径零副作用（不写 registry）');
   assert.equal(porcelain(LAYOUT), '');
 });
