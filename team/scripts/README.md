@@ -56,6 +56,22 @@ repository** (`node --test team/scripts/tests/*.test.mjs`, green with no
 prerequisites). They are deployed alongside the scripts, which is also what
 `check-all.sh` re-runs in a deployed install.
 
+## Codex plugin lane (`harness=plugin`)
+
+`spawn-lane.mjs` dispatches the execution engine on `harness` (`cli` by default ⇒ the
+`codex exec` child-process path, unchanged; `plugin` ⇒ the official `@openclaw/codex`
+app-server embedded harness, **Codex backend only**). A plugin lane's handle is a
+**native thread id**, so it registers in **two same-write steps** (`id:pending` →
+`id:<thread_id>` on the same `seg:` row) and its liveness is **thread reachability**,
+not a pid. `--dry-run` still writes nothing.
+
+`registry.mjs` therefore keys entries by `task_id|owner|**seg**|session_id` (a legacy
+entry without `seg` falls back to `phase`), exposes `isEntryAlive` / `threadReachable` /
+`closePendingEntries`, and `check-sessions.mjs` reads the optional `harness:` row
+segment (absent ⇒ `cli`). Mechanism contract and per-gate evidence commands:
+`team/guides/codex-plugin-lane-contract.md`; entry usage and refusal codes:
+`team/guides/spawn-lane-sop.md`.
+
 ## Runtime prerequisite: the provider's ACL library
 
 `lib.mjs` imports the provider-owned ACL library from `{team}/skills/task-ops/lib/`

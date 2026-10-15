@@ -26,7 +26,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { TASKS_DIR, CARD_ID_RE, readCard } from './lib.mjs';
-import { loadRegistry, isPidAlive, readRegistryFile, REGISTRY_PATH } from './registry.mjs';
+import { loadRegistry, isEntryAlive, readRegistryFile, REGISTRY_PATH } from './registry.mjs';
 
 /**
  * canonical registry 内的**重复 lane 行**：同一 lane 身份 `task_id|owner|session_id` 出现 >1 行。
@@ -54,7 +54,11 @@ export function duplicateLaneRows() {
   return out;
 }
 
-/** 解析卡 body 内 `## Sessions` 段（行首 `- seg:`）的 running 会话行 */
+/**
+ * 解析卡 body 内 `## Sessions` 段（行首 `- seg:`）的 running 会话行。
+ * `harness:` 段为契约 §4.3 的增量（插件 lane 写 `harness:plugin`；**历史行无该段 ⇒ 视为 `cli`**，
+ * 向后兼容——行解析按「段名:值」通用提取，不做位置假设）。
+ */
 function sessionsOf(cardPath) {
   const { body } = readCard(cardPath);
   const lines = body.split('\n');
@@ -68,9 +72,27 @@ function sessionsOf(cardPath) {
     const status = /status:(\S+)/.exec(line);
     const seg = /seg:(\S+)/.exec(line);
     const pid = /pid:(\S+)/.exec(line);
-    out.push({ id: id ? id[1] : '', status: status ? status[1] : '', seg: seg ? seg[1] : '', pid: pid ? pid[1] : '' });
+    const harness = /(?:^| · )harness:(\S+)/.exec(line);
+    out.push({
+      id: id ? id[1] : '', status: status ? status[1] : '', seg: seg ? seg[1] : '',
+      pid: pid ? pid[1] : '', harness: harness ? harness[1] : 'cli',
+    });
   }
   return out;
+}
+
+/**
+ * 卡行是否代表「在跑」：CLI lane 看 pid 存活；插件 lane 看 **bound 的 native thread id**
+ * （`id:pending` 未绑定 ⇒ 不算在跑，与 `registry.threadReachable` 的 `id_state` 口径一致）。
+ */
+function cardRowLive(line) {
+  const nPid = Number(line.pid);
+  if (Number.isInteger(nPid) && nPid > 0 && isPidAliveNum(nPid)) return true;
+  return line.harness === 'plugin' && !!line.id && line.id !== 'pending';
+}
+/** 保留本文件原有的 pid 存活判定语义（EPERM 视为存在） */
+function isPidAliveNum(pid) {
+  try { process.kill(pid, 0); return true; } catch (e) { return e && e.code === 'EPERM'; }
 }
 
 function scanCards() {
@@ -103,8 +125,8 @@ export function checkSessions({ registry = null } = {}) {
   for (const e of running) {
     const card = byId.get(e.task_id);
     const line = card && card.sessions.find((s) => s.id && s.id === e.session_id);
-    if (!isPidAlive(e.pid)) {
-      notes.push({ type: 'zombie_registry', task: e.task_id, session: e.session_id, pid: e.pid });
+    if (!isEntryAlive(e)) {
+      notes.push({ type: 'zombie_registry', task: e.task_id, session: e.session_id, pid: e.pid, harness: e.harness || 'cli' });
       continue;
     }
     if (!card || !line) {
@@ -116,22 +138,21 @@ export function checkSessions({ registry = null } = {}) {
         cardExists: !!card,
       });
     }
-    // 有行且 registry running ⇒ 一致（含 pid 存活）→ 无需处理
+    // 有行且 registry running ⇒ 一致（含判活）→ 无需处理
   }
 
   // 方向 2：卡内 Sessions running 行 → registry 条目
-  // 口径：卡行 pid 存活 ⇒ 真实活跃会话缺 registry 条目（spawn 漏写 registry）⇒ 硬失败；
-  //       卡行 pid 已死 ⇒ 陈旧 running 行（reconcile 职责）⇒ 软告警。
+  // 口径：卡行**判活**（CLI pid 存活；插件 bound 的 thread 行）⇒ 真实活跃会话缺 registry 条目
+  //       （spawn 漏写 registry）⇒ 硬失败；卡行不活 ⇒ 陈旧 running 行（reconcile 职责）⇒ 软告警。
   for (const card of cards) {
     for (const line of card.sessions.filter((s) => s.status === 'running')) {
       if (!line.id) continue; // 无 session id 的行不参与判定（无法对齐）
       const e = entries.find((x) => x.task_id === card.id && x.session_id === line.id);
       if (!e) {
-        const nPid = Number(line.pid);
-        if (Number.isInteger(nPid) && nPid > 0 && isPidAlive(nPid)) {
-          inconsistencies.push({ type: 'card_only', task: card.id, session: line.id, pid: nPid });
+        if (cardRowLive(line)) {
+          inconsistencies.push({ type: 'card_only', task: card.id, session: line.id, pid: line.pid, harness: line.harness });
         } else {
-          notes.push({ type: 'stale_card_line', task: card.id, session: line.id, pid: line.pid });
+          notes.push({ type: 'stale_card_line', task: card.id, session: line.id, pid: line.pid, harness: line.harness });
         }
       } else if (e.status !== 'running') {
         notes.push({ type: 'status_mismatch', task: card.id, session: line.id, card: line.status, registry: e.status });
