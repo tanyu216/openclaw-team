@@ -40,7 +40,7 @@
  *      测试 `skills/task-ops/tests/idem.test.mjs:483` 断言它 `groups` 为空 ⇒「仓内不得夹带豁免」仍是
  *      被机械检查的不变量。**运行时登记一律不写此文件**（写了必被下次部署清回，且清回前即令慢段红）。
  *   ② **运行时登记** `runtimeBaselinePath(dir)` = `<被巡检的 tasks 目录>/.idem-baseline.json`
- *      （`RUNTIME_BASELINE_NAME`）：不属任何部署树（`install.sh` 跳过 `tasks/`，防漂移巡检亦忽略
+ *      （`RUNTIME_BASELINE_NAME`）：不属任何部署树（`install.sh` 不部署 `tasks/` ⇒ 升级不清回登记
  *      `tasks/`）⇒ 升级**不再清回**登记；且因随 `tasksDir` 派生，provider 契约测试（自设 `OPENCLAW_TEAM_ROOT`
  *      隔离 root）读到的是隔离目录内的空登记 ⇒ **登记不再可能令慢段转红**（结构性，而非靠约定）。
  *   生效登记 = ① ∪ ②（同键重复先命中者胜；`loadExemptions`）。新增豁免**只写 ②**并人工核对；豁免仅对

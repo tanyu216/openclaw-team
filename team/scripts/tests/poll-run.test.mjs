@@ -40,7 +40,7 @@ const TEAM_DIR = path.join(SCRIPTS, '..');                 // <team> (repo/team,
  * 所以任何对它的断言必须读**仓**而非实例；两种布局下 HERE/../../.. 指代不同：
  *   - 仓检出：  HERE = <repo>/team/scripts/tests ⇒ HERE/../../.. = <repo>（有 install.sh）；
  *   - 部署实例：HERE = <team>/scripts/tests       ⇒ HERE/../../.. = $OPENCLAW_HOME（无 install.sh）。
- * 显式解析（口径同 check-all.sh 的防漂移基线）：先 $OPENCLAW_TEAM_REPO，再读
+ * 显式解析（口径同 team/automations/dispatch.mjs 的 {repo} 解析）：先 $OPENCLAW_TEAM_REPO，再读
  * `<team>/.install-state.json.repoPath`；都没有再回退到布局猜测。
  */
 function resolveRepoRoot() {

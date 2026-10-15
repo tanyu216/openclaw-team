@@ -32,6 +32,19 @@ node --check skills/update.mjs
 node --check config/optimization.mjs
 node --check config/reconcile.mjs
 
+# 门禁的去耦验收（本仓是**分发通道**：贡献者/CI 机器上没有安装实例）。
+# 没有 ~/.openclaw 时，check-all.sh 必须**自动落到仓内自证**并给出绿判 —— 这正是它的设计目标；
+# 同时证明「仓的健康不再依赖任何一台机器的实例」。`env -u` 是必需的：否则宿主/CI 环境里漏进来的
+# OPENCLAW_* 会让本步失去意义（测的就不是「无实例」了）。
+step "gate: repo mode on a machine with NO instance"
+NOHOME=/tmp/nohome
+rm -rf "$NOHOME" && mkdir -p "$NOHOME"
+GATE_OUT="$(env -u OPENCLAW_TEAM_ROOT -u OPENCLAW_HOME -u OPENCLAW_TEAM_REPO HOME="$NOHOME" bash team/scripts/check-all.sh --segment fast)"
+echo "$GATE_OUT" | tail -1
+echo "$GATE_OUT" | tail -1 | grep -q '"ok":true' || { echo "gate is RED in repo mode (no instance)"; echo "$GATE_OUT" | tail -25; exit 1; }
+echo "$GATE_OUT" | tail -1 | grep -q '"mode":"repo"' || { echo "gate did not select repo mode"; echo "$GATE_OUT" | tail -25; exit 1; }
+echo "repo-mode gate ok"
+
 step "install unit tests (node:test — optimization backfill + reconcile + dry-run)"
 node --test 'test/install/'*.test.mjs
 

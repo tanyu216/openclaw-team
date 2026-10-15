@@ -36,7 +36,7 @@ const TEAM_DIR = path.join(SCRIPTS, '..');
  * §12 G-6 cadence / sla-scan 注册形态的断言必须读**仓**而非实例。两种布局下 `<team>/..` 指代不同：
  *   - 仓检出：  TEAM_DIR = <repo>/team ⇒ <team>/.. = <repo>（有 install.sh）；
  *   - 部署实例：TEAM_DIR = ~/.openclaw/team ⇒ <team>/.. = $OPENCLAW_HOME（无 install.sh）。
- * 显式解析（口径同 check-all.sh 的防漂移基线）：先 $OPENCLAW_TEAM_REPO，再读
+ * 显式解析（口径同 team/automations/dispatch.mjs 的 {repo} 解析）：先 $OPENCLAW_TEAM_REPO，再读
  * `<team>/.install-state.json.repoPath`；都没有再回退到 `<team>/..`。
  */
 function resolveRepoRoot() {
