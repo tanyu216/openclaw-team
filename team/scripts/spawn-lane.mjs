@@ -38,6 +38,21 @@
  *      `lane-worktree --base <prev-tip>` 手建树绕开（`T-20261013-154930-2` 实证：seg2 默认建在 HEAD ⇒
  *      `merge-base --is-ancestor <seg1 tip> → NO`，前段产物被丢）。首 seg / 无前驱 ⇒ 仍 `HEAD`（不变）；
  *      显式 `--base <ref>` 优先且**不可解析即拒绝**（显式意图绝不静默回落）。证据在输出 `isolation.base`。
+ *   ①c-c **叠卡定基**（T-20261015-133720）：自动起 lane 路径（`poll-run` 的移交指令、无 `--base`）此前
+ *      只认「同卡续接」⇒ **跨卡**叠卡（`depends_on` 的前置卡已 done、而其 lane 分支 tip **未并入 main**）
+ *      静默落仓 `HEAD`（= main），新树丢掉前置产物（`T-20261015-075826` / `T-20261015-132952` 实测）。
+ *      现入口自行解析「本卡应有的 base」：`--base` 显式最优先（不改判）；否则在候选集
+ *      {①同卡上一 seg 的 lane tip、②`depends_on` 链上未并入 `HEAD` 的分支 tip} 中取**信息最全的最大元**。
+ *      选到②时以该 tip 建树并把 `isolation.base.source` 标为 `dependency`（+ 点名 `dep`）；选到①时
+ *      **不把 base 传下去**（续接档仍走 `lane-isolation` 的原推导 ⇒ 该档证据逐字节不变）。
+ *      **行为边界（如实记，勿读成「续接档不变」）**：①与②**同台比大小、无先天优先级** ⇒ 两者互不包含时
+ *      （本卡的上一 seg 不含未并入的前置 tip，反之亦然）同为 `base_ambiguous` ⇒ **续接档在「本卡旧段 vs
+ *      前置」发散时由「继续」变为「拒绝」**（改前会静默沿上一 seg tip 继续、丢掉前置产物）。这是有意的
+ *      fail-closed 取舍（选哪一档属策略问题，人可 `--base` 钉定）。
+ *      另：无法判定（两个互不包含的未合并前置）⇒ `base_undeterminable(base_ambiguous)` 拒绝；
+ *      应有 base 却**不会建隔离树**（单 lane，lane 将落在共享 checkout 的 `HEAD`）⇒
+ *      `base_required_not_isolated(...)` 拒绝 —— 两者都**绝不静默落 main**。
+ *      证据在输出 `base`（候选集）与 `isolation.base`（实际建树基准）。
  *   ② 并发额度：linus/jobs running>=8 或 turing running>=3 ⇒ 拒绝；
  *   ③ cwd：由 project 经 ACL 解析（`__team__` ⇒ team 根），叠加 target；若 ①c 判定需隔离，
  *      cwd 改为该 lane 的隔离 worktree（卡 `target` **不**回写：`target` 是 `samefile-guard` 写集退化口径的
@@ -65,11 +80,12 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn as spawnChild } from 'node:child_process';
-import { TEAM_ROOT, CARD_ID_RE, AGENTS, getProject } from './lib.mjs';
+import { spawn as spawnChild, spawnSync } from 'node:child_process';
+import { TEAM_ROOT, CARD_ID_RE, AGENTS, getProject, readCardById, parseDeps } from './lib.mjs';
 import { anchorGaps } from './check-handoff.mjs';
 import { loadRegistry, isPidAlive } from './registry.mjs';
-import { isolationEnabled, laneIsolationPlan, applyLaneIsolation } from './lane-isolation.mjs';
+import { isolationEnabled, laneIsolationPlan, applyLaneIsolation, prevSegCandidates, laneNameFor } from './lane-isolation.mjs';
+import { branchHead, revParse } from './lane-worktree.mjs';
 import { read as aclRead, claim as aclClaim, sessionSet, sessionClose, sessionIdFor, handoff as aclHandoff } from '../skills/task-ops/lib/task.mjs';
 import { armLaneReaper, reaperEnabled } from './lane-reaper.mjs';
 
@@ -373,6 +389,146 @@ function nextFreeIndex(wsDir, owner) {
   return max + 1;
 }
 
+// ---------- ①c-b2 定基解析：自动路径（无 `--base`）也须落在「卡面应有的 base」上 ----------
+// （T-20261015-133720）为什么存在：`--base` 是**手工**纪律，而 poll/自动起 lane 路径（`poll-run` 的移交
+// 指令原话：`bash scripts/spawn-lane.sh <card> <owner> [seg] [backend]`）**从不传 `--base`** ⇒ 叠卡
+// （`depends_on` 的前置卡已 done、但其 lane 分支 tip **未并入 main**）起 lane 时静默落该仓 `HEAD`
+// （= main），新树**不含**前置产物。今日两度实测（`T-20261015-075826` 的 `depends_on: T-20261015-063755`
+// 其 tip `fb782dd` 未并入 main；`T-20261015-132952` 同形），Linus 均需非破坏收掉重起。
+// 「续接上一 seg」（`T-20261014-112936` 已修）只覆盖**同卡**多段；**跨卡**的叠卡前置仍无解 ⇒ 本段补上。
+// 只读：只用 `rev-parse` / `merge-base --is-ancestor` 探测，不建树、不改仓、不写卡。
+
+/** 依赖链深度上界（与 `check-relations.mjs` 的依赖链长护栏同口径：≤8） */
+const DEP_CHAIN_MAX = 8;
+
+/** `anc` 是否为 `desc` 的祖先（含相等）。任一不可解析 ⇒ false（不猜） */
+function isAncestor(cwd, anc, desc) {
+  if (!anc || !desc) return false;
+  return spawnSync('git', ['-C', cwd, 'merge-base', '--is-ancestor', anc, desc], { encoding: 'utf8' }).status === 0;
+}
+
+/**
+ * 前置卡在本仓的 lane 分支 —— **只认它自己登记过的 seg**（`lane/<id>-<seg>`，分支存在才算）。
+ *
+ * 为什么不去 `for-each-ref refs/heads/lane/<id>-*`：那条 glob **过宽**。卡 id 互为前缀在本板是常态
+ * （`T-…-025543` / `-025543-2` / `-025543-3` 是**三张不同的卡**），前缀 glob 会把**兄弟卡**甚至
+ * **本卡自己**的分支读成前置 tip（实板推演当场踩到：卡 `T-…-025543-3` 被解析出自己的
+ * `lane/T-…-025543-3-seg1` 当 base —— 自指错基）。改由前置卡 `## Sessions` 的 seg 反推分支名
+ * （与 `lane-isolation.deriveLaneBase` ② 档同一手法），名字空间与**身份**同时被钉死。
+ * @param {string[]} segs 前置卡已登记的 seg（`sessionsBySeg` 的结果）
+ * @returns {string[]} 存在的分支名（如 `lane/T-…-seg1`）
+ */
+export function depLaneBranches(repo, depId, segs = []) {
+  const out = [];
+  for (const s of (Array.isArray(segs) ? segs : []).map((x) => (x && typeof x === 'object' ? x.seg : x)).filter(Boolean)) {
+    const branch = `lane/${laneNameFor(depId, s)}`;
+    if (branchHead(repo, branch)) out.push(branch);
+  }
+  return out;
+}
+
+/**
+ * `depends_on` 链（**传递闭包**，广度优先、深度 ≤ `DEP_CHAIN_MAX`）的卡 id 列表（不含起点自身）。
+ * 读不到某张卡（已被归档/删除）只是**少一层**：断层以下的依赖无从得知，绝不臆造。
+ * @param {string} startId
+ * @param {(id:string)=>({fm:object,body:string}|null)} readCard 卡 id ⇒ 卡（注入缝，单测可造图）
+ */
+export function dependencyChain(startId, readCard, max = DEP_CHAIN_MAX) {
+  const seen = new Set([startId]);
+  const order = [];
+  const memo = new Map(); // 同一张卡只读一次（看板可达数百张，逐层重扫会做无谓 IO）
+  const read = (id) => {
+    if (!memo.has(id)) memo.set(id, readCard(id));
+    return memo.get(id);
+  };
+  let frontier = [startId];
+  for (let d = 0; d < max && frontier.length; d++) {
+    const next = [];
+    for (const id of frontier) {
+      const c = read(id);
+      if (!c || !c.fm) continue;
+      for (const dep of parseDeps(c.fm.depends_on)) {
+        if (!CARD_ID_RE.test(dep) || seen.has(dep)) continue;
+        seen.add(dep);
+        order.push(dep);
+        next.push(dep);
+      }
+    }
+    frontier = next;
+  }
+  return order;
+}
+
+/** 默认的卡读取（经 lib 的 `readCardById`；读不到 ⇒ null） */
+const defaultReadCard = (id) => readCardById(id);
+
+/**
+ * 「本卡应有的 base」解析（**只读**；自动路径专用，显式 `--base` 不走这里）。
+ *
+ * 候选（**无先天优先级** —— ①与②同台比大小，由下方「选择」按祖先关系取最大元）：
+ *   ① **上一 seg 的 lane 分支 tip**（同卡续接；`prevSegCandidates` + `laneNameFor`，与
+ *      `lane-isolation.deriveLaneBase` ② 档同一口径 —— 此处复算只为**与其他候选比大小**）；
+ *   ② **`depends_on` 链上前置的产物 tip**（跨卡叠卡；本卡新增）—— 即前置卡**最后登记的一段**的 lane
+ *      分支 tip，**其自身**尚未并入 `HEAD`。分支由前置卡 `## Sessions` 的 seg 反推（见 `depLaneBranches`：
+ *      前缀 glob 会把兄弟卡/本卡自己的分支读成前置 tip）。「未并入」判据 = tip **不是** `HEAD` 的祖先。
+ *      「已并入」时 tip 必是 `HEAD` 的祖先（本仓 git 纪律要求 ff 或 `--no-ff` 合并并留 merge commit ⇒
+ *      分支 tip 成为 main 的祖先），故已合并的前置**不产生候选**、`base` 仍是 `HEAD`（旧行为不变）。
+ *      **只认末段**的理由见下方循环内注释（作废支线陷阱：卡被「收掉重起」过时，早期那段未并入的分支
+ *      不是「缺的前置」，拿它建树会丢掉 main 上后来的一切）。
+ * 选择：取唯一「最大元」（其余候选皆其祖先 —— 即**信息最全**的那个 tip）。候选集若没有最大元
+ *   （两个互不包含的未合并前置；**或**本卡上一 seg 与一个未并入的前置发散），**无法判定** ⇒ 回
+ *   `error`，由调用方 fail-closed 拒绝起 lane（**续接档因此也会拒绝**，不再静默沿上一 seg 继续）。
+ * @param {{repo:string,taskId:string,seg:string,fm?:object,sessions?:object[],readCard?:Function,headRef?:string}} o
+ *   `readCard` = 卡 id ⇒ `{fm, body}`（注入缝；默认经 ACL/lib 读真实看板）
+ * @returns {{ref:string,source:'prev_seg'|'dependency',resolved:string,prev_seg?:string,dep?:string,
+ *            candidates:object[]} | {error:string,candidates:object[]} | null}
+ *   `null` = 本仓无候选（非 git 仓 / 无 `HEAD` / 无前驱 / 前置均已并入）⇒ 调用方保持旧行为（`HEAD`）。
+ */
+export function resolveSpawnBase({ repo, taskId = '', seg = '', fm = {}, sessions = [], readCard = defaultReadCard, headRef = 'HEAD' } = {}) {
+  const head = revParse(repo, headRef);
+  if (!head) return null; // 不是 git 仓（或 HEAD 不可解析）⇒ 「base」这个词在这里没有意义，保持旧行为
+  const cands = [];
+  // ① 同卡续接（既有口径；只用于比大小 —— 真值仍由 lane-isolation 自己推导，见 spawnLane 的注释）
+  for (const c of prevSegCandidates(seg, sessions)) {
+    const branch = `lane/${laneNameFor(taskId, c)}`;
+    const tip = branchHead(repo, branch);
+    if (tip) cands.push({ ref: branch, source: 'prev_seg', prev_seg: c, resolved: tip });
+  }
+  // ② 跨卡叠卡：depends_on 链上前置的**产物 tip**（分支名由前置卡自己的 seg 反推；只认**末段**）
+  // **本层不判前置的状态**（terminality）：`depends_on` 面按**写的**读，前置是 done 与否都照解析。
+  // 「前置已 done」这层保证在**上游**：自动路径上卡先经 `claimCard`（`lib.mjs`：任一 `depends_on`
+  // 非 done ⇒ `deps_unmet` 拒领）⇒ 领得到的卡其前置必然 done，与本卡前提（当日两度实证）一致。
+  // 反例（今日实板普查，2026-10-15）：`T-20261015-075845` 的前置 `T-20261015-051046-2` 仍在 `in_review`
+  // ⇒ 它领不到（自动路径到此为止），但**显式领取**仍可起 —— 此时按前置产物 tip 建树比静默回落 `HEAD`
+  // 更接近意图（人本来就会 `--base <那个 tip>`）。故此处**不加**状态门：加了等于把一个已判定的意图
+  // 换回「静默落 main」，正是本卡要消灭的形状。
+  for (const depId of dependencyChain(taskId, readCard)) {
+    const dep = readCard(depId);
+    if (!dep || !dep.body) continue; // 前置卡读不到 ⇒ 无从确认分支归属，不猜
+    // 只取**最后登记的一段**已存在的分支（`depLaneBranches` 保 `## Sessions` 序）：前置卡的产物 tip
+    // 就是它最后那段的落点。**不可**把该卡每一段未合并的分支都当候选 —— 卡被「收掉重起」过时（今日
+    // 两度实测 `T-20261015-075826` / `T-20261015-132952` 的收尾形状），早期那段是**作废支线**（基于
+    // 当时的 main、与重起后的真产物**互不包含**）；一旦最终段的 tip 已并入 `HEAD` 而分支仍在（SOP §7
+    // 只收工作树、**不收分支**），作废支线恰恰**不是** `HEAD` 的祖先 ⇒ 会被读成「缺的前置」，把新树
+    // 建在被丢弃的尝试上（丢掉 main 上后来的一切）—— 本卡要消灭的错基换个形状回来。
+    // 边界（如实记）：一张卡**显式并行**多段（`parallel=1`）且都未合并时，产物 tip 本无单一定论，
+    // 此处取末段（人可判定的场景请用显式 `--base` 钉住）。
+    const branches = depLaneBranches(repo, depId, sessionsBySeg(dep.body));
+    const branch = branches.length ? branches[branches.length - 1] : '';
+    const tip = branch ? branchHead(repo, branch) : null;
+    if (!tip || isAncestor(repo, tip, head)) continue; // 末段分支不存在 / 已并入 ⇒ 前置已满足，无候选
+    cands.push({ ref: branch, source: 'dependency', dep: depId, resolved: tip });
+  }
+  const uniq = [];
+  for (const c of cands) if (!uniq.some((u) => u.resolved === c.resolved)) uniq.push(c);
+  const evidence = uniq.map((c) => ({ ref: c.ref, source: c.source, resolved: c.resolved, ...(c.dep ? { dep: c.dep } : {}), ...(c.prev_seg ? { prev_seg: c.prev_seg } : {}) }));
+  if (!uniq.length) return null;
+  const maxima = uniq.filter((c) => uniq.every((o) => o === c || isAncestor(repo, o.resolved, c.resolved)));
+  if (maxima.length === 1) return { ...maxima[0], candidates: evidence };
+  // 无最大元 ⇒ 两个（或更多）互不包含的未合并前置：**无法判定**哪一个是「本卡应有的 base」
+  return { error: 'base_ambiguous', candidates: evidence };
+}
+
 const reject = (reason, extra = {}) => ({ ok: false, code: 1, reason, ...extra });
 const usage = (reason) => ({ ok: false, code: 2, reason });
 
@@ -441,12 +597,42 @@ export function spawnLane(opts = {}) {
   } catch (e) {
     return reject(`project_unresolved:${String(e && e.message ? e.message : e)}`);
   }
+  // ---- ①c-b2 定基解析（T-20261015-133720）：显式 `--base` ⇒ 不介入（显式意图绝不改判）；
+  //      否则解析「本卡应有的 base」，其中**跨卡叠卡**（depends_on 链上未并入 main 的前置）是本卡的修复面。
+  //      「同卡续接」仍交给 lane-isolation 自己推导（那里是它的正本），此处复算只为与依赖候选**比大小**：
+  //      只有当选出的最大元**确实来自依赖**时才把 base 显式传下去 —— 选到 prev_seg 时（**若它胜出**）一律不传，
+  //      保持 `T-20261014-112936` 的推导路径与 `isolation.base` 证据**逐字节不变**（不回归）。
+  //      role=review 不参与：复核 lane 是**读者**（不隔离、不建树，靠 pin commit），它没有「建在哪个
+  //      tip 上」这回事；给读者加一道写者的拒绝门是错位的（隔离政策同款：隔离写者，不隔离读者）。----
+  const baseDerived = base || role === 'review'
+    ? null
+    : resolveSpawnBase({ repo: baseCwd, taskId, seg, fm: c.fm, sessions: sessionsBySeg(c.body) });
+  if (baseDerived && baseDerived.error) {
+    // 候选互不包含 ⇒ 无法判定哪一个才是「本卡应有的 base」：告警并拒绝起 lane（绝不静默落 main）
+    return reject(`base_undeterminable(${baseDerived.error}):specify_base`, { base: baseDerived });
+  }
+  const depBase = baseDerived && baseDerived.source === 'dependency' ? baseDerived : null;
+
   const isoPlan = laneIsolationPlan({
     taskId, seg, role, cwd: baseCwd, fm: c.fm, enabled: isolateEnabled, dryRun,
     // 续接定基（T-20261014-112936）：既有 seg 登记 + 显式 --base ⇒ 由 lane-isolation 推导建树基准
     sessions: sessionsBySeg(c.body),
-    base,
+    base: depBase ? depBase.ref : base,
   });
+  if (depBase && isoPlan.base && isoPlan.base.source === 'explicit') {
+    // 这个 ref 是入口按**卡面依赖**推导出来的，不是调用者的 `--base` ⇒ 证据须标明来源，否则
+    // 「这棵树为什么建在这个 tip 上」在输出里读不出来（可审计性正是本卡的验收面之一）。
+    isoPlan.base = { ref: depBase.ref, source: 'dependency', dep: depBase.dep, resolved: depBase.resolved };
+  }
+  if (depBase && isoPlan.mode === 'none' && isoPlan.reason === 'no_concurrent_lane') {
+    // 本卡应有 base（未并入的前置 tip），但本次**不会建隔离树** ⇒ lane 的 cwd 是共享 checkout 的
+    // `HEAD`（= main），前置产物同样不在 ⇒ 这正是本卡要消灭的错基，只是换了个入口。
+    // fail-closed：告警并拒绝（`--base <ref>` 可显式接管；前置并入 main 后本判据自动消失）。
+    return reject(
+      `base_required_not_isolated(dep=${depBase.dep},base=${depBase.ref}):specify_base`,
+      { base: depBase, isolation: isoPlan },
+    );
+  }
   if (isoPlan.mode === 'serialize') {
     const withIds = isoPlan.conflicts.map((x) => x.card).join(',');
     const overlap = [...new Set(isoPlan.conflicts.flatMap((x) => x.overlap))].join(',');
@@ -560,6 +746,9 @@ export function spawnLane(opts = {}) {
     settings,
     cwd,
     isolation,
+    // 定基解析证据（T-20261015-133720）：自动路径（无 `--base`）从卡面推出的 base 及其候选集。
+    // 不消除歧义就不报账 = 又一次隐性错基；显式 `--base` 时无此字段（由 isolation.base.source=explicit 表达）。
+    ...(baseDerived ? { base: baseDerived } : {}),
     handoff: handoffState,
     log: outLog,
     errlog: errLog,
@@ -640,7 +829,10 @@ role=exec（默认）起执行 lane（in_progress 卡）；role=review（--revie
 执行 lane（card_busy）。同一计划内有意并行多分段须显式声明 parallel=1。
 同仓已有并发非终态 lane ⇒ 自动建隔离 worktree（cwd 指向该树）；同文件冲突 ⇒ 拒绝并提示串行；
 隔离树的 base：续接上一 seg ⇒ 上一 seg 的 lane 分支 tip（首 seg ⇒ HEAD）；--base <ref> 显式指定且
-不可解析即拒绝。--no-isolate（或 OPENCLAW_LANE_ISOLATION=0）关闭该自动化（回退为显式纪律）。
+不可解析即拒绝。**未给 --base 时还会解析卡面依赖**：depends_on 链上有分支 tip 尚未并入 HEAD（叠卡前置）
+⇒ 以该 tip 建树（isolation.base.source=dependency），绝不静默落 main；若两个未合并前置互不包含 ⇒
+base_undeterminable(base_ambiguous) 拒绝，若应有 base 但本次不建隔离树 ⇒ base_required_not_isolated 拒绝。
+--no-isolate（或 OPENCLAW_LANE_ISOLATION=0）关闭该自动化（回退为显式纪律）。
 起会话成功后自动起**会话终态看守**（lane-reaper.mjs，detached）：lane 进程一死（正常/被杀/超时/崩溃）
 即经 ACL session-close 写完卡行 status + 清 active_session_id + registry 终态；起看守失败即拒绝起会话
 （fail-closed，且会先把已登记的行收口）。--no-reaper（或 OPENCLAW_TEAM_REAPER=0）关闭该自动化。
