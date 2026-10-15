@@ -5,7 +5,7 @@ scheduled jobs (`team/automations/providers.json` → `{team}/scripts/…`):
 
 | Entry | Job | Dispatch |
 |---|---|---|
-| `poll.mjs <agent>` | `poll-<agent>` | claim this agent's new (`todo`/`ready` — `lib.mjs#isNewStatus`)/stale cards — **except `kind:deploy`** (deploy cards are never auto-claimed; explicit dispatch only, `PROTOCOL §①`) |
+| `poll.mjs <agent>` | `poll-<agent>` | claim this agent's new (`todo`/`ready` — `status.mjs#isNew`)/stale cards — **except `kind:deploy`** (deploy cards are never auto-claimed; explicit dispatch only, `PROTOCOL §①`) |
 | `poll-run.mjs` | — (library) | single source for the poll RUN contract: `pollRunMessage()` (claim → hand off → return) + `pollRunTimeoutS()` (run bound); `install.sh` and `poll.mjs` both use it (T-20261013-041718) |
 | `patrol-scan.mjs` | `task-patrol` | scan for stale `in_progress` heartbeats |
 | `sla-scan.mjs [--now ISO] [--recheck f] [--check-thresholds]` | `sla-scan` | board SLA inspection over the `PROTOCOL §⑮` rows the heartbeat patrol does not cover (+ the contract's `inspector_liveness`); notify-only to the leader, `fire` only on a tier crossing, fail-closed on an unconfirmed evaluation (`team/guides/sla-inspection-contract.md`, `team/AUTOMATIONS.md` §3.8) |
@@ -34,6 +34,15 @@ start a lane, `lane-reaper.mjs` is the detached **session-terminal watchdog** th
 `spawn-lane` arms for every lane, `session-lifecycle.mjs` holds the shared criterion +
 two-sided close, and `session-reconcile.mjs` sweeps the historical card↔registry drift
 (`team/guides/lane-session-lifecycle-sop.md`).
+
+`status.mjs` is the **single source for the status vocabulary** (T-20261015-status): the
+card axis (canonical 7 values of `PROTOCOL §⑯` + the `ready`/`failed` legacy aliases) and
+the session/registry axis, plus the one documented bridge between them
+(`sessionTerminalForCard`). Every checker and scanner imports its predicates
+(`isTerminal` / `isNew` / `isInFlight` / `isDraft` / `isNonTerminal` / `isOpen`) rather
+than re-declaring a set. It has **no imports of its own** — that is what lets it load in
+any context (a checkout without the provider included); consistency with the provider's own
+vocabulary is asserted by `tests/status.test.mjs`.
 
 ## Vendoring contract
 

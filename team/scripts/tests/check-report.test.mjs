@@ -48,6 +48,21 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CHECK_REPORT = path.join(HERE, '..', 'check-report.mjs');
+const SCRIPTS = path.join(HERE, '..');
+
+/**
+ * 为「源级变异」副本备好同级依赖：把 `scripts/` 下除 `except` 外的所有 `*.mjs` 以**符号链接**
+ * 引回真实目录（Node 默认按 realpath 解析 ⇒ 被链模块自身的相对 import 仍落在真实 `scripts/` 内，
+ * 不必拷一整棵兄弟树）。`except` = 正在被变异的那份 ⇒ 绝不把真实模块写成变异体。
+ *
+ * 原先只硬编码链 `lib.mjs` 一个 ⇒ 模块每新增一个同级 import（如 `status.mjs`），变异用例就会
+ * 因临时目录解不出该依赖而**莫名其妙地红**；改为全量链接后不再有此耦合。
+ */
+function linkSiblings(dir, except) {
+  for (const f of fs.readdirSync(SCRIPTS)) {
+    if (f.endsWith('.mjs') && f !== except) fs.symlinkSync(path.join(SCRIPTS, f), path.join(dir, f));
+  }
+}
 
 /** 定位携带 ACL 库的 provider 安装目录（与 check-idem.test.mjs 同口径）。 */
 function resolveProviderRoot() {
@@ -212,9 +227,7 @@ test('②(b) 判定变异：摘掉 A5 判定项后「缺 A5」不再被测出 �
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-report-mut-'));
   TMP.push(dir);
-  // lib.mjs 用**符号链接**引回真实 scripts/（Node 默认按 realpath 解析 ⇒ lib.mjs 自身的相对
-  // import 仍落在真实 scripts/ 内 ⇒ 不必把 board-adapter.mjs 等一整棵兄弟树拷过来）。
-  fs.symlinkSync(path.join(HERE, '..', 'lib.mjs'), path.join(dir, 'lib.mjs'));
+  linkSiblings(dir, 'check-report.mjs');
   fs.writeFileSync(path.join(dir, 'check-report.mjs'), patched, 'utf8');
   const mut = await import(pathToFileURL(path.join(dir, 'check-report.mjs')).href);
 
@@ -546,7 +559,7 @@ test('Δ2 判定变异：摘掉来源判定后「import 报告」不再被测出
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-report-mut2-'));
   TMP.push(dir);
-  fs.symlinkSync(path.join(HERE, '..', 'lib.mjs'), path.join(dir, 'lib.mjs'));
+  linkSiblings(dir, 'check-report.mjs');
   fs.writeFileSync(path.join(dir, 'check-report.mjs'), patched, 'utf8');
   const mut = await import(pathToFileURL(path.join(dir, 'check-report.mjs')).href);
 
@@ -697,7 +710,7 @@ test('D2 判定变异：把行级抽取摘空 ⇒ 真实静默丢弃不再被测
   assert.notEqual(patched, src, '变异必须真的改到 A4 行级抽取，否则本测试无意义');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-report-mut4-'));
   TMP.push(dir);
-  fs.symlinkSync(path.join(HERE, '..', 'lib.mjs'), path.join(dir, 'lib.mjs'));
+  linkSiblings(dir, 'check-report.mjs');
   fs.writeFileSync(path.join(dir, 'check-report.mjs'), patched, 'utf8');
   const mut = await import(pathToFileURL(path.join(dir, 'check-report.mjs')).href);
 
@@ -787,7 +800,7 @@ test('D5 判定变异：摘掉 validExemption 过滤 ⇒ 无 reason 的登记又
   assert.notEqual(patched, src, '变异必须真的改到放行判定，否则本测试无意义');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-report-mut3-'));
   TMP.push(dir);
-  fs.symlinkSync(path.join(HERE, '..', 'lib.mjs'), path.join(dir, 'lib.mjs'));
+  linkSiblings(dir, 'check-report.mjs');
   fs.writeFileSync(path.join(dir, 'check-report.mjs'), patched, 'utf8');
   const mut = await import(pathToFileURL(path.join(dir, 'check-report.mjs')).href);
 

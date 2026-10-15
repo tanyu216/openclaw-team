@@ -60,6 +60,7 @@ import path from 'node:path';
 
 import { parseFrontmatter, parseIso, TASKS_DIR, TEAM_ROOT } from './lib.mjs';
 import { hasSessionEvidence } from './patrol-scan.mjs';
+import { isOpen, isTerminal } from './status.mjs';
 
 // ── 机制参数（**不是** SLA 阈值；契约 §2 符号表）────────────────────────────────────
 /** 机制来源标识（契约 §4 #21）。 */
@@ -105,8 +106,8 @@ export const WORKSPACE_DIR = path.join(TEAM_ROOT, 'workspace');
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MIN_MS = 60 * 1000;
 
-/** 终态集合（与 ACL 终态守卫同口径：done/failed/canceled）。 */
-export const TERMINAL_STATUS = new Set(['done', 'failed', 'canceled']);
+// 终态/在途判据来自 `scripts/status.mjs`（`isTerminal` / `isOpen`，与 ACL 终态守卫同口径：
+// done/failed/canceled）。
 
 /**
  * 运行期阈值映射表 —— **每个值都带 §⑮ 引用**（契约 §2 规则 1 / 钩子 H6）。
@@ -357,7 +358,7 @@ export function readBoard(tasksDir = TASKS_DIR) {
 /** 卡是否处于终态（看板内查不到 = 不算终态 ⇒ 依赖未满足，契约 §7.4 deps_satisfied）。 */
 function cardIsTerminal(board, id) {
   const c = board.byId.get(id);
-  return !!c && TERMINAL_STATUS.has(String(c.fm.status || '').trim());
+  return !!c && isTerminal(c.fm.status);
 }
 
 /** 该卡是否已是某卡的复核卡 ⇒ 覆盖 `<id>` 的验收等待。 */
@@ -406,11 +407,6 @@ const CONFIRM_DONE_RE = /\[confirm(?:ed)?\]|已回发|已确认|已双签/i;
 /** 收口措辞出现在**请求行本身** ⇒ 它不是等待中的请求（不取作 gate 起点）。 */
 function looksAnswered(entry) {
   return entry.kind === 'confirm' || CONFIRM_DONE_RE.test(entry.text);
-}
-
-/** 在途（非终态）状态 —— 确认门的 open 谓词前置条件。 */
-function isOpenStatus(status) {
-  return !!status && !TERMINAL_STATUS.has(status);
 }
 
 /**
@@ -468,7 +464,7 @@ export function evaluateCard(card, ctx) {
   }
 
   // 行 2 — confirmation_gate（§⑮ Confirmation gate awaiting review §⑭）
-  if (isOpenStatus(status)) {
+  if (isOpen(status)) {
     const entries = trailEntries(body);
     const reqs = entries
       .filter((e) => Number.isFinite(e.tsMs))
