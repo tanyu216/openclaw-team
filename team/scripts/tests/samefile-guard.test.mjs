@@ -79,12 +79,12 @@ test('2. 写集不相交 ⇒ 无冲突', () => {
 });
 
 test('3. 缺省退化 target：同 target 视为同资源 ⇒ 报出', () => {
-  writeCard('T-20260101-030003-a', { target: '/Users/tanyu/.openclaw/team' });
-  writeCard('T-20260101-030003-b', { target: '/Users/tanyu/.openclaw/team' });
+  writeCard('T-20260101-030003-a', { target: '/live/team' });
+  writeCard('T-20260101-030003-b', { target: '/live/team' });
 
   const r = samefileConflicts({ card: 'T-20260101-030003-a' });
   assert.equal(r.conflicts.length, 1);
-  assert.deepEqual(r.conflicts[0].overlap, ['/Users/tanyu/.openclaw/team']);
+  assert.deepEqual(r.conflicts[0].overlap, ['/live/team']);
 });
 
 test('4. 终态卡不参与判定（done 排除）', () => {

@@ -98,7 +98,7 @@ const NEW_FILE = path.join(HOME, 'Library', 'Application Support', 'MeerkatTaskP
 test('事故现场（复刻 2026-10-12 实测）：新名缺失 + 旧名指针指向已删旧仓 + 旧名 taskd 仍在应答 ⇒ 全检出、ok:false', async () => {
   const legacyPointer = {
     url: 'http://127.0.0.1:9527',
-    dataDir: '/Users/tanyu/Documents/task-panel/.data',
+    dataDir: '/old/task-panel/.data',
     pid: 77976,
     version: '1.0.0',
   };
