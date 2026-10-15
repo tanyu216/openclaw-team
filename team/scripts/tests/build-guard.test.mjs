@@ -11,7 +11,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 /** 定位携带 ACL 库的 provider 安装目录（与 archive.test.mjs / check-idem.test.mjs 同口径）。 */
 function resolveProviderRoot() {
@@ -109,4 +110,33 @@ test('5. release 不存在锁 ⇒ released:false（幂等，不抛）', () => {
   const r = release({ name: 'never-held' });
   assert.equal(r.ok, true);
   assert.equal(r.released, false);
+});
+
+/**
+ * 回归（T-20261015-075652）：`run` 分支曾在 try 内 process.exit() ⇒ finally 永不执行 ⇒ 每次
+ * `--build` 泄漏 build 锁（后续前置重建恒读 busy，直到 STALE_LOCK_MS 过期）。
+ * 本用例走**真实 CLI 子进程**（库层单测覆盖不到 main()），断言：退出码语义（0/非零/缺命令 2）不变，
+ * 且每次 run 结束后同名锁立即可再获取。
+ */
+test('6. run：退出码透传（0/非零/缺命令 2）且每次都释放锁（不泄漏）', () => {
+  const script = fileURLToPath(new URL('../build-guard.mjs', import.meta.url));
+  const spawn = (args) => spawnSync(process.execPath, args, { encoding: 'utf8', env: process.env });
+  /** run 后立即用同名 acquire 探测：held=true ⇒ 锁已释放（旧实现读 busy）。 */
+  const assertReleased = (name) => {
+    const a = acquire({ name });
+    assert.equal(a.held, true, `run 后锁必须已释放，实际 ${JSON.stringify(a)}`);
+    release({ name });
+  };
+
+  const ok = spawn([script, 'run', '--name', 'cli-ok', '--', process.execPath, '-e', 'console.log("x")']);
+  assert.equal(ok.status, 0, `子进程成功应退出 0，实际 ${ok.status}`);
+  assertReleased('cli-ok');
+
+  const bad = spawn([script, 'run', '--name', 'cli-bad', '--', process.execPath, '-e', 'process.exit(7)']);
+  assert.equal(bad.status, 7, `子进程非零退出码须透传，实际 ${bad.status}`);
+  assertReleased('cli-bad');
+
+  const nocmd = spawn([script, 'run', '--name', 'cli-nocmd', '--']);
+  assert.equal(nocmd.status, 2, '缺命令应退出 2');
+  assertReleased('cli-nocmd');
 });
