@@ -119,11 +119,14 @@ function main() {
       try {
         if (!o.run.length) {
           console.log(JSON.stringify({ ok: false, reason: 'run_needs_command' }, null, 2));
-          process.exit(2);
+          process.exitCode = 2;
+          return; // 走 finally 释放锁后再自然退出
         }
         const r = spawnSync(o.run[0], o.run.slice(1), { stdio: 'inherit' });
         console.log(JSON.stringify({ ok: r.status === 0, exitCode: r.status, signal: r.signal ?? null }, null, 2));
-        process.exit(r.status ?? 1);
+        // 注意：此处**不得**用 process.exit()——它不展开调用栈 ⇒ finally 不执行 ⇒ 每次 run 泄漏 build 锁
+        //（锁要留到 STALE_LOCK_MS 才回收，后续前置重建恒读到 busy）。改用 exitCode + 自然返回。
+        process.exitCode = r.status ?? 1;
       } finally {
         release({ name: o.name });
       }
