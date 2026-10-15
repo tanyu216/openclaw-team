@@ -615,6 +615,9 @@ Each role's AGENTS.md keeps 3–5 lines of startup self-check (read card + read 
 ### ⑬.7 Task-Change Trail
 **Substantive changes** to a task card (Acceptance / Background / scope / assignee / priority / target / convention, etc.) **must** be trailed via `task.comment <card> <author> change <what+why>` (attach before→after if needed); only ordinary state-machine transitions (a `set-status` that does not change card content) do not need it. Purpose: changes are traceable and auditable.
 
+### ⑬.8 Operator-Input Trail
+Whatever the **operator** says about a card — a suggestion/idea, a decision, a question, a clarification or its answer, a correction — **must be recorded on that card** as `task.comment <card> operator <kind> <text>` **in the same turn it is received**; the conversation, or an inter-session message relaying it, is **not** a durable carrier. If the input has no card yet ⇒ **card it first** (`todo`, by Elon), then record it — nothing substantive is left uncarded. `kind`: a settled decision ⇒ `decision` (a dual-sign ⇒ `confirm`); anything that alters the card's content ⇒ `change` (§⑬.7); otherwise `discuss` (suggestion / question / answer) or `note`. `author=operator` is the machine-readable mark of operator input (invariant 5 of `guides/task-interface.md §6`). Keep the operator's own wording wherever the wording carries the decision — a paraphrase that drops the question asked or the constraint given is not compliant. Purpose: the card is the **sole durable carrier** — a later segment, Elon's acceptance audit, or an outside reviewer must be able to reconstruct the operator's input from the card alone.
+
 ## ⑭ Confirmation Gate (unified)
 
 - **Triggers**: ① finalizing plan.md for development tasks (Linus four-stage SOP stage 2.5); ② finalizing product design docs (Jobs).
@@ -705,6 +708,7 @@ Each role's AGENTS.md keeps 3–5 lines of startup self-check (read card + read 
 - **No bare commit**: the hook layer cannot access the `git commit` command line; instead use a commit wrapper or a commit-msg trailer + CI comparison of "the staged path set == the card's declared path set".
 - **No bypassing task.claim**: warn only on hard contradictions like "`in_progress` with empty `claimed_by`"; and add a lock audit log to `task.claim` for traceability.
 - **General business-code provenance, reasonableness of model selection**: checked post-hoc by Elon/Turing.
+- **Operator-input trail (§⑬.8)**: the input arrives on the conversation channel, which no script observes ⇒ **post-hoc audit only** (Elon's acceptance reads the card's `## Comments`); the rule must not falsely claim to be gated.
 
 ### ⑳.3 Card Archiving
 - `tasks/archive/YYYY-MM/`: a card set to `done|canceled` for 7 full days ⇒ archived by meerkat-taskpanel (`taskctl`) into this directory; the trigger layer scans only unarchived cards.
