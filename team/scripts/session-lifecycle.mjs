@@ -29,12 +29,14 @@ import { pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { TEAM_ROOT, TASK_OPS_DIR, readCard, writeCardAtomic, nowIso, parseIso } from './lib.mjs';
 import { loadRegistry, isPidAlive, setSessionStatus } from './registry.mjs';
+import { isSessionTerminal } from './status.mjs';
 
 /** 逐条留痕文件名（落 `workspace/<task-id>/`，与 lane 的 out/err 日志同处）。 */
 export const LANE_AUDIT_FILE = 'lane-lifecycle.log';
 
-/** 判据/落写的状态口径：本模块只写终态（`running` 由 `task.session-set` 负责）。 */
-export const TERMINAL_STATUSES = ['done', 'closed', 'failed'];
+// 判据/落写的状态口径：本模块只写终态（`running` 由 `task.session-set` 负责）。
+// **会话轴**词表（done/closed/failed）与换算单点持有于 `scripts/status.mjs` —— 注意会话终态用
+// `closed` 而**卡面**终态用 `canceled`，两轴用词故意不同，唯一换算处见该模块 `sessionTerminalForCard`。
 
 // ---------- ① 卡内 `## Sessions` 行解析（行首 `- seg:… · …`，键值对通用提取） ----------
 
@@ -138,20 +140,16 @@ export function classifyClaimBlock({ taskId, row, registry = null }) {
   const alive = laneProcessAlive(row.pidNum);
   const base = { task: taskId, session: row.id || '', seg: row.seg || '', pid: Number.isInteger(row.pidNum) ? row.pidNum : null, alive };
   if (e && e.status === 'done') return { block: true, kind: 'registry_done', registry: e.status, ...base };
-  if (e && TERMINAL_STATUSES.includes(e.status) && alive) return { block: true, kind: 'registry_terminal_live', registry: e.status, ...base };
+  if (e && isSessionTerminal(e.status) && alive) return { block: true, kind: 'registry_terminal_live', registry: e.status, ...base };
   if (!e && alive) return { block: true, kind: 'card_only_live', registry: null, ...base };
   return { block: false, registry: e ? e.status : null, ...base };
 }
 
 // ---------- ④ 必然落写终态 ----------
-
-/** 由卡面状态推 registry 终态（lane 死时卡面即其最终交付面）。 */
-export function terminalStatusFor(cardStatus) {
-  const s = String(cardStatus ?? '').trim();
-  if (s === 'failed' || s === 'canceled') return 'failed';
-  if (s === 'done' || s === 'in_review') return 'done';
-  return 'closed';
-}
+//
+// 「卡面状态 → 会话终态」的换算（lane 死时卡面即其最终交付面）已上移到词表模块：
+// `scripts/status.mjs#sessionTerminalForCard` —— 两轴之间的**唯一**换算处，本模块与
+// `lane-reaper.mjs` 共用（原先本文件持有 `terminalStatusFor`，只有 reaper 一个消费者）。
 
 /** 动态装载 provider ACL（缺 provider 由 lib.mjs 的启动期硬失败先行收口）。 */
 async function loadAcl() {
@@ -188,7 +186,7 @@ export function appendAudit(taskId, record) {
  */
 export async function closeLaneSession({ card, seg, status = 'closed', expectSessionId = '', expectPid = null, source = 'lane-reaper', audit = true }) {
   const st = String(status || '').trim();
-  if (!TERMINAL_STATUSES.includes(st)) return { ok: false, reason: `invalid_status(${st})` };
+  if (!isSessionTerminal(st)) return { ok: false, reason: `invalid_status(${st})` };
   let c;
   try {
     c = readCard(card);
@@ -246,7 +244,7 @@ export async function closeLaneSession({ card, seg, status = 'closed', expectSes
  */
 export function closeRegistryOnly({ taskId, sessionId, status = 'closed', source = 'session-reconcile' }) {
   const st = String(status || '').trim();
-  if (!TERMINAL_STATUSES.includes(st)) return { ok: false, reason: `invalid_status(${st})` };
+  if (!isSessionTerminal(st)) return { ok: false, reason: `invalid_status(${st})` };
   const r = setSessionStatus(taskId, sessionId, st, { endedAt: nowIso() });
   if (r && r.ok) appendAudit(taskId, { source, action: 'registry-close', session: sessionId, status: st });
   return r;

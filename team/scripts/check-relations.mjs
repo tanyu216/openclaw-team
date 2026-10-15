@@ -12,13 +12,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseFrontmatter, parseIso, TASKS_DIR } from './lib.mjs';
+import { isTerminal } from './status.mjs';
 
 const MAX_CHAIN = 8, MAX_FANIN = 8, DEEP_CHAIN_WARN = 5;
 // §⑩.2「登记一次到位、放行可分批」软护栏（T-20261013-010610）。
 // 占位态 = 已登记、尚未放行的子卡状态；阈值默认 48h，可由 OPENCLAW_TEAM_EPIC_TODO_WARN_MS 覆盖
 // （阈值裁定归人，§㉔.7）。本项只告警、不改退出码——与 §⑩.3 深链软护栏同款。
 const PLACEHOLDER_STATUS = new Set(['todo', 'backlog']);
-const TERMINAL_STATUS = new Set(['done', 'canceled']);
+// 终态判据来自 `scripts/status.mjs#isTerminal`。**行为变更**：修前本处写死 `{done, canceled}`，
+// 漏了旧词 `failed`（§⑯：`failed` = `canceled` 的别名）⇒ 交付失败的 epic 仍会被按「第二批遗漏」
+// 扫描并告警。改用单一真源后 `failed` 与 `canceled` 同判（终态 epic 不再产生该软告警）。
 export const EPIC_CHILD_WARN_TAG = 'epic_child_todo_stale';
 export function defaultEpicTodoWarnMs() {
   const v = Number(process.env.OPENCLAW_TEAM_EPIC_TODO_WARN_MS);
@@ -112,7 +115,7 @@ export function checkRelations(tasksDir = TASKS_DIR, { now = Date.now(), epicTod
   };
   for (const id of ids) {
     if ((cards[id].kind || 'task') !== 'epic') continue;
-    if (TERMINAL_STATUS.has(String(cards[id].status == null ? '' : cards[id].status).trim())) continue;
+    if (isTerminal(cards[id].status)) continue;
     const kids = (childOf[id] || []).map((k) => cards[k]);
     if (!kids.length) continue; // 空 epic 已由 empty_epic 硬判，勿重复
     const started = cards[id].status === 'in_progress' || kids.some((k) => isDispatched(k.status));

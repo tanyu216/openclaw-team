@@ -48,7 +48,11 @@ if (PROVIDER) {
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT = path.join(HERE, '..', 'check-epic-completeness.mjs');
-const LIB_MJS = path.join(HERE, '..', 'lib.mjs');
+/**
+ * 把源码里**所有**相对 `./x.mjs` 依赖绝对化。源级变异会把副本写进临时目录，那里解不出相对依赖
+ * （原先只硬编码改写 `./lib.mjs` ⇒ 每新增一个同级 import 都会让变异用例莫名其妙地红）。
+ */
+const absolutizeImports = (src) => src.replace(/from '(\.\/[^']+)'/g, (_m, rel) => `from '${path.join(HERE, '..', rel)}'`);
 
 const TMP = [];
 after(() => { for (const r of TMP) fs.rmSync(r, { recursive: true, force: true }); });
@@ -289,9 +293,7 @@ test('源级变异：判定行改成 if (false) ⇒ 同一坏板不再红；未�
   const src = fs.readFileSync(SCRIPT, 'utf8');
   const target = 'if (!cards.has(c))';
   assert.ok(src.includes(target), `变异目标「${target}」未找到 —— 源码已改，请同步本测试（这正是「破坏断言 ⇒ 必红」）`);
-  const mutated = src
-    .replace(target, 'if (false)')
-    .replace("from './lib.mjs'", `from '${LIB_MJS}'`);   // 副本在临时目录，绝对化 lib 依赖
+  const mutated = absolutizeImports(src.replace(target, 'if (false)'));
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-epic-mut-'));
   TMP.push(dir);
   const mutPath = path.join(dir, 'check-epic-completeness.mjs');
