@@ -100,6 +100,38 @@ keys round-trip.
 - The default working directory is `~/.openclaw/team/workspace/<task-id>/`.
 - **Reserved name `__team__`** (exclusively for internal team chores): `lib.get_project('__team__')` **does not query the registry** and always returns `{root: none, writable: ['~/.openclaw/team/**'], repo: none}`; card content gains no project-repo access from this.
 
+### ②.1 Project Isolation and Path Containment (2026-10-15, T-<id>)
+
+> One card = one project. Independence is the default: a card's `target`/`writes`, and everything it
+> writes, stay inside **that card's own project**. A second project's content or paths are never mixed
+> in, and nothing points at a path outside the project — unless the **operator** explicitly designates
+> the dependency and the card records it.
+
+- **Path basis**: `target`/`writes` are **project-internal relative paths**, resolved against the card's
+  project root by the §⑥ cwd-normalization formula (reference, do not restate). Absolute paths — in
+  particular a local machine path such as `/Users/…` or `~/…` — and path-escaping relatives (`../…`
+  appearing anywhere in the path, not merely at its head) are not the default and are not used.
+- **Containment (card)**: where a card resolves to must lie **within its own project root**. A card
+  whose target resolves into another project, or outside any project, is a **carding defect**. This is
+  the mechanical form of the §⑲ least-privilege creed at the project boundary. The `__team__` forms are
+  the single sanctioned exception, defined in §⑩.4 (reference, do not restate).
+- **Containment (project metadata)**: a project's registered `root` and **every `repos[].rel_path`** are
+  cwd anchors under §⑥ and must lie inside that project's own `root`; a `rel_path` that escapes it is a
+  **registration defect**, rejected at registration (§⑧).
+- **No content mixing**: do not place another project's files, content or identifiers into this
+  project's tree, and do not write this project's artifacts into another project's tree. **Reading** any
+  registered project remains allowed (§②).
+- **Operator-designated dependency (the only exception)**: when the operator explicitly designates an
+  out-of-project dependency, record it on the card (`task.comment kind=change` — what/why/who, §⑬.7)
+  and, for a skill, declare it as a source in `skills/manifest.json`. An out-of-project reference that is
+  not so recorded is a **carding defect**, and if carried into execution it is §⑪ out-of-bounds.
+- **"Same machine / nearby / it is mine" is not a dependency**: independence is the default; an explicit
+  operator designation is the only exception.
+- **Enforcement**: the carding gate `scripts/check-card.mjs` reds a non-`__team__` card whose
+  `target`/`writes` escape the project (absolute, home-anchored, or `..`); the registration gate
+  `scripts/seed-projects.mjs` rejects a `root`/`repos[].rel_path` that escapes. Card scope is
+  non-terminal only, grandfathered before the gate's effective cutoff so history is not retro-reddened.
+
 ---
 
 ## ③ Shared-Structure Invariants

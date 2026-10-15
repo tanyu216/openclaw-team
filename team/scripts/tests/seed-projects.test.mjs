@@ -39,10 +39,10 @@ const test = SKIP ? nodeTest.skip : nodeTest;
 
 // provider 依赖为**条件动态 import**：缺 provider 时 lib.mjs 在 import 期即 process.exit(1) 硬红。
 // seed-projects 顶层还会动态导入 provider 基座适配器 ⇒ 亦须 provider 就位。
-let registerIdentityCodes, invalidRootReason;
+let registerIdentityCodes, invalidRootReason, invalidRepoReason;
 if (PROVIDER) {
   process.env.OPENCLAW_TASK_OPS_DIR = PROVIDER;
-  ({ registerIdentityCodes, invalidRootReason } = await import('../seed-projects.mjs'));
+  ({ registerIdentityCodes, invalidRootReason, invalidRepoReason } = await import('../seed-projects.mjs'));
 }
 
 const scratchDirs = [];
@@ -170,6 +170,78 @@ test('登记：allowInvalidRoot ⇒ 逐条显式告警并跳过，其余照常�
   assert.match(String(skipped.reason), /不存在/);
   assert.equal(warns.length, 1, '跳过必须显式告警（stderr 通道）');
   assert.match(warns[0], /跳过 ghost/);
+});
+
+// ---- ①b rel_path containment：invalidRepoReason 判据（PROTOCOL §②.1） ---------
+
+test('invalidRepoReason：空/缺省/项目内相对 ⇒ null（合法）', () => {
+  for (const v of [undefined, null, '', '   ', '.', './', 'src', 'src/x', './x', 'a/b/']) {
+    assert.equal(invalidRepoReason(v), null, `${JSON.stringify(v)} 应合法`);
+  }
+});
+
+test('invalidRepoReason：绝对/本机锚/盘符/../ 逃逸（含中段 ..）⇒ 报原因', () => {
+  for (const v of ['/abs/x', '~/.openclaw/team', 'C:\\work', '../sibling', 'a/../../b']) {
+    assert.match(String(invalidRepoReason(v)), /越出项目 root/, v);
+  }
+});
+
+test('invalidRepoReason：非字符串 ⇒ 明确报错（不静默）', () => {
+  assert.match(String(invalidRepoReason(42)), /非字符串/);
+});
+
+test('登记：repos[].rel_path 逃逸 ⇒ 默认拒绝整轮，一条都不写（§②.1）', () => {
+  const good = mkScratch();
+  const { board, calls } = fakeBoard();
+  const registry = {
+    projects: {
+      okp: { kind: 'code', root: good },
+      bad: { kind: 'code', root: good, repos: [{ kind: 'code', rel_path: '../sibling', git: true }] },
+    },
+  };
+  assert.throws(() => registerIdentityCodes(board, registry), (e) => {
+    assert.match(e.message, /bad:/);
+    assert.match(e.message, /rel_path 越出项目 root/);
+    assert.match(e.message, /登记中止/);
+    return true;
+  });
+  assert.equal(calls.created.length, 0, '拒绝模式不得写任何项目（含合法的那个 —— 整体拒绝）');
+});
+
+test('登记：repos[].rel_path 逃逸 + allowInvalidRoot ⇒ 显式告警并跳过，其余照常登记', () => {
+  const good = mkScratch();
+  const { board, calls } = fakeBoard();
+  const { warns, logger } = spyLogger();
+  const registry = {
+    projects: {
+      okp: { kind: 'code', root: good },
+      bad: { kind: 'code', root: good, repos: [{ rel_path: '/etc' }] },
+    },
+  };
+  const summary = registerIdentityCodes(board, registry, { allowInvalidRoot: true, logger });
+  assert.equal(calls.created.length, 1, '合法项仍登记');
+  assert.equal(calls.created[0].id, 'okp');
+  const skipped = summary.find((s) => s.action === 'skipped');
+  assert.equal(skipped.code, 'bad');
+  assert.match(String(skipped.reason), /越出项目 root/);
+  assert.equal(warns.length, 1);
+});
+
+test('登记：live 形态 rel_path="." ⇒ 不误报（实测 live 两个项目皆为 "." ⇒ 零既存红）', () => {
+  const good = mkScratch();
+  const { board, calls } = fakeBoard();
+  const repos = [{ kind: 'code', rel_path: '.', git: true, remote: 'x', url: 'y' }];
+  const summary = registerIdentityCodes(board, { projects: { TaskPanel: { kind: 'code', root: good, repos } } });
+  assert.deepEqual(summary.map((s) => s.action), ['created']);
+  assert.deepEqual(calls.created[0].meta.repos, repos, 'repos 原样透传（不做规范化改写）');
+});
+
+test('登记：repos 无 rel_path 键（旧形 {path:…}）⇒ 不误报（不猜字段）', () => {
+  const good = mkScratch();
+  const { board, calls } = fakeBoard();
+  const registry = { projects: { p: { kind: 'code', root: good, repos: [{ path: 'src' }] } } };
+  assert.doesNotThrow(() => registerIdentityCodes(board, registry));
+  assert.equal(calls.created.length, 1);
 });
 
 // ---- ② 惰性 workspacePath 已清理 --------------------------------------------
