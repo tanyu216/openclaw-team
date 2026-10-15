@@ -25,7 +25,7 @@
  *   定基（T-20261014-112936）：`--base <ref>` 缺省 `HEAD` —— 这是**本入口**的默认。`spawn-lane` 的
  *   自动隔离路径在「续接上一 seg」时不再用 HEAD，改传**上一 seg 分支 tip**（`lane-isolation.mjs`
  *   的 `deriveLaneBase`）；本入口保持无卡面知识（不猜 seg 语义），仅照传入的 `base` 建树。
- *   既有手工实例 `/Users/tanyu/Documents/meerkat-taskpanel-wt-meerkat`（branch `rename/meerkat-taskpanel`）
+ *   既有手工实例 `<repo>-wt-meerkat`（branch `rename/meerkat-taskpanel`）
  *   = 本机制的手工形状，脚本以 `--branch rename/meerkat-taskpanel` 复现同形状（增量、不改现流程）。
  *
  * 输出：末行 JSON `{ok,repo,lane,path,branch,created,dryRun,…}`（机读）；失败 exit≠0（用法 2 / 拒绝 1）。
@@ -266,7 +266,7 @@ const HELP = `用法: node scripts/lane-worktree.mjs <repo> <lane> [--branch <b>
   node scripts/lane-worktree.mjs /path/to/repo laneA --dry-run            # 预演，零副作用
   node scripts/lane-worktree.mjs /path/to/repo laneA                     # 创建或复用
   node scripts/lane-worktree.mjs /path/to/repo laneA --remove            # clean 时才清理
-  node scripts/lane-worktree.mjs /Users/tanyu/Documents/meerkat-taskpanel meerkat \\
+  node scripts/lane-worktree.mjs <repo> meerkat \\
        --branch rename/meerkat-taskpanel --base 5d99058 --dry-run        # 复现既有手工形状
 `;
 

@@ -86,7 +86,7 @@ $OCL automations disable <jobId>    # restore: automations enable <jobId>
 
 `TASKD_RUNTIME_POINTER` overrides the whole path (the provider's documented knob; it applies to the new name). **`TaskPanel` is legacy only** — it must not be resurrected as a second home; keep exactly one name.
 
-**Why it silently fails**: the CLI looks only under the new name. If a live `taskd` was started by the old-name checkout, its pointer sits under `TaskPanel/`, the CLI sees "no board", autostarts *another* `taskd` (or loses the race on the port) and reports `started but never answered /health` — which reads like "the board is down", while the truth is "two names, two data dirs". Measured on 2026-10-12: `TaskPanel/runtime.json` → `dataDir: /Users/tanyu/Documents/task-panel/.data` (checkout deleted), `pid 77976` still serving, new-name pointer absent.
+**Why it silently fails**: the CLI looks only under the new name. If a live `taskd` was started by the old-name checkout, its pointer sits under `TaskPanel/`, the CLI sees "no board", autostarts *another* `taskd` (or loses the race on the port) and reports `started but never answered /health` — which reads like "the board is down", while the truth is "two names, two data dirs". Measured on 2026-10-12: `TaskPanel/runtime.json` → `dataDir: ~/Documents/task-panel/.data` (checkout deleted), `pid 77976` still serving, new-name pointer absent.
 
 **Diagnose (read-only, no side effects)**:
 
