@@ -220,7 +220,6 @@ test('7. Turing 额度 3：canonical registry running=2 ⇒ budget=1', () => {
 test('8. concurrencyQuota / conflictKey 纯函数口径', () => {
   assert.equal(concurrencyQuota('linus'), 8);
   assert.equal(concurrencyQuota('jobs'), 8);
-  assert.equal(concurrencyQuota('simons'), 8);
   assert.equal(concurrencyQuota('turing'), 3);
   assert.equal(concurrencyQuota('assistant'), null, '未定义额度 ⇒ null');
   assert.equal(concurrencyQuota('elon'), null);

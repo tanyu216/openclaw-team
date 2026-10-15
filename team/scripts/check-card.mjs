@@ -12,7 +12,7 @@ const TASKS = TASKS_DIR;
 const MAX_CARD_BYTES = 1_000_000;
 // 读侧白名单：canonical 7（PROTOCOL.md §①）∪ 旧词别名 {ready, failed}（别名只在读侧容错，永不回写）。
 export const STATUS = ['backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done', 'canceled', 'ready', 'failed'];
-const ASSIGNEES = ['elon', 'jobs', 'linus', 'turing', 'simons', 'assistant'];
+const ASSIGNEES = ['elon', 'jobs', 'linus', 'turing', 'assistant'];
 export const PRIORITY = ['low', 'medium', 'high', 'urgent'];
 const REQUIRED = ['id', 'title', 'assignee', 'status', 'goal', 'project'];
 /**

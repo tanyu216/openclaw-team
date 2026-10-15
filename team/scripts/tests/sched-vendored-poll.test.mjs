@@ -103,7 +103,7 @@ test('vendored poll.mjs exposes the multi-claim API surface', { skip: SKIP }, as
     else process.env.OPENCLAW_TEAM_ROOT = prevTeamRoot;
   }
 
-  assert.deepEqual(poll.CONCURRENCY_QUOTA, { linus: 8, jobs: 8, simons: 8, turing: 3 });
+  assert.deepEqual(poll.CONCURRENCY_QUOTA, { linus: 8, jobs: 8, turing: 3 });
   for (const fn of ['runningCount', 'concurrencyQuota', 'claimBudget', 'conflictKey', 'scanCandidates', 'runPoll']) {
     assert.equal(typeof poll[fn], 'function', `${fn} must be exported`);
   }

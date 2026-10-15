@@ -20,9 +20,9 @@
   below; `--skip-automations` disables registration. Re-running is idempotent
   (`declarationKey`).
 
-## 1. Job Overview (repo declares 19: 8 by `install.sh` — 4 × `*-poll` + `task-patrol` + `team-check-all` + `skills-update` + `sla-scan`; the other 11 registered by their own mechanisms)
+## 1. Job Overview (repo declares 17: 8 by `install.sh` — 4 × `*-poll` + `task-patrol` + `team-check-all` + `skills-update` + `sla-scan`; the other 9 registered by their own mechanisms)
 
-> **Cadence / scope caveat.** The `Frequency` column documents the **framework-declared (repo) defaults**: `*-poll` = `every 5m` and `task-patrol` = `every 15m` (`install.sh:126` / `:698` / `:718`). The **live Gateway store is not yet re-deployed** and still runs the *old* cadence (`*-poll` = `every 2m`, `task-patrol` = `every 5m`); the repo values take effect only after `install.sh` / `config/reconcile.mjs` runs against the store (§3.6). Live breakdown so far (17 jobs, pre-`skills-update`): **6 declared by `install.sh`** = 4 × `*-poll` (jobs/linus/turing/assistant) + `task-patrol` + `team-check-all`; **4 framework/plugin-owned** = `heartbeat-main`, `memory-dreaming-promotion`, `token-hygiene`, `session-rollover`; **6 × `skill-collection-review`** (main/jobs/linus/turing/assistant/simons); **1 out-of-band `simons-poll`** (`simons` is not in `install.sh` `ROLES`). `skills-update` is the repo's 7th declared job (18th overall) and appears in the store only once `install.sh` re-runs.<br>**Boundary vs `skill-collection-review-*`** (they are *not* the same concern): `skill-collection-review-*` reviews the **installed collection** on each host (what is present, duplicated, broken, stale *as a set*); `skills-update` reviews the **declared upstreams** in `skills/manifest.json` (has the pinned `source.ref` drifted from the upstream commit?) and is the only job that can *advance* a ref. Neither subsumes the other: a skill can be perfectly installed while its upstream moved, and a collection can be broken while every upstream is current.
+> **Cadence / scope caveat.** The `Frequency` column documents the **framework-declared (repo) defaults**: `*-poll` = `every 5m` and `task-patrol` = `every 15m` (`install.sh:126` / `:698` / `:718`). The **live Gateway store is not yet re-deployed** and still runs the *old* cadence (`*-poll` = `every 2m`, `task-patrol` = `every 5m`); the repo values take effect only after `install.sh` / `config/reconcile.mjs` runs against the store (§3.6). Live breakdown so far (15 jobs, pre-`skills-update`): **6 declared by `install.sh`** = 4 × `*-poll` (jobs/linus/turing/assistant) + `task-patrol` + `team-check-all`; **4 framework/plugin-owned** = `heartbeat-main`, `memory-dreaming-promotion`, `token-hygiene`, `session-rollover`; **5 × `skill-collection-review`** (main/jobs/linus/turing/assistant). `skills-update` is the repo's 7th declared job (16th overall) and appears in the store only once `install.sh` re-runs.<br>**Boundary vs `skill-collection-review-*`** (they are *not* the same concern): `skill-collection-review-*` reviews the **installed collection** on each host (what is present, duplicated, broken, stale *as a set*); `skills-update` reviews the **declared upstreams** in `skills/manifest.json` (has the pinned `source.ref` drifted from the upstream commit?) and is the only job that can *advance* a ref. Neither subsumes the other: a skill can be perfectly installed while its upstream moved, and a collection can be broken while every upstream is current.
 
 | Name | Agent | Frequency | Trigger | Delivery | Purpose |
 |---|---|---|---|---|---|
@@ -30,7 +30,6 @@
 | `linus-poll` | linus | every 5m | ✅ | none | Same (linus) |
 | `turing-poll` | turing | every 5m | ✅ | none | Same (turing) |
 | `assistant-poll` | assistant | every 5m | ✅ | none | Same (assistant) |
-| `simons-poll` | simons | every 5m | ✅ | none | Same (simons) — live-registered out-of-band (`simons` not declared by `install.sh` `ROLES`) |
 | `task-patrol` | main | every 15m | ✅ | none | in_progress cards with stale heartbeat (>30min) → wake/recover |
 | `sla-scan` | main | every **15m** (`OPENCLAW_TEAM_SLA_INTERVAL`) | ✅ | none | Board SLA inspection (`PROTOCOL §⑮` rows the heartbeat patrol does not cover: blocked / confirmation gate / defect-card creation / acceptance-card creation / leader stalled, + the contract's `inspector_liveness`); **notify-only to the leader**, wakes the model only on a tier crossing — see §3.8 |
 | `team-check-all` | main | **hourly** | ✅ | none | Gate patrol; wakes the model only on failure |
@@ -39,7 +38,7 @@
 | `memory-dreaming-promotion` | main | 03:00 (Asia/Shanghai) | — | none | memory-core short-term memory promotion (managed) |
 | `token-hygiene` | main | 04:00 (Asia/Shanghai) | — | none | Large-log compaction/memory indexing |
 | `session-rollover` | main | 06:00 (Asia/Shanghai) | — | none | Main-session rollover |
-| `skill-collection-review-{main,jobs,linus,turing,assistant,simons}` | respective | every 7d (staggered) | — | none | Skill collection patrol (`simons` out-of-band; not declared by `install.sh`) |
+| `skill-collection-review-{main,jobs,linus,turing,assistant}` | respective | every 7d (staggered) | — | none | Skill collection patrol |
 
 ## 2. Cost Model (important)
 - **An idle trigger job = zero cost**: `fire:false` only writes state, produces no run, and consumes no model. So all poll / task-patrol / team-check-all / skills-update / sla-scan jobs are **near zero cost when there is no anomaly**. (`skills-update` still costs a few seconds of *network* every Sunday — it must ask 15 upstreams for their current HEAD — but it wakes no model.)

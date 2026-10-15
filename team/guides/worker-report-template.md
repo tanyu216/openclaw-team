@@ -3,7 +3,7 @@
 > **What this is.** The single shape of a worker's delivery Report, so that Elon's
 > acceptance audit (`PROTOCOL §⑨`, redline 11 in the role redline block) has a fixed set
 > of slots to look at instead of having to *find* and *guess* them.
-> **Who it binds.** Jobs / Linus / Turing (Simons and Assistant follow the common core).
+> **Who it binds.** Jobs / Linus / Turing (Assistant follows the common core).
 > **Where it lands.** The `## Report` section of the task card (L5 evidence layer,
 > `PROTOCOL §⑰`). Message-level reports stay trimmed to conclusion + card path + hash
 > (`PROTOCOL §④` reporting discipline) — this guide governs the **card-facing** Report.
