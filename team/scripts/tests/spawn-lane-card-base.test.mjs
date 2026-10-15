@@ -134,6 +134,10 @@ const OTHER = 'T-20260102-100070-other';  // 同仓并发写者（触发自动�
 const CONT  = 'T-20260102-100005-cont';   // 名字空间用：同卡多段 lane 分支 + 一张 id 互为前缀的兄弟卡
 const SIB2  = 'T-20260102-100080-2';      // 前缀陷阱：依赖卡（**无** lane 分支）
 const SIB3  = 'T-20260102-100080-3';      // 前缀陷阱：本卡（**有**自己的 lane 分支；绝不能被读成前置 tip）
+const RETRY = 'T-20260102-100090-retry';  // 前置「收掉重起」过：seg1 作废支线（未并入）+ seg2 真产物（**已**并入）
+const RETRY2 = 'T-20260102-100091-retry2';// 前置同形但真产物**未**并入 ⇒ 应认出末段 tip（而非判歧义）
+const RETRY_SELF  = 'T-20260102-100092-rself';  // 依赖 RETRY（前置已并入 ⇒ 旧行为：HEAD）
+const RETRY_SELF2 = 'T-20260102-100093-rself2'; // 依赖 RETRY2（⇒ base = 末段真产物 tip）
 
 const FIX = LAYOUT ? (() => {
   const g = (...a) => gOut(LAYOUT, ...a);
@@ -159,7 +163,14 @@ const FIX = LAYOUT ? (() => {
   // 前缀陷阱的入口级复现：本卡 id = 依赖卡 id + `-3`；**本卡自己的** lane 分支存在，依赖卡的分支不存在。
   // 错解（`lane/<dep>-*` 前缀 glob）会把本卡自己的分支读成前置 tip ⇒ 自指错基。
   commitOnBranch(`lane/${SIB3}-seg1`, mainTip, [['sib3.txt', 'sib3\n']], 'self branch of the dependent card');
-  return { mainTip, depTip, dep2Tip, selfSeg1, contSeg1, contSeg2 };
+  // 「收掉重起」形状（今日两度的收尾形状）：早期 seg 是**作废支线**（基于当时的 main，与重起后的产物
+  // **互不包含**）；末段才是真产物。RETRY 的末段**已并入** main（分支仍在 —— SOP §7 只收工作树不收分支），
+  // RETRY2 的末段**未**并入。判据：作废支线**绝不**能被读成「缺的前置」。
+  const retryAbandoned = commitOnBranch(`lane/${RETRY}-seg1`, mainTip, [['doomed.txt', 'doomed attempt\n']], 'abandoned seg1 (收掉重起)');
+  g('branch', `lane/${RETRY}-seg2`, mainTip); // 末段已并入 main（同 MERGED_DEP 的建模方式：tip 即 main tip）
+  const retry2Abandoned = commitOnBranch(`lane/${RETRY2}-seg1`, mainTip, [['doomed2.txt', 'doomed attempt\n']], 'abandoned seg1 (收掉重起)');
+  const retry2Final = commitOnBranch(`lane/${RETRY2}-seg2`, mainTip, [['retry2-product.txt', 'real work\n']], 'final seg2 (未并入)');
+  return { mainTip, depTip, dep2Tip, selfSeg1, contSeg1, contSeg2, retryAbandoned, retry2Abandoned, retry2Final };
 })() : null;
 
 const porcelain = (dir) => gOut(dir, 'status', '--porcelain');
@@ -187,6 +198,8 @@ const writeDeps = () => {
   writeCard(MERGED_DEP, { status: 'done', sessions: ['seg1'] });
   writeCard(MID, { status: 'done', deps: [DEP2] });   // 中间卡：无 lane 分支
   writeCard(SIB2, { status: 'done' });                // 前缀陷阱用：依赖卡无分支
+  writeCard(RETRY, { status: 'done', sessions: ['seg1', 'seg2'] });   // 收掉重起：末段已并入
+  writeCard(RETRY2, { status: 'done', sessions: ['seg1', 'seg2'] });  // 收掉重起：末段未并入
 };
 /** 同仓并发写场景：本卡 + 前置卡 + 另一张**非终态**卡 ⇒ 触发自动隔离（没有后者 ⇒ `no_concurrent_lane`） */
 const concurrentBoard = (id, opts = {}) => {
@@ -281,6 +294,50 @@ test('契约. resolveSpawnBase：未合并的前置 ⇒ 候选；最大元（信
   assert.equal(self.source, 'prev_seg', 'seg1 分支**包含**前置产物 ⇒ 最大元是续接 tip（不是前置 tip）');
   assert.equal(self.resolved, FIX.selfSeg1);
   assert.equal(isAncestor(LAYOUT, FIX.depTip, self.resolved), true, '续接 tip 确实以前置 tip 为祖先');
+});
+
+test('REGRESSION. 前置「收掉重起」过：作废支线**绝不**当「缺的前置」（末段已并入 ⇒ base 仍 HEAD）', { skip: SKIP }, () => {
+  // §① 的**收尾形状**（今日两度的实际收尾）：前置卡被重起过 ⇒ seg1 是作废支线（未并入、与真产物互不
+  // 包含），而末段（真产物）已并入 main 且**分支仍在**（SOP §7：只收工作树，不收分支）。
+  // 缺陷形状：若把该卡**每一段**未合并的分支都当候选，作废支线的 tip（**不是** HEAD 的祖先）会被读成
+  // 「缺的前置」⇒ 新树建在被丢弃的尝试上，丢掉 main 上后来的一切 = 错基换了个形状回来。
+  clearBoard();
+  writeDeps();
+  writeCard(RETRY_SELF, { deps: [RETRY], writes: 'team-a.mjs' });
+  writeCard(OTHER, { claimed: 'jobs', writes: 'team-b.mjs' });
+  const B = resolveSpawnBase({ repo: LAYOUT, taskId: RETRY_SELF, seg: 'seg1', fm: fmOf(RETRY_SELF), sessions: [] });
+  assert.equal(B, null, `前置末段（真产物）已并入 HEAD ⇒ 无候选（作废支线不得入选）：${JSON.stringify(B)}`);
+  assert.equal(isAncestor(LAYOUT, FIX.retryAbandoned, FIX.mainTip), false, '夹具前提：作废支线确实**不是** HEAD 的祖先（否则测不到该形状）');
+
+  fs.rmSync(path.join(LAYOUT, 'claude-sessions.json'), { force: true });
+  const r = spawnLane({ card: RETRY_SELF, owner: 'linus', seg: 'seg1', backend: 'claude', dryRun: true });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.base, undefined, '无候选 ⇒ 无入口推导证据');
+  assert.deepEqual(
+    { ref: r.isolation.base.ref, source: r.isolation.base.source, resolved: r.isolation.base.resolved },
+    { ref: 'HEAD', source: 'head', resolved: FIX.mainTip },
+    '前置已满足 ⇒ 与修复前逐字段一致（树仍建在 main tip，而不是作废支线）'
+  );
+});
+
+test('REGRESSION. 前置「收掉重起」过而真产物未并入 ⇒ 认**末段** tip（不因作废支线误判歧义）', { skip: SKIP }, () => {
+  clearBoard();
+  writeDeps();
+  writeCard(RETRY_SELF2, { deps: [RETRY2], writes: 'team-a.mjs' });
+  writeCard(OTHER, { claimed: 'jobs', writes: 'team-b.mjs' });
+  const B = resolveSpawnBase({ repo: LAYOUT, taskId: RETRY_SELF2, seg: 'seg1', fm: fmOf(RETRY_SELF2), sessions: [] });
+  assert.equal(B.error, undefined, `作废支线不与末段比大小 ⇒ 不该判歧义：${JSON.stringify(B)}`);
+  assert.equal(B.source, 'dependency');
+  assert.equal(B.dep, RETRY2);
+  assert.equal(B.resolved, FIX.retry2Final, '前置的产物 tip = 它**末段**（真产物）的落点');
+  assert.deepEqual(B.candidates.map((c) => c.ref), [`lane/${RETRY2}-seg2`], '候选集只含末段（作废支线不入候选）');
+
+  fs.rmSync(path.join(LAYOUT, 'claude-sessions.json'), { force: true });
+  const r = spawnLane({ card: RETRY_SELF2, owner: 'linus', seg: 'seg1', backend: 'claude', dryRun: true });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.isolation.base.dep, RETRY2, JSON.stringify(r.isolation.base));
+  assert.equal(r.isolation.head, FIX.retry2Final, '预演视图的 head 即前置末段 tip');
+  assert.notEqual(r.isolation.head, FIX.retry2Abandoned, '绝不能被建到作废支线上');
 });
 
 test('契约. resolveSpawnBase：非 git 仓 ⇒ null（这里没有「base」可言，绝不误拒）', { skip: SKIP }, () => {
