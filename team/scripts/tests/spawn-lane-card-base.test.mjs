@@ -155,6 +155,7 @@ const FIX = LAYOUT ? (() => {
   const dep2Tip = commitOnBranch(`lane/${DEP2}-seg1`, mainTip, [['dep2-product.txt', 'dep2 work\n']], 'dep2 product');
   // 「已并入 main」= 分支 tip 就是 main tip（不真 merge，绝不动 HEAD）
   g('branch', `lane/${MERGED_DEP}-seg1`, mainTip);
+  g('branch', 'dev', mainTip);   // 集成分支（T-20261015-devbranch 起为缺省 base；真实检出恒有该 ref）
   // 同卡续接：seg1 的 tip **包含** DEP 的产物
   const selfSeg1 = commitOnBranch(`lane/${SELF}-seg1`, depTip, [['self-seg1.txt', 'seg1 work\n']], 'self seg1');
   // 发散续接：本卡的 seg1 基于 main（**不含** DEP 产物）——「本卡上一 seg」与「未并入的前置」互不包含
@@ -318,7 +319,7 @@ test('REGRESSION. 前置「收掉重起」过：作废支线**绝不**当「缺�
   assert.equal(r.base, undefined, '无候选 ⇒ 无入口推导证据');
   assert.deepEqual(
     { ref: r.isolation.base.ref, source: r.isolation.base.source, resolved: r.isolation.base.resolved },
-    { ref: 'HEAD', source: 'head', resolved: FIX.mainTip },
+    { ref: 'dev', source: 'default', resolved: FIX.mainTip },
     '前置已满足 ⇒ 与修复前逐字段一致（树仍建在 main tip，而不是作废支线）'
   );
 });
@@ -383,7 +384,7 @@ test('REGRESSION. 显式 --base 不被改判（优先于依赖解析，证据仍
   assert.equal(r.base, undefined, '显式路径不产生入口推导证据（由 isolation.base.source 表达）');
 });
 
-test('REGRESSION. 前置已并入 HEAD ⇒ 旧行为不变（base=head，树仍建在 main tip）', { skip: SKIP }, () => {
+test('REGRESSION. 前置已并入 ⇒ 不误判歧义，走**缺省档**（T-20261015-devbranch 起 = dev，树建在 dev tip）', { skip: SKIP }, () => {
   concurrentBoard(OKDEP, { deps: [MERGED_DEP] });
   fs.rmSync(path.join(LAYOUT, 'claude-sessions.json'), { force: true });
   const r = spawnLane({ card: OKDEP, owner: 'linus', seg: 'seg1', backend: 'claude', dryRun: true });
@@ -391,7 +392,7 @@ test('REGRESSION. 前置已并入 HEAD ⇒ 旧行为不变（base=head，树仍�
   assert.equal(r.base, undefined, '无候选 ⇒ 无推导证据');
   assert.deepEqual(
     { ref: r.isolation.base.ref, source: r.isolation.base.source, resolved: r.isolation.base.resolved },
-    { ref: 'HEAD', source: 'head', resolved: FIX.mainTip },
+    { ref: 'dev', source: 'default', resolved: FIX.mainTip },
     '前置已并入 ⇒ 与修复前逐字段一致'
   );
   assert.equal(r.isolation.head, FIX.mainTip);

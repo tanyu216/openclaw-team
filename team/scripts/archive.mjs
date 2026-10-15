@@ -11,6 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseFrontmatter, TASKS_DIR } from './lib.mjs';
+import { isTerminal } from './status.mjs';
 
 const TASKS = TASKS_DIR;
 const i = process.argv.indexOf('--days');
@@ -38,7 +39,9 @@ for (const f of fs.readdirSync(TASKS)) {
   const raw = fs.readFileSync(p, 'utf8');
   const { fm } = parseFrontmatter(raw);
   const status = fm && fm.status != null ? String(fm.status) : '';
-  if (status !== 'done' && status !== 'failed') continue;
+  // 终态即可归档（判据单点持有于 scripts/status.mjs）。**行为变更**：修前判据写死 `done|failed`，
+  // 漏了 canonical `canceled`（§⑯：`failed` 只是 `canceled` 的旧词）⇒ 已取消的卡永不被归档。
+  if (!isTerminal(status)) continue;
   if (st.mtimeMs > cutoff) continue;
   // 引用保护：被 parent / depends_on 引用的卡不得归档（精确匹配，非子串）
   const id = f.replace(/\.md$/, '');

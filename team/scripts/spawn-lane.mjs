@@ -36,8 +36,9 @@
  *      ①c-b **续接定基**（T-20261014-112936）：隔离树的基准 ⇏ 恒为 `HEAD`。**续接上一 seg** 时
  *      （多 seg 续做 / 打回续做）以**上一 seg 的 lane 分支 tip**为 base —— 派单者此前只能靠人工
  *      `lane-worktree --base <prev-tip>` 手建树绕开（`T-20261013-154930-2` 实证：seg2 默认建在 HEAD ⇒
- *      `merge-base --is-ancestor <seg1 tip> → NO`，前段产物被丢）。首 seg / 无前驱 ⇒ 仍 `HEAD`（不变）；
- *      显式 `--base <ref>` 优先且**不可解析即拒绝**（显式意图绝不静默回落）。证据在输出 `isolation.base`。
+ *      `merge-base --is-ancestor <seg1 tip> → NO`，前段产物被丢）。首 seg / 无前驱 ⇒ 缺省 base = `OPENCLAW_LANE_BASE`
+ *      或 `dev`（开发集成分支，`PROTOCOL §⑥.4`，T-20261015-devbranch）；缺省与显式 `--base <ref>` **不可解析即拒绝**（绝不静默回落）。
+ *      证据在输出 `isolation.base`。
  *   ①c-c **叠卡定基**（T-20261015-133720）：自动起 lane 路径（`poll-run` 的移交指令、无 `--base`）此前
  *      只认「同卡续接」⇒ **跨卡**叠卡（`depends_on` 的前置卡已 done、而其 lane 分支 tip **未并入 main**）
  *      静默落仓 `HEAD`（= main），新树丢掉前置产物（`T-20261015-075826` / `T-20261015-132952` 实测）。
@@ -83,7 +84,7 @@ import path from 'node:path';
 import { spawn as spawnChild, spawnSync } from 'node:child_process';
 import { TEAM_ROOT, CARD_ID_RE, AGENTS, getProject, readCardById, parseDeps } from './lib.mjs';
 import { anchorGaps } from './check-handoff.mjs';
-import { loadRegistry, isPidAlive } from './registry.mjs';
+import { loadRegistry, isPidAlive, isEntryAlive, closePendingEntries } from './registry.mjs';
 import { isolationEnabled, laneIsolationPlan, applyLaneIsolation, prevSegCandidates, laneNameFor } from './lane-isolation.mjs';
 import { branchHead, revParse } from './lane-worktree.mjs';
 import { read as aclRead, claim as aclClaim, sessionSet, sessionClose, sessionIdFor, handoff as aclHandoff } from '../skills/task-ops/lib/task.mjs';
@@ -94,6 +95,46 @@ export const RUNNING_CAPS = { linus: 8, jobs: 8, turing: 3 };
 export const DEFAULT_CAP = 8;
 export function capFor(owner) {
   return RUNNING_CAPS[owner] ?? DEFAULT_CAP;
+}
+
+/**
+ * `harness` = 执行引擎形态（契约 `guides/codex-plugin-lane-contract.md` §1.3 / §8.1）。
+ * `cli`（默认）= 现状 `codex exec <prompt>` 独立子进程；`plugin` = 官方 codex 插件
+ * app-server embedded harness turn（句柄 = native thread id，非 pid）。缺省 ⇒ `cli`（向后兼容）。
+ */
+export const HARNESSES = ['cli', 'plugin'];
+/** 契约 §4.2：两步回填状态位（仅插件 lane 写卡/写 registry） */
+export const ID_STATES = ['pending', 'bound'];
+/**
+ * 绑定超时（契约 §3.2 / §11 G-7，默认 120s，与既有 ACP 启动探针窗口同口径）：
+ * `id_state=pending` 超时仍读不回 native thread id ⇒ 判 lane `failed` 并回报，**不静默挂起**。
+ */
+export const THREAD_BIND_TIMEOUT_MS = Number(process.env.THREAD_BIND_TIMEOUT_MS || 120000);
+/** 绑定轮询间隔 */
+export const THREAD_BIND_POLL_MS = Number(process.env.THREAD_BIND_POLL_MS || 250);
+
+/**
+ * 插件 lane 的**网关调度形态**（契约 §8.2 / §11 G-3）。G-3 裁定「优先 Gateway 原生 dispatch、
+ * 不自造 CLI」，故此处不硬编码某个 verb，而是把调度命令**整体模板化**，由宿主配置钉定：
+ *   `OPENCLAW_CODEX_PLUGIN_CMD`（空格分隔的 **argv 模板，不含可执行文件本身**——bin 由
+ *   `OPENCLAW_CODEX_PLUGIN_BIN` 决定），占位符 `{prompt} {cwd} {model} {sandbox} {approval_policy} {ws}`。
+ * 默认模板 = 契约 §8.2/§8.5/§8.9 的映射落点（model / cwd / sandbox / approvalPolicy 四项），
+ * 待 A3/Elon 按 G-3 确认真实 verb 后**仅改配置、不改代码**。
+ */
+export const PLUGIN_CMD_TEMPLATE = process.env.OPENCLAW_CODEX_PLUGIN_CMD
+  || 'codex run --json --non-interactive --model {model} --cwd {cwd} --sandbox {sandbox} --approval-policy {approval_policy} {prompt}';
+/** 插件 lane 的默认模型引用 / 沙箱 / 审批姿态（契约 §8.2 / §8.5 / §8.9；均 env 可覆） */
+export const PLUGIN_MODEL = process.env.OPENCLAW_CODEX_PLUGIN_MODEL || 'openai/gpt-6-astra';
+export const PLUGIN_SANDBOX = process.env.OPENCLAW_CODEX_PLUGIN_SANDBOX || 'workspace-write';
+/** G-4 裁定：审批姿态与 CLI lane **等价**（非交互、sandbox=workspace-write），**不得**开旁路 */
+export const PLUGIN_APPROVAL_POLICY = process.env.OPENCLAW_CODEX_PLUGIN_APPROVAL_POLICY || 'on-failure';
+
+/** 把模板展开为 argv（含占位符替换；`{prompt}` 原样保留为单个 argv 元素） */
+export function expandPluginCmd(template, vars) {
+  return String(template)
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((tok) => tok.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)));
 }
 
 /** 角色：exec（执行 lane，默认）| review（复核 lane，对在审卡） */
@@ -129,12 +170,14 @@ export const DEFAULT_SETTINGS_JSON = `${JSON.stringify(DEFAULT_SETTINGS, null, 2
 
 /**
  * 该 owner 当前活跃子会话数（并发额度口径）。
- * 口径 = registry 中 `owner==owner && status==='running'` **且 pid 存活**；
- * 死 pid 的 running 行是僵尸（reconcile 职责），不占用额度，避免误拒。
+ * 口径 = registry 中 `owner==owner && status==='running'` **且判活**；判活见 `isEntryAlive`
+ * （CLI lane = pid 存活；插件 lane = pid 存活 **或** native thread 可达，契约 §7 / G-2）。
+ * 死/不可达的 running 行是僵尸（reconcile 职责），不占用额度，避免误拒。
+ * **CLI lane 与插件 lane 合并计数**（同一 registry，契约 §8.4）。
  */
-export function runningCount(owner, { registry = null } = {}) {
+export function runningCount(owner, { registry = null, ...opts } = {}) {
   const entries = registry == null ? loadRegistry({ includeLegacy: false }) : registry;
-  return entries.filter((e) => e.owner === owner && e.status === 'running' && isPidAlive(e.pid)).length;
+  return entries.filter((e) => e.owner === owner && e.status === 'running' && isEntryAlive(e, opts)).length;
 }
 
 /** cwd 解析：project 经 ACL → 根（`__team__` 取 team 根）→ 叠加 target（绝对 target 直接生效） */
@@ -171,8 +214,16 @@ export function sessionsBySeg(body) {
   return out;
 }
 
+/** 卡内 `## Sessions` 行是否代表「在跑」：CLI lane 看 pid；插件 lane 看 bound 的 native thread id */
+function cardRowLive(s) {
+  if (isPidAlive(Number(s.pid))) return true;
+  return s.harness === 'plugin' && !!s.id && s.id !== 'pending';
+}
+
 /**
- * 该卡当前**活跃 lane** 清单（判据与 poll 防双跑守卫同口径：登记 `status=running` **且 pid 存活**）。
+ * 该卡当前**活跃 lane** 清单（判据与 poll 防双跑守卫同口径：登记 `status=running` **且判活** ——
+ * 判活见 `cardRowLive` / `isEntryAlive`（契约 §7）：CLI lane 看 pid，**插件 lane**（`harness:plugin`）无
+ * 独立 pid（`pid` 为网关 pid/`-`）⇒ pid-only 会漏判在飞 lane 而放行双跑，必须叠加 native thread 可达性）。
  * 两个登记源合并去重（同 session id 以卡内行为准）：卡内 `## Sessions` 行 + registry 条目。
  * 僵尸行（pid 已死 / pid 缺失）**不**计入（reconcile 的职责），避免误拒恢复。
  * @returns {{seg:string, pid:number, id:string, owner:string, source:'card'|'registry'}[]}
@@ -183,12 +234,12 @@ export function liveLanes(taskId, cardBody = '', registry = null) {
   const seen = new Set();
   for (const s of sessionsBySeg(cardBody)) {
     const pid = Number(s.pid);
-    if (s.status !== 'running' || !isPidAlive(pid)) continue;
+    if (s.status !== 'running' || !cardRowLive(s)) continue;
     out.push({ seg: s.seg, pid, id: s.id || '', owner: s.owner || '', source: 'card' });
     if (s.id) seen.add(s.id);
   }
   for (const e of reg) {
-    if (e.task_id !== taskId || e.status !== 'running' || !isPidAlive(e.pid)) continue;
+    if (e.task_id !== taskId || e.status !== 'running' || !isEntryAlive(e)) continue;
     if (e.session_id && seen.has(e.session_id)) continue;
     out.push({ seg: e.phase || '', pid: e.pid, id: e.session_id || '', owner: e.owner || '', source: 'registry' });
   }
@@ -196,7 +247,8 @@ export function liveLanes(taskId, cardBody = '', registry = null) {
 }
 
 /**
- * 同卡防双跑判据（**与 poll 防双跑守卫同口径**：登记 `status=running` **且 pid 存活**）。分两层：
+ * 同卡防双跑判据（**与 poll 防双跑守卫同口径**：登记 `status=running` **且判活** —— CLI lane 看 pid，
+ * 插件 lane 看 native thread 可达，见 `cardRowLive`）。分两层：
  *
  *  L1 同 lane 身份（精确，不可越过）。一个 lane 的身份 = `(task_id, owner, seg)`，其确定性投影
  *    `session_id = UUIDv5(card, owner, seg)`（§⑥ registry 字段）⇒ 三个登记源任一命中即拒绝：
@@ -219,14 +271,16 @@ export function liveLanes(taskId, cardBody = '', registry = null) {
  *   `sid` = 本 seg 的确定性 session id（`sessionIdFor(card, owner, seg)`）；缺省 ⇒ 跳过 L1③。
  * @returns {{blocked:boolean, session?:object, live?:object[]}}
  */
-export function runningLaneBlocker({ taskId, seg, cardBody = '', registry = null, sid = '', role = 'exec', allowParallel = false }) {
+export function runningLaneBlocker({ taskId, seg, cardBody = '', registry = null, sid = '', role = 'exec', allowParallel = false, ...opts }) {
   const reg = registry == null ? loadRegistry() : registry;
   const byCard = sessionsBySeg(cardBody).find(
-    (s) => s.seg === seg && s.status === 'running' && isPidAlive(Number(s.pid)),
+    (s) => s.seg === seg && s.status === 'running' && cardRowLive(s),
   );
-  if (byCard) return { blocked: true, session: { ...byCard, pid: Number(byCard.pid), source: 'card' } };
+  if (byCard) return { blocked: true, session: { ...byCard, pid: Number(byCard.pid) || null, source: 'card' } };
   const byReg = reg.find(
-    (e) => e.task_id === taskId && e.status === 'running' && e.phase === seg && isPidAlive(e.pid),
+    (e) => e.task_id === taskId && e.status === 'running'
+      && (e.seg == null || e.seg === '' ? e.phase : e.seg) === seg
+      && isEntryAlive(e, opts),
   );
   if (byReg) return { blocked: true, session: { ...byReg, seg, source: 'registry' } };
   const bySid = sid
@@ -256,7 +310,8 @@ export function ensureWorkspaceSettings(wsDir, { dryRun = false } = {}) {
 }
 
 /**
- * 解析 CLI 参数（位置：card owner；k=v：seg/backend/phase/role/base；带值 flag：--base；开关：--review/--dry-run/--no-isolate/--help）
+ * 解析 CLI 参数（位置：card owner；k=v：seg/backend/harness/phase/role/base；带值 flag：--base；
+ * 开关：--review/--plugin（= harness=plugin，仅 backend=codex）/--dry-run/--no-isolate/--no-reaper/--help）
  * `--base <ref>` 与 `base=<ref>` 等价（前者形状与 `lane-worktree.mjs` 对齐，见 worktree-isolation-sop §5）。
  */
 export function parseArgs(argv) {
@@ -272,6 +327,7 @@ export function parseArgs(argv) {
     if (a === '--no-isolate') { isolate = false; continue; } // 回退开关（等价 OPENCLAW_LANE_ISOLATION=0）
     if (a === '--no-reaper') { reaper = false; continue; } // 回退开关（等价 OPENCLAW_TEAM_REAPER=0）
     if (a === '--review') { kv.role = 'review'; continue; } // 等价 role=review
+    if (a === '--plugin') { kv.harness = 'plugin'; continue; } // 等价 harness=plugin（契约 §8.1）
     if (a === '--help' || a === '-h') { help = true; continue; }
     if (a === '--base') { // 带值旗标：缺值 / 值形如 `--x` ⇒ 用法错误（绝不把下一个旗标吞成值）
       const v = argv[++i];
@@ -300,6 +356,8 @@ export function parseArgs(argv) {
     // 未显式给 seg ⇒ ''，由 spawnLane 按 role 取默认（exec=seg1 / review=segR1）
     seg: kv.seg || '',
     backend: kv.backend || 'claude',
+    // 未显式给 harness ⇒ 'cli'（默认路径 = 现状 `codex exec`，契约 §8.1 向后兼容）
+    harness: kv.harness || 'cli',
     role: kv.role || 'exec',
     phase: kv.phase || kv.seg || '',
     // 同一计划内**有意**并行多分段：显式声明越过 ①b2（见 runningLaneBlocker L2）
@@ -333,14 +391,30 @@ export function buildPrompt({ handoffPath, cardPath, reportPath, isolation = nul
   if (isolation && isolation.mode === 'worktree') {
     lines.push(
       `You are isolated in a lane worktree: ${isolation.path} (branch ${isolation.branch}) — another non-terminal lane is writing the same repo. ` +
-      `Commit there with explicit paths, and report the branch + commit sha in your Report so it can be integrated and the worktree removed.`,
+      `Commit there with explicit paths, and report the branch + commit sha in your Report so it can be integrated and the worktree removed. ` +
+      `Do not commit on the protected branch (main): integration happens on the dev branch (ref PROTOCOL §⑥.4, scripts/branch-guard.mjs).`,
     );
   }
   return lines.join('\n');
 }
 
 /** 组装子进程命令（argv 数组；claude 参数照 PROTOCOL §⑥ 模板） */
-export function buildCommand({ backend, bin, prompt, wsDir, sid, name, team = TEAM_ROOT }) {
+export function buildCommand({ backend, harness = 'cli', bin, prompt, wsDir, sid, name, cwd = '', team = TEAM_ROOT }) {
+  // --- 插件分支（契约 §8.2）：网关中介的 codex app-server harness turn ---
+  // 与 CLI 分支的关键差异：**句柄 = native thread id（非 pid）**；沙箱/审批经调度参数绑定
+  // （§8.5 映射表 / §8.9，G-4 裁定：审批姿态与 CLI lane 等价，不开旁路）。
+  if (harness === 'plugin') {
+    const args = expandPluginCmd(PLUGIN_CMD_TEMPLATE, {
+      prompt,
+      cwd: cwd || wsDir,
+      ws: wsDir,
+      model: PLUGIN_MODEL,
+      sandbox: PLUGIN_SANDBOX,
+      approval_policy: PLUGIN_APPROVAL_POLICY,
+    });
+    return { bin, args, harness: 'plugin' };
+  }
+  // --- CLI 分支（现状，保留可回退；契约 §8.2）---
   if (backend === 'codex') {
     // T-20261013-164816：codex 分支原仅发 `exec <prompt>` ⇒ 沙箱可写根只有 cwd（主 workspace），
     // 复核报告落点 {team}/workspace/<id>/ 在 cwd 之外 ⇒ lane 写 report.md 得 EPERM，须父回合手工回迁。
@@ -353,11 +427,13 @@ export function buildCommand({ backend, bin, prompt, wsDir, sid, name, team = TE
     // 旗标须在 prompt **之前**（`codex exec [OPTIONS] [PROMPT]`）。
     return {
       bin,
+      harness: 'cli',
       args: ['exec', '--sandbox', 'workspace-write', '--add-dir', wsDir, '--add-dir', team, prompt],
     };
   }
   return {
     bin,
+    harness: 'cli',
     args: [
       '-p', prompt,
       '--output-format', 'stream-json',
@@ -370,6 +446,99 @@ export function buildCommand({ backend, bin, prompt, wsDir, sid, name, team = TE
       '--name', name,
     ],
   };
+}
+
+/** 插件 lane 的调度 bin（env 可钉定；默认 `openclaw` = 网关 CLI） */
+export function pluginBin() {
+  return process.env.OPENCLAW_CODEX_PLUGIN_BIN || 'openclaw';
+}
+
+/**
+ * 从调度器 stdout（NDJSON）中读回 **native thread id**（契约 §3.1 步②的绑定源）。
+ * 逐行 JSON 解析，接受 `thread_id` / `threadId` / `session_id` 三个键（宿主实现差异兜底）；
+ * 返回首个非空字符串值；未出现 ⇒ null（调用方按 `THREAD_BIND_TIMEOUT_MS` 判超时）。
+ */
+export function parseThreadId(text) {
+  for (const line of String(text || '').split('\n')) {
+    const s = line.trim();
+    if (!s || s[0] !== '{') continue;
+    let o;
+    try { o = JSON.parse(s); } catch { continue; }
+    for (const k of ['thread_id', 'threadId', 'session_id']) {
+      const v = o && o[k];
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    }
+  }
+  return null;
+}
+
+/** 读取文件内的 native thread id（绑定轮询用；文件不存在/不可读 ⇒ null） */
+export function readThreadIdFrom(logPath) {
+  try { return parseThreadId(fs.readFileSync(logPath, 'utf8')); } catch { return null; }
+}
+
+/**
+ * 同步等待绑定：轮询 `logPath` 直到出现 native thread id 或超时（契约 §3.2 / §11 G-7）。
+ * 返回 `{ threadId }` 或 `{ timeout: true, ms }`。`pollMs` 可注入（测试免等真实 120s）。
+ */
+export function awaitThreadId(logPath, { timeoutMs = THREAD_BIND_TIMEOUT_MS, pollMs = THREAD_BIND_POLL_MS, sleepSync = busySleep } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const tid = readThreadIdFrom(logPath);
+    if (tid) return { threadId: tid };
+    if (Date.now() >= deadline) return { timeout: true, ms: timeoutMs };
+    sleepSync(Math.min(pollMs, Math.max(0, deadline - Date.now())));
+  }
+}
+
+/** 同步睡眠（spawn 入口是同步流；绑定窗口短，不引入异步重排） */
+function busySleep(ms) {
+  if (ms <= 0) return;
+  const sab = new SharedArrayBuffer(4);
+  Atomics.wait(new Int32Array(sab), 0, 0, ms);
+}
+
+/**
+ * G8 日志导出（契约 §8.7）：把网关 JSON-lines 日志（含 codex 插件行）导出到
+ * `<ws>/evidence/plugin-<ts>.log`，并写 `<ws>/evidence/manifest.json`
+ * （`exported_at` / `lane_seg` / `source`）。**触发时机 = lane 启动时 + 终态前各一次**。
+ * 导出失败 ⇒ 返回 `{ok:false}`，调用方按契约 R3「判 blocked 并回报，不静默丢证据」处置。
+ * `--dry-run` 由调用方保证不进来（本函数有写副作用）。
+ */
+export function exportPluginLogs({ wsDir, seg, sourceDir = (process.env.OPENCLAW_GATEWAY_LOG_DIR || '/tmp/openclaw'), now = new Date(), files = null }) {
+  try {
+    let srcs = files;
+    if (!srcs) {
+      srcs = [];
+      try {
+        for (const f of fs.readdirSync(sourceDir)) {
+          if (/^openclaw(-[A-Za-z0-9_-]+)?-\d{4}-\d{2}-\d{2}\.log$/.test(f)) srcs.push(path.join(sourceDir, f));
+        }
+      } catch { /* 源目录不存在 ⇒ 空集（仍落 manifest，显式记 source_missing） */ }
+    }
+    const stamp = now.toISOString().replace(/[:.]/g, '-');
+    const evDir = path.join(wsDir, 'evidence');
+    fs.mkdirSync(evDir, { recursive: true });
+    const dest = path.join(evDir, `plugin-${stamp}.log`);
+    let bytes = 0;
+    const chunks = [];
+    for (const p of srcs) {
+      try { const b = fs.readFileSync(p); chunks.push(b); bytes += b.length; } catch { /* 单文件不可读 ⇒ 跳过 */ }
+    }
+    fs.writeFileSync(dest, Buffer.concat(chunks));
+    const manifest = {
+      exported_at: now.toISOString(),
+      lane_seg: seg,
+      source: srcs.map((p) => path.relative(sourceDir, p) || p),
+      source_dir: sourceDir,
+      log: dest,
+      bytes,
+    };
+    fs.writeFileSync(path.join(evDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
+    return { ok: true, path: dest, bytes, manifest };
+  } catch (e) {
+    return { ok: false, reason: `export_failed:${String(e && e.message ? e.message : e)}` };
+  }
 }
 
 /** seg → 序号（seg1 → 1），用于 <owner>-<n>.out.jsonl 命名（与既有约定一致） */
@@ -540,7 +709,7 @@ const usage = (reason) => ({ ok: false, code: 2, reason });
  *   `base` = 显式定基（等价 `--base <ref>`），未给则由上一 seg 分支 tip 推导。
  */
 export function spawnLane(opts = {}) {
-  const { card = '', owner = '', seg: segArg = '', backend = 'claude', dryRun = false, base = '' } = opts;
+  const { card = '', owner = '', seg: segArg = '', backend = 'claude', harness = 'cli', dryRun = false, base = '' } = opts;
   const role = opts.role || 'exec';
   const allowParallel = parallelDeclared(opts.parallel);
   // 自动隔离开关：CLI `--no-isolate` 与 env `OPENCLAW_LANE_ISOLATION` 任一关闭即关闭（两者都须为「开」）
@@ -555,6 +724,10 @@ export function spawnLane(opts = {}) {
   if (!AGENTS.includes(owner)) return usage(`unknown_owner:${owner}`);
   if (!BACKENDS.includes(backend)) return usage(`unknown_backend:${backend}`);
   if (!ROLES.includes(role)) return usage(`unknown_role:${role}`);
+  // harness 值域（契约 §8.1）：未识别 ⇒ usage 错（exit 2），理由码 unknown_harness:<v>
+  if (!HARNESSES.includes(harness)) return usage(`unknown_harness:${harness}`);
+  // 插件天然只有 Codex 腿（契约 §6 / §1.2：claude 与 pi 无官方 embedded harness）
+  if (harness === 'plugin' && backend !== 'codex') return usage(`harness_plugin_requires_codex(backend=${backend})`);
 
   // ---- ① 解析卡（ACL）----
   let c;
@@ -726,21 +899,33 @@ export function spawnLane(opts = {}) {
   const isolation = applied.isolation;
   const cwd = isolation.mode === 'worktree' ? isolation.path : baseCwd; // ③ cwd（隔离时指向 lane worktree）
 
-  // ---- ⑤ 确定性 session id（ACL）----
-  let sid;
-  try {
-    sid = sessionIdFor(card, owner, seg).session_id;
-  } catch (e) {
-    return reject(`session_id_failed:${String(e && e.message ? e.message : e)}`);
+  // ---- ⑤ 会话句柄 ----
+  // claude / codex-cli：确定性 UUIDv5（ACL）——codex 无 `--session-id`，其 id 由宿主自赋，
+  //   故对 codex-cli 仅作登记/id 占位（沿用现状）。
+  // 插件 lane：**放弃**确定性 UUIDv5（契约 §3.3 G4）——句柄 = native thread id，spawn 前不可知，
+  //   登记走两步回填（步① id:pending → 步② id:<thread_id>），故此处不取 sessionIdFor。
+  let sid = null;
+  if (harness !== 'plugin') {
+    try {
+      sid = sessionIdFor(card, owner, seg).session_id;
+    } catch (e) {
+      return reject(`session_id_failed:${String(e && e.message ? e.message : e)}`);
+    }
   }
 
   // ---- ⑥ 组装命令 ----
   const prompt = buildPrompt({ handoffPath, cardPath, reportPath, isolation });
-  const { bin, args } = buildCommand({ backend, bin: backendBin(backend), prompt, wsDir, sid, name: `${owner}-${seg}` });
+  const bin = harness === 'plugin' ? pluginBin() : backendBin(backend);
+  const built = buildCommand({ backend, harness, bin, prompt, wsDir, sid, name: `${owner}-${seg}`, cwd });
+  const args = built.args;
   const plan = {
     ok: true,
     dryRun,
-    session_id: sid,
+    // 插件 lane 的卡面 id 在步①为 `pending`、步②为 native thread id（契约 §3.1）
+    session_id: harness === 'plugin' ? null : sid,
+    thread_id: null,
+    id_state: harness === 'plugin' ? 'pending' : '',
+    harness,
     pid: null,
     role,
     settings,
@@ -763,6 +948,13 @@ export function spawnLane(opts = {}) {
   };
   if (dryRun) return plan;
 
+  // ---- ⑥b G8：lane 启动即导出网关日志（契约 §8.7；**放在 spawn 之前** ⇒ 导出失败则零副作用拒绝，
+  //        不在无证据的情况下起 lane —— 契约 R3「不静默丢证据」）----
+  if (harness === 'plugin') {
+    const exp0 = exportPluginLogs({ wsDir, seg });
+    if (!exp0.ok) return reject(`${exp0.reason}:blocked`, { seg });
+  }
+
   // ---- ⑦ 起子会话（detached 新会话组；macOS 无 setsid）----
   fs.mkdirSync(wsDir, { recursive: true });
   const outFd = fs.openSync(outLog, 'a');
@@ -782,13 +974,68 @@ export function spawnLane(opts = {}) {
   child.on('error', () => { /* 起失败已在 pid 判定处收口；此处兜住避免 unhandled */ });
   if (child.pid == null) return reject(`spawn_failed(bin=${bin})`);
   child.unref();
-  const pid = child.pid;
+  const dispatchPid = child.pid;
 
-  // ---- ⑧ 立即登记（卡 + registry 同写，唯一步骤）----
-  const reg = sessionSet(card, { seg, owner, backend, phase, pid, log: outLog, status: 'running', id: sid });
+  // ---- ⑧ 登记 ----
+  // 插件分支：**两步回填**（契约 §3.1 / §8.3）——步① pending 同写；读回 native thread id 后步② bound 同写。
+  // 卡面 upsert 键 = `seg:<seg> ·` ⇒ 两步写的是**同一卡内行**（无重复行）；registry 侧由绑定步关闭
+  // pending 行（`closePendingEntries`，契约 §11 G-1），避免 pending/bound 双 running 双计额度。
+  if (harness === 'plugin') {
+    const gwPid = gatewayPid();
+    const regPend = sessionSet(card, {
+      seg, owner, backend, harness, phase, pid: gwPid, log: outLog, status: 'running',
+      id: 'pending', id_state: 'pending',
+    });
+    if (!regPend.ok) {
+      try { process.kill(dispatchPid, 'SIGTERM'); } catch { /* 已退出/无权限：忽略 */ }
+      return reject(`session_set_failed:${regPend.reason || 'unknown'}`, { detail: regPend, dispatch_pid: dispatchPid });
+    }
+
+    // ---- ⑨ 绑定：读回 native thread id（超时 ⇒ lane 判 failed，不静默挂起；契约 §3.2）----
+    const bound = awaitThreadId(outLog, {
+      timeoutMs: opts.bindTimeoutMs ?? THREAD_BIND_TIMEOUT_MS,
+      pollMs: opts.bindPollMs ?? THREAD_BIND_POLL_MS,
+    });
+    if (bound.timeout) {
+      try { aclSessionClose(card, seg, 'failed'); } catch { /* 关闭失败不掩盖主错：主因是绑定超时 */ }
+      try { process.kill(dispatchPid, 'SIGTERM'); } catch { /* 已退出/无权限：忽略 */ }
+      return reject(`thread_bind_timeout(seg=${seg},ms=${bound.ms}):reconcile`, { seg, dispatch_pid: dispatchPid });
+    }
+
+    const regBound = sessionSet(card, {
+      seg, owner, backend, harness, phase, pid: gwPid, log: outLog, status: 'running',
+      id: bound.threadId, id_state: 'bound', thread_id: bound.threadId,
+    });
+    if (!regBound.ok) {
+      try { process.kill(dispatchPid, 'SIGTERM'); } catch { /* 已退出/无权限：忽略 */ }
+      return reject(`session_set_failed:${regBound.reason || 'unknown'}`, { detail: regBound, dispatch_pid: dispatchPid });
+    }
+
+    // 终态前再导一次（契约 §8.7）。导入失败不掩盖 lane 已在跑的事实：记 warnings、显式回报。
+    const exp1 = exportPluginLogs({ wsDir, seg });
+    const warnings = [...(regBound.warnings || [])];
+    if (!exp1.ok) warnings.push(exp1.reason);
+
+    return {
+      ...plan,
+      pid: null,                 // 插件 lane 无独立 pid（句柄 = native thread id）
+      dispatch_pid: dispatchPid, // 调度器进程 pid（证据/审计用，非 lane 句柄）
+      thread_id: bound.threadId,
+      id_state: 'bound',
+      session_id: bound.threadId,
+      handoff: regBound.handoff === 'created' ? 'created' : handoffState,
+      card: regBound.cardPath || cardPath,
+      registry: regBound.registry,
+      evidence: exp1.ok ? exp1.manifest : null,
+      ...(warnings.length ? { warnings } : {}),
+    };
+  }
+
+  // CLI 分支（现状不变）：一步登记（卡 + registry 同写）
+  const reg = sessionSet(card, { seg, owner, backend, phase, pid: dispatchPid, log: outLog, status: 'running', id: sid });
   if (!reg.ok) {
-    try { process.kill(pid, 'SIGTERM'); } catch { /* 已退出/无权限：忽略 */ }
-    return reject(`session_set_failed:${reg.reason || 'unknown'}`, { detail: reg, pid });
+    try { process.kill(dispatchPid, 'SIGTERM'); } catch { /* 已退出/无权限：忽略 */ }
+    return reject(`session_set_failed:${reg.reason || 'unknown'}`, { detail: reg, pid: dispatchPid });
   }
 
   // ---- ⑨ 会话终态看守（lane 一死必写终态；见 lane-reaper.mjs 与 guides/lane-session-lifecycle-sop.md）----
@@ -798,18 +1045,18 @@ export function spawnLane(opts = {}) {
   const reaperOn = opts.reaper !== false && reaperEnabled();
   let reaperState = { state: reaperOn ? 'armed' : 'disabled' };
   if (reaperOn) {
-    const armed = armLaneReaper({ card, seg, pid, owner, env: process.env });
+    const armed = armLaneReaper({ card, seg, pid: dispatchPid, owner, env: process.env });
     if (!armed.ok) {
       const closed = (() => { try { return sessionClose(card, seg, 'closed'); } catch (e) { return { ok: false, reason: String(e && e.message ? e.message : e) }; } })();
-      try { process.kill(pid, 'SIGTERM'); } catch { /* 已退出/无权限：忽略 */ }
-      return reject(`lane_reaper_failed(${armed.reason})`, { detail: armed, pid, session_close: closed, session: { seg, pid, id: sid } });
+      try { process.kill(dispatchPid, 'SIGTERM'); } catch { /* 已退出/无权限：忽略 */ }
+      return reject(`lane_reaper_failed(${armed.reason})`, { detail: armed, dispatch_pid: dispatchPid, session_close: closed, session: { seg, pid: dispatchPid, id: sid } });
     }
     reaperState = { state: 'armed', pid: armed.pid };
   }
 
   return {
     ...plan,
-    pid,
+    pid: dispatchPid,
     handoff: reg.handoff === 'created' ? 'created' : handoffState,
     card: reg.cardPath || cardPath,
     registry: reg.registry,
@@ -818,7 +1065,13 @@ export function spawnLane(opts = {}) {
   };
 }
 
-const HELP = `用法: bash scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [phase=<p>] [role=exec|review] [parallel=1] [--review] [--dry-run] [--no-isolate] [--no-reaper] [--base <ref>]
+/** 插件 lane 登记里的 `pid` = 网关进程 pid（可经 env 提供）；未知 ⇒ 占位 `-`（契约 §4.3） */
+export function gatewayPid() {
+  const p = process.env.OPENCLAW_GATEWAY_PID;
+  return p && /^\d+$/.test(String(p).trim()) ? String(p).trim() : '-';
+}
+
+const HELP = `用法: bash scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [harness=cli|plugin] [phase=<p>] [role=exec|review] [parallel=1] [--review] [--plugin] [--dry-run] [--no-isolate] [--no-reaper] [--base <ref>]
 
 新 lane 起会话的单一强制入口（claim → handoff 自检 → settings 预置 → spawn → session-set 卡+registry 同写
 → 起会话终态看守）。
@@ -827,6 +1080,10 @@ role=exec（默认）起执行 lane（in_progress 卡）；role=review（--revie
 同卡防双跑（spawn 前，零副作用）：同 seg 已有活跃 lane（卡行 / registry phase=seg / registry session_id
 = 本 seg 确定性 id 任一命中）⇒ 拒绝复用既有 session；执行 lane 遇该卡**已有任意活跃 lane** ⇒ 拒绝第二条
 执行 lane（card_busy）。同一计划内有意并行多分段须显式声明 parallel=1。
+harness=cli（默认）走现状 \`codex exec\` 子进程；harness=plugin（--plugin 等价，**仅 backend=codex**）
+走官方 codex 插件 app-server embedded harness turn（句柄 = native thread id，非 pid）：
+spawn 先写 id:pending（卡+registry 同写），读回 thread id 后覆盖同一 seg 行写 id:<thread_id>（id_state=bound）；
+绑定超时 THREAD_BIND_TIMEOUT_MS（默认 120000ms）⇒ lane 判 failed 并回报，不静默挂起。
 同仓已有并发非终态 lane ⇒ 自动建隔离 worktree（cwd 指向该树）；同文件冲突 ⇒ 拒绝并提示串行；
 隔离树的 base：续接上一 seg ⇒ 上一 seg 的 lane 分支 tip（首 seg ⇒ HEAD）；--base <ref> 显式指定且
 不可解析即拒绝。**未给 --base 时还会解析卡面依赖**：depends_on 链上有分支 tip 尚未并入 HEAD（叠卡前置）
@@ -836,7 +1093,8 @@ base_undeterminable(base_ambiguous) 拒绝，若应有 base 但本次不建隔�
 起会话成功后自动起**会话终态看守**（lane-reaper.mjs，detached）：lane 进程一死（正常/被杀/超时/崩溃）
 即经 ACL session-close 写完卡行 status + 清 active_session_id + registry 终态；起看守失败即拒绝起会话
 （fail-closed，且会先把已登记的行收口）。--no-reaper（或 OPENCLAW_TEAM_REAPER=0）关闭该自动化。
-禁「直跑 claude -p 不登记」；见 guides/spawn-lane-sop.md、guides/lane-session-lifecycle-sop.md、
+禁「直跑 claude -p / codex exec 不登记」；见 guides/spawn-lane-sop.md、guides/lane-session-lifecycle-sop.md、guides/codex-plugin-lane-contract.md、
+禁「直跑 claude -p / codex exec 不登记」；见 guides/spawn-lane-sop.md、guides/codex-plugin-lane-contract.md、
 guides/worktree-isolation-sop.md 与 PROTOCOL §⑥。
 
 示例:
@@ -845,6 +1103,7 @@ guides/worktree-isolation-sop.md 与 PROTOCOL §⑥。
   bash scripts/spawn-lane.sh T-20261010-052210 linus seg=seg2            # 续接 seg1 ⇒ base=lane/<card>-seg1
   bash scripts/spawn-lane.sh T-20261010-052210 linus seg=seg2 --base 43bdf5f   # 显式定基
   bash scripts/spawn-lane.sh T-20261010-052210 turing --review backend=codex
+  bash scripts/spawn-lane.sh T-20261010-052210 turing backend=codex harness=plugin --dry-run
   OPENCLAW_LANE_ISOLATION=0 bash scripts/spawn-lane.sh T-20261010-052210 linus   # 显式纪律回退
   OPENCLAW_TEAM_REAPER=0 bash scripts/spawn-lane.sh T-20261010-052210 linus      # 关闭会话终态看守
 `;

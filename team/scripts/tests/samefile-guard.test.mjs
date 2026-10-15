@@ -38,13 +38,15 @@ const TASKS = path.join(ROOT, 'tasks');
 fs.mkdirSync(TASKS, { recursive: true });
 
 // provider 依赖为**条件动态 import**：缺 provider 时 samefile-guard.mjs/lib.mjs 在 import 期即硬红。
-let samefileConflicts, NON_TERMINAL, VOCAB;
+let samefileConflicts, VOCAB;
 if (PROVIDER) {
   process.env.OPENCLAW_TASK_OPS_DIR = PROVIDER;
-  ({ samefileConflicts, NON_TERMINAL } = await import('../samefile-guard.mjs'));
+  ({ samefileConflicts } = await import('../samefile-guard.mjs'));
   // 规范词表真源（provider ACL 库；check-idem.mjs 同口径）：供「集内即规范在飞词」对拍用。
   VOCAB = await import(pathToFileURL(path.join(PROVIDER, 'lib', 'task.mjs')).href);
 }
+// 非终态判据现由词表模块持有（零依赖 ⇒ 无条件 import）；第 10 例即对拍它与 provider 词表的一致性。
+const { NON_TERMINAL } = await import('../status.mjs');
 
 after(() => fs.rmSync(ROOT, { recursive: true, force: true }));
 // 每测清空看板，避免跨测卡积累干扰判定

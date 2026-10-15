@@ -41,7 +41,7 @@
  *        是唯一权威。**仓内副本必须保持 `cards: []`**（「仓内不得夹带豁免」是被单测钉住的不变量；
  *        与 idem 的托管模板同款）。**运行时登记一律不写此文件**。
  *     ② **运行时登记** `runtimeBaselinePath(tasksDir)` = `<被巡检的 tasks 目录>/.report-baseline.json`
- *        （`RUNTIME_BASELINE_NAME`）：`install.sh` 跳过 `tasks/`、防漂移巡检亦排除 `tasks/` ⇒
+ *        （`RUNTIME_BASELINE_NAME`）：`install.sh` 不部署 `tasks/` ⇒
  *        不属任何部署树 ⇒ **升级不清回登记**；且随 `tasksDir` 派生 ⇒ 单测隔离 root 自动读到空登记。
  *   生效登记 = ① ∪ ②（`loadExemptions`）。登记项形状 `{ id, gaps: [...], reason }`——`reason` 是
  *   **必填**且去空白后 ≥8 字符（D5，见 `validExemption`）：`gaps` 只能证明「缺口集合没变」，
@@ -116,6 +116,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseFrontmatter, TASKS_DIR } from './lib.mjs';
+import { isDraft, isTerminal } from './status.mjs';
 
 // ---------- 常量与口径 ----------
 
@@ -222,12 +223,10 @@ export const GAP_ORIGIN_UNKNOWN = 'REPORT_ORIGIN_UNKNOWN';
 export const GAP_IMPORT_NO_PROVENANCE = 'REPORT_IMPORT_NO_PROVENANCE';
 export const GAP_IMPORT_NOT_DELIVERY = 'REPORT_IMPORT_NOT_DELIVERY';
 
-/** 终态（历史卡，**不追溯**）：与 provider `TERMINAL_STATUSES` / check-card.mjs 同口径。 */
-export const TERMINAL = ['done', 'failed', 'canceled'];
-/** 硬触发态：交付待验收（父卡实测事故型即此）。 */
+// 终态 / 草稿态判据来自 `scripts/status.mjs`（`isTerminal` / `isDraft`，与 provider
+// `TERMINAL_STATUSES` / check-card 同口径）——本文件不再自持这两份集合。
+/** 硬触发态：交付待验收（父卡实测事故型即此）。属本门禁**政策**（非词表），留在本文件。 */
 export const HARD_STATUSES = ['in_review'];
-/** 软提示态：Report 段已存在且非空但槽位不全 ⇒ draft 提示（在写草稿，不置退出码）。 */
-export const DRAFT_STATUSES = ['in_progress', 'blocked'];
 
 /**
  * 生效截止：**门禁落仓时刻**（本地 2026-10-15 01:10 +0800）。`created_at` 早于此 ⇒ grandfather（warn）。
@@ -543,7 +542,7 @@ export function scanReports(tasksDir = TASKS_DIR, { baseline } = {}) {
     if (!fm) continue;
     const id = fm.id || f.replace(/\.md$/, '');
     const status = String(fm.status || '');
-    if (TERMINAL.includes(status)) { skipped++; continue; }   // 终态：连 warn 都不报（不翻旧账）
+    if (isTerminal(status)) { skipped++; continue; }   // 终态：连 warn 都不报（不翻旧账）
 
     const body = reportBody(raw);
     const gaps = slotGaps(body);
@@ -552,7 +551,7 @@ export function scanReports(tasksDir = TASKS_DIR, { baseline } = {}) {
 
     if (!inHardStatus) {
       // 软面：仅当「已开工且在写的 Report 已成形」时才提示，避免为尚未动笔的卡制造噪声
-      if (DRAFT_STATUSES.includes(status) && body !== null && body.trim() !== '' && gaps.length) {
+      if (isDraft(status) && body !== null && body.trim() !== '' && gaps.length) {
         drafts.push({ id, status, gaps });
       } else skipped++;
       if (gaps.length === 0) hints.push(...contentHints(body).map((h) => ({ id, ...h })));

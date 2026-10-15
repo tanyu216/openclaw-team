@@ -1,5 +1,5 @@
 {
   "cards": [],
   "role": "template",
-  "note": "托管模板（只读，零豁免）：本文件随 install.sh §1 的 team/scripts/** 部署树进实例（默认 upgrade ⇒ 仓内副本覆盖实例副本）⇒ 仓内副本是唯一权威，请勿直接手改实例副本。仓内副本必须保持 cards 为空（仓内不得夹带豁免）——该不变量由 scripts/tests/check-report.test.mjs 钉住。运行时豁免登记**不写本文件**：登记处为 <被巡检 tasks 目录>/.report-baseline.json（install.sh 不部署 tasks/、防漂移巡检亦排除 tasks/ ⇒ 升级不清回登记），见 check-report.mjs 头注 (iii)「豁免机制」。登记项形状 { id, gaps: [...], reason }，判据 = id 命中且 gaps 与卡面**当前**缺口集合全等（集合变化即失效，防「登记一次、永久放行」）。"
+  "note": "托管模板（只读，零豁免）：本文件随 install.sh §1 的 team/scripts/** 部署树进实例（默认 upgrade ⇒ 仓内副本覆盖实例副本）⇒ 仓内副本是唯一权威，请勿直接手改实例副本。仓内副本必须保持 cards 为空（仓内不得夹带豁免）——该不变量由 scripts/tests/check-report.test.mjs 钉住。运行时豁免登记**不写本文件**：登记处为 <被巡检 tasks 目录>/.report-baseline.json（install.sh 不部署 tasks/ ⇒ 升级不清回登记），见 check-report.mjs 头注 (iii)「豁免机制」。登记项形状 { id, gaps: [...], reason }，判据 = id 命中且 gaps 与卡面**当前**缺口集合全等（集合变化即失效，防「登记一次、永久放行」）。"
 }
