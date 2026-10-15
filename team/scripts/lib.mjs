@@ -239,19 +239,88 @@ export function readCardById(id, { tasksDir = TASKS_DIR } = {}) {
   return null;
 }
 
+// ---------- 写入守卫（反膨胀） ----------
+// 事故基线 T-20261008-214730：frontmatter 值内的 `\` / `"` 每轮「读→回写」翻倍（指数膨胀）。
+//
+// 旧口径 = **整文件** 4× 比值，两个方向都错（T-20261015-025543-3 · D8）：
+//   · 真漏：事故是 frontmatter 的乘性膨胀，而比值分母是**整文件** ⇒ 被正文体量稀释。
+//     实测最大 live 卡 256 462B / FM 1 345B，FM 翻倍只读作 `1.0052x` —— 它命名的事故它拦不住。
+//   · 误伤：合法的长 `## Report` 同样是「整文件突增」（新 Report 标准下 29KB 写入 3KB 卡 = 9.70x）
+//     ⇒ 被拒，须三段写入绕过。
+// 新口径 = 两道**贴语义**的守卫（合起来严格强于旧口径；不是关闭守卫）：
+//   A. frontmatter 块膨胀（事故形态）：比值 > 1.5× **且** 绝对增量 > 1 KiB。
+//      事故是**乘性**的（每写 ~2× ⇒ 逐写跨过阈值）；合法 FM 变更**加性且极小**
+//      （实测全生命周期最大 1.248× / +105B；605 张 live 卡 FM 上界 1 345B；`MAX_FANIN=8`
+//      的依赖批量添加 ≲160B）⇒ 两条件不会同时成立。
+//   B. `## Report` 段绝对上限 64 KiB：对齐 `team/guides/worker-report-template.md` §6
+//      （「≤64 KiB / 上限由**写期**强制」—— 本函数就是那个写期；门禁刻意不重复校验）。
+//      只在**本次写入把 Report 顶过上限**时拒 ⇒ 历史超限卡（如 161KiB Report 的
+//      T-20261012-012736，已 done）不被追溯，也不因一次无关写入被冻结。
+export const FM_INFLATION_RATIO = 1.5;          // frontmatter 块：相邻写入的比值上限
+export const FM_INFLATION_SLACK_BYTES = 1024;   // 且绝对增量须超过此值才判膨胀
+export const REPORT_MAX_BYTES = 64 * 1024;      // `## Report` 段字节上限（64 KiB）
+
+const byteLen = (s) => Buffer.byteLength(s, 'utf8');
+
+/** 序列化结果的 frontmatter 块字节数（总字节 − 正文字节；body 原样落盘）。 */
+function frontmatterBytes(serialized, body) {
+  return byteLen(serialized) - byteLen(body);
+}
+
+/** `## Report` 段字节数（自该行起至下一个行首 `## ` 或文末；无该段 ⇒ 0）。 */
+function reportSectionBytes(serialized) {
+  const lines = serialized.split('\n');
+  let start = -1;
+  let end = lines.length;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^## Report[ \t]*$/.test(lines[i])) {
+      start = i;
+      continue;
+    }
+    if (start >= 0 && /^## /.test(lines[i])) {
+      end = i;
+      break;
+    }
+  }
+  return start < 0 ? 0 : byteLen(lines.slice(start, end).join('\n'));
+}
+
+/**
+ * 写入护栏（只读校验，违规即抛，绝不落盘）。
+ * 先序列化再校验 ⇒ 拒绝时零副作用（无部分写入、无 tmp 残留）。
+ */
+function assertNoInflation(p, out, body) {
+  const exists = fs.existsSync(p);
+  const prevRaw = exists ? fs.readFileSync(p, 'utf8') : null;
+  // B. `## Report` 绝对上限。只在**本次写入把 Report 顶过上限**时拒：
+  //    已超限的历史卡不得因一次无关写入（心跳/评论）被整体冻结 —— 收缩也放行。
+  const report = reportSectionBytes(out);
+  const prevReport = prevRaw === null ? 0 : reportSectionBytes(prevRaw);
+  if (report > REPORT_MAX_BYTES && report > prevReport) {
+    throw new Error(
+      `拒绝写入：\`## Report\` 段超上限 (card=${p} report=${report}B > ${REPORT_MAX_BYTES}B=` +
+      `${REPORT_MAX_BYTES / 1024}KiB；超限内容应落 workspace/<id>/ 由 A5 指针引用)`
+    );
+  }
+  // A. frontmatter 膨胀（事故 T-20261008-214730 形态）
+  if (prevRaw === null) return; // 新卡：无基线可比
+  const prevFm = frontmatterBytes(prevRaw, parseFrontmatter(prevRaw).body);
+  const nextFm = frontmatterBytes(out, body);
+  const delta = nextFm - prevFm;
+  if (prevFm > 0 && nextFm > prevFm * FM_INFLATION_RATIO && delta > FM_INFLATION_SLACK_BYTES) {
+    const ratio = (nextFm / prevFm).toFixed(2);
+    throw new Error(
+      `拒绝写入：疑似 frontmatter 转义膨胀 (card=${p} fm_prev=${prevFm}B fm_next=${nextFm}B, ` +
+      `ratio=${ratio}x > ${FM_INFLATION_RATIO}x 且 +${delta}B > ${FM_INFLATION_SLACK_BYTES}B)`
+    );
+  }
+}
+
 export function writeCardAtomic(cardPath, fm, body) {
   const p = cardPathOf(cardPath);
   // 先序列化再做护栏校验：异常体积直接拒绝，绝不落盘（避免部分写入/静默膨胀）
   const out = serializeFrontmatter(fm, body);
-  if (fs.existsSync(p)) {
-    const prev = fs.statSync(p).size;
-    if (out.length > prev * 4) {
-      const ratio = prev > 0 ? (out.length / prev).toFixed(2) : 'Infinity';
-      throw new Error(
-        `拒绝写入：疑似 frontmatter 转义膨胀 (card=${p} prev=${prev}B next=${out.length}B, ratio=${ratio}x > 4x)`
-      );
-    }
-  }
+  assertNoInflation(p, out, body);
   const tmp = `${p}.tmp.${process.pid}.${Date.now()}`;
   fs.writeFileSync(tmp, out, 'utf8');
   fs.renameSync(tmp, p); // 同目录 rename = 原子替换
