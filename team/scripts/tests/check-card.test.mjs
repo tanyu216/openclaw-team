@@ -52,7 +52,7 @@ let seq = 0;
  */
 function mkCard(priorityLine, status = 'ready') {
   const id = `T-20260101-3000${String(seq++).padStart(2, '0')}-cc`;
-  const lines = ['---', `id: ${id}`, 'title: t', 'assignee: linus', `status: ${status}`, 'goal: g', 'project: __team__', 'target: /Users/tanyu/Documents/openclaw-team'];
+  const lines = ['---', `id: ${id}`, 'title: t', 'assignee: linus', `status: ${status}`, 'goal: g', 'project: __team__', 'target: /repo/openclaw-team'];
   if (status === 'in_progress') lines.push('claimed_by: linus'); // in_progress 须带 claimed_by（否则另一分支误红）
   if (priorityLine) lines.push(priorityLine);
   lines.push('---', '## Report', '');
@@ -116,7 +116,7 @@ test('CLI 子进程：非法 ⇒ 退出码 1 且输出含「非法 priority: p2�
 test('CLI 扫描全部模式：合法卡通过（退出码 0）+ 裸 id 参数（补 .md）', () => {
   const { root, dir } = mkRoot();
   const id = 'T-20260101-300090-scan';
-  writeRaw(dir, id, `---\nid: ${id}\ntitle: t\nassignee: linus\nstatus: ready\npriority: urgent\ngoal: g\nproject: __team__\ntarget: /Users/tanyu/Documents/openclaw-team\n---\n## Report\n`);
+  writeRaw(dir, id, `---\nid: ${id}\ntitle: t\nassignee: linus\nstatus: ready\npriority: urgent\ngoal: g\nproject: __team__\ntarget: /repo/openclaw-team\n---\n## Report\n`);
   const env = { ...process.env, OPENCLAW_TEAM_ROOT: root };
   const all = spawnSync(process.execPath, [CHECK_CARD], { env, encoding: 'utf8' });
   assert.equal(all.status, 0, `stdout=${all.stdout}`);
@@ -129,7 +129,7 @@ test('CLI 扫描全部模式：合法卡通过（退出码 0）+ 裸 id 参数�
 test('既有校验分支：缺必填/非法 status/非法 assignee/in_progress 缺 claimed_by', () => {
   const { root, dir } = mkRoot();
   const mk = (id, fm) => writeRaw(dir, id, `---\n${fm}\n---\n## Report\n`);
-  const TGT = '\ntarget: /Users/tanyu/Documents/openclaw-team'; // 各卡只留被测缺陷：target 齐备
+  const TGT = '\ntarget: /repo/openclaw-team'; // 各卡只留被测缺陷：target 齐备
   mk('T-20260101-300091-a', `id: T-20260101-300091-a\ntitle: t\nassignee: linus\nstatus: ready\nproject: __team__${TGT}`); // 缺 goal
   mk('T-20260101-300092-b', `id: T-20260101-300092-b\ntitle: t\nassignee: linus\nstatus: weird\ngoal: g\nproject: __team__${TGT}`);
   mk('T-20260101-300093-c', `id: T-20260101-300093-c\ntitle: t\nassignee: nobody\nstatus: ready\ngoal: g\nproject: __team__${TGT}`);
@@ -167,7 +167,7 @@ test('__team__ 卡有 target ⇒ 不误报；target 为空白 ⇒ 视为缺失',
   const { root, dir } = mkRoot();
   const env = { ...process.env, OPENCLAW_TEAM_ROOT: root };
   const good = 'T-20260101-300082-has';
-  writeRaw(dir, good, `---\nid: ${good}\ntitle: t\nassignee: linus\nstatus: ready\ngoal: g\nproject: __team__\ntarget: /Users/tanyu/.openclaw/team\n---\n## Report\n`);
+  writeRaw(dir, good, `---\nid: ${good}\ntitle: t\nassignee: linus\nstatus: ready\ngoal: g\nproject: __team__\ntarget: /live/team\n---\n## Report\n`);
   const blank = 'T-20260101-300083-blank';
   writeRaw(dir, blank, `---\nid: ${blank}\ntitle: t\nassignee: linus\nstatus: ready\ngoal: g\nproject: __team__\ntarget: "  "\n---\n## Report\n`);
   const okRun = spawnSync(process.execPath, [CHECK_CARD, path.join(dir, `${good}.md`)], { env, encoding: 'utf8' });
@@ -277,7 +277,7 @@ const pid = () => `T-20260101-4${String(pseq++).padStart(5, '0')}-pth`;
 
 test('§②.1 截止常量存在且可被 env 覆盖（非法值回退常量，绝不静默变严）', () => {
   assert.match(PATH_EFFECTIVE_AT, /^\d{4}-\d{2}-\d{2}T/);
-  const p = mkProjCard({ id: pid(), target: '/Users/tanyu/Documents/other' });
+  const p = mkProjCard({ id: pid(), target: '/repo/other' });
   process.env.OPENCLAW_TEAM_PATH_EFFECTIVE_AT = '2099-01-01T00:00:00Z'; // 截止推到未来 ⇒ 全部 grandfather
   assert.deepEqual(checkOne(p), [], '截止推到未来 ⇒ 不报（grandfather）');
   process.env.OPENCLAW_TEAM_PATH_EFFECTIVE_AT = 'not-a-date';           // 非法 ⇒ 回退常量 ⇒ 规则照常生效
@@ -286,7 +286,7 @@ test('§②.1 截止常量存在且可被 env 覆盖（非法值回退常量，�
 });
 
 test('§②.1 非 __team__ 绝对 target（截止后）⇒ 报红 + 机读 [role]', () => {
-  const errs = checkOne(mkProjCard({ id: pid(), target: '/Users/tanyu/Documents/other-project', createdBy: 'elon' }));
+  const errs = checkOne(mkProjCard({ id: pid(), target: '/repo/other-project', createdBy: 'elon' }));
   assert.equal(errs.length, 1, JSON.stringify(errs));
   assert.match(errs[0], /越出项目边界/);
   assert.match(errs[0], /\[role] elon/);
@@ -325,7 +325,7 @@ test('§②.1 终态卡（done/failed/canceled）⇒ 规则不适用（不追溯
 });
 
 test('§②.1 project: __team__ 排除（其绝对 target 由 §⑩.4 硬门管辖）⇒ 本条不报', () => {
-  const errs = checkOne(mkProjCard({ id: pid(), project: '__team__', target: '/Users/tanyu/Documents/openclaw-team' }));
+  const errs = checkOne(mkProjCard({ id: pid(), project: '__team__', target: '/repo/openclaw-team' }));
   assert.deepEqual(errs, []);
 });
 
@@ -354,7 +354,7 @@ test('§②.1 既有 schema 分支零回归：合法非 __team__ 卡（无 targe
 });
 
 test('§②.1 CLI 子进程：非 __team__ 绝对 target ⇒ 退出码 1 且 stdout 含机读 [role]', () => {
-  const r = runCli(mkProjCard({ id: pid(), target: '/Users/tanyu/Documents/other', createdBy: 'linus' }));
+  const r = runCli(mkProjCard({ id: pid(), target: '/repo/other', createdBy: 'linus' }));
   assert.equal(r.status, 1, `stdout=${r.stdout} stderr=${r.stderr}`);
   assert.match(r.stdout, /越出项目边界/);
   assert.match(r.stdout, /\[role] linus/);

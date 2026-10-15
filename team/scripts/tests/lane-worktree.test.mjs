@@ -228,7 +228,7 @@ test('GREEN-4. 复现既有 rename 线手工形状：<repo>-wt-<lane> + 显式 -
     dryRun: true,
   });
   assert.equal(r.ok, true, JSON.stringify(r));
-  assert.equal(r.path, `${dir}-wt-meerkat`, '路径形状与 /Users/tanyu/Documents/meerkat-taskpanel-wt-meerkat 一致');
+  assert.equal(r.path, `${dir}-wt-meerkat`, '路径形状与既有手工实例 <repo>-wt-meerkat 一致');
   assert.equal(r.branch, 'rename/meerkat-taskpanel', '分支形状与既有手工 worktree 一致');
 });
 

@@ -6,7 +6,7 @@
  *   ~/Library/Application Support/MeerkatTaskPanel/runtime.json（缺失），
  * 而**旧名**目录里还留着实指针
  *   ~/Library/Application Support/TaskPanel/runtime.json，
- * 其 `dataDir` 指向**已删除的旧仓** `/Users/tanyu/Documents/task-panel/.data`，taskd 由旧路径拉起
+ * 其 `dataDir` 指向**已删除的旧仓**（形如 `<已删检出>/.data`），taskd 由旧路径拉起
  * ⇒ CLI 直连「started but never answered /health」类**静默**失败（看起来像基座挂了，其实是两个名字各写各的）。
  *
  * 本脚本是**只读诊断**：只 stat / 读 JSON / 对 pid 做 kill -0 / 可选探测 /health。

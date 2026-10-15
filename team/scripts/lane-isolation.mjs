@@ -273,7 +273,7 @@ export function scanNonTerminal(exclude = '') {
 function isFileLevel(entry, mainRepo) {
   const abs = path.resolve(mainRepo, String(entry));
   if (abs === mainRepo) return false;                       // target = 仓根
-  if (mainRepo.startsWith(abs + path.sep)) return false;     // 仓根的祖先（如 /Users/tanyu/Documents）
+  if (mainRepo.startsWith(abs + path.sep)) return false;     // 仓根的祖先（如 ~/Documents）
   return true;
 }
 

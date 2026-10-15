@@ -83,8 +83,8 @@ The mechanism is **already in use manually, and this SOP only formalizes it** �
 
 | | Manual instance (existing) | This entry (formalized) |
 |---|---|---|
-| Repo | `/Users/tanyu/Documents/meerkat-taskpanel` | same |
-| Path | `/Users/tanyu/Documents/meerkat-taskpanel-wt-meerkat` | `<repo>-wt-<lane>` — identical for `lane=meerkat` |
+| Repo | `<repo>` — the checkout the lane is taken in | same |
+| Path | `<repo>-wt-meerkat` | `<repo>-wt-<lane>` — identical for `lane=meerkat` |
 | Branch | `rename/meerkat-taskpanel` | `--branch rename/meerkat-taskpanel` reproduces it exactly |
 | Base | `5d99058` | `--base 5d99058` |
 | Card wiring | card `target` = the worktree path (`T-20261010-062341-2`) | unchanged — the card `target` is still the wiring |
