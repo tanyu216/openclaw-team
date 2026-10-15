@@ -10,13 +10,19 @@ scheduled jobs (`team/automations/providers.json` → `{team}/scripts/…`):
 | `patrol-scan.mjs` | `task-patrol` | scan for stale `in_progress` heartbeats |
 | `sla-scan.mjs [--now ISO] [--recheck f] [--check-thresholds]` | `sla-scan` | board SLA inspection over the `PROTOCOL §⑮` rows the heartbeat patrol does not cover (+ the contract's `inspector_liveness`); notify-only to the leader, `fire` only on a tier crossing, fail-closed on an unconfirmed evaluation (`team/guides/sla-inspection-contract.md`, `team/AUTOMATIONS.md` §3.8) |
 | `check-all-gate.mjs` | `team-check-all` | aggregate gate patrol, inside the evaluation budget |
-| `check-all.sh [--segment fast\|slow\|all]` | (the gate's checks; also run by hand / CI) | aggregate gate patrol |
+| `check-all.sh [--segment fast\|slow\|all] [--repo <R>\|--live]` | (the gate's checks; also run by hand / CI) | aggregate gate patrol |
 
 `check-all.sh` is the gate's **single source of checks**; `check-all-gate.mjs` is the
 **scheduled entry** that fits it inside the trigger-evaluation bound: it runs the fast
 segment in-band, folds in the cached slow-suite verdict, and refreshes that cache out of
 band (`team/AUTOMATIONS.md` §3.5.1). `--segment all` (the default) is the full historical
 run, unchanged.
+
+It runs in **two modes** — `live` (an instance is resolvable: board checks, provider
+suites, archive preview) and `repo` (**self-verification of the checkout**: syntax checks,
+the three linters over the in-repo seeds, the framework suite; instance steps skipped
+explicitly). `--repo <R>` / `--live` / `OPENCLAW_TEAM_MODE` override the autodetection, and
+the envelope reports `"mode"`. `host-paths.mjs` is the shared resolver the lint group uses.
 
 `install.sh` deploys this directory **recursively** into `{team}/scripts/`, so a
 fresh install has no dangling entry path — the former "entry-path coupling" gap
