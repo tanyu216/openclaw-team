@@ -27,9 +27,13 @@ const MOD = path.join(HERE, '..', 'lane-worktree.mjs');
 const ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-lanewt-'));
 after(() => { fs.rmSync(ROOT, { recursive: true, force: true }); });
 
-/** 建一个只含一次提交的临时仓（不自造分支，让脚本用默认分支名） */
+/**
+ * 建一个只含一次提交的临时仓（默认分支 `main`）。
+ * 缺省再建一条 `dev`（开发集成分支，`PROTOCOL §⑥.4`）——**新缺省 base**；`{dev:false}` 用于
+ * 「缺 dev ⇒ fail-closed」用例。
+ */
 let seq = 0;
-function makeRepo(name = `repo${++seq}`) {
+function makeRepo(name = `repo${++seq}`, { dev = true } = {}) {
   const dir = path.join(ROOT, name);
   fs.mkdirSync(dir, { recursive: true });
   const g = (...a) => {
@@ -44,7 +48,19 @@ function makeRepo(name = `repo${++seq}`) {
   fs.writeFileSync(path.join(dir, 'shared.txt'), 'shared\n');
   g('add', '--', 'README.md', 'shared.txt');
   g('commit', '-q', '-m', 'init');
+  if (dev) g('branch', 'dev'); // 缺省 base = dev（建在 main tip 上，既有断言不受影响）
   return { dir, g };
+}
+
+/** 在 `dev` 上追加一次提交 ⇒ 让 `dev` 领先 `main`，供「缺省 base 是 dev 而非 HEAD」用例取证。 */
+function advanceDev(dir, g) {
+  g('checkout', '-q', 'dev');
+  fs.writeFileSync(path.join(dir, 'dev-only.txt'), 'dev\n');
+  g('add', '--', 'dev-only.txt');
+  g('commit', '-q', '-m', 'dev advance');
+  const devTip = g('rev-parse', 'dev').trim();
+  g('checkout', '-q', 'main');
+  return devTip;
 }
 
 /** 该仓的 worktree 登记表（路径 → {branch,head,detached}） */
@@ -343,4 +359,65 @@ test('CLI. 末行 JSON 含 {ok,repo,lane,path,branch,created,dryRun}；退出码
   const bad = spawnSync(process.execPath, [MOD], { encoding: 'utf8' });
   assert.equal(bad.status, 2, '用法错误 ⇒ 2');
   assert.equal(JSON.parse(bad.stdout.trim().split('\n').pop()).ok, false);
+});
+
+// ── 缺省定基 = dev（开发集成分支，T-20261015-devbranch） ─────────────────────
+
+test('GREEN-6. 缺省 base = dev：dev 领先 main 时，新 lane 基于 **dev tip**（非 HEAD/main）', () => {
+  const { dir, g } = makeRepo();
+  const devTip = advanceDev(dir, g);
+  const mainTip = g('rev-parse', 'main').trim();
+  assert.notEqual(devTip, mainTip, '前置：dev 须领先 main，否则本用例无鉴别力');
+
+  const r = laneWorktree({ repo: dir, lane: 'laneA', dryRun: true });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.head, devTip, '缺省 base 应为 dev tip');
+  assert.equal(r.baseApplied, true);
+});
+
+test('GREEN-7. OPENCLAW_LANE_BASE 覆盖缺省 base（未迁移历史仓的逃生口）', () => {
+  const { dir, g } = makeRepo();
+  advanceDev(dir, g);
+  const mainTip = g('rev-parse', 'main').trim();
+
+  const prev = process.env.OPENCLAW_LANE_BASE;
+  process.env.OPENCLAW_LANE_BASE = 'main';
+  try {
+    const r = laneWorktree({ repo: dir, lane: 'laneA', dryRun: true });
+    assert.equal(r.ok, true, JSON.stringify(r));
+    assert.equal(r.head, mainTip, 'OPENCLAW_LANE_BASE=main ⇒ 基于 main');
+  } finally {
+    if (prev === undefined) delete process.env.OPENCLAW_LANE_BASE; else process.env.OPENCLAW_LANE_BASE = prev;
+  }
+});
+
+test('GREEN-8. 显式 base 优先于 dev 缺省', () => {
+  const { dir, g } = makeRepo();
+  advanceDev(dir, g);
+  const mainTip = g('rev-parse', 'main').trim();
+  const r = laneWorktree({ repo: dir, lane: 'laneA', base: 'main', dryRun: true });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.head, mainTip, '显式 --base 覆盖 dev 缺省');
+});
+
+test('REJECT. 缺 dev 分支 ⇒ fail-closed base_unresolved:dev（绝不静默回落 HEAD）', () => {
+  const { dir } = makeRepo('nodev', { dev: false });
+  const r = laneWorktree({ repo: dir, lane: 'laneA', dryRun: true });
+  assert.equal(r.ok, false, `缺 dev 必须拒绝：${JSON.stringify(r)}`);
+  assert.equal(r.reason, 'base_unresolved:dev');
+  assert.equal(fs.existsSync(`${dir}-wt-laneA`), false, '拒绝须零副作用');
+});
+
+test('GREEN-9. 附着既有 lane 分支 ⇒ 传入的 base 不生效，baseApplied:false 留痕', () => {
+  const { dir } = makeRepo();
+  const a = laneWorktree({ repo: dir, lane: 'laneA' });
+  assert.equal(a.ok, true, JSON.stringify(a));
+  laneWorktree({ repo: dir, lane: 'laneA', remove: true }); // 摘树、保留分支
+
+  const again = laneWorktree({ repo: dir, lane: 'laneA', base: 'dev', dryRun: true });
+  assert.equal(again.ok, true, JSON.stringify(again));
+  assert.equal(again.branchReused, true, '分支仍在 ⇒ 附着复用');
+  assert.equal(again.baseApplied, false, '附着路径忽略 base');
+  assert.equal(again.note, 'base_ignored_existing_branch');
+  assert.equal(again.base_requested, 'dev');
 });

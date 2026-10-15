@@ -22,8 +22,9 @@
  *      这是 ② 拒绝态的规范恢复路径（`--remove` 遗忘注册、保留分支 ⇒ 重跑即附着重建）；但目录**还在**
  *      （哪怕 `.git` 链断）一律走脏检查守卫：绝不因「登记坏了」删掉一棵可能带未提交产物的树。
  *   命名：默认 path = `<主仓目录>-wt-<lane>`；默认 branch = `lane/<lane>`（命名空间化）。
- *   定基（T-20261014-112936）：`--base <ref>` 缺省 `HEAD` —— 这是**本入口**的默认。`spawn-lane` 的
- *   自动隔离路径在「续接上一 seg」时不再用 HEAD，改传**上一 seg 分支 tip**（`lane-isolation.mjs`
+ *   定基（T-20261014-112936 / T-20261015-devbranch）：`--base <ref>` 缺省 = `OPENCLAW_LANE_BASE`
+ *   或 `dev`（开发统一集成在 `dev` 上，见 `PROTOCOL §⑥.4`；解析不到即 fail-closed）。`spawn-lane` 的
+ *   自动隔离路径在「续接上一 seg」时不用缺省，改传**上一 seg 分支 tip**（`lane-isolation.mjs`
  *   的 `deriveLaneBase`）；本入口保持无卡面知识（不猜 seg 语义），仅照传入的 `base` 建树。
  *   既有手工实例 `<repo>-wt-meerkat`（branch `rename/meerkat-taskpanel`）
  *   = 本机制的手工形状，脚本以 `--branch rename/meerkat-taskpanel` 复现同形状（增量、不改现流程）。
@@ -112,6 +113,25 @@ export const revParse = (repo, ref) => {
   return r.code === 0 ? r.stdout.trim() : null;
 };
 
+/**
+ * lane 隔离树的**缺省定基 ref**（T-20261015-devbranch）。
+ *
+ * 为什么改：开发统一集成在长期分支 `dev` 上（`PROTOCOL §⑥.4`），故缺省 base 不再是 `HEAD` 而是 `dev`。
+ * 覆盖顺序（高 → 低）：`--base <ref>`（单次）> `OPENCLAW_LANE_BASE=<ref>`（进程级，未迁移历史仓的
+ * 逃生口）> `dev`（缺省）。
+ *
+ * fail-closed：解析不到该 ref 由调用方拒绝（`base_unresolved:<ref>`），**绝不静默回落** `HEAD`/`main`
+ * ——静默错基正是本机制要消灭的失败模式（见 `lane-isolation.mjs#deriveLaneBase` 的「为什么存在」）。
+ *
+ * 单一出处：`lane-isolation.mjs` 从这里 import ⇒ 两个入口不可能各自漂移。
+ */
+export const LANE_BASE_ENV = 'OPENCLAW_LANE_BASE';
+export const LANE_BASE_DEFAULT = 'dev';
+export function defaultBase(env = process.env) {
+  const v = String((env && env[LANE_BASE_ENV]) ?? '').trim();
+  return v || LANE_BASE_DEFAULT;
+}
+
 /** 解析 CLI（位置：repo lane；flag：--branch/--path/--base 带值，--dry-run/--remove/--help 开关） */
 export function parseArgs(argv) {
   const pos = [];
@@ -151,7 +171,7 @@ export function laneWorktree(opts = {}) {
   if (!LANE_RE.test(lane)) return usage(`bad_lane:${lane}`);
   const branch = opts.branch ? String(opts.branch) : `lane/${lane}`;
   if (!validBranch(branch)) return usage(`bad_branch:${branch}`);
-  const base = opts.base ? String(opts.base) : 'HEAD';
+  const base = opts.base ? String(opts.base) : defaultBase();
 
   const mainRoot = mainRootOf(repo);
   if (!mainRoot) return reject(`not_a_git_repo:${repo}`);
@@ -238,12 +258,17 @@ export function laneWorktree(opts = {}) {
     ? ['worktree', 'add', wtPath, branch]
     : ['worktree', 'add', '-b', branch, wtPath, base];
   const cmd = ['git', '-C', mainRoot, ...args];
+  // 附着路径**忽略 `base`**（既有分支不重定基，见头 ②）。调用方传了 base 却不生效时显式留痕，免得
+  // 「我要的 base 没生效」被读成默认生效（与 `spawn-lane` 的 `base_ignored` 同词汇）。
+  const baseNote = attach
+    ? (opts.base ? { baseApplied: false, base_requested: base, note: 'base_ignored_existing_branch' } : { baseApplied: false })
+    : { baseApplied: true };
 
   const plannedHead = attach ? bHead : revParse(mainRoot, base);
   if (!plannedHead) return reject(`base_unresolved:${base}`);
 
   if (dryRun) {
-    return env({ created: true, action: 'would_create', head: plannedHead, existed: false, branchReused: attach, cmd });
+    return env({ created: true, action: 'would_create', head: plannedHead, existed: false, branchReused: attach, ...baseNote, cmd });
   }
   const r = git(mainRoot, args);
   if (r.code !== 0) return reject(`worktree_add_failed:${r.stderr.trim()}`, { cmd });
@@ -253,6 +278,7 @@ export function laneWorktree(opts = {}) {
     head: revParse(wtPath, 'HEAD') || plannedHead,
     existed: false,
     branchReused: attach,
+    ...baseNote,
     cmd,
   });
 }
@@ -260,7 +286,8 @@ export function laneWorktree(opts = {}) {
 const HELP = `用法: node scripts/lane-worktree.mjs <repo> <lane> [--branch <b>] [--path <p>] [--base <ref>] [--dry-run] [--remove]
 
 同仓并发 lane 的 worktree 隔离（幂等创建/复用；--remove 仅 clean 时清理；绝不 --force）。
-默认 path=<主仓目录>-wt-<lane>；默认 branch=lane/<lane>。见 guides/worktree-isolation-sop.md。
+默认 path=<主仓目录>-wt-<lane>；默认 branch=lane/<lane>；默认 base=dev（开发集成分支，
+PROTOCOL §⑥.4；可用 --base 或 OPENCLAW_LANE_BASE 覆盖，解析不到即拒绝）。见 guides/worktree-isolation-sop.md。
 
 示例:
   node scripts/lane-worktree.mjs /path/to/repo laneA --dry-run            # 预演，零副作用

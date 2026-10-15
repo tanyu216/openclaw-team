@@ -20,10 +20,10 @@
  *      不隔离读者；复核靠 pin commit，不靠占树）。
  *   非终态 = `todo | in_progress | blocked | in_review`（可写四态；`done`/`canceled` 终态）。
  *
- * **隔离树的定基**（T-20261014-112936，`deriveLaneBase`）：建树基准不再恒为 `HEAD`——**续接上一 seg**
- * （多 seg 续做 / 打回续做）时取**上一 seg 的 lane 分支 tip**，否则退回 `HEAD`（首 seg 行为不变）；
- * 显式 `--base <ref>` 优先，且**不可解析即拒绝**（显式意图绝不静默回落）。详见 `deriveLaneBase` 的
- * 「为什么存在」。
+ * **隔离树的定基**（T-20261014-112936；T-20261015-devbranch，`deriveLaneBase`）：建树基准不再是 `HEAD`
+ * ——**续接上一 seg**（多 seg 续做 / 打回续做）时取**上一 seg 的 lane 分支 tip**，否则退回**缺省 base**
+ * （`OPENCLAW_LANE_BASE` 或 `dev`，开发集成分支，`PROTOCOL §⑥.4`）；显式 `--base <ref>` 优先，且
+ * **不可解析即拒绝**（显式意图与缺省 base 都绝不静默回落）。详见 `deriveLaneBase` 的「为什么存在」。
  *
  * 只读性：本模块自身只用**只读 git**（`rev-parse` / `worktree list`）与只读扫描（读卡不写卡）；
  * 唯一的写动作是把具体创建**委托**给 `lane-worktree.mjs`（幂等、禁一切破坏性 git）。**绝不写卡、
@@ -39,7 +39,7 @@ import { spawnSync } from 'node:child_process';
 import { TASKS_DIR, CARD_ID_RE, TEAM_ROOT, parseFrontmatter, getProject } from './lib.mjs';
 import { resolveWriteSet } from './samefile-guard.mjs';
 import { isNonTerminal } from './status.mjs';
-import { laneWorktree, branchHead, revParse } from './lane-worktree.mjs';
+import { laneWorktree, branchHead, revParse, defaultBase } from './lane-worktree.mjs';
 
 /** 回退开关（env）：`OPENCLAW_LANE_ISOLATION=0|off|false` ⇒ 关闭自动隔离（回到显式纪律路径）。 */
 export const ISOLATION_ENV = 'OPENCLAW_LANE_ISOLATION';
@@ -121,13 +121,14 @@ const baseEvidence = (b) => ({
  *      静默回落 HEAD 正是本卡要消灭的失败模式；
  *   ② **上一 seg 的 lane 分支 tip**（`lane/<card>-<seg>`，按 `prevSegCandidates` 顺序取第一个存在的）。
  *      分支在 `--remove` 后**保留**（`worktree-isolation-sop.md §7`）⇒ 前驱 seg 的已提交产物正是活证据；
- *   ③ `HEAD`（缺省，与修复前行为一致）——首 seg / 无前驱可循时。**若本次确实是续接**
- *      （`prevSegCandidates` 非空）却一个前驱分支都没找到（前段未隔离过 / 分支被删），额外回
- *      `fallback:'no_prev_seg_branch'` —— 回落本身仍是旧行为，但**不静默**：调用方/复核者能从
+ *   ③ 缺省 base（`OPENCLAW_LANE_BASE` 或 `dev`，见 `lane-worktree.mjs#defaultBase` / `PROTOCOL §⑥.4`）
+ *      —— 首 seg / 无前驱可循时；**解析不到 ⇒ 返回 error**（与①同样 fail-closed，绝不静默回落 `HEAD`）。
+ *      **若本次确实是续接**（`prevSegCandidates` 非空）却一个前驱分支都没找到（前段未隔离过 / 分支被删），
+ *      额外回 `fallback:'no_prev_seg_branch'` —— 基仍是缺省 base，但**不静默**：调用方/复核者能从
  *      `isolation.base` 看出「这次续接没有接上任何前段产物」。
  *
  * 只读：只用 `rev-parse` 探测，不建树、不改仓。
- * @returns {{ref:string,source:'explicit'|'prev_seg'|'head',resolved:string|null,prev_seg?:string,
+ * @returns {{ref:string,source:'explicit'|'prev_seg'|'default',resolved:string|null,prev_seg?:string,
  *            fallback?:'no_prev_seg_branch',candidates:string[]}
  *          | {error:string,candidates:string[]}}
  */
@@ -145,10 +146,13 @@ export function deriveLaneBase({ repo, taskId = '', seg = '', sessions = [], bas
     const tip = branchHead(repo, branch);
     if (tip) return { ref: branch, source: 'prev_seg', prev_seg: c, resolved: tip, candidates };
   }
+  const def = defaultBase();
+  const sha = revParse(repo, def);
+  if (!sha) return { error: `base_unresolved:${def}`, candidates };
   return {
-    ref: 'HEAD',
-    source: 'head',
-    resolved: revParse(repo, 'HEAD'),
+    ref: def,
+    source: 'default',
+    resolved: sha,
     candidates,
     ...(candidates.length ? { fallback: 'no_prev_seg_branch' } : {}),
   };
