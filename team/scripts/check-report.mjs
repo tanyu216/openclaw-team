@@ -41,7 +41,7 @@
  *        是唯一权威。**仓内副本必须保持 `cards: []`**（「仓内不得夹带豁免」是被单测钉住的不变量；
  *        与 idem 的托管模板同款）。**运行时登记一律不写此文件**。
  *     ② **运行时登记** `runtimeBaselinePath(tasksDir)` = `<被巡检的 tasks 目录>/.report-baseline.json`
- *        （`RUNTIME_BASELINE_NAME`）：`install.sh` 跳过 `tasks/`、防漂移巡检亦排除 `tasks/` ⇒
+ *        （`RUNTIME_BASELINE_NAME`）：`install.sh` 不部署 `tasks/` ⇒
  *        不属任何部署树 ⇒ **升级不清回登记**；且随 `tasksDir` 派生 ⇒ 单测隔离 root 自动读到空登记。
  *   生效登记 = ① ∪ ②（`loadExemptions`）。登记项形状 `{ id, gaps: [...], reason }`——`reason` 是
  *   **必填**且去空白后 ≥8 字符（D5，见 `validExemption`）：`gaps` 只能证明「缺口集合没变」，
