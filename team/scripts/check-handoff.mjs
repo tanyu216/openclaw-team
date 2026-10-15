@@ -14,13 +14,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseFrontmatter, TASKS_DIR } from './lib.mjs';
+import { isInFlight } from './status.mjs';
 
 const TEAM = path.dirname(TASKS_DIR);
 
 /** 规范 handoff 的四锚（与 task.handoff 生成物 + spawn-lane 入口自检同口径） */
 export const ANCHORS = ['HANDOFF:v1', '## 任务卡', '## 上段结论', '## 讨论/决策', 'state.md'];
-/** 门禁扩面覆盖的在途状态（handoff 已存在时才判；缺失由 A 类「已登记 seg」负责） */
-export const IN_FLIGHT_STATUSES = ['in_progress', 'in_review'];
+// 门禁扩面覆盖的在途状态（handoff 已存在时才判；缺失由 A 类「已登记 seg」负责）：
+// 判据现由 `scripts/status.mjs#isInFlight` 单点持有。
 
 /** 四锚缺失清单（空 = 合规）。文本入参，供门禁与 spawn 入口共用，避免口径漂移。 */
 export function anchorGaps(text) {
@@ -68,7 +69,7 @@ export function checkHandoff({ tasksDir = TASKS_DIR, team = TEAM } = {}) {
     }
 
     // B. 门禁扩面：在途卡且 handoff 已存在 ⇒ 亦须合规（拦「绕过 ACL 直跑 spawn」的手写件）
-    if (exists && IN_FLIGHT_STATUSES.includes(String(fm && fm.status))) {
+    if (exists && isInFlight(fm && fm.status)) {
       if (segAnchorFailed) continue; // A 已就同一卡报出缺锚，避免重复
       checked++;
       const miss = gapsNow();

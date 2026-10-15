@@ -7,11 +7,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseFrontmatter, TASKS_DIR, splitWrites, escapeReason } from './lib.mjs';
+import { READ_STATUSES, isTerminal } from './status.mjs';
 
 const TASKS = TASKS_DIR;
 const MAX_CARD_BYTES = 1_000_000;
-// 读侧白名单：canonical 7（PROTOCOL.md §①）∪ 旧词别名 {ready, failed}（别名只在读侧容错，永不回写）。
-export const STATUS = ['backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done', 'canceled', 'ready', 'failed'];
+// 读侧白名单来自 `scripts/status.mjs#READ_STATUSES`（canonical 7 ∪ 旧词别名 {ready, failed}）。
 const ASSIGNEES = ['elon', 'jobs', 'linus', 'turing', 'assistant'];
 export const PRIORITY = ['low', 'medium', 'high', 'urgent'];
 const REQUIRED = ['id', 'title', 'assignee', 'status', 'goal', 'project'];
@@ -23,15 +23,15 @@ const REQUIRED = ['id', 'title', 'assignee', 'status', 'goal', 'project'];
  */
 export const TEAM_PROJECT = '__team__';
 /**
- * 终态（历史卡，**不追溯**）：`done` ∪ 旧词别名 `failed` ∪ canonical `canceled`（与 provider
- * `lib/task.mjs` 的 `TERMINAL_STATUSES` 同口径）。`__team__` 缺 `target` 报红规则域 = **非终态**
- * （T-20261013-023535-2）：门禁目的是捕获**卡时**缺陷，历史终态旧卡已永不 spawn-lane，
- * 回落报红 = 噪声 ⇒ grandfather。
- * 非终态按**排除法**判定（`!TERMINAL.includes(status)`），故 `todo`（canonical）/`ready`（旧词）
- * 与 `backlog` 均在域内——`ready`/`todo` 会被 `spawn-lane` exec 自动 claim 后直接 spawn，
- * 缺 target 正是落 `cwd=live` 的口子，必须覆盖。
+ * 终态判据（历史卡，**不追溯**）来自 `scripts/status.mjs`（`TERMINAL` / `isTerminal`，与 provider
+ * `lib/task.mjs` 的 `TERMINAL_STATUSES` 同口径）。
+ *
+ * `__team__` 缺 `target` 报红规则域 = **非终态**（T-20261013-023535-2）：门禁目的是捕获**卡时**
+ * 缺陷，历史终态旧卡已永不 spawn-lane，回落报红 = 噪声 ⇒ grandfather。非终态按**排除法**判定
+ * （`!isTerminal(status)`），故 `todo`（canonical）/`ready`（旧词）与 `backlog` 均在域内——
+ * `ready`/`todo` 会被 `spawn-lane` exec 自动 claim 后直接 spawn，缺 target 正是落 `cwd=live`
+ * 的口子，必须覆盖。
  */
-export const TERMINAL = ['done', 'failed', 'canceled'];
 
 /**
  * 项目内路径 containment 门禁（PROTOCOL §②.1）：非 `__team__` 卡的 `target`/`writes` 必须是
@@ -55,7 +55,7 @@ export const TERMINAL = ['done', 'failed', 'canceled'];
  *   相对（等价形态 `.`，`resolveCwd` 结果不变、纯 no-op）后，本截止可收紧到部署日。
  *
  * `created_at` 缺失/不可解析 ⇒ 同按 grandfather（保守：绝不因缺字段转红；口径同 check-report.mjs）。
- * 规则域 = **非终态**（`!TERMINAL.includes(status)`，故 `backlog` 亦在域内）；`project: __team__`
+ * 规则域 = **非终态**（`!isTerminal(status)`，故 `backlog` 亦在域内）；`project: __team__`
  * 排除（其 target 绝对形态由 §⑩.4 硬门管辖，见上）。
  */
 export const PATH_EFFECTIVE_AT = '2026-11-01T00:00:00Z';
@@ -74,7 +74,7 @@ export function pathEffectiveAt() {
  */
 export function pathViolations(fm) {
   if (!fm || fm.project === TEAM_PROJECT) return [];
-  if (TERMINAL.includes(fm.status)) return [];
+  if (isTerminal(fm.status)) return [];
   // created_at 宽容读法：lib.mjs 的 parseFrontmatter 已做 JSON 反转义，此处再剥一层裸引号，
   // 使直接以「原样 frontmatter 值」调用本函数（单测/外部脚本）也能解析。
   const created = Date.parse(String(fm.created_at ?? '').trim().replace(/^"|"$/g, ''));
@@ -98,14 +98,14 @@ export function checkOne(p) {
   const errs = [];
   if (raw.length > MAX_CARD_BYTES) errs.push(`卡体积异常 ${raw.length}B (>${MAX_CARD_BYTES})`);
   for (const k of REQUIRED) if (!fm[k]) errs.push(`缺必填字段 ${k}`);
-  if (fm.status && !STATUS.includes(fm.status)) errs.push(`非法 status: ${fm.status}`);
+  if (fm.status && !READ_STATUSES.includes(fm.status)) errs.push(`非法 status: ${fm.status}`);
   if (fm.assignee && !ASSIGNEES.includes(fm.assignee)) errs.push(`非法 assignee: ${fm.assignee}`);
   if (fm.priority && !PRIORITY.includes(fm.priority)) errs.push(`非法 priority: ${fm.priority}`);
   if (fm.status === 'in_progress' && !fm.claimed_by) errs.push('in_progress 但缺 claimed_by');
   // `project=__team__` 卡 target 必填（§⑩.4 约定）：缺 target ⇒ spawn-lane 默认 cwd=live。
   // 规则域限**非终态**（T-20261013-023535-2）：终态历史卡 grandfather、不追溯转红。
   // 报错串带机读 `[role] <归口>` 标签（归口 = 建卡人 created_by，缺省 elon——carding 硬门责任人）。
-  if (fm.project === TEAM_PROJECT && !TERMINAL.includes(fm.status) && !String(fm.target ?? '').trim()) {
+  if (fm.project === TEAM_PROJECT && !isTerminal(fm.status) && !String(fm.target ?? '').trim()) {
     const role = fm.created_by || 'elon';
     errs.push(`project=__team__ 缺 target [role] ${role}（carding 缺陷：spawn-lane 否则默认 cwd=live ~/.openclaw/team）`);
   }

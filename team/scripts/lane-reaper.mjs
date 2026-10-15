@@ -41,7 +41,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn as spawnChild } from 'node:child_process';
 import { TEAM_ROOT } from './lib.mjs';
-import { closeLaneSession, cardStatusOf, terminalStatusFor, laneProcessAlive, rowStateOf, appendAudit } from './session-lifecycle.mjs';
+import { closeLaneSession, cardStatusOf, laneProcessAlive, rowStateOf, appendAudit } from './session-lifecycle.mjs';
+import { sessionTerminalForCard } from './status.mjs';
 
 /** 默认轮询间隔（ms）：看守是空闲进程，2s 的判活粒度远小于任何 lane 的收口时延。 */
 export const REAPER_INTERVAL_MS = 2000;
@@ -134,7 +135,7 @@ export function armLaneReaper({ card, seg, pid, owner = '', intervalMs = REAPER_
 /** 一次收口尝试（pid 已死时调用）：状态由 `--status` 或卡面推导；`dryRun` 只报不做。 */
 export async function reapOnce({ card, seg, pid = null, status = '', source = 'lane-reaper', dryRun = false }) {
   const cardStatus = cardStatusOf(card);
-  const st = status || terminalStatusFor(cardStatus);
+  const st = status || sessionTerminalForCard(cardStatus);
   const before = rowStateOf(card, seg);
   if (!before) return { ok: false, action: 'error', reason: 'seg_row_missing', seg, cardStatus };
   if (before.status !== 'running') {

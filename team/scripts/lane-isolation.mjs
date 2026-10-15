@@ -37,7 +37,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { TASKS_DIR, CARD_ID_RE, TEAM_ROOT, parseFrontmatter, getProject } from './lib.mjs';
-import { NON_TERMINAL, resolveWriteSet } from './samefile-guard.mjs';
+import { resolveWriteSet } from './samefile-guard.mjs';
+import { isNonTerminal } from './status.mjs';
 import { laneWorktree, branchHead, revParse } from './lane-worktree.mjs';
 
 /** 回退开关（env）：`OPENCLAW_LANE_ISOLATION=0|off|false` ⇒ 关闭自动隔离（回到显式纪律路径）。 */
@@ -236,7 +237,7 @@ const idList = (ids) => (ids.length > 3 ? `${ids.slice(0, 3).join(',')}+${ids.le
 
 /**
  * 扫描看板**非终态**卡（只读；排除 `exclude`）。
- * 与 `scripts/samefile-guard.mjs` 的扫描口径一致（同 `NON_TERMINAL` 集合），但**不过滤**无写集的卡——
+ * 与 `scripts/samefile-guard.mjs` 的扫描口径一致（同 `status.mjs#isNonTerminal`），但**不过滤**无写集的卡——
  * 无写集只影响「同文件」判定，不影响「同仓」判定（一张没声明写集的非终态卡仍是同仓并发写者）。
  * @returns {{id:string,status:string,fm:object,writes:string[]}[]}
  */
@@ -253,7 +254,7 @@ export function scanNonTerminal(exclude = '') {
     } catch {
       continue;
     }
-    if (!fm || !fm.id || !NON_TERMINAL.has(String(fm.status))) continue;
+    if (!fm || !fm.id || !isNonTerminal(fm.status)) continue;
     out.push({ id, status: String(fm.status), fm, writes: resolveWriteSet(fm) });
   }
   return out;

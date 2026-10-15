@@ -4,7 +4,9 @@
  * 依据：PROTOCOL §㉙.8「巡检加『重复 key』校验」；guides/task-interface.md §14。
  *
  * 口径：按 `idem = <kind> | <assignee> | <source> | <target>`（source = review_of ‖ parent）
- * 对**非终态**（ready/in_progress/in_review/blocked）卡分组，仅处理组内 >1 的组。
+ * 对**非终态**卡分组（判据 = `scripts/status.mjs#isNonTerminal`：todo/ready/in_progress/blocked/
+ * in_review），仅处理组内 >1 的组。**行为变更**：修前取 provider 的 `NON_TERMINAL`，而该集用旧词
+ * `ready` 且缺 canonical `todo` ⇒ `status: todo` 的卡对幂等巡检完全隐形。
  *
  * **无 source（无 review_of 且无 parent）⇒ 不产键**（`idemKey` 返回空串）⇒ 不参与机械判重、
  * 扫描时直接跳过（同项目同人不再误撞）；机械判重仅对「有 source」的卡兜底（review_of/子卡）。
@@ -56,10 +58,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseFrontmatter, TASKS_DIR, TASK_OPS_DIR } from './lib.mjs';
+import { isNonTerminal } from './status.mjs';
 
-// provider 依赖显式化（方案②启动期硬失败）：idemKey/NON_TERMINAL 来自 provider ACL 库
+// provider 依赖显式化（方案②启动期硬失败）：**仅** idemKey 来自 provider ACL 库
 // skills/task-ops/lib/task.mjs（provider 拥有、有意不随仓）。缺失 ⇒ 明确错误 + 非零退出。
 // 注：lib.mjs 已对 team-paths/projects 做启动硬失败；此处补齐 task.mjs（同族文件）的显式化。
+// 非终态判据已不再取 provider 的集合（其陈旧：用旧词 ready 且缺 canonical todo），改用
+// `status.mjs#isNonTerminal`（见文件头「行为变更」）。
 const TASK_MJS = path.join(TASK_OPS_DIR, 'lib', 'task.mjs');
 if (!fs.existsSync(TASK_MJS)) {
   console.error(
@@ -68,7 +73,7 @@ if (!fs.existsSync(TASK_MJS)) {
   );
   process.exit(1);
 }
-const { idemKey, NON_TERMINAL } = await import(pathToFileURL(TASK_MJS).href);
+const { idemKey } = await import(pathToFileURL(TASK_MJS).href);
 
 export const BASELINE_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), 'idem-baseline.json');
 
@@ -120,7 +125,7 @@ export function scanIdem(tasksDir = TASKS_DIR, { baseline } = {}) {
       try { ({ fm } = parseFrontmatter(fs.readFileSync(path.join(tasksDir, f), 'utf8'))); } catch { continue; }
       if (!fm) continue;
       const id = fm.id || f.replace(/\.md$/, '');
-      if (!NON_TERMINAL.has(fm.status)) continue;
+      if (!isNonTerminal(fm.status)) continue;
       const key = idemKey({ ...fm, id });
       if (!key) continue; // 无 source ⇒ 不产键，跳过（不参与机械判重）
       if (!groups.has(key)) groups.set(key, { cards: [], genuine: false });

@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import * as boardAdapter from './board-adapter.mjs';
+import { isNew } from './status.mjs';
 
 // ── provider 依赖显式化（T-20261009-211234-providerdecouple · 方案②启动期硬失败）──
 // 路径常量来自 provider ACL 库 skills/task-ops/lib/team-paths.mjs（provider 拥有、有意不随仓
@@ -389,13 +390,9 @@ function mkdirLock(lockDir) {
   }
 }
 
-// 领取守卫的状态归类：规范词表（skills/task-ops/lib/task.mjs：#CANONICAL_STATUSES 含 `todo`；
-// `ready` 仅见于 #STATUS_ALIASES，是兼容别名）与守卫原实现两处口径曾不一致——守卫只认字面量
-// `ready`，反把**规范值** `todo` 挡在门外（T-20261014-204530：卡被送回为 `todo` 后 claim 静默
-// `status=todo` 拒领，换人/换脚本即卡死）。归一：`todo`（规范）与 `ready`（兼容别名）**同视为
-// new**；仅此二者，不引入第三种语义。
-export const NEW_STATUSES = new Set(['todo', 'ready']);
-export const isNewStatus = (s) => NEW_STATUSES.has(s);
+// 领取守卫的状态归类：规范词 `todo` 与兼容别名 `ready` **同视为 new**（守卫原实现只认字面量
+// `ready`，反把规范值 `todo` 挡在门外 —— T-20261014-204530：卡被送回 `todo` 后 claim 静默
+// `status=todo` 拒领，换人/换脚本即卡死）。该口径现由 `scripts/status.mjs#isNew` 单点持有。
 
 /** 尝试清理陈旧锁；返回 true=已清理（可重试加锁） */
 function clearStaleLockIfAllowed(lockDir, fm, now) {
@@ -409,7 +406,7 @@ function clearStaleLockIfAllowed(lockDir, fm, now) {
   // 锁陈旧（>15min）：卡仍 new（todo/ready）→ 删锁重试；卡 in_progress 且心跳过期 → 删锁交恢复路径
   const hb = parseIso(fm.heartbeat_at);
   const hbStale = Number.isNaN(hb) ? true : now - hb > CLAIM_STALE_SAME_MS;
-  if (isNewStatus(fm.status) || (fm.status === 'in_progress' && hbStale)) {
+  if (isNew(fm.status) || (fm.status === 'in_progress' && hbStale)) {
     try {
       fs.rmdirSync(lockDir);
       return true;
@@ -480,7 +477,7 @@ export function claimCard(cardArg, assignee) {
   if (fm.assignee !== assignee) return { ok: false, reason: `wrong_assignee(assignee=${fm.assignee})` };
 
   let mode;
-  if (isNewStatus(fm.status)) {
+  if (isNew(fm.status)) {
     mode = 'new';
   } else if (fm.status === 'in_progress') {
     const hb = parseIso(fm.heartbeat_at);
@@ -522,7 +519,7 @@ export function claimCard(cardArg, assignee) {
   try {
     // 抢锁成功后重新读卡（期间状态可能已变），二次校验
     ({ fm, body } = readCard(cardPath));
-    if (!(isNewStatus(fm.status) || fm.status === 'in_progress')) {
+    if (!(isNew(fm.status) || fm.status === 'in_progress')) {
       return { ok: false, reason: `status_changed(${fm.status})`, card: fm };
     }
     if (fm.status === 'in_progress') {

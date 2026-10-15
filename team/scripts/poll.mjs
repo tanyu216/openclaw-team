@@ -32,7 +32,6 @@ import {
   AGENTS,
   CARD_ID_RE,
   isAutoClaimableKind,
-  isNewStatus,
   CLAIM_STALE_SAME_MS,
   CLAIM_STALE_ANY_MS,
   parseIso,
@@ -43,6 +42,7 @@ import {
 import { activeSessions, formatActiveReason, loadRegistry, isPidAlive } from './registry.mjs';
 import { pollRunMessage } from './poll-run.mjs';
 import { parseSessionRows, laneRow, classifyClaimBlock } from './session-lifecycle.mjs';
+import { isNew } from './status.mjs';
 
 /** 并发额度（PROTOCOL §⑥ 第 2 条 / §⑥.3）：Linus/Jobs=8、Turing=3；其余 agent 未定义 */
 export const CONCURRENCY_QUOTA = { linus: 8, jobs: 8, turing: 3 };
@@ -73,7 +73,7 @@ function createdMs(fm, filePath) {
  * 只读扫描候选：new（`todo` 规范值 / `ready` 兼容别名，assignee=自己）优先，其次陈旧恢复
  * （>30min 同 agent / >6h 任意）。
  *
- * 状态判据走 `lib.mjs#isNewStatus`（单一真源，与 `claimCard` 归一语义同源）——**不得**在此写裸
+ * 状态判据走 `status.mjs#isNew`（单一真源，`lib.claimCard` 同取该判据）——**不得**在此写裸
  * `ready` 字面量：原实现的裸判据把**规范值** `todo` 挡在自动候选面外（T-20261014-205709，与
  * T-20261014-204530 的 claim 守卫同根）。
  *
@@ -115,7 +115,7 @@ export function scanCandidatesDetailed(assignee, { registry = null } = {}) {
     if (!fm || !fm.id || fm.assignee !== assignee) continue;
     if (!isAutoClaimableKind(fm)) continue; // 部署类卡：不自动领取（显式派发仍可，见 lib.mjs）
     let cand = null;
-    if (isNewStatus(fm.status)) cand = { reason: 'new', rank: 0 };
+    if (isNew(fm.status)) cand = { reason: 'new', rank: 0 };
     else if (fm.status === 'in_progress') {
       const hb = parseIso(fm.heartbeat_at);
       const age = Number.isNaN(hb) ? Infinity : now - hb;
