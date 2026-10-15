@@ -149,6 +149,40 @@ function quoteIfNeeded(v) {
   return /[:#"']|^\s|\s$|^$/.test(v) ? JSON.stringify(v) : v;
 }
 
+// ---------- 项目内路径口径（PROTOCOL §②.1 的机械基元） ----------
+/**
+ * 写集分割 —— `writes` 口径的**唯一持有者**（`samefile-guard.mjs` 与 `check-card.mjs` 共用，
+ * 避免两处政策漂移）。数组直接取；字符串剥 `[]`/引号后按逗号切；其余（数字/布尔/undefined）⇒ 空集。
+ */
+export function splitWrites(raw) {
+  if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
+  if (typeof raw !== 'string') return [];
+  const s = raw.trim().replace(/^\[|\]$/g, '').replace(/["']/g, '');
+  if (!s) return [];
+  return s.split(',').map((x) => x.trim()).filter(Boolean);
+}
+
+/**
+ * 项目内相对路径判定（PROTOCOL §②.1）：返回 null（合法）或人读逃逸原因。
+ * 判据：① 绝对路径 `/…`；② 本机锚 `~…`；③ 盘符绝对 `C:\`/`C:/`；④ **段归一后越出起点**的相对路径
+ * —— 看的是 `..` 出现在**任意位置**，不只看开头（`/^\.\.\//` 会把 `a/../../b` 漏过去）。
+ * 纯字面：不触盘、不解析符号链接（symlink 越界由运行期 realpath containment 兜，见 §②.1）。
+ */
+export function escapeReason(v) {
+  const s = String(v ?? '').trim();
+  if (!s) return null;
+  if (s.startsWith('/')) return '绝对路径';
+  if (s.startsWith('~')) return '本机锚路径（~）';
+  if (/^[A-Za-z]:[\\/]/.test(s)) return '盘符绝对路径';
+  let depth = 0;
+  for (const seg of s.replace(/\\/g, '/').split('/')) {
+    if (seg === '' || seg === '.') continue;
+    if (seg === '..') { if (--depth < 0) return '相对路径越界（../ 逃逸）'; }
+    else depth++;
+  }
+  return null;
+}
+
 // ---------- 任务卡 IO ----------
 export function cardPathOf(arg) {
   // 入参：绝对路径 或 卡 id（T-…）；返回规范绝对路径
