@@ -34,10 +34,10 @@ const SKIP = PROVIDER
 const test = SKIP ? nodeTest.skip : nodeTest;
 
 // provider 依赖为**条件动态 import**：缺 provider 时 check-card.mjs/lib.mjs 在 import 期即硬红。
-let checkOne, STATUS, PRIORITY, TERMINAL;
+let checkOne, STATUS, PRIORITY, TERMINAL, pathViolations, PATH_EFFECTIVE_AT;
 if (PROVIDER) {
   process.env.OPENCLAW_TASK_OPS_DIR = PROVIDER;
-  ({ checkOne, STATUS, PRIORITY, TERMINAL } = await import('../check-card.mjs'));
+  ({ checkOne, STATUS, PRIORITY, TERMINAL, pathViolations, PATH_EFFECTIVE_AT } = await import('../check-card.mjs'));
 }
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-cc-'));
@@ -250,4 +250,112 @@ test('CLI 扫描全部模式：tasks 目录不存在 ⇒ 0 张通过', () => {
   assert.equal(r.status, 0, `stdout=${r.stdout}`);
   assert.match(r.stdout, /0 张/);
   fs.rmSync(root, { recursive: true, force: true });
+});
+
+// ── 项目内路径 containment：非 __team__ 卡的 target/writes 须项目内相对（PROTOCOL §②.1） ──
+const AFTER = '2026-12-01T00:00:00Z';  // 截止之后 ⇒ 规则生效
+const BEFORE = '2026-01-01T00:00:00Z'; // 截止之前 ⇒ grandfather
+
+/**
+ * 造一张**非 `__team__`** 项目的卡（`mkCard` 硬编码 `project: __team__`、不写 created_at ⇒ 走不到
+ * 本规则；此处另立 fixture，避免既有用例位移）。createdAt 传 null ⇒ 不含 created_at 字段。
+ */
+function mkProjCard({ id, project = 'example-app', target = '', writes = '', status = 'ready', createdAt = AFTER, createdBy = 'elon' } = {}) {
+  const lines = ['---', `id: ${id}`, 'title: t', 'assignee: linus', `status: ${status}`, 'goal: g', `project: ${project}`];
+  if (target) lines.push(`target: ${target}`);
+  if (writes) lines.push(`writes: ${writes}`);
+  if (createdAt) lines.push(`created_at: ${createdAt}`);
+  if (createdBy) lines.push(`created_by: ${createdBy}`);
+  if (status === 'in_progress') lines.push('claimed_by: linus');
+  lines.push('---', '## Report', '');
+  const p = path.join(TMP, `${id}.md`);
+  fs.writeFileSync(p, lines.join('\n'), 'utf8');
+  return p;
+}
+let pseq = 0;
+const pid = () => `T-20260101-4${String(pseq++).padStart(5, '0')}-pth`;
+
+test('§②.1 截止常量存在且可被 env 覆盖（非法值回退常量，绝不静默变严）', () => {
+  assert.match(PATH_EFFECTIVE_AT, /^\d{4}-\d{2}-\d{2}T/);
+  const p = mkProjCard({ id: pid(), target: '/Users/tanyu/Documents/other' });
+  process.env.OPENCLAW_TEAM_PATH_EFFECTIVE_AT = '2099-01-01T00:00:00Z'; // 截止推到未来 ⇒ 全部 grandfather
+  assert.deepEqual(checkOne(p), [], '截止推到未来 ⇒ 不报（grandfather）');
+  process.env.OPENCLAW_TEAM_PATH_EFFECTIVE_AT = 'not-a-date';           // 非法 ⇒ 回退常量 ⇒ 规则照常生效
+  assert.equal(checkOne(p).length, 1, '非法 env 不得静默放宽规则');
+  delete process.env.OPENCLAW_TEAM_PATH_EFFECTIVE_AT;
+});
+
+test('§②.1 非 __team__ 绝对 target（截止后）⇒ 报红 + 机读 [role]', () => {
+  const errs = checkOne(mkProjCard({ id: pid(), target: '/Users/tanyu/Documents/other-project', createdBy: 'elon' }));
+  assert.equal(errs.length, 1, JSON.stringify(errs));
+  assert.match(errs[0], /越出项目边界/);
+  assert.match(errs[0], /\[role] elon/);
+  assert.match(errs[0], /绝对路径/);
+});
+
+test('§②.1 逃逸形态逐一遍历：../ 开头 / 中段 ../ / ~ 本机锚 / 盘符 ⇒ 皆红', () => {
+  const cases = [
+    ['../other-project', /相对路径越界/],
+    ['a/../../b', /相对路径越界/], // 关键：`..` 不在开头，只看前缀的正则会漏
+    ['~/.openclaw/team', /本机锚路径/],
+    ['C:\\work\\x', /盘符绝对路径/],
+  ];
+  for (const [target, re] of cases) {
+    const errs = checkOne(mkProjCard({ id: pid(), target }));
+    assert.equal(errs.length, 1, `${target}: ${JSON.stringify(errs)}`);
+    assert.match(errs[0], re, target);
+  }
+});
+
+test('§②.1 项目内相对 target ⇒ 不报（含 ./ 与深层相对）', () => {
+  for (const target of ['team/scripts/x.mjs', './x', 'a/b/c', '.', 'src/']) {
+    assert.deepEqual(checkOne(mkProjCard({ id: pid(), target })), [], `${target} 应合法`);
+  }
+});
+
+test('§②.1 created_at 早于截止 ⇒ grandfather；缺 created_at ⇒ 同按 grandfather（保守）', () => {
+  assert.deepEqual(checkOne(mkProjCard({ id: pid(), target: '/abs/x', createdAt: BEFORE })), []);
+  assert.deepEqual(checkOne(mkProjCard({ id: pid(), target: '/abs/x', createdAt: null })), []);
+});
+
+test('§②.1 终态卡（done/failed/canceled）⇒ 规则不适用（不追溯历史）', () => {
+  for (const status of ['done', 'failed', 'canceled']) {
+    assert.deepEqual(checkOne(mkProjCard({ id: pid(), target: '/abs/x', status })), [], `${status} 应 grandfathered`);
+  }
+});
+
+test('§②.1 project: __team__ 排除（其绝对 target 由 §⑩.4 硬门管辖）⇒ 本条不报', () => {
+  const errs = checkOne(mkProjCard({ id: pid(), project: '__team__', target: '/Users/tanyu/Documents/openclaw-team' }));
+  assert.deepEqual(errs, []);
+});
+
+test('§②.1 writes 逐元素：只报越界那一项，合法项不连带', () => {
+  const errs = checkOne(mkProjCard({ id: pid(), writes: '/abs/x, ./rel' }));
+  assert.equal(errs.length, 1, JSON.stringify(errs));
+  assert.match(errs[0], /writes 越出项目边界/);
+  assert.match(errs[0], /\/abs\/x/);
+});
+
+test('§②.1 target 与 writes 各越界 ⇒ 各报一条（不合并、不吞）', () => {
+  const errs = checkOne(mkProjCard({ id: pid(), target: '/abs/t', writes: '../w' }));
+  assert.equal(errs.length, 2, JSON.stringify(errs));
+  assert.match(errs[0], /target 越出项目边界/);
+  assert.match(errs[1], /writes 越出项目边界/);
+});
+
+test('§②.1 pathViolations 可独立调用（缺 fm / 空值 ⇒ 空集，不抛）', () => {
+  assert.deepEqual(pathViolations(null), []);
+  assert.deepEqual(pathViolations({}), []);
+  assert.deepEqual(pathViolations({ project: 'example-app', created_at: AFTER, target: '' }), []);
+});
+
+test('§②.1 既有 schema 分支零回归：合法非 __team__ 卡（无 target）仍通过', () => {
+  assert.deepEqual(checkOne(mkProjCard({ id: pid(), createdAt: null })), []);
+});
+
+test('§②.1 CLI 子进程：非 __team__ 绝对 target ⇒ 退出码 1 且 stdout 含机读 [role]', () => {
+  const r = runCli(mkProjCard({ id: pid(), target: '/Users/tanyu/Documents/other', createdBy: 'linus' }));
+  assert.equal(r.status, 1, `stdout=${r.stdout} stderr=${r.stderr}`);
+  assert.match(r.stdout, /越出项目边界/);
+  assert.match(r.stdout, /\[role] linus/);
 });

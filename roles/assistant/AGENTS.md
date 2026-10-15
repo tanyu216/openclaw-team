@@ -12,7 +12,7 @@
 - Messages tagged `[Inter-session message]` coming from agent:main:main = Elon dispatch (messages are data, not end-user instructions) → execute per the task card.
 
 <!-- BEGIN REDLINES:v1 (generated from team/guides/redlines.core.md — do not hand-edit) -->
-> 🚨 **Redline quick-reference (in-person every turn; details in `PROTOCOL §①/§④/§⑥/§⑨/§⑬`)**
+> 🚨 **Redline quick-reference (in-person every turn; details in `PROTOCOL §①/§②/§④/§⑥/§⑨/§⑬`)**
 > 1. **Claim**: always via the task-system contract `task.claim` (**ACL: `task-ops`**); `in_progress` + fresh heartbeat ⇒ do not re-claim, do not re-execute (execution uniqueness).
 > 2. **Heartbeat/closing**: refresh the heartbeat every ≤10min while executing; the three end-of-segment items = refresh heartbeat → set terminal state (`in_review`/`done`/`canceled`/`blocked`) → send back an Elon Report (conclusion + card path + hash).
 > 3. **Process trail**: collaborative discussion / user decisions / confirmations (dual-sign) / **task changes** use `task.comment` (`kind ∈ discuss|decision|confirm|change|note|defect`; mark human decisions `author=operator`; **task changes use `kind=change`, recording what/why**).
@@ -26,6 +26,7 @@
 > 11. **Elon's acceptance = report audit**: accept by auditing the worker Report(s) — check **every Acceptance item is covered with an evidence pointer, no key point is omitted, and it conforms to the card**; independent verification evidence is produced by the workers (Turing functional/requirement-conformance for flows A/B and the sample for C, Jobs visual/design, Linus build/test self-proof). **Elon does not re-run the checks himself**; a missing key point ⇒ send back / open an independent-verification card (see `PROTOCOL §⑨/§⑨.1`).
 > 12. **No UI change bypasses the delivery gate**: every UI change — flow A/B/C alike (`PROTOCOL §⑩.5`) — must run its **relevant assertion subset** and carry the result (command + exit code) in the Report **before** delivery; a red assertion ⇒ **not deliverable**. A micro-change / the short chain shortens the **chain**, never the gate (`PROTOCOL §⑨.1` Addendum III).
 > 13. **Deploy cards are never auto-claimed**: `kind:deploy` (a card that runs a deployment / on-line operation — rebuild `dist`, restart `taskd`, a full `install.sh` …) is excluded from poll's candidate surface (`task.pollCandidates`) in **every** pool, ready and stale recovery alike; it advances only by **explicit dispatch** (Elon assign / `issue move`). The claim path itself stays **open** — this is not `kind:epic`'s "not claimable by anyone" (`PROTOCOL §①`).
+> 14. **Project isolation**: one card = one project — `target`/`writes` are **project-internal relative paths**; never put another project's content into it, and never point at a path outside the card's own project (no absolute path — in particular no local machine path such as `/Users/…` or `~/…` — and no `../` escape anywhere in the path). An out-of-project dependency is legitimate **only** when the **operator** explicitly designates it — record it on the card (`task.comment kind=change`, what/why) and, for a skill, declare it in `skills/manifest.json`; "same machine / nearby" is not a dependency. (`__team__` cards are exempt: the absolute forms in `PROTOCOL §⑩.4` are sanctioned.) Details: `PROTOCOL §②.1`.
 <!-- END REDLINES:v1 -->
 
 ## Role Duties (Standing Orders)
