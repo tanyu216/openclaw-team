@@ -15,7 +15,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { TASKS_DIR, CARD_ID_RE, parseFrontmatter } from './lib.mjs';
+import { TASKS_DIR, CARD_ID_RE, parseFrontmatter, splitWrites } from './lib.mjs';
 
 /**
  * 非终态（可写）状态集 —— **同文件/同仓并发判定的唯一口径**，`scripts/lane-isolation.mjs`
@@ -42,17 +42,9 @@ import { TASKS_DIR, CARD_ID_RE, parseFrontmatter } from './lib.mjs';
  */
 export const NON_TERMINAL = new Set(['todo', 'ready', 'in_progress', 'blocked', 'in_review']);
 
-function parseWrites(raw) {
-  if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
-  if (typeof raw !== 'string') return [];
-  const s = raw.trim().replace(/^\[|\]$/g, '').replace(/["']/g, '');
-  if (!s) return [];
-  return s.split(',').map((x) => x.trim()).filter(Boolean);
-}
-
 /** 卡 → 写集（`writes` 优先；缺省退化 `target` —— 粗判口径见本文件头注） */
 export function resolveWriteSet(fm) {
-  const writes = parseWrites(fm?.writes);
+  const writes = splitWrites(fm?.writes); // 分割口径已抽到 lib.mjs（单点持有，check-card 共用）
   if (writes.length) return writes;
   const target = String(fm?.target ?? '').trim();
   return target ? [target] : [];
@@ -116,7 +108,7 @@ function main() {
   let writes = null;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--card' && argv[i + 1]) card = argv[++i];
-    else if (argv[i] === '--writes' && argv[i + 1]) writes = parseWrites(argv[++i]);
+    else if (argv[i] === '--writes' && argv[i + 1]) writes = splitWrites(argv[++i]);
   }
   const r = samefileConflicts({ card, writes });
   console.log(JSON.stringify(r, null, 2));

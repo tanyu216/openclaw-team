@@ -9,6 +9,8 @@
  *
  * 登记期**存在性守卫**（PROTOCOL §⑧ 步骤 2 的机械落地）：root 须为绝对路径 / 存在 / 为目录，
  * 否则默认**拒绝整轮登记**（一条不写），绝不静默登记陈旧 root（事故链 R76→R79 的根因）。
+ * 登记期**containment 守卫**（PROTOCOL §②.1）：每个 `repos[].rel_path` 须为项目内相对路径
+ * （§⑥ 也是 cwd 锚点之一）⇒ 否则同样拒绝（见 invalidRepoReason）。
  * 不传惰性 `workspacePath`（O3 后 taskpanel 不读；基座 0012 已删该列）——目录锚点唯一经由 meta.root。
  *
  * 用法：node scripts/seed-projects.mjs   # 可重复执行（幂等）
@@ -17,7 +19,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { PROJECTS_FILE, TASK_OPS_DIR } from './lib.mjs';
+import { PROJECTS_FILE, TASK_OPS_DIR, escapeReason } from './lib.mjs';
 
 // provider 依赖显式化（方案②启动期硬失败）：board 路径解析来自 provider ACL 库 skills/task-ops/
 // （provider 拥有、有意不随仓）。lib.mjs 已对 team-paths/projects 做启动硬失败；此处把其中的
@@ -67,6 +69,27 @@ export function invalidRootReason(root) {
 }
 
 /**
+ * `repos[].rel_path` containment 守卫（PROTOCOL §②.1「Containment (project metadata)」）。
+ *
+ * 缺陷背景：`invalidRootReason` 只管 `root` 自身；而 §⑥ 明写非 `__team__` 卡的 cwd = `root` +
+ * 卡片的 `target`/**`repos[].rel_path`** ⇒ 一个登记成 `../sibling` 的 rel_path 会把该项目的
+ * **所有** lane 导出自身，而**卡片层看不出任何缺陷**（`scan-deps.mjs` 也直接
+ * `path.resolve(root, rel_path)`，两侧都不校验）。
+ *
+ * 判据：空/缺省 ⇒ 合法（等价 `.`）；非空须为**项目内相对路径** —— 绝对 / 本机锚 `~` / 盘符 /
+ * 段归一越界一律非法。判据与卡级门禁共用同一个 `escapeReason`（一处口径，`lib.mjs` 持有）。
+ * 只读，不触盘。
+ * @param {unknown} relPath
+ * @returns {string|null} 非法原因（null = 合法）
+ */
+export function invalidRepoReason(relPath) {
+  if (relPath === undefined || relPath === null || String(relPath).trim() === '') return null;
+  if (typeof relPath !== 'string') return `rel_path 非字符串（${JSON.stringify(relPath)}）`;
+  const why = escapeReason(relPath);
+  return why ? `rel_path 越出项目 root（${why}）：${relPath}` : null;
+}
+
+/**
  * 幂等登记：逐条 code —— 基座已存在 ⇒ updateProject，否则 ⇒ createProject。
  *
  * 登记前整体校验各 code 的 root（见 invalidRootReason）：默认**拒绝**（抛错、一条不写，
@@ -91,14 +114,17 @@ export function registerIdentityCodes(board, registry, opts = {}) {
   // 先整体校验（fail-fast）：默认模式下任一非法 ⇒ 一条都不写，绝不部分登记
   const invalid = [];
   for (const [code, entry] of entries) {
-    const reason = invalidRootReason(entry?.root);
+    // root 自身 + 每个 repos[].rel_path 的 containment（§②.1）：任一无理 ⇒ 该条整体非法
+    const reasons = [invalidRootReason(entry?.root)];
+    for (const r of Array.isArray(entry?.repos) ? entry.repos : []) reasons.push(invalidRepoReason(r?.rel_path));
+    const reason = reasons.find((x) => x !== null) ?? null;
     if (reason === null) resolved.push({ code, src: entry ?? {} });
     else invalid.push({ code, root: entry?.root, reason });
   }
   if (invalid.length && !allowInvalidRoot) {
     const lines = invalid.map((i) => `${i.code}: ${i.reason}`).join('\n  - ');
     throw new Error(
-      `项目 root 校验未通过，登记中止（PROTOCOL §⑧：登记前须校验 root 存在）：\n  - ${lines}`,
+      `项目 root/rel_path 校验未通过，登记中止（PROTOCOL §⑧ 步骤 2 的机械落地面）：\n  - ${lines}`,
     );
   }
 
