@@ -15,12 +15,24 @@ tests are written.
 package.json, and no dependency tree to install — the artifacts are shell
 scripts, Node ESM (`.mjs`), Markdown docs, and JSON5 config fragments.
 
-### Repo ↔ deployed instance (the central invariant)
+### Repo ↔ deployed instance (two modes, one gate)
 
-[team/scripts/check-all.sh](team/scripts/check-all.sh) runs a **bidirectional drift
-patrol** (`diff -rq $REPO/team $TEAM`). Drift on the deploy surfaces
-(`team/scripts/**`, `team/automations/**`, `tools/**`) is **fail-closed** — the
-live gate goes red. Consequences:
+[team/scripts/check-all.sh](team/scripts/check-all.sh) runs in one of **two modes**,
+decided by whether an instance is resolvable (`$TEAM/scripts` exists ⇒ **live**,
+else **repo**; `--repo <R>` / `--live` / `OPENCLAW_TEAM_MODE` override):
+
+- **live** — audits the **installed instance**: board checks over `tasks/`, the
+  provider ACL suites, the archive preview, and the three linters against
+  `~/.openclaw/workspace-<role>/AGENTS.md`.
+- **repo** — **self-verification of this checkout**, needing no instance and no
+  host path: syntax (`bash -n` / `node --check`), the three linters in repo mode
+  (they check the **seeds** `roles/<role>/AGENTS.md` + `team/**`), and the
+  framework suite. Instance-scoped steps are skipped **explicitly**, never red.
+  This is the path a contributor, a fresh clone and CI take.
+
+The envelope carries `"mode":"live"|"repo"`. `docker/verify-in-container.sh`
+pins the acceptance criterion: a machine with **no** `~/.openclaw` must return
+`{"ok":true,"mode":"repo"}`. Consequences:
 
 - **Never hand-copy files between the repo and `~/.openclaw/team/`.** `install.sh`
   is the sanctioned deploy path, and the repo↔instance mirror is by
@@ -28,11 +40,11 @@ live gate goes red. Consequences:
   `tasks/`, `workspace/`, `memory/` and host-local additions like
   `tools/openssl3` exist on the instance only and must not be clobbered).
 - Editing a deployed script in place makes the repo stale; fixing it in the repo
-  without deploying makes the instance stale. Both directions are checked.
-- To evaluate a lane's unmerged content against the gate without the instance
-  drift dictating the colour, set `OPENCLAW_TEAM_REPO=<repo>` (overrides
-  `.install-state.json.repoPath`). Note `check-redlines.mjs` and `lint-refs.mjs`
-  ignore it.
+  without deploying makes the instance stale **at the next install run**. That
+  lag is **no longer machine-checked in the repo** — the former `diff -rq`
+  drift patrol was removed on 2026-10-15 (it was the one step whose whole purpose
+  was to bind the repository to a single machine, which an open-source
+  distribution cannot require). Keep the mirror honest by discipline.
 
 `team/scripts/**` is described as **byte-identical to the deployed runtime**:
 these files carry no local edits — fix in the runtime and re-copy the whole flat
@@ -130,7 +142,10 @@ skip). Overrides for local testing: `OPENCLAW_TEAM_POLL_CMD`,
 
 The single source of checks. It is **read-only**: no step may write `tasks/`
 (archival runs `--dry-run` only). It prints a final-line envelope
-`{"ok":true|false, ...}`, carrying `message` and `failed[]` on red.
+`{"ok":true|false,"mode":…, ...}`, carrying `message` and `failed[]` on red.
+It **runs with or without an installed instance** — see
+[Repo ↔ deployed instance](#repo--deployed-instance-two-modes-one-gate) for the
+`live` / `repo` modes and the `--repo <R>` / `--live` switches.
 
 It is **segmented** because the full run (~15–20 s) exceeds the scheduler's
 trigger-evaluation budget (`OPENCLAW_TEAM_EVAL_TIMEOUT_MS`, default 8000 ms), and
@@ -138,8 +153,8 @@ a timeout envelope carries no verdict — a real red would be silently masked.
 
 - `--segment fast` — seconds; runs in-band under
   `OPENCLAW_TEAM_CHECKALL_FAST_TIMEOUT_MS` (6000 ms; typical warm 2.4–3.7 s).
-- `--segment slow` — `node --test` framework suite plus the provider ACL full
-  suite (not in-band; would fast-timeout).
+- `--segment slow` — `node --test` framework suite plus (live mode only) the
+  provider ACL full suite (not in-band; would fast-timeout).
 - `--segment all` — both; the default for humans and CI.
 
 [team/scripts/check-all-gate.mjs](team/scripts/check-all-gate.mjs) is the scheduled
@@ -157,9 +172,15 @@ refreshes that cache out of band.
   present and **hard-fails with a clear error and non-zero exit** — never a
   silent no-op. Point `OPENCLAW_TASK_OPS_DIR` at a checkout containing `lib/` to
   satisfy it.
-- **Path override:** `OPENCLAW_TEAM_ROOT` (default `~/.openclaw/team`) is the
-  isolation seam used by unit tests; `lib.mjs`, `check-all.sh`, and `scan-deps.mjs`
-  are same-origin on it, but `check-redlines.mjs` and `lint-refs.mjs` are not.
+- **Path override:** `OPENCLAW_TEAM_ROOT` (default `~/.openclaw/team`), plus
+  `OPENCLAW_HOME` (default `~/.openclaw`, used for `workspace-<role>/`) and
+  `OPENCLAW_TEAM_MODE=live|repo`. [team/scripts/host-paths.mjs](team/scripts/host-paths.mjs)
+  is the single resolver for the lint group (`check-redlines.mjs`,
+  `lint-refs.mjs`, `lint-impl-names.mjs`, `sync-redlines.mjs`); `lib.mjs` (and the
+  provider's `team-paths.mjs` behind it), `check-all.sh` and `scan-deps.mjs`
+  resolve the same roots themselves — deliberately not merged, see the module
+  header. With `OPENCLAW_TEAM_ROOT=<sandbox>/team` the workspace root becomes
+  `<sandbox>/` too, so a sandbox can never silently read the real `~/.openclaw`.
 - **Lane isolation** — [team/scripts/lane-isolation.mjs](team/scripts/lane-isolation.mjs),
   [team/scripts/lane-worktree.mjs](team/scripts/lane-worktree.mjs),
   [team/scripts/spawn-lane.mjs](team/scripts/spawn-lane.mjs). Same repo + a

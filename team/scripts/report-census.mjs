@@ -53,7 +53,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TASKS_DIR, parseFrontmatter } from './lib.mjs';
-import { reportBody, TERMINAL } from './check-report.mjs';
+import { reportBody } from './check-report.mjs';
+import { TERMINAL, isTerminal } from './status.mjs';
 
 export const SAMPLE_LEVELS = ['nonempty', 'section', 'board'];
 export const CRITERION_LEVELS = ['topic', 'shape'];
@@ -62,7 +63,6 @@ export const ARCHIVE_DIR = 'archive';
 /** `--compare` 的「量级上门当户对」阈值（pt）：|Δ| ≤ 5 ⇒ near。仅用于给对照表一个可核对的判词，
  *  不改变任何主张——主张只落在 verdict 上（equal / near / diverged）。 */
 export const NEAR_POINTS = 5;
-export { TERMINAL };
 
 /**
  * 槽位家族 = §4 表那 11 行。每族给出**显式字面规则**的两档（`topic` / `shape`）：
@@ -244,8 +244,8 @@ export function parseArgs(argv = process.argv.slice(2)) {
 
 function statusMatcher(statuses) {
   if (statuses.includes('all')) return () => true;
-  if (statuses.includes('nonterminal')) return (s) => !TERMINAL.includes(s);
-  if (statuses.includes('terminal')) return (s) => TERMINAL.includes(s);
+  if (statuses.includes('nonterminal')) return (s) => !isTerminal(s);
+  if (statuses.includes('terminal')) return (s) => isTerminal(s);
   return (s) => statuses.includes(s);
 }
 

@@ -43,11 +43,14 @@ const SKIP = PROVIDER
 const test = SKIP ? nodeTest.skip : nodeTest;
 
 // provider 依赖为**条件动态 import**：缺 provider 时 lib.mjs/poll.mjs 在 import 期即硬红。
-let parseFrontmatter, serializeFrontmatter, NEW_STATUSES, isNewStatus, scanCandidates;
+let parseFrontmatter, serializeFrontmatter, scanCandidates;
 if (PROVIDER) {
   process.env.OPENCLAW_TASK_OPS_DIR = PROVIDER;
-  ({ parseFrontmatter, serializeFrontmatter, NEW_STATUSES, isNewStatus } = await import('../lib.mjs'));
+  ({ parseFrontmatter, serializeFrontmatter } = await import('../lib.mjs'));
 }
+// 词表模块零依赖（不碰 provider）⇒ 无条件 import。状态词表本身已上移到 status.mjs
+// （T-20261015-status）：lib.mjs 与 poll.mjs 均从那里取 `isNew`。
+const { NEW_STATUSES, isNew } = await import('../status.mjs');
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const POLL = path.join(HERE, '..', 'poll.mjs');
@@ -100,12 +103,12 @@ function runPollCandidates(root, agent = 'linus') {
 
 // ---- 单一真源 --------------------------------------------------------------
 
-test('1. 单一真源：lib.mjs 导出 NEW_STATUSES/isNewStatus，值仍是 {todo,ready}', () => {
+test('1. 单一真源：status.mjs 导出 NEW_STATUSES/isNew，值仍是 {todo,ready}', () => {
   assert.deepEqual([...NEW_STATUSES].sort(), ['ready', 'todo'], `状态表被改动，实际 ${JSON.stringify([...NEW_STATUSES])}`);
-  assert.equal(isNewStatus('todo'), true, 'todo（规范值）应视为 new');
-  assert.equal(isNewStatus('ready'), true, 'ready（兼容别名）应视为 new');
+  assert.equal(isNew('todo'), true, 'todo（规范值）应视为 new');
+  assert.equal(isNew('ready'), true, 'ready（兼容别名）应视为 new');
   for (const s of ['backlog', 'in_progress', 'in_review', 'blocked', 'done', 'canceled', '']) {
-    assert.equal(isNewStatus(s), false, `${s || '(空)'} 不得视为 new`);
+    assert.equal(isNew(s), false, `${s || '(空)'} 不得视为 new`);
   }
 });
 

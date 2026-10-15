@@ -28,7 +28,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { nowIso, readCard } from './lib.mjs';
 import { checkSessions } from './check-sessions.mjs';
-import { parseSessionRows, closeLaneSession, closeRegistryOnly, laneProcessAlive, TERMINAL_STATUSES } from './session-lifecycle.mjs';
+import { parseSessionRows, closeLaneSession, closeRegistryOnly, laneProcessAlive } from './session-lifecycle.mjs';
+import { isSessionTerminal } from './status.mjs';
 
 /** 从卡面取该 session 的登记行（按 id 对齐；无 ⇒ null）。 */
 function rowForSession(taskId, sessionId) {
@@ -69,7 +70,7 @@ export function classifyItem(item) {
     if (alive) {
       return { class: 'manual', action: 'escalate', seg: row.seg, why: `卡行 pid=${row.pidNum} 存活而 registry=${reg} ⇒ 活进程与终态互斥，不可代判` };
     }
-    if (!TERMINAL_STATUSES.includes(reg)) {
+    if (!isSessionTerminal(reg)) {
       return { class: 'manual', action: 'escalate', seg: row.seg, why: `registry=${reg} 非终态，不属本对账面` };
     }
     return { class: 'fixable', action: 'close_card_row', seg: row.seg, status: reg, why: `pid 已死 + registry=${reg} ⇒ 按 registry 事实把卡行收口（两侧同写）` };

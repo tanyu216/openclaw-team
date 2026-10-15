@@ -39,6 +39,8 @@
 
 > ⚡ **Parallel-first across my cards (ref `PROTOCOL §⑥.3`)**: the cards assigned to me that do **not** conflict are processed **concurrently by default** (Jobs/Linus share the `running(owner) < 8` cap). Only these queue **serially**: ① `deps_unmet`; ② same-file / same-resource write conflict (single writer); ③ a card that explicitly says serial; ④ a hard ordering dependency.
 
+> 🌿 **Development-branch discipline (ref `PROTOCOL §⑥.4`, not duplicated)**: development integrates on the long-lived branch **`dev`** — my work runs on its own lane branch `lane/<lane>` (a dedicated worktree when the concurrency condition holds, `team/guides/worktree-isolation-sop.md`), and the lane's product **merges into `dev` before the card is closed**; `dev` → `main` is the explicit release step. **Never commit directly on `main`** (run `team/scripts/branch-guard.mjs` before committing). Base / continuation rules: `PROTOCOL §⑥.4` + `guides/worktree-isolation-sop.md §5/§9`.
+
 > 🎨 **Aesthetic & design-style sovereignty**: **Jobs owns the aesthetics and design style of everything the team produces**:
 > ① **Aesthetics**: Jobs gates the aesthetic standard for all design drafts / prototypes / images / UI; **anything below the aesthetic standard must not be delivered** (the standard is set by Jobs and may evolve with the project).
 > ② **Design-style positioning & choice**: Jobs decides and **chooses** the product/project design-style direction (minimalism / skeuomorphism / brand tone / color system etc.); Jobs signs off when weighing multiple options (if high-impact/disputed, send back to Elon with a recommendation).

@@ -2,16 +2,23 @@
 /**
  * lint-impl-names.mjs — 术语抽象门禁（task-interface v1 §1）
  * 上层文档不得出现「实现名」；实现名只许出现在 PROTOCOL §①（基座 spec）与 ACL/代码内部。
- * 扫描范围：team/PROTOCOL.md（跳过 §① 节）、workspace-<role>/AGENTS.md、team/ROLES.md、team/guides/redlines.core.md
- * 用法：node lint-impl-names.mjs            # 报告 + 违例即 exit 1
- *       node lint-impl-names.mjs --report   # 只报告不失败（基线）
+ * 扫描范围：PROTOCOL.md（跳过 §① 节）、各角色 AGENTS.md、ROLES.md、guides/redlines.core.md
+ * 用法：node lint-impl-names.mjs [--repo <R> | --live] [--report]
+ *       --repo <R> / 仓内自动判定 ⇒ 扫仓内种子；实例在场 ⇒ live（行为与历史一致）
+ *       --report  只报告不失败（基线）
+ * 退出码：0 无违例；1 有违例；2 用法错或模式不可判定。
  */
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
+import { ROLES, resolveMode, UsageError } from './host-paths.mjs';
 
-const HOME = os.homedir();
-const TEAM = path.join(HOME, '.openclaw', 'team');
+let M;
+try { M = resolveMode(); } catch (e) {
+  if (e instanceof UsageError) { console.error(`✗ ${e.message}`); process.exit(2); }
+  throw e;
+}
+const shrink = (p) => p.replace(M.home, '~').replace(M.repo, '<repo>');
+const docRoot = M.mode === 'repo' ? path.join(M.repo, 'team') : M.team;
 const BANNED = [
   { re: /claim\.mjs/g, name: 'claim.mjs' },
   { re: /poll\.mjs/g, name: 'poll.mjs' },
@@ -21,14 +28,14 @@ const BANNED = [
 
 function files() {
   const list = [];
-  const proto = path.join(TEAM, 'PROTOCOL.md');
+  const proto = path.join(docRoot, 'PROTOCOL.md');
   if (fs.existsSync(proto)) list.push({ path: proto, skipSection: '## ①' });
-  for (const a of ['elon', 'jobs', 'linus', 'turing', 'assistant']) {
-    const p = path.join(HOME, `.openclaw/workspace-${a}/AGENTS.md`);
+  for (const a of ROLES) {
+    const p = M.mode === 'repo' ? path.join(M.repo, 'roles', a, 'AGENTS.md') : path.join(M.home, `workspace-${a}`, 'AGENTS.md');
     if (fs.existsSync(p)) list.push({ path: p });
   }
   for (const g of ['ROLES.md', 'guides/redlines.core.md']) {
-    const p = path.join(TEAM, g);
+    const p = path.join(docRoot, g);
     if (fs.existsSync(p)) list.push({ path: p });
   }
   return list;
@@ -59,7 +66,7 @@ for (const f of files()) {
     if (/^\s*```/.test(prev)) return;
     for (const b of BANNED) {
       b.re.lastIndex = 0;
-      if (b.re.test(line)) { hits.push(`${f.path.replace(HOME, '~')}:${i + 1}  [${b.name}]  ${line.trim().slice(0, 100)}`); total++; }
+      if (b.re.test(line)) { hits.push(`${shrink(f.path)}:${i + 1}  [${b.name}]  ${line.trim().slice(0, 100)}`); total++; }
     }
   });
 }
