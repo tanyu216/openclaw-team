@@ -85,7 +85,9 @@ export function parseIso(s) {
 }
 
 // 关系图辅助：depends_on 列表解析（与 task-ops 一致）
-function parseDeps(raw) {
+// 导出供 spawn-lane 的**定基解析**复用（`depends_on` 链 ⇒ 应然的 lane base，T-20261015-133720）：
+// 同一张卡的关系面在门（check-relations）与入口（spawn-lane）两侧必须同一口径解析。
+export function parseDeps(raw) {
   if (typeof raw !== 'string') return [];
   const s = raw.trim().replace(/^\[|\]$/g, '').replace(/["']/g, '');
   return s.split(/[\s,]+/).filter(Boolean);
@@ -201,6 +203,40 @@ export function readCard(cardPath) {
   const raw = fs.readFileSync(p, 'utf8');
   const { fm, body } = parseFrontmatter(raw);
   return { cardPath: p, fm, body, raw };
+}
+
+/**
+ * 按卡 **id** 读卡（扫描任务目录取 `fm.id` 命中的那张）。
+ * 为什么不直接用 `cardPathOf(id)`：文件名**可以带 slug**（历史卡如 `T-20261008-174500-uialignsop.md`，
+ * 其 `id` 却是 `T-20261008-174500`）⇒ 按 `<id>.md` 猜路径会漏。本函数按 frontmatter 的 `id` 命中，
+ * 与 `check-relations` / `lane-isolation.scanNonTerminal` 同一口径。
+ * 未命中（不存在 / 不可读）⇒ `null`——**绝不臆造**一张卡（调用方决定回落口径）。
+ * @param {string} id 卡 id（`T-…`）
+ * @param {{tasksDir?:string}} [opts] 注入目录（单测隔离用；默认本进程的 TASKS_DIR）
+ * @returns {{cardPath:string, fm:object, body:string, raw:string}|null}
+ */
+export function readCardById(id, { tasksDir = TASKS_DIR } = {}) {
+  const want = String(id == null ? '' : id).trim();
+  if (!want) return null;
+  let files;
+  try {
+    files = fs.readdirSync(tasksDir);
+  } catch {
+    return null;
+  }
+  for (const f of files) {
+    if (!f.endsWith('.md')) continue;
+    const p = path.join(tasksDir, f);
+    let raw;
+    try {
+      raw = fs.readFileSync(p, 'utf8');
+    } catch {
+      continue;
+    }
+    const { fm, body } = parseFrontmatter(raw);
+    if (fm && String(fm.id) === want) return { cardPath: p, fm, body, raw };
+  }
+  return null;
 }
 
 export function writeCardAtomic(cardPath, fm, body) {
