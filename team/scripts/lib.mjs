@@ -229,7 +229,7 @@ export function readCard(cardPath) {
  * 按卡 **id** 读卡（扫描任务目录取 `fm.id` 命中的那张）。
  * 为什么不直接用 `cardPathOf(id)`：文件名**可以带 slug**（历史卡如 `T-20261008-174500-uialignsop.md`，
  * 其 `id` 却是 `T-20261008-174500`）⇒ 按 `<id>.md` 猜路径会漏。本函数按 frontmatter 的 `id` 命中，
- * 与 `check-relations` / `lane-isolation.scanNonTerminal` 同一口径。
+ * 与 `check-relations` 同一口径（非终态的单一出处是 `status.mjs#isNonTerminal`）。
  * 未命中（不存在 / 不可读）⇒ `null`——**绝不臆造**一张卡（调用方决定回落口径）。
  * @param {string} id 卡 id（`T-…`）
  * @param {{tasksDir?:string}} [opts] 注入目录（单测隔离用；默认本进程的 TASKS_DIR）
