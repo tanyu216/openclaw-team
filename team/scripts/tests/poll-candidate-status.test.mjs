@@ -28,8 +28,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 function resolveProviderRoot() {
   const candidates = [
     process.env.OPENCLAW_TASK_OPS_DIR,
-    path.join(os.homedir(), '.openclaw', 'team', 'skills', 'task-ops'),
-    path.join(os.homedir(), '.openclaw', 'skills', 'task-ops'),
+    // 部署布局相对候选：<team>/skills/task-ops（自 tests/ 上溯两级）—— 不读宿主 ~/.openclaw
+    path.resolve(import.meta.dirname, '..', '..', 'skills', 'task-ops'),
   ].filter(Boolean);
   for (const c of candidates) {
     if (fs.existsSync(path.join(c, 'lib', 'team-paths.mjs'))) return c;

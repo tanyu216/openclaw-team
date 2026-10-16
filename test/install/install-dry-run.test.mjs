@@ -255,3 +255,59 @@ test("an already-registered skills-update job previews a skip — re-running ins
   assert.ok(out.includes("ok       skills-update"), "it must be reported as already matching");
   assert.ok(out.includes("automations add task-patrol"), "the other (missing) jobs still preview an add");
 });
+
+// ---- tmp-gc (PROTOCOL §⑬.9) --------------------------------------------------
+
+/** byte-exact expected tmp-gc trigger for an isolated OPENCLAW_HOME. */
+function expectedTmpGcTrigger(openclawHome) {
+  return renderTrigger({
+    teamDir: path.join(openclawHome, "team"),
+    dargs: "tmp-gc",
+    evalTimeoutS: 8,
+    evalTimeoutMs: 8000,
+  });
+}
+
+test("dry-run previews the daily tmp-gc scratch GC (02:20 Asia/Shanghai, light-context, isolated)", () => {
+  const { env } = setup();
+  const { out, status } = runInstall(env);
+  assert.equal(status, 0);
+
+  const line = out.split("\n").find((l) => l.includes("automations add tmp-gc"));
+  assert.ok(line, "the scratch GC job must be part of the declared set");
+  assert.ok(line.includes("--agent main"), "the janitor runs in the main session");
+  assert.ok(line.includes("--cron 20 2 * * *"), "cadence = daily 02:20 (a slot free of the other crons)");
+  assert.ok(line.includes("--tz Asia/Shanghai"));
+  assert.ok(line.includes("--light-context"), "framework jobs run light-context (§4)");
+  assert.ok(line.includes("--session isolated"));
+  assert.ok(line.includes("--declaration-key openclaw-team:tmp-gc"));
+  assert.ok(line.includes("--trigger-script"), "the job is a trigger job, not a plain cron run");
+});
+
+test("the role workspaces get their .tmp scratch root at install time (§⑬.9)", () => {
+  // NOT BASE_ARGS: --skip-agents skips §3 entirely, which is exactly the step under test.
+  const { env, openclawHome } = setup();
+  const r = spawnSync("bash", [INSTALL, "--dry-run", "--no-meerkat-taskpanel", "--skip-skills"], { env, encoding: "utf8" });
+  const out = (r.stdout || "") + (r.stderr || "");
+  assert.equal(r.status, 0);
+  for (const ws of ["workspace-elon", "workspace-jobs", "workspace-linus", "workspace-turing", "workspace-assistant"]) {
+    const want = path.join(openclawHome, ws, ".tmp");
+    assert.ok(out.split("\n").some((l) => l.includes("mkdir -p") && l.trim().endsWith(want)),
+      `${want} must be created by install.sh §3`);
+  }
+});
+
+test("an already-registered tmp-gc job previews a skip — re-running install.sh is idempotent", () => {
+  const live = (home) => [{
+    id: "job-tg",
+    declarationKey: "openclaw-team:tmp-gc",
+    name: "tmp-gc",
+    schedule: { kind: "cron", expr: "20 2 * * *" },
+    payload: { lightContext: true },
+    trigger: { script: expectedTmpGcTrigger(home) },
+  }];
+  const { env } = setup({ jobsFn: live });
+  const { out } = runInstall(env);
+  assert.ok(!out.includes("automations add tmp-gc"), "a registered job must not be re-added");
+  assert.ok(out.includes("ok       tmp-gc"), "it must be reported as already matching");
+});
