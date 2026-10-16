@@ -436,7 +436,7 @@ schema 增量同族定义见 `codex-plugin-lane-contract.md` §4.2。**native �
 ### R4 写面越界（子会话继承父 workspace）（严重度：中）
 
 - **依据**：F1「子会话继承父 workspace」⇒ 若 spawn 未钉死 cwd，sub-agent 可能写到父 workspace 或 `prototype/**` 之外（违反 `PROTOCOL §⑨.2` 原型纯净、污染 `§⑨.1` 单写者纪律）。
-- **缓解**：§6 G2——spawn 时显式钉死原型仓 cwd（`cwd`/`worktree*`），写面仅限原型仓；落 `git status --porcelain` 前后证据；可选原生 `worktree` 隔离（`guides/worktree-isolation-sop.md`）。
+- **缓解**：§6 G2——spawn 时显式钉死原型仓 cwd（`cwd`/`worktree*`），写面仅限原型仓；落 `git status --porcelain` 前后证据；可选原生 `worktree` 隔离（`guides/dev-worktree-flow-sop.md`）。
 - **回退**：越界写 ⇒ 判该 lane evidence 无效 + 按 Git 纪律前向修正（**禁用** rebase/reset/stash/clean，`PROTOCOL §⑥` Git 纪律）。
 - **再评估触发**：native spawn 提供强制 cwd 沙箱（不可越界）能力。
 

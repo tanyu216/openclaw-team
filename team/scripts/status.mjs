@@ -78,7 +78,7 @@ export function isAccepted(s) {
 //
 // 谓词各**具名**、不复用一个「非终态 = 取反」。原因是它们回答的是**不同的业务问题**，取反会在
 // 边界上出错：`backlog` 对「会否被 spawn 后占住 cwd」是**在域**（check-card），对「此刻是否占着
-// 文件写权」却**不在域**（samefile-guard / lane-isolation）。故不提供 `isNonTerminal = !isTerminal`。
+// 文件写权」却**不在域**（samefile-guard）。故不提供 `isNonTerminal = !isTerminal`。
 
 /** 终态（= 已收口，不再推进）。含旧词别名 `failed`（= `canceled`，边界解析）。 */
 export const TERMINAL = ['done', 'failed', 'canceled'];
@@ -109,7 +109,7 @@ export function isDraft(s) {
 }
 
 /**
- * 非终态（**已排期**且在飞）—— 并发写集/同文件冲突的判定域（samefile-guard / lane-isolation）。
+ * 非终态（**已排期**且在飞）—— 并发写集/同文件冲突的判定域（samefile-guard）。
  * 含未开工的 `todo`/`ready`（它们已被排期，spawn 后即占写权），**不含** `backlog`（未排期，
  * 不构成并发）与全部终态。名字沿用仓内既有词汇，语义以本注释为准。
  */
