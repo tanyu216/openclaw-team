@@ -30,6 +30,7 @@ import { execFileSync } from 'node:child_process';
 import { TEAM_ROOT, TASK_OPS_DIR, readCard, writeCardAtomic, nowIso, parseIso } from './lib.mjs';
 import { loadRegistry, isPidAlive, setSessionStatus } from './registry.mjs';
 import { isSessionTerminal } from './status.mjs';
+import { withStallRetry } from './host-stall.mjs';
 
 /** 逐条留痕文件名（落 `workspace/<task-id>/`，与 lane 的 out/err 日志同处）。 */
 export const LANE_AUDIT_FILE = 'lane-lifecycle.log';
@@ -87,6 +88,41 @@ export function laneRow(rows, { activeSessionId = '' } = {}) {
 
 // ---------- ② 进程存活（含僵尸态） ----------
 
+/** `ps -o stat=` 的默认取数（可注入：单测要造「ps 失败/空输出」这两种观测不成的形态）。 */
+function psStat(pid) {
+  return execFileSync('ps', ['-o', 'stat=', '-p', String(pid)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+}
+
+/**
+ * **三态**判活：`dead` / `alive` / `unknown`。
+ *
+ * 为什么必须是三态（T-20261016-210926）：原判据只有两态，把「**观测不成**」（`ps` 失败/无输出）
+ * 并入了 `alive`。对**看守**这是对的（宁可多等一轮，绝不把活进程判死）；但对**等待**是错的——
+ * 它把「我没看出来」读成了「它还在跑」这一**结论**，于是宿主负载/休眠让 `ps` 观测不成时，
+ * 一个早已退出的 stub 会被读成「一直活着」，有界等待烧完上限后报红（实证：慢段 lane-reaper
+ * 「stub 应自行退出」，5000ms / 1135046ms 两例）。**「观测不成」不是结论**，交调用方决定
+ * （看守继续保守判活，等待则重取一次）。
+ *
+ * 判据顺序与旧版一字不差，只是把两个 `return true` 分开：
+ *   `kill(pid,0)` 不成功 ⇒ `dead`；`ps` 说 `Z` ⇒ `dead`（僵尸：`kill(pid,0)` 对它成功）；
+ *   `ps` 说别的 ⇒ `alive`；`ps` 抛错 / 无输出 ⇒ `unknown`。
+ *
+ * @param {number} pid
+ * @param {{ps?:(pid:number) => string}} [opts] `ps` 取数可注入（单测）
+ * @returns {'dead'|'alive'|'unknown'}
+ */
+export function probePidState(pid, { ps = psStat } = {}) {
+  const n = Number(pid);
+  if (!isPidAlive(n)) return 'dead';
+  try {
+    const stat = String(ps(n)).trim();
+    if (!stat) return 'unknown'; // ps 无输出：与 kill(pid,0) 分歧 ⇒ 观测不成，不是结论
+    return isZombieStat(stat) ? 'dead' : 'alive';
+  } catch {
+    return 'unknown'; // ps 不可用 / 权限不足 ⇒ 观测不成
+  }
+}
+
 /**
  * 进程存活判定 = `registry.isPidAlive`（kill(pid,0)）**且非僵尸**。
  *
@@ -94,18 +130,55 @@ export function laneRow(rows, { activeSessionId = '' } = {}) {
  * `kill(pid,0)` 对僵尸**成功** ⇒ 单看 `isPidAlive` 会把「已终结」读成「还在跑」，看守进程于是永不收口
  * （本卡实测的失败模式）。`ps -o stat=` 首列 `Z` 即僵尸；`ps` 不可用/权限不足 ⇒ 退回纯 `isPidAlive`
  * （保守：宁可多等一轮，也不把活进程判死）。
+ *
+ * 语义 = `probePidState(pid) !== 'dead'` —— 即 `unknown` 归入**存活**。这是看守侧的**故意**保守
+ * （它的错判代价是「多等一轮」而不是「关掉一条活 lane」），一字未改。需要区分三态的调用方
+ * （等待/诊断）请直呼 `probePidState`。
+ *
+ * @param {number} pid
+ * @param {{ps?:(pid:number) => string}} [opts] 透传给 `probePidState`（同一判据的注入缝，单测钉保守口径）
  */
-export function laneProcessAlive(pid) {
-  const n = Number(pid);
-  if (!isPidAlive(n)) return false;
-  try {
-    const out = execFileSync('ps', ['-o', 'stat=', '-p', String(n)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-    const stat = out.trim();
-    if (!stat) return true; // ps 无输出：与 kill(pid,0) 分歧 ⇒ 保守判活
-    return !isZombieStat(stat);
-  } catch {
-    return true;
-  }
+export function laneProcessAlive(pid, opts) {
+  return probePidState(pid, opts) !== 'dead';
+}
+
+/** 等 pid 死的默认上限（ms）。见 `waitPidDead` 为什么可以给得宽。 */
+export const PID_DEAD_WAIT_MS = 15000;
+/** 等 pid 死的默认轮询间隔（ms）。 */
+export const PID_DEAD_POLL_MS = 20;
+
+/**
+ * **等 pid 死**（共享原语：看守测试与 stall 探针同一份实现，绝不各写一份判据）。
+ *
+ * 上限的语义要说准：它**不是性能断言**，而是**活性上界**——pid 真死的那一刻就返回，故**绿路径
+ * 完全不付这个上限**，它只在「到点仍没观测到死」时才到期。因此它唯一的作用是给**红**路径
+ * （真失败 / 观测不成）封顶；给宽一点不花绿路径一分钱，却能让「宿主忙到 5s 内观测不上」不再算红。
+ *
+ * 一次到期**不作数**（T-20261016-210926）：`unknown`（观测不成）与超时都不是「它还活着」这一结论，
+ * 故换一个新期限重取一次；两次皆没观测到死才返回 false。**真失败仍红**：pid 真的一直活着时两次
+ * 都会到期 ⇒ 照旧 false。
+ *
+ * @param {number} pid
+ * @param {{timeoutMs?:number, intervalMs?:number, retries?:number, probe?:Function,
+ *          sleep?:(ms:number)=>Promise<void>}} [opts]
+ * @returns {Promise<boolean>} true = **观测到** pid 已终结（非僵尸）
+ */
+export async function waitPidDead(pid, { timeoutMs = PID_DEAD_WAIT_MS, intervalMs = PID_DEAD_POLL_MS, retries = 1, probe = probePidState, sleep } = {}) {
+  const nap = sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+  const once = async () => {
+    const t0 = Date.now();
+    for (;;) {
+      if (probe(pid) === 'dead') return 'dead';
+      if (Date.now() - t0 > timeoutMs) return 'timeout';
+      await nap(intervalMs);
+    }
+  };
+  const { value } = await withStallRetry(once, {
+    classify: (v) => (v === 'dead' ? null : { reason: v }),
+    retries,
+    budgetMs: timeoutMs,
+  });
+  return value === 'dead';
 }
 
 /** `ps -o stat=` 的僵尸判定（首列 `Z`）：纯函数，便于单测锁死分类（真僵尸进程不易在进程内构造）。 */

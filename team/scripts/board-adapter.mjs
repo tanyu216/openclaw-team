@@ -32,6 +32,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { withStallRetrySync, timeoutBreachOf } from './host-stall.mjs';
 
 /** §8 基座适配器身份（与 provider `bases/task-panel.mjs` 同名 ⇒ 可互换）。 */
 export const name = 'task-panel';
@@ -150,14 +151,28 @@ export function projectFromWire(wire) {
 /**
  * 默认 runner：`taskctl <args>` 子进程（只读；禁止 autostart）。可注入（单测）。
  * CLI 位置：`opts.taskctl` > `$OPENCLAW_TEAM_TASKCTL`（未装全局命令时指向 CLI 入口的**可执行**路径）> `taskctl`。
+ *
+ * **有界等待的击穿不是 CLI 的结论**（T-20261016-210926）：`timeoutMs` 到点没拿到结果，只说明
+ * **我们没问出答案**，不说明 CLI 失败——宿主休眠/负载尖峰会连有界等待的执法钟一起停掉，返回一个
+ * `status:null` 的空结论。故一次击穿后带**新期限重跑一次**（`retries`，默认 1）；两次皆击穿才把
+ * 那个空结论交回调用方（照旧降级判红）。**真失败不重取**：CLI 缺失（`ENOENT`）、非零退出都是
+ * **答案**，一次定终身（判据见 `host-stall.mjs#timeoutBreachOf`）。
+ *
+ * 于是 `taskctl` 真挂死时最坏用时 = `timeoutMs × (retries + 1)`（默认 10s）——只发生在这条链
+ * 已经不可信的时候，而已有的只读回退不受影响。
  */
-export function cliRunner(args, { taskctl = process.env.OPENCLAW_TEAM_TASKCTL || 'taskctl', timeoutMs = 5000, env = process.env } = {}) {
-  return spawnSync(taskctl, args, {
-    encoding: 'utf8',
-    timeout: timeoutMs,
-    maxBuffer: 8 * 1024 * 1024,
-    env: { ...env, TASKD_NO_AUTOSTART: '1' }, // 解析路径只读：不得顺手拉起守护进程
-  });
+export function cliRunner(args, { taskctl = process.env.OPENCLAW_TEAM_TASKCTL || 'taskctl', timeoutMs = 5000, retries = 1, env = process.env } = {}) {
+  const { value } = withStallRetrySync(
+    () =>
+      spawnSync(taskctl, args, {
+        encoding: 'utf8',
+        timeout: timeoutMs,
+        maxBuffer: 8 * 1024 * 1024,
+        env: { ...env, TASKD_NO_AUTOSTART: '1' }, // 解析路径只读：不得顺手拉起守护进程
+      }),
+    { classify: timeoutBreachOf, retries, budgetMs: timeoutMs },
+  );
+  return value;
 }
 
 /**
