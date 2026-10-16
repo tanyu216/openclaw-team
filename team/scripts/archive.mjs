@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// archive.mjs — 归档终态任务卡（PROTOCOL §⑳.3）
+// archive.mjs — 归档终态任务卡（PROTOCOL §20.3）
 // 用法: node archive.mjs [--days N] [--dry-run]   默认 N=7
 // 规则: status ∈ {done, failed} 且 mtime 早于 N 天 → 移到 tasks/archive/YYYY-MM/
 // 模式（T-20261010-055607）：
@@ -40,7 +40,7 @@ for (const f of fs.readdirSync(TASKS)) {
   const { fm } = parseFrontmatter(raw);
   const status = fm && fm.status != null ? String(fm.status) : '';
   // 终态即可归档（判据单点持有于 scripts/status.mjs）。**行为变更**：修前判据写死 `done|failed`，
-  // 漏了 canonical `canceled`（§⑯：`failed` 只是 `canceled` 的旧词）⇒ 已取消的卡永不被归档。
+  // 漏了 canonical `canceled`（PROTOCOL §16：`failed` 只是 `canceled` 的旧词）⇒ 已取消的卡永不被归档。
   if (!isTerminal(status)) continue;
   if (st.mtimeMs > cutoff) continue;
   // 引用保护：被 parent / depends_on 引用的卡不得归档（精确匹配，非子串）

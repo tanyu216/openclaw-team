@@ -121,11 +121,11 @@ EVAL_TIMEOUT_S=$(( (EVAL_TIMEOUT_MS + 999) / 1000 ))
 # Poll cadence (②): the interval between per-worker poll triggers. Poll is the FALLBACK —
 # the mainline is Elon dispatching with sessions_send (push); poll only wakes a worker when
 # that push did not land, and it keeps the worst-case claim latency ≤5m (claim timing
-# belongs to poll, PROTOCOL §①). Override with OPENCLAW_TEAM_POLL_INTERVAL (e.g. 3m).
+# belongs to poll, PROTOCOL §1). Override with OPENCLAW_TEAM_POLL_INTERVAL (e.g. 3m).
 POLL_INTERVAL="${OPENCLAW_TEAM_POLL_INTERVAL:-5m}"
 case "$POLL_INTERVAL" in [0-9]*[smhd]) ;; *) POLL_INTERVAL=5m ;; esac
 # SLA inspection cadence (`sla-scan`, team/guides/sla-inspection-contract.md §5.2 P).
-# The contract's tier ladder puts `warn` at `L − P`, and §⑮'s TIGHTEST row is
+# The contract's tier ladder puts `warn` at `L − P`, and PROTOCOL §15's TIGHTEST row is
 # `Worker heartbeat stale` (L = 30 min) ⇒ P MUST stay below 30 min or that row's warn
 # boundary collapses to `T ≥ 0` and every in-flight card alarms on every tick (breaking
 # the contract's own §9.4 zero-cost idle). The framework's existing patrol already runs
@@ -362,10 +362,10 @@ register_automation() {
       # default is the pre-claim/fallback wording and never asks for a resident run.
       msg="$(node "$REPO/team/scripts/poll-run.mjs" message "$agent" 2>/dev/null || echo "[openclaw-team] Scheduled poll for $agent: if the dispatcher claimed a card, claim → hand off via scripts/spawn-lane.sh (detached) → return; otherwise reply NO_REPLY.")" ;;
     patrol)    msg="[openclaw-team] Stale in_progress card(s) detected by task-patrol: recover per the PROTOCOL recovery rules." ;;
-    sla-scan)  msg="[openclaw-team] Board SLA alert(s) from sla-scan (the alerts list is in this message): handle each §⑮ action as the leader — clarification/reassign, review the confirmation gate, create the defect or acceptance card. The inspector only notifies; it never changes a card (guides/sla-inspection-contract.md)." ;;
+    sla-scan)  msg="[openclaw-team] Board SLA alert(s) from sla-scan (the alerts list is in this message): handle each PROTOCOL §15 action as the leader — clarification/reassign, review the confirmation gate, create the defect or acceptance card. The inspector only notifies; it never changes a card (guides/sla-inspection-contract.md)." ;;
     check-all) msg="[openclaw-team] Team gate patrol failed: run the team gate checks and handle per the PROTOCOL gates/archiving rules." ;;
     skills-update) msg="[openclaw-team] Upstream skill ref(s) moved (the change list is in this message), or the upstream check failed: review, then advance with \`node skills/update.mjs --apply\` after Elon's review (third-party bodies are agent instructions — see team/AUTOMATIONS.md)." ;;
-    tmp-gc)    msg="[openclaw-team] tmp-gc scratch cleanup could not be confirmed (an unreadable root or a failed delete — the details are in this message). Check permissions/space on the scratch roots (workspace-*/.tmp, ~/.openclaw/tmp, ~/.openclaw/team/tmp) and re-run \`node scripts/tmp-gc.mjs --dry-run\` to see the state (PROTOCOL §⑬.9)." ;;
+    tmp-gc)    msg="[openclaw-team] tmp-gc scratch cleanup could not be confirmed (an unreadable root or a failed delete — the details are in this message). Check permissions/space on the scratch roots (workspace-*/.tmp, ~/.openclaw/tmp, ~/.openclaw/team/tmp) and re-run \`node scripts/tmp-gc.mjs --dry-run\` to see the state (PROTOCOL §13.9)." ;;
     *)         msg="[openclaw-team] Scheduled job $name." ;;
   esac
   tmp="$(mktemp "${TMPDIR:-/tmp}/openclaw-trigger.XXXXXX")"
@@ -530,7 +530,7 @@ if [ "$DO_AGENTS" = 1 ]; then
   for i in "${!ROLES[@]}"; do
     role="${ROLES[$i]}"; id="${AGENT_ID[$i]}"; wsdir="$OPENCLAW_HOME/${WORKSPACE[$i]}"
     run mkdir -p "$wsdir"
-    # 临时文件唯一归口（PROTOCOL §⑬.9）：装完即存在，作业 tmp-gc 据此清扫。
+    # 临时文件唯一归口（PROTOCOL §13.9）：装完即存在，作业 tmp-gc 据此清扫。
     run mkdir -p "$wsdir/.tmp"
     for f in AGENTS.md SOUL.md IDENTITY.md USER.md; do
       src="$REPO/roles/$role/$f"
@@ -687,8 +687,8 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
   info "bounds: trigger-eval ${EVAL_TIMEOUT_MS}ms (OPENCLAW_TEAM_EVAL_TIMEOUT_MS) · poll run ${POLL_RUN_TIMEOUT_S}s (default = interval; OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S, 0=off)"
   info "poll: every $POLL_INTERVAL (OPENCLAW_TEAM_POLL_INTERVAL) · --light-context on poll/patrol/check-all/skills-update/sla-scan/tmp-gc"
   info "skills-update: Sundays 05:00 Asia/Shanghai (detect-only; --apply is manual after review)"
-  info "sla-scan: every $SLA_INTERVAL (OPENCLAW_TEAM_SLA_INTERVAL; must stay < 30m — §⑮'s tightest row, contract §12 G-6)"
-  info "tmp-gc: daily 02:20 Asia/Shanghai — delete scratch >14 days under workspace-*/.tmp, \$OPENCLAW_HOME/tmp, \$OPENCLAW_HOME/team/tmp (PROTOCOL §⑬.9; zero-cost idle, wakes only on an unconfirmed sweep)"
+  info "sla-scan: every $SLA_INTERVAL (OPENCLAW_TEAM_SLA_INTERVAL; must stay < 30m — PROTOCOL §15's tightest row, contract §12 G-6)"
+  info "tmp-gc: daily 02:20 Asia/Shanghai — delete scratch >14 days under workspace-*/.tmp, \$OPENCLAW_HOME/tmp, \$OPENCLAW_HOME/team/tmp (PROTOCOL §13.9; zero-cost idle, wakes only on an unconfirmed sweep)"
   # built-in workers only for poll (skip main/elon), derived from ROLES/AGENT_ID
   auto_agents=()
   for i in "${!ROLES[@]}"; do
@@ -734,14 +734,14 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
       # model wake); drift or an unconfirmed check ⇒ fire:true with the change list in message.
       tp="$DECLARED_DIR/trigger-skills-update.js"; write_trigger "skills-update" "$tp"
       printf '%s|%s|%s|%s|%s|%s|%s\n' "openclaw-team:skills-update" "skills-update" "main" "skills-update" "cron" "" "$tp" >> "$MANIFEST"
-      # sla-scan: board SLA inspection across the PROTOCOL §⑮ rows the heartbeat patrol does not
+      # sla-scan: board SLA inspection across the PROTOCOL §15 rows the heartbeat patrol does not
       # cover (guides/sla-inspection-contract.md). Same trigger semantics as patrol: no tier
       # crossed ⇒ fire:false (zero cost, no model wake); a crossing ⇒ fire:true carrying the
       # alerts. Registered as an INTERVAL job (`every $SLA_INTERVAL`) so the declaration and the
       # inspector's own mechanism period P stay one number (contract §12 G‑6 reconciliation).
       tp="$DECLARED_DIR/trigger-sla-scan.js"; write_trigger "sla-scan" "$tp"
       printf '%s|%s|%s|%s|%s|%s|%s\n' "openclaw-team:sla-scan" "sla-scan" "main" "sla-scan" "interval" "$SLA_INTERVAL" "$tp" >> "$MANIFEST"
-      # tmp-gc: the daily scratch GC (PROTOCOL §⑬.9) — deletes files older than 14 days under every
+      # tmp-gc: the daily scratch GC (PROTOCOL §13.9) — deletes files older than 14 days under every
       # workspace-*/.tmp plus $OPENCLAW_HOME/tmp and $OPENCLAW_HOME/team/tmp. Janitor semantics:
       # a completed sweep is fire:false even when it deleted a lot (zero cost, no model wake); only
       # an UNCONFIRMED sweep (root unreadable / unlink failed) fires, carrying the cause.

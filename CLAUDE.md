@@ -151,7 +151,7 @@ skip). Overrides for local testing: `OPENCLAW_TEAM_POLL_CMD`,
 `OPENCLAW_TEAM_TMPGC_CMD`, and `OPENCLAW_TEAM_TASK_PROVIDER=<name>`.
 
 `tmp-gc` (daily 02:20 Asia/Shanghai) is the enforcement arm of the scratch-file
-discipline `PROTOCOL §⑬.9`: every role keeps its temporary files in its own
+discipline `PROTOCOL §13.9`: every role keeps its temporary files in its own
 `workspace-<role>/.tmp/`, and the job deletes anything older than 14 days there,
 plus `~/.openclaw/tmp/` and `~/.openclaw/team/tmp/`. Roots come from a glob, so
 the repo never carries a second copy of the role roster. It is **split in two**,
@@ -288,11 +288,11 @@ use `dev` and `main`, another repo may use `develop` and `master`.
 - **Bootstrapping:** a repo with no integration branch has no integration target — create it once
   (`git branch dev <base>`), or point `OPENCLAW_TEAM_INTEGRATION_BRANCH` at the branch it already has.
 
-Normative source: [team/PROTOCOL.md](team/PROTOCOL.md) §⑥.4. Mechanics:
+Normative source: [team/PROTOCOL.md](team/PROTOCOL.md) PROTOCOL §6.4. Mechanics:
 [dev-worktree-flow-sop.md](team/guides/dev-worktree-flow-sop.md),
 [spawn-lane-sop.md](team/guides/spawn-lane-sop.md). The merge-back is machine-checked at
-the gate by [check-merge.mjs](team/scripts/check-merge.mjs) (`PROTOCOL §⑳.1`); what it
-structurally cannot catch is listed in `§⑳.2`.
+the gate by [check-merge.mjs](team/scripts/check-merge.mjs) (`PROTOCOL §20.1`); what it
+structurally cannot catch is listed in `PROTOCOL §20.2`.
 
 ## Conventions
 

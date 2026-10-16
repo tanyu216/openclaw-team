@@ -1,9 +1,9 @@
 # Doc Style (`doc-style.md`)
 
 > **Ownership / Maintainer**: **Elon** owns this style and approves exceptions; every role applies it to the docs it authors.
-> **Status**: method library (`L2.5`). The **normative clauses** it serves live in `PROTOCOL §⑥.1` clause 11 (reference notation) and `PROTOCOL §⑰` (layering, single source of truth); this file **states the formatting convention those clauses imply** and does not restate them.
+> **Status**: method library (`L2.5`). The **normative clauses** it serves live in `PROTOCOL §6.1` clause 11 (reference notation) and `PROTOCOL §17` (layering, single source of truth); this file **states the formatting convention those clauses imply** and does not restate them.
 > **Applies to**: every markdown document under `team/` — `PROTOCOL.md`, `ROLES.md`, `AUTOMATIONS.md`, and `team/guides/**`. It does **not** apply to `README.md` (the repository's outward-facing front page, which has its own audience) or to `roles/*/SOUL.md` (creed, prose by design).
-> **Reference convention**: `PROTOCOL §<n> <name>` for L1, `<guide-name> §<n>` for a guide's own sections — never line-number anchors (`PROTOCOL §⑥.1` clause 11).
+> **Reference convention**: `PROTOCOL §<n> <name>` for L1, `<guide-name> §<n>` for a guide's own sections — never line-number anchors (`PROTOCOL §6.1` clause 11).
 
 ---
 
@@ -21,7 +21,7 @@ This file is the **written form of the convention**. It is deliberately short an
 2. **Level 3 is a numbered subsection**: `### N.M Title`. Every `###` carries a number — a free-standing `###` is not allowed.
 3. **A heading carries the name only.** It must **not** contain a date, a card id, a commit, a codename, or an edit verb (`rewritten`, `revised`, `superseded`), and must not contain a literal placeholder such as `T-<id>`.
 4. **A scope qualifier may follow the name** where it is genuinely part of the title's meaning (`## 6. Session Orchestration Discipline (Jobs/Linus/Turing)`). What is forbidden is *provenance*, not parentheticals as such. If in doubt: a reader who did not know the project's history must still understand the heading.
-5. **An effective date, if the rule needs one, is stated once in the body** as `> **Effective**: YYYY-MM-DD` on the first line under the heading — never in the heading, never with a card id (`PROTOCOL §⑰` rule 1 permits a permanent convention to carry an effective date).
+5. **An effective date, if the rule needs one, is stated once in the body** as `> **Effective**: YYYY-MM-DD` on the first line under the heading — never in the heading, never with a card id (`PROTOCOL §17` rule 1 permits a permanent convention to carry an effective date).
 
 ## 3. Marker vocabulary
 
@@ -56,7 +56,7 @@ The same role always uses the same container. Nothing here varies by section.
 
 ## 5. Provenance, rationale, and history
 
-1. **No change history in the body.** No `(added <date>)`, `(since <date>)`, `(mandatory since …)`, `(T-… on the provider side)`, `> Takeover note`, `> Origin:`, or "supersedes the old note". A dated one-off record belongs to L5, not to a document (`PROTOCOL §⑰` rule 1).
+1. **No change history in the body.** No `(added <date>)`, `(since <date>)`, `(mandatory since …)`, `(T-… on the provider side)`, `> Takeover note`, `> Origin:`, or "supersedes the old note". A dated one-off record belongs to L5, not to a document (`PROTOCOL §17` rule 1).
 2. **No bare card ids or commit shas in prose.** A rule does not need to cite the card that introduced it in order to bind.
 3. **An incident story is not a rule.** The rule stands alone; the story of the failure that produced it is L5 material. If a single trailing clause of rationale prevents a specific misreading, that clause may stay — the retelling may not.
 4. **Rationale uses one label**: `> **Rationale**: …`, at most one per rule. Not `Purpose:` in one place, `Why:` in another, `Basis:` in a third.
@@ -64,12 +64,14 @@ The same role always uses the same container. Nothing here varies by section.
 
 ## 6. References
 
-Numbered references follow `PROTOCOL §⑥.1` clause 11. Two things this file adds:
+Numbered references follow `PROTOCOL §6.1` clause 11. Three things this file adds:
 
-1. **A bare reference resolves to `PROTOCOL.md`**; a reference to any other document **carries that document's name**: `PROTOCOL §6.1` versus `spawn-lane-sop.md §3`.
-2. **An item inside a section is written `§N clause M` or `§N step M`** — never with the subsection form (`§N.M` denotes a real `### N.M` heading, and using it for an item either dangles or collides with an unrelated subsection in another file).
+1. **The discriminator is the name, not the glyph.** A section reference is always `§` plus an **arabic** number. A **bare** `§5` means **the document you are in**; a reference to any other document **names it** — `PROTOCOL §6.1`, `guides/task-interface.md` §3, `sla-inspection-contract.md` §4. Being L1 buys no exemption: write `PROTOCOL §6.1`, never `§①`.
+2. **A citation list may give the name once per backtick span**, separating the rest with `·` or `/`: `PROTOCOL §15 · §1 · §9.1`.
+3. **Circled numerals are never references.** They survive only as **inline prose ordinals** (`① collect → ② triage → ③ record`). A circled numeral used for a section is a defect, not a stylistic variant.
+4. **An item inside a section is written `§N clause M` or `§N step M`** — never with the subsection form (`§N.M` denotes a real `### N.M` heading, and using it for an item either dangles or collides with an unrelated subsection in another file).
 
-`team/scripts/lint-doc-refs.mjs` enforces both the path and the section half. A dangling reference is a gate failure, not a style remark.
+`team/scripts/lint-refs.mjs` (named/bare section refs) and `team/scripts/lint-doc-refs.mjs` (paths, cross-file anchors, section-internal items) enforce this. A dangling reference is a gate failure, not a style remark.
 
 ## 7. Separators and structure
 
@@ -86,9 +88,9 @@ Numbered references follow `PROTOCOL §⑥.1` clause 11. Two things this file ad
 
 These look like inconsistencies and are not. They must survive a normalisation pass, and removing them is a convention change requiring the owner's explicit sign-off:
 
-1. **Deliberate duplication across role seeds.** The one-line redline quick-reference and the role-shared action skeleton repeated in each `roles/*/AGENTS.md` exist so that a layer still carries its constraints when `PROTOCOL` is never opened. This is the "reference transmission" requirement of `PROTOCOL §⑰` rule 4, and it is carved out of rule 2's duplication ban by that same clause.
+1. **Deliberate duplication across role seeds.** The one-line redline quick-reference and the role-shared action skeleton repeated in each `roles/*/AGENTS.md` exist so that a layer still carries its constraints when `PROTOCOL` is never opened. This is the "reference transmission" requirement of `PROTOCOL §17` rule 4, and it is carved out of rule 2's duplication ban by that same clause.
 2. **A self-consistent sub-series inside one section** may adopt its own shape — a repeated multi-part template, a dedicated marker namespace — as long as it is consistent *within itself*.
 
 ## 10. Related
 
-> `PROTOCOL §⑥.1` clause 11 (reference notation) · `PROTOCOL §⑰` (layering and single source of truth) · `team/scripts/lint-doc-refs.mjs` (the gate that enforces the reference half) · `team/scripts/lint-impl-names.mjs` (terminology leakage).
+> `PROTOCOL §6.1` clause 11 (reference notation) · `PROTOCOL §17` (layering and single source of truth) · `team/scripts/lint-doc-refs.mjs` (the gate that enforces the reference half) · `team/scripts/lint-impl-names.mjs` (terminology leakage).

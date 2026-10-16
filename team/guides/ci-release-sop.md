@@ -1,6 +1,6 @@
 # CI Gate and Release SOP (Linus)
 
-> Ownership: **Linus role SOP** (L2.5 method library). Normative text references `PROTOCOL §⑥.1`; this file is the **execution detail**.
+> Ownership: **Linus role SOP** (L2.5 method library). Normative text references `PROTOCOL §6.1`; this file is the **execution detail**.
 > Scope: all version-controlled project deliveries — **CI gate, build, release, and deploy** are all Linus's responsibility.
 
 ## 1. Boundary of Duties
@@ -25,13 +25,13 @@ That is: **Linus ensures the gate is red/green, while acceptance is judged indep
    - [ ] lint / static checks
    - [ ] type check (`tsc --noEmit` / `mypy` / `ruff`, etc.)
    - [ ] unit tests + integration tests
-   - [ ] coverage thresholds (see `PROTOCOL §⑥.1` and Linus's testing discipline)
+   - [ ] coverage thresholds (see `PROTOCOL §6.1` and Linus's testing discipline)
    - [ ] **the build must succeed** (build is a gate item, not optional)
 3. **Red means stop**: if the gate is not all green ⇒ do not merge, do not set `done`; rerun until all green after fixing.
 4. **Pass locally first**: run the equivalent gate before pushing (`pre-commit` / `make check` / `npm run check`) to avoid burning CI on spins.
 5. **No bypassing**: do not use `--no-verify`, skipping or disabling jobs, or similar to bypass the gate; if truly necessary, it requires **written authorization in the card** and a trail.
 6. **Failure trail**: a CI failure must have "failed job + key log excerpt + fixing commit" attached to the Report.
-7. **Gate config belongs to Linus**: workflows / Makefile / task runner are maintained by Linus; changes are **convention changes** and require dual-signing and a `kind=change` trail (`PROTOCOL §⑬`).
+7. **Gate config belongs to Linus**: workflows / Makefile / task runner are maintained by Linus; changes are **convention changes** and require dual-signing and a `kind=change` trail (`PROTOCOL §13`).
 
 ## 4. Release SOP (Build & Release)
 1. **Version number**: semantic `MAJOR.MINOR.PATCH`; update `CHANGELOG` on each release.
@@ -61,7 +61,7 @@ That is: **Linus ensures the gate is red/green, while acceptance is judged indep
 - [ ] Report contains gate and release/deploy evidence
 
 ## 7. Reference Relationships
-- Quality / test thresholds: `PROTOCOL §⑥.1`
-- Two-way document sync: `PROTOCOL §⑫`
-- End-of-segment (heartbeat/terminal state/Report): `PROTOCOL §⑥`
-- Task-change trail: `PROTOCOL §⑬.7` (`kind=change`)
+- Quality / test thresholds: `PROTOCOL §6.1`
+- Two-way document sync: `PROTOCOL §12`
+- End-of-segment (heartbeat/terminal state/Report): `PROTOCOL §6`
+- Task-change trail: `PROTOCOL §13.7` (`kind=change`)

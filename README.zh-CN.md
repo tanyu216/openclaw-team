@@ -85,19 +85,19 @@ flowchart TB
 
 各角色文件内含该角色**标准作业指令（SOP）**。跨角色规则**只引用、不复制正文**：
 
-- **分流 / 什么活派给谁** —— `team/PROTOCOL.md` **§⑩ 任务分流矩阵**。
+- **分流 / 什么活派给谁** —— `team/PROTOCOL.md` **PROTOCOL §10 任务分流矩阵**。
 - **边界与交接（对账）** —— `team/ROLES.md`。
-- **全员硬纪律** —— `team/PROTOCOL.md` **§⑬ 通用硬纪律**。
+- **全员硬纪律** —— `team/PROTOCOL.md` **PROTOCOL §13 通用硬纪律**。
 
 ## 团队协作方式
 
-- **任务卡看板**：工作活在**任务卡看板**上，而非聊天里；一张卡承载 Goal / Acceptance / Background，并走状态机 `backlog | todo → in_progress → in_review → done`（`blocked` / `canceled` 为旁路与终态）。卡是持久化内容的唯一载体。`team/PROTOCOL.md` **§① 看板协议**。
-- **claim · 心跳 · 段收尾三件**：worker 以**原子领取**（`task.claim`）接卡，执行期间**每 ≤10min 刷新心跳**。每个段结束都要做**三件收尾**：① 刷新心跳 → ② 落终态（`in_review` / `done` / `canceled` / `blocked`）→ ③ 给 Elon 发 Report（结论 + 卡路径 + commit hash）。`in_progress` 且心跳新鲜 = "已有人在跑，勿重复执行"。`team/PROTOCOL.md` **§①** 与 **§⑬.2 段收尾三件**。
-- **依赖与父子（DAG）**：一大块需求 = 一张 **`kind: epic`** 父卡（容器，**不可领取**）+ 若干**子卡**（`parent=<epic>`）。先后关系用 **`depends_on`** 表达（依赖未满足的子卡不被领取）。父卡只有在**所有子卡完成且集成验收通过**后才 `done`（epic rollup 汇总）。`team/PROTOCOL.md` **§⑩.2 复合任务 = 子任务卡 + 依赖图（DAG）**。
-- **唯一派单人 Elon**：**建卡与派单只有 Elon**；Jobs / Linus / Turing / Assistant **互不派单 —— 只向 Elon 提要求**（说明需求或发现的缺口）。决策单一 owner、入口单一通路。`team/PROTOCOL.md` **§⑩** 与 **§⑩.3 建卡粒度**。
-- **缺陷回环**：QA 发现的缺陷写成缺陷单 → **Elon 建修复卡**派给 Linus → 修复回到 Elon 验收 → Turing 做**回归复测**；回归完全通过，原卡才 `done`。`team/PROTOCOL.md` **§⑨ 缺陷修复与回归回环**。
-- **交付门禁**：任何东西被标 `done` 前必须过门禁：工程质量（TDD、覆盖率 ≥80%、集成测试、自证）、UI 保真（原型即契约）、文档同步，以及 CI / `check-all` 跑的**机器可检门禁**。`team/PROTOCOL.md` **§⑥.1 工程质量标准** 与 **§⑳ 门禁与归档**。
-- **并行优先**：worker **默认并行**；只有**写资源冲突**（同文件、不可隔离资源）、`depends_on` 未满足、或卡上明确「必须串行」时才串行。Elon 的巡检会推动并行、追陈旧卡。`team/PROTOCOL.md` **§⑥.3 worker 并行优先**。
+- **任务卡看板**：工作活在**任务卡看板**上，而非聊天里；一张卡承载 Goal / Acceptance / Background，并走状态机 `backlog | todo → in_progress → in_review → done`（`blocked` / `canceled` 为旁路与终态）。卡是持久化内容的唯一载体。`team/PROTOCOL.md` **PROTOCOL §1 看板协议**。
+- **claim · 心跳 · 段收尾三件**：worker 以**原子领取**（`task.claim`）接卡，执行期间**每 ≤10min 刷新心跳**。每个段结束都要做**三件收尾**：① 刷新心跳 → ② 落终态（`in_review` / `done` / `canceled` / `blocked`）→ ③ 给 Elon 发 Report（结论 + 卡路径 + commit hash）。`in_progress` 且心跳新鲜 = "已有人在跑，勿重复执行"。`team/PROTOCOL.md` **PROTOCOL §1** 与 **PROTOCOL §13.2 段收尾三件**。
+- **依赖与父子（DAG）**：一大块需求 = 一张 **`kind: epic`** 父卡（容器，**不可领取**）+ 若干**子卡**（`parent=<epic>`）。先后关系用 **`depends_on`** 表达（依赖未满足的子卡不被领取）。父卡只有在**所有子卡完成且集成验收通过**后才 `done`（epic rollup 汇总）。`team/PROTOCOL.md` **PROTOCOL §10.2 复合任务 = 子任务卡 + 依赖图（DAG）**。
+- **唯一派单人 Elon**：**建卡与派单只有 Elon**；Jobs / Linus / Turing / Assistant **互不派单 —— 只向 Elon 提要求**（说明需求或发现的缺口）。决策单一 owner、入口单一通路。`team/PROTOCOL.md` **PROTOCOL §10** 与 **PROTOCOL §10.3 建卡粒度**。
+- **缺陷回环**：QA 发现的缺陷写成缺陷单 → **Elon 建修复卡**派给 Linus → 修复回到 Elon 验收 → Turing 做**回归复测**；回归完全通过，原卡才 `done`。`team/PROTOCOL.md` **PROTOCOL §9 缺陷修复与回归回环**。
+- **交付门禁**：任何东西被标 `done` 前必须过门禁：工程质量（TDD、覆盖率 ≥80%、集成测试、自证）、UI 保真（原型即契约）、文档同步，以及 CI / `check-all` 跑的**机器可检门禁**。`team/PROTOCOL.md` **PROTOCOL §6.1 工程质量标准** 与 **PROTOCOL §20 门禁与归档**。
+- **并行优先**：worker **默认并行**；只有**写资源冲突**（同文件、不可隔离资源）、`depends_on` 未满足、或卡上明确「必须串行」时才串行。Elon 的巡检会推动并行、追陈旧卡。`team/PROTOCOL.md` **PROTOCOL §6.3 worker 并行优先**。
 
 唤醒 worker 的调度（`poll-<agent>`、`task-patrol`、`sla-scan`、`team-check-all`、`skills-update`、`tmp-gc`）见 [调度与团队定时任务](#调度与团队定时任务)。
 
@@ -212,7 +212,7 @@ cd <path/to/openclaw-team>
 - **默认提供方 —— meerkat-taskpanel**：默认安装（任务 skill + `taskctl` CLI）。`./install.sh --no-meerkat-taskpanel` 可退出；用 `--meerkat-taskpanel DIR` 指定源码。
 - **自备 / 换基座**：Jira / Linear / Plane / GitHub Issues / 自研看板 … —— 自行安装其连接 skill/MCP，并用 `OPENCLAW_TEAM_TASK_PROVIDER=<name>` 指向它。上层（角色 / SOP / 定时任务）**零改动**，因为它们只依赖 ACL；随后跑 ACL 契约测试（`task-interface.md §6`、`§12`）。
 - **范围边界**：第三方任务系统的连接 skill/MCP **不在本项目范围**；本仓库只交付 ACL 与团队侧适配约定。
-- **建卡幂等**：建卡**幂等** —— 建卡前由建卡方（LLM）对既有非终态卡做**语义判重**，另有机械键 `idem = <kind>|<assignee>|<source>|<target>` 兜底；同 key 且非终态 ⇒ **拒建/复用**（本仓库不自带建卡路径，故该约定由**所对接基座保证** + 建卡方须带 `idem` 键）。详见 `team/PROTOCOL.md §㉙`、`team/guides/task-interface.md §14`。
+- **建卡幂等**：建卡**幂等** —— 建卡前由建卡方（LLM）对既有非终态卡做**语义判重**，另有机械键 `idem = <kind>|<assignee>|<source>|<target>` 兜底；同 key 且非终态 ⇒ **拒建/复用**（本仓库不自带建卡路径，故该约定由**所对接基座保证** + 建卡方须带 `idem` 键）。详见 `team/PROTOCOL.md PROTOCOL §29`、`team/guides/task-interface.md §14`。
 
 ### 调度与团队定时任务
 
@@ -222,10 +222,10 @@ cd <path/to/openclaw-team>
 |---|---|---|
 | `poll-<agent>` | 每 5m | 各 worker 轮询（jobs/linus/turing/assistant）；仅当领取到卡时 fire |
 | `task-patrol` | 每 15m | 心跳陈旧的 `in_progress` 卡扫描 |
-| `sla-scan` | 每 15m（`OPENCLAW_TEAM_SLA_INTERVAL`） | 看板 SLA 巡检：覆盖 `task-patrol` 未覆盖的 `PROTOCOL §⑮` 各行；仅在跨档时 fire（详见 `team/guides/sla-inspection-contract.md`、`team/AUTOMATIONS.md §3.8`） |
+| `sla-scan` | 每 15m（`OPENCLAW_TEAM_SLA_INTERVAL`） | 看板 SLA 巡检：覆盖 `task-patrol` 未覆盖的 `PROTOCOL §15` 各行；仅在跨档时 fire（详见 `team/guides/sla-inspection-contract.md`、`team/AUTOMATIONS.md §3.8`） |
 | `team-check-all` | 每小时（`0 * * * *` @ Asia/Shanghai） | 门禁巡检；仅失败时 fire |
 | `skills-update` | 每周日 05:00（Asia/Shanghai） | 上游 skill ref 漂移检测；仅在漂移/失败时 fire |
-| `tmp-gc` | 每天 02:20（Asia/Shanghai） | 临时文件回收（`PROTOCOL §⑬.9`）：删除 `workspace-*/.tmp/`、`~/.openclaw/tmp/`、`~/.openclaw/team/tmp/` 中 14 天前的文件；仅在清扫「无法确认」时 fire（详见 `team/AUTOMATIONS.md §3.9`） |
+| `tmp-gc` | 每天 02:20（Asia/Shanghai） | 临时文件回收（`PROTOCOL §13.9`）：删除 `workspace-*/.tmp/`、`~/.openclaw/tmp/`、`~/.openclaw/team/tmp/` 中 14 天前的文件；仅在清扫「无法确认」时 fire（详见 `team/AUTOMATIONS.md §3.9`） |
 
 每个触发脚本调用框架派发器 `team/automations/dispatch.mjs <poll|patrol|check-all|skills-update|sla-scan|tmp-gc> [agent]`；派发器解析 provider 的入口命令（`team/automations/providers.json`；provider = `OPENCLAW_TEAM_TASK_PROVIDER`，默认 `meerkat-taskpanel`）并返回 `{"fire":…}`。触发脚本**不含任何 provider 字面量**，故**换基座 = 定时任务零改动**。入口缺失 / 执行失败 / 解析失败 ⇒ `fire:false`（零成本）。详见 `team/automations/README.md`。
 

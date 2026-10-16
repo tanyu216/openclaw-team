@@ -1,6 +1,6 @@
 # Operations Ledger Spec (ops-ledger-spec.md)
 
-> Ownership: **Assistant role SOP** (L2.5 method library). Normative text references `PROTOCOL §⑩` (triage matrix), `§⑫` (two-way doc sync), `§⑬.4` (token trimming); this file is the execution detail and never copies L1 body.
+> Ownership: **Assistant role SOP** (L2.5 method library). Normative text references `PROTOCOL §10` (triage matrix), `PROTOCOL §12` (two-way doc sync), `PROTOCOL §13.4` (token trimming); this file is the execution detail and never copies L1 body.
 > **Maintainer**: the **Assistant** role. **Integrator** (sole writer of L1 normative text): **Elon**.
 > **Effective**: on adoption (no fixed date).
 > **Scope**: L2.5 method library — the operations ledger's fields / template / update cadence, plus routine operations actions.

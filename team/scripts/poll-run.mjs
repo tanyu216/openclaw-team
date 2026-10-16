@@ -5,18 +5,18 @@
  * 为什么存在（T-20261013-041718，P1）：
  *   Gateway 的 `already-running` **run 锁** = 「该 job 已有 run 在飞 ⇒ 下一次触发的求值整段被跳过」
  *   —— 这是 Gateway 调度器行为，框架**不能**改（见 AUTOMATIONS.md §3.5）。因此 poll 兜底节奏
- *   （PROTOCOL §①「claim timing belongs to poll」）能否兑现，**完全取决于 poll RUN 本身的时长**：
+ *   （PROTOCOL §1「claim timing belongs to poll」）能否兑现，**完全取决于 poll RUN 本身的时长**：
  *   run 不结束，2min 的兜底就一直不 fire。
  *
  *   修复前契约把「本 run 内执行卡 + 把 lane 轮询到终态」写进 poll run（旧 poll.mjs message
- *   「直接执行不再 claim」+ PROTOCOL §⑥.4 的 poll-to-terminal）⇒ run 时长 ≈ 一条 lane 的工时。
+ *   「直接执行不再 claim」+ PROTOCOL §6.4 的 poll-to-terminal）⇒ run 时长 ≈ 一条 lane 的工时。
  *   实测（E2E-C-4）：run 19:39Z→20:05Z 未结束，其间 19:42:35Z 落板的 ready 卡迟至 run 结束才被领
  *   ⇒ `Δ=1389s ≫ 120s`；同窗外的即时领取（85.8s）反证机制本身健存、停摆由**长驻 run** 解释。
  *
  * 本模块把新契约收敛为可 import 的纯函数（install.sh 用 CLI 取文案/上界；poll.mjs 用 getter 组
  * payload；tests 用同源造 fixture —— 与 `automations/trigger-template.mjs` 同风格）：
  *   - 文案 `pollRunMessage()`：本 run 只做移交（`spawn-lane.sh` detached），**不等 lane、不把 lane
- *     轮询到终态**；lane 监督交回「后续 cron 回合 + task-patrol」（PROTOCOL §⑥ 已允许回合被中断后
+ *     轮询到终态**；lane 监督交回「后续 cron 回合 + task-patrol」（PROTOCOL §6 已允许回合被中断后
  *     由后续回合接管轮询）；
  *   - 上界 `pollRunTimeoutS()`：run 的 `--timeout-seconds` **不得长于它所保证的兜底节奏**
  *     （默认 = 1 个 poll interval，而非旧的 3600s），0 = 关闭调度器超时。

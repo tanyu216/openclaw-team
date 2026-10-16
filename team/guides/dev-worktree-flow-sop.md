@@ -2,10 +2,10 @@
 
 > **Ownership / Maintainer**: **Linus** (engineering) owns the flow and this guide; **Elon** owns
 > dispatch and acceptance.
-> **Status**: method library (`L2.5`). The **normative clauses** live in `PROTOCOL §⑥.4`
-> (development-branch and worktree discipline), `§⑥.3` (parallelism-first) and
-> `§⑳.1`/`§⑳.2` (what is machine-checked and what is *not*). This file **references** them and
-> does not copy their text (`PROTOCOL §⑥.1` clause 11).
+> **Status**: method library (`L2.5`). The **normative clauses** live in `PROTOCOL §6.4`
+> (development-branch and worktree discipline), `PROTOCOL §6.3` (parallelism-first) and
+> `PROTOCOL §20.1/§20.2` (what is machine-checked and what is *not*). This file **references** them and
+> does not copy their text (`PROTOCOL §6.1` clause 11).
 > **Applies to**: every development card whose work lands in a git checkout this framework manages.
 > **Replaces**: `worktree-isolation-sop.md` (deleted 2026-10-16 with the mechanism it documented).
 > **Branch names are resolved, not assumed**: the release branch may be `main`/`master`/`trunk` and is
@@ -39,7 +39,7 @@ A native worktree tool, when the harness provides one, takes precedence inside t
 the framework supplies no such tool today, so lanes use the skill's git fallback (Step 1b).
 
 **Layer boundary worth restating**: the spawner used to decide *whether* to isolate and *where to
-branch from*. It no longer does either (`PROTOCOL §⑥.4`). What it still guarantees is that the lane
+branch from*. It no longer does either (`PROTOCOL §6.4`). What it still guarantees is that the lane
 starts in the repo root with an unambiguous card, a handoff pack, settings, a registered session and
 an owner for the terminal write.
 
@@ -57,21 +57,21 @@ an owner for the terminal write.
 | 6 | Report written: conclusion · branch · commit sha · **merged sha** | lane | **machine (partial)** — `check-report.mjs` checks slot *presence* only; the merged sha is not a checked slot |
 | 7 | owner merges the card branch into the integration branch | lane owner | **prose** |
 | 8 | Elon accepts: confirms the merge landed, records the merged sha, sets `done` | Elon | **prose** — the `done` write is *git-blind* (ACL requires only actor + non-terminal) |
-| 9 | gate re-checks: a `done` card's worktree must be an ancestor of the integration branch | gate | **machine** — `check-merge.mjs` (`PROTOCOL §⑳.1`) |
+| 9 | gate re-checks: a `done` card's worktree must be an ancestor of the integration branch | gate | **machine** — `check-merge.mjs` (`PROTOCOL §20.1`) |
 | 10 | worktree removed | owner | **prose** — and only **after** the merge |
 | 11 | card branch deleted (`git branch -d`) | owner | **machine-safe** — `-d` (never `-D`) refuses an unmerged branch |
 
 **The order in steps 7–11 is the load-bearing part.** "Merge, *then* remove" is not tidiness: a
 removed worktree is invisible to `check-merge.mjs`, so removing first silently converts step 9 from a
-check into a no-op (`PROTOCOL §⑳.2`).
+check into a no-op (`PROTOCOL §20.2`).
 
-**Step 11 — delete the branch.** The clause is `PROTOCOL §⑥.4` ("the closeout order is **merge →
+**Step 11 — delete the branch.** The clause is `PROTOCOL §6.4` ("the closeout order is **merge →
 remove the worktree → delete the card branch**"); this section only records *why*, and how.
 `finishing-a-development-branch` (the companion to `using-git-worktrees`) says the same: once the
 merged result is green, clean up the worktree *and then* `git branch -d <feature-branch>`. The **old** mechanism
 deliberately never deleted branches — base derivation reconstructed a predecessor branch by name
 (`lane/<card>-<seg>`), so the branch was load-bearing after teardown. That machinery is gone
-(`PROTOCOL §⑥.4`), so the reason is gone with it, and keeping branches is now pure accumulation.
+(`PROTOCOL §6.4`), so the reason is gone with it, and keeping branches is now pure accumulation.
 
 **Why keeping them is not a disk problem, and why deleting is still right.** A branch is a **ref — 41
 bytes**; a *merged* branch shares every object with the integration branch (that is what merging
@@ -84,7 +84,7 @@ behaviour is the default and no judgement call is needed.
 ### Continuation and rework
 
 Because the base is the skill's implicit `HEAD` and the main checkout holds the **integration branch**
-(`dev` by default — `OPENCLAW_TEAM_INTEGRATION_BRANCH`; `PROTOCOL §⑥.4`), `HEAD` **is** that branch.
+(`dev` by default — `OPENCLAW_TEAM_INTEGRATION_BRANCH`; `PROTOCOL §6.4`), `HEAD` **is** that branch.
 Two rules follow, and both replace machinery that used to exist:
 
 - **A continuation segment may only start once the previous segment's branch is merged in.** Otherwise
@@ -128,9 +128,9 @@ This table is the point of the guide. Read it before trusting any claim that a s
 | the branch is merged into the integration branch before `done` | **machine (partial)** | `check-merge.mjs` — see the gaps below |
 | same-file write conflict ⇒ serialized | **machine (warn only)** | `samefile-guard.mjs` reports; nothing blocks a start |
 | no direct commit on the release branch | **prose** | `branch-guard.mjs` is SOP-invoked, not a git hook; it resolves the protected set per repo (default branch ∪ `main` ∪ `master`) |
-| the card branch is deleted after the merge (`PROTOCOL §⑥.4`) | **prose, safe by construction** | nothing checks it — but `git branch -d` (never `-D`) refuses an unmerged branch, so the failure mode is "the branch lingers", not "work is lost" |
+| the card branch is deleted after the merge (`PROTOCOL §6.4`) | **prose, safe by construction** | nothing checks it — but `git branch -d` (never `-D`) refuses an unmerged branch, so the failure mode is "the branch lingers", not "work is lost" |
 
-**`check-merge.mjs` is a net, not a wall.** Its four structural gaps (`PROTOCOL §⑳.2`): a removed
+**`check-merge.mjs` is a net, not a wall.** Its four structural gaps (`PROTOCOL §20.2`): a removed
 worktree is invisible; a branch name that does not carry the card id escapes attribution; it covers
 only "not merged", not whether the merge was any good; and a merged result can be reverted afterwards.
 The invariant therefore remains **prose-enforced at the moment `done` is written** — the gate is the
@@ -163,8 +163,8 @@ agent — declare it for `claude` too, or the lane will run without it.
 
 ## 6. Related
 
-- `PROTOCOL §⑥.4` — the clauses (branch, base, merge-before-`done`, protected branch).
-- `PROTOCOL §⑳.1` — the gate registry (`check-merge.mjs` is registered there).
-- `PROTOCOL §⑳.2` — what is deliberately **not** machine-checked, including this flow's residue.
+- `PROTOCOL §6.4` — the clauses (branch, base, merge-before-`done`, protected branch).
+- `PROTOCOL §20.1` — the gate registry (`check-merge.mjs` is registered there).
+- `PROTOCOL §20.2` — what is deliberately **not** machine-checked, including this flow's residue.
 - `guides/spawn-lane-sop.md` — the entry itself (§8, §11).
 - `guides/worktree-…` — **deleted**; this guide is its replacement.

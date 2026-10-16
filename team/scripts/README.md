@@ -5,11 +5,11 @@ scheduled jobs (`team/automations/providers.json` → `{team}/scripts/…`):
 
 | Entry | Job | Dispatch |
 |---|---|---|
-| `poll.mjs <agent>` | `poll-<agent>` | claim this agent's new (`todo`/`ready` — `status.mjs#isNew`)/stale cards — **except `kind:deploy`** (deploy cards are never auto-claimed; explicit dispatch only, `PROTOCOL §①`) |
+| `poll.mjs <agent>` | `poll-<agent>` | claim this agent's new (`todo`/`ready` — `status.mjs#isNew`)/stale cards — **except `kind:deploy`** (deploy cards are never auto-claimed; explicit dispatch only, `PROTOCOL §1`) |
 | `poll-run.mjs` | — (library) | single source for the poll RUN contract: `pollRunMessage()` (claim → hand off → return) + `pollRunTimeoutS()` (run bound); `install.sh` and `poll.mjs` both use it (T-20261013-041718) |
 | `patrol.mjs` | `task-patrol` | stale-heartbeat scan + an in-process re-check of the candidates **before** emitting (a candidate whose card has since reached terminal is dropped, not fired); `patrol-scan.mjs` is the single-source decision module it imports |
-| `sla-scan.mjs [--now ISO] [--recheck f] [--check-thresholds]` | `sla-scan` | board SLA inspection over the `PROTOCOL §⑮` rows the heartbeat patrol does not cover (+ the contract's `inspector_liveness`); notify-only to the leader, `fire` only on a tier crossing, fail-closed on an unconfirmed evaluation (`team/guides/sla-inspection-contract.md`, `team/AUTOMATIONS.md` §3.8) |
-| `tmp-gc.mjs [--json]` (entry) / `tmp-gc.mjs --sweep [--days N] [--dry-run] [--json]` | `tmp-gc` | scratch GC (`PROTOCOL §⑬.9`): delete files older than 14 days under every `workspace-*/.tmp/` + `$OPENCLAW_HOME/tmp/` + `$OPENCLAW_HOME/team/tmp/`. **Split in two**: the entry only reads the last sweep's verdict and spawns the next sweep detached (~40 ms), because the walk costs the tree size (~320k files ≈ 10–12 s > the 7.5 s eval budget); the sweep does the work out of band and its verdict carries over. Roots from a glob (never a hard-coded role list), symlinks neither followed nor deleted, empty dirs pruned but roots kept, its own lock/flag never deleted; `fire` only when a sweep could not be confirmed (`team/AUTOMATIONS.md` §3.9) |
+| `sla-scan.mjs [--now ISO] [--recheck f] [--check-thresholds]` | `sla-scan` | board SLA inspection over the `PROTOCOL §15` rows the heartbeat patrol does not cover (+ the contract's `inspector_liveness`); notify-only to the leader, `fire` only on a tier crossing, fail-closed on an unconfirmed evaluation (`team/guides/sla-inspection-contract.md`, `team/AUTOMATIONS.md` §3.8) |
+| `tmp-gc.mjs [--json]` (entry) / `tmp-gc.mjs --sweep [--days N] [--dry-run] [--json]` | `tmp-gc` | scratch GC (`PROTOCOL §13.9`): delete files older than 14 days under every `workspace-*/.tmp/` + `$OPENCLAW_HOME/tmp/` + `$OPENCLAW_HOME/team/tmp/`. **Split in two**: the entry only reads the last sweep's verdict and spawns the next sweep detached (~40 ms), because the walk costs the tree size (~320k files ≈ 10–12 s > the 7.5 s eval budget); the sweep does the work out of band and its verdict carries over. Roots from a glob (never a hard-coded role list), symlinks neither followed nor deleted, empty dirs pruned but roots kept, its own lock/flag never deleted; `fire` only when a sweep could not be confirmed (`team/AUTOMATIONS.md` §3.9) |
 | `check-all-gate.mjs` | `team-check-all` | aggregate gate patrol, inside the evaluation budget |
 | `check-all.sh [--segment fast\|slow\|all] [--repo <R>\|--live]` | (the gate's checks; also run by hand / CI) | aggregate gate patrol |
 
@@ -37,7 +37,7 @@ two-sided close, and `session-reconcile.mjs` sweeps the historical card↔regist
 (`team/guides/lane-session-lifecycle-sop.md`).
 
 `status.mjs` is the **single source for the status vocabulary** (T-20261015-status): the
-card axis (canonical 7 values of `PROTOCOL §⑯` + the `ready`/`failed` legacy aliases) and
+card axis (canonical 7 values of `PROTOCOL §16` + the `ready`/`failed` legacy aliases) and
 the session/registry axis, plus the one documented bridge between them
 (`sessionTerminalForCard`). Every checker and scanner imports its predicates
 (`isTerminal` / `isNew` / `isInFlight` / `isDraft` / `isNonTerminal` / `isOpen`) rather
@@ -57,7 +57,7 @@ and documented under `team/guides/` or `CLAUDE.md`; **(data)** = deployed litera
 | `check-all.sh` | the gate **engine** — the single source of the checks; `--segment fast\|slow\|all`, live/repo modes | **(gate)** CI (`docker/verify-in-container.sh`), `check-all-gate.mjs`, humans |
 | `check-redlines.mjs` | each role `AGENTS.md` redline block byte-equals `guides/redlines.core.md` | **(gate)** |
 | `sync-redlines.mjs` | the **writer** counterpart: pours the canonical block into each role file | **(cli)** `CLAUDE.md` |
-| `lint-refs.mjs` | `§①…§⑳` references resolve to `PROTOCOL.md` headings | **(gate)** |
+| `lint-refs.mjs` | `PROTOCOL §1…§20` references resolve to `PROTOCOL.md` headings | **(gate)** |
 | `lint-doc-refs.mjs` | path references in backticks / markdown links resolve, cross-file section anchors (`<name>.md §N` / `§N.M`) land on a real heading, **and** section-internal item refs (`§N clause M` / `§N step M` / `§N.M #M`) land inside a real ordered list | **(gate)** |
 | `lint-impl-names.mjs` | implementation names must not leak into the upper docs | **(gate)** |
 | `check-card.mjs` | card frontmatter schema + state machine | **(gate)** |
@@ -67,23 +67,23 @@ and documented under `team/guides/` or `CLAUDE.md`; **(data)** = deployed litera
 | `check-sessions.mjs` | card ↔ registry session consistency | **(gate)** |
 | `check-epic-completeness.mjs` | epic roadmap × card ledger + the dangling-roadmap sweep | **(gate)** |
 | `check-report.mjs` | `## Report` common core (`A1…A8`) for `in_review` cards | **(gate)** |
-| `check-merge.mjs` | every `.worktrees/` checkout whose card is `done` must be an ancestor of `dev` (`PROTOCOL §⑥.4`) | **(gate)** |
+| `check-merge.mjs` | every `.worktrees/` checkout whose card is `done` must be an ancestor of `dev` (`PROTOCOL §6.4`) | **(gate)** |
 | `scan-deps.mjs` | dependency CVE scan (warn-only unless `SCAN_STRICT=1`) | **(gate)** |
 | `archive.mjs` | archive terminal cards to `tasks/archive/YYYY-MM` (`--dry-run` inside the gate) | **(gate)** |
 | `prototype-guard.sh` | a prototype dir must not contain real-implementation tokens | **(gate)**, only when `PROTOTYPE_DIR` is set |
 | `check-all-gate.mjs` | scheduled entry of the gate: fast segment in-band + cached slow verdict + detached refresh | **(job)** `team-check-all` |
 | `poll.mjs` | cron fallback poll: read-only scan + atomic claim | **(job)** `poll-<agent>` |
 | `patrol.mjs` | patrol entry: stale-heartbeat scan (+ pre-emit re-check) | **(job)** `task-patrol` |
-| `sla-scan.mjs` | board SLA inspection over the `§⑮` rows + the threshold-drift check | **(job)** `sla-scan`; **(gate)** `--check-thresholds` |
+| `sla-scan.mjs` | board SLA inspection over the `PROTOCOL §15` rows + the threshold-drift check | **(job)** `sla-scan`; **(gate)** `--check-thresholds` |
 | `tmp-gc.mjs` | scratch GC of `workspace-*/.tmp` + `$OPENCLAW_HOME/tmp` + `team/tmp` (entry reads the last verdict; `--sweep` does the work) | **(job)** `tmp-gc` |
-| `spawn-lane.sh` / `spawn-lane.mjs` | the single mandatory lane entry (claim → handoff → spawn → `session-set`) | `PROTOCOL §⑥`; humans |
+| `spawn-lane.sh` / `spawn-lane.mjs` | the single mandatory lane entry (claim → handoff → spawn → `session-set`) | `PROTOCOL §6`; humans |
 | `lane-reaper.mjs` | detached session-terminal watchdog, armed per lane | **(lib)** `spawn-lane.mjs` |
 | `session-lifecycle.mjs` | shared session-terminal criterion + two-sided close | **(lib)** `poll.mjs`, `lane-reaper.mjs`, `session-reconcile.mjs` |
 | `session-reconcile.mjs` | historical card↔registry drift sweep | **(cli)** `lane-session-lifecycle-sop.md` |
 | `report-census.mjs` | read-only `## Report` census (parameterised, as-of echoed) | **(cli)** `worker-report-template.md` |
-| `branch-guard.mjs` | refuse a direct commit on the protected branch | **(cli)** `CLAUDE.md`, `PROTOCOL §⑥.4` |
+| `branch-guard.mjs` | refuse a direct commit on the protected branch | **(cli)** `CLAUDE.md`, `PROTOCOL §6.4` |
 | `commit-guard.mjs` | the staged set must be only this card's files | **(cli)** `CLAUDE.md` |
-| `samefile-guard.mjs` | same-file concurrency **warning** across non-terminal cards (the spawn-time refusal was removed with the isolation machinery — `PROTOCOL §⑥.3` case ②) | **(cli)** patrol; `guides/dev-worktree-flow-sop.md` |
+| `samefile-guard.mjs` | same-file concurrency **warning** across non-terminal cards (the spawn-time refusal was removed with the isolation machinery — `PROTOCOL §6.3` case ②) | **(cli)** patrol; `guides/dev-worktree-flow-sop.md` |
 | `seed-projects.mjs` | idempotently register project identity codes into the board | **(cli)** `task-interface.md`; **provider** |
 | `taskd-pointer-doctor.mjs` | read-only taskd runtime-pointer health check | **(cli)** `team/README.md` |
 | `lib.mjs` | shared library: frontmatter I/O, atomic claim, project registry | **(lib)** nearly everything; **provider** |
