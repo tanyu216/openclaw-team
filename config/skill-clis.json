@@ -1,0 +1,61 @@
+{
+  "$schema": "openclaw-team/skill-clis@1",
+  "note": "External CLIs that declared skills shell out to. install.sh probes each one. mode=install entries are installed best-effort when missing (network + a global npm prefix); mode=check-only entries are only PROBED AND REPORTED — never installed, because their upstream installer cannot be run safely or unattended. The whole step is skipped under --dry-run/--vendor/--offline and disabled by --skip-skill-clis; an install that fails WARNS (exit 1, 'completed with warnings') but never aborts the run, and a missing check-only CLI only reports. Deliberately ABSENT: `playwright` — its browser builds are project- and version-locked (the skill's own rule 9), so it belongs to the consuming project (`npx playwright install`), not to a machine-wide installer.",
+  "clis": {
+    "ocr": {
+      "mode": "install",
+      "probe": "ocr",
+      "manager": "npm",
+      "package": "@alibaba-group/open-code-review",
+      "requiredBy": [
+        "open-code-review",
+        "open-code-review-delegate"
+      ],
+      "homepage": "https://github.com/alibaba/open-code-review",
+      "note": "Required by the open-code-review* skills. Delegation mode (open-code-review-delegate) needs no LLM configured on the OCR side; plain open-code-review additionally needs `ocr config provider` / `ocr config model`. Scoped package name — safe to install by name."
+    },
+    "gitnexus": {
+      "mode": "install",
+      "probe": "gitnexus",
+      "manager": "npm",
+      "package": "gitnexus",
+      "requiredBy": [
+        "gitnexus-cli",
+        "gitnexus-debugging",
+        "gitnexus-exploring",
+        "gitnexus-guide",
+        "gitnexus-impact-analysis",
+        "gitnexus-lfg",
+        "gitnexus-pdg-query",
+        "gitnexus-plan",
+        "gitnexus-refactoring",
+        "gitnexus-review",
+        "gitnexus-taint-analysis",
+        "gitnexus-work"
+      ],
+      "homepage": "https://github.com/abhigyanpatwari/GitNexus",
+      "note": "The gitnexus-cli skill says its project-local runner needs no global install, but a global one is the documented path on npm 11.x, where `npx gitnexus` crashes (`node.target is null`, GitNexus #1939) — and it is what the MCP registration below needs, since a Gateway-launched MCP server requires a stable resolvable command rather than an ephemeral npx. NOTE: this installs the CLI only; registering the MCP server is host-local and deliberately NOT done by this installer (see config/examples/mcp.example.json5). Without it, roles fall back to grep — degraded, not broken."
+    },
+    "tvly": {
+      "mode": "check-only",
+      "probe": "tvly",
+      "requiredBy": [
+        "tavily-best-practices",
+        "tavily-cli",
+        "tavily-crawl",
+        "tavily-dynamic-search",
+        "tavily-extract",
+        "tavily-map",
+        "tavily-research",
+        "tavily-search"
+      ],
+      "homepage": "https://cli.tavily.com",
+      "install": "curl -fsSL https://cli.tavily.com/install.sh | bash",
+      "alternatives": [
+        "uv tool install tavily-cli",
+        "pip install tavily-cli"
+      ],
+      "note": "check-only on two grounds. (1) The upstream installer is a `curl | bash` pipe, which an unattended installer must not run. (2) `tvly init` installs/updates the Tavily skills bundled with the CLI release, which would overwrite the ref-pinned bodies fetch.mjs installs — authenticate with `tvly init --skip-skills` instead. NAME HAZARD: the npm package called `tavily-cli` is NOT Tavily's (it is github.com/pyrytakala/tavily-cli); the official distribution is the install script above or the PyPI package. Never install this one by npm name."
+    }
+  }
+}

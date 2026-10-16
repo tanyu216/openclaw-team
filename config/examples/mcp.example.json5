@@ -1,4 +1,4 @@
-// mcp.example.json5 — prototype-carrier connectors (figma / pixso / google-stitch).
+// mcp.example.json5 — MCP connectors the team uses (prototype carriers; analysis tools).
 // NOT auto-applied. EDIT ME with your real command/url, then merge:
 //
 //   openclaw config patch --file config/examples/mcp.example.json5
@@ -6,6 +6,11 @@
 // Which carrier needs which connector is declared in config/prototype-carriers.json;
 // the installer checks it and warns when the connector is missing.
 // static-html needs no connector.
+//
+// Connectors are USER-SUPPLIED: the installer declares and checks, it never registers
+// one for you. Registering `gitnexus` in particular is host-local on purpose — the CLI
+// itself IS installed by install.sh (see config/skill-clis.json), but the server entry
+// below is not, and without it the roles silently fall back to grep.
 {
   mcp: {
     servers: {
@@ -17,6 +22,11 @@
 
       // Google Stitch connector (MCP stdio or skill). Set per your setup:
       // stitch: { command: "<stitch-mcp-binary>", args: ["mcp"] },
+
+      // GitNexus — impact / call-chain analysis. Preferred by the Linus SOP
+      // (roles/linus/guides/plan-guide.md, verify-guide.md) over grep. The `gitnexus`
+      // CLI is installed by install.sh; register the server so the MCP tools appear:
+      // gitnexus: { command: "gitnexus", args: ["mcp"] },
     },
   },
 }

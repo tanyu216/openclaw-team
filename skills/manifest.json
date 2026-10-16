@@ -581,7 +581,8 @@
     {
       "name": "open-code-review",
       "targets": [
-        "openclaw"
+        "openclaw",
+        "claude"
       ],
       "source": {
         "kind": "github",
@@ -594,7 +595,8 @@
     {
       "name": "open-code-review-delegate",
       "targets": [
-        "openclaw"
+        "openclaw",
+        "claude"
       ],
       "source": {
         "kind": "github",

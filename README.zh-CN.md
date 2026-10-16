@@ -149,6 +149,7 @@ cd <path/to/openclaw-team>
 | `--skip-automations` | 不注册团队级定时任务 |
 | `--keep-existing` | 从不覆盖已存在文件（跳过而非升级） |
 | `--skip-skills` `--skip-agents` `--skip-config` `--skip-team` | 跳过对应阶段 |
+| `--skip-skill-clis` | 不安装/探测技能所需的外部 CLI（别名 `--skip-ocr-cli`） |
 | `--vendor` | 从来源快照到 `skills/vendor/` |
 | `--offline` | 从 `skills/vendor/` 快照安装（不联网） |
 
@@ -200,6 +201,20 @@ cd <path/to/openclaw-team>
 | `claude` | `~/.claude/skills/` |
 | `codex` | `~/.codex/skills/` |
 | `agent:<id>` | `~/.openclaw/workspace-<id>/skills/` |
+
+部分技能不是自带 CLI，而是**调用外部 CLI**。这些 CLI 声明在
+[`config/skill-clis.json`](config/skill-clis.json)，每条带显式 mode，安装器逐个探测：
+
+- **`mode: install`** —— 缺失则尽力安装：`ocr`（`open-code-review*`）、`gitnexus`（`gitnexus-*` 全套）。
+- **`mode: check-only`** —— 只探测、只报告，**绝不安装**：`tvly`（`tavily-*`）。
+  其上游装法是 `curl | bash` 管道，且 `tvly init` 会覆盖 `fetch.mjs` 按 ref 钉死的技能正文
+  （要认证请用 `tvly init --skip-skills`）。
+
+安装需要网络与全局 npm，故在 `--dry-run` / `--vendor` / `--offline` 下跳过，并可用
+`--skip-skill-clis` 关闭；安装失败只告警。收尾摘要会列出每个 CLI 的状态与安装命令。
+**注册 MCP server** 是另一件事、且属 host-local——连接器由用户自备
+（见 [`config/examples/mcp.example.json5`](config/examples/mcp.example.json5)）：
+`gitnexus` 的 CLI 由本安装器装，MCP server 条目不由它注册，缺了角色会退化回 grep。
 
 标 `needs_source: true` 的条目尚无已核上游，解析前一律跳过。来源与许可见 [`skills/PROVENANCE.md`](skills/PROVENANCE.md)。
 
