@@ -81,7 +81,7 @@ which step 10 removes. Hoarding merged branches is not a disk leak. It is a *leg
 again. Delete them — using `-d`, which simply refuses if the branch was never merged, so the safe
 behaviour is the default and no judgement call is needed.
 
-### Continuation and rework
+### 2.1 Continuation and rework
 
 Because the base is the skill's implicit `HEAD` and the main checkout holds the **integration branch**
 (`dev` by default — `OPENCLAW_TEAM_INTEGRATION_BRANCH`; `PROTOCOL §6.4`), `HEAD` **is** that branch.

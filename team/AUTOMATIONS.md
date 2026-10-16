@@ -2,6 +2,7 @@
 
 > Overview and decision record of all scheduled jobs (cron / every / trigger) on the team Gateway. Maintainer: Elon.
 > Related: `PROTOCOL §20` (gates and archiving), `PROTOCOL §6.4` (poll to terminal state), `README §3` (operations commands), `guides/task-interface.md` (task-provider ACL).
+---
 
 ## 0. Boundary — framework owns scheduling; provider is only a callee (ACL)
 
@@ -18,10 +19,12 @@
 - **Install behaviour matches this document**: `./install.sh` registers the jobs
   below; `--skip-automations` disables registration. Re-running is idempotent
   (`declarationKey`).
+---
 
 ## 1. Job Overview (repo declares 18: 9 by `install.sh` — 4 × `*-poll` + `task-patrol` + `team-check-all` + `skills-update` + `sla-scan` + `tmp-gc`; the other 9 registered by their own mechanisms)
 
-> **Cadence / scope caveat.** The `Frequency` column documents the **framework-declared (repo) defaults**: `*-poll` = `every 5m` and `task-patrol` = `every 15m` (`install.sh:126` / `:698` / `:718`). A host's Gateway store keeps whatever it was registered with until `install.sh` / `config/reconcile.mjs` runs against it (§3.6) — i.e. a store registered by an older release still runs the older cadence (`*-poll` = `every 2m`, `task-patrol` = `every 5m`) and lacks any job added since.<br>**Boundary vs `skill-collection-review-*`** (they are *not* the same concern): `skill-collection-review-*` reviews the **installed collection** on each host (what is present, duplicated, broken, stale *as a set*); `skills-update` reviews the **declared upstreams** in `skills/manifest.json` (has the pinned `source.ref` drifted from the upstream commit?) and is the only job that can *advance* a ref. Neither subsumes the other: a skill can be perfectly installed while its upstream moved, and a collection can be broken while every upstream is current.
+> **Cadence / scope caveat.** The `Frequency` column documents the **framework-declared (repo) defaults**: `*-poll` = `every 5m` and `task-patrol` = `every 15m` (`install.sh:126` / `:698` / `:718`). A host's Gateway store keeps whatever it was registered with until `install.sh` / `config/reconcile.mjs` runs against it (§3.6) — i.e. a store registered by an older release still runs the older cadence (`*-poll` = `every 2m`, `task-patrol` = `every 5m`) and lacks any job added since.<br>**Boundary vs `skill-collection-review-*`** (they are *not* the same concern): `skill-collection-review-*` reviews the **installed collection** on each host (what is present, duplicated, broken, stale *as a set*); `skills-update` reviews the **declared upstreams** in `skills/manifest.json` (has the pinned `source.ref` drifted from the upstream commit?) and is the only job that can *advance* a ref.
+> Neither subsumes the other: a skill can be perfectly installed while its upstream moved, and a collection can be broken while every upstream is current.
 
 | Name | Agent | Frequency | Trigger | Delivery | Purpose |
 |---|---|---|---|---|---|
@@ -39,11 +42,13 @@
 | `token-hygiene` | main | 04:00 (Asia/Shanghai) | — | none | Large-log compaction/memory indexing |
 | `session-rollover` | main | 06:00 (Asia/Shanghai) | — | none | Main-session rollover |
 | `skill-collection-review-{main,jobs,linus,turing,assistant}` | respective | every 7d (staggered) | — | none | Skill collection patrol |
+---
 
 ## 2. Cost Model (important)
 - **An idle trigger job = zero cost**: `fire:false` only writes state, produces no run, and consumes no model. So all poll / task-patrol / team-check-all / skills-update / sla-scan / tmp-gc jobs are **near zero cost when there is no anomaly**. (`skills-update` still costs a few seconds of *network* every Sunday — it must ask 15 upstreams for their current HEAD — but it wakes no model.)
 - Only **`fire:true` wakes a model turn** (poll = a card was claimed; task-patrol = a stale card exists; check-all = the gate failed; skills-update = an upstream skill ref moved, or the check could not be confirmed; sla-scan = a board wait newly crossed a `PROTOCOL §15` tier, or the inspection could not be confirmed; tmp-gc = the sweep could not be confirmed). **`tmp-gc` firing is never "it deleted a lot"** — that is the job working; only an unreadable root or a failed delete wakes anyone.
 - Non-trigger jobs (heartbeat/maintenance/skill) produce runs at a fixed frequency.
+---
 
 ## 3. Dispatch Path (framework-owned, provider-agnostic)
 
@@ -110,6 +115,7 @@ scripts still link the provider's ACL library at `{team}/skills/task-ops/lib/`
 required for them to execute. That requirement is now **explicit (startup
 hard-fail)**: absent a provider install the entries print a clear
 `provider 未安装：…` error and exit non-zero (no silent no-op).
+---
 
 ## 3.5 Run lock: what the framework bounds, and what it cannot (③)
 
@@ -256,6 +262,7 @@ emits `{"ok":…,"message":…}` and launches the detached slow refresh. Consequ
 Runtime state written by the gate (`<team>/.check-all-slow.json`, `.check-all-slow.lock`,
 `.check-all-slow.log`) is **host-local**: it lives only in the instance, is never part of
 the repository, and is not carried by `install.sh`.
+---
 
 ## 3.6 Live trigger drift (item 1 — the re-check must reach the *live* trigger)
 
@@ -296,6 +303,7 @@ does not read `providers.json`. It carries its **own** inline trigger script.
   `openclaw automations get <id>`). To hot-fix without a full install, use
   `openclaw automations edit <id> --trigger-script <file>` directly. Repo-green ≠
   live-green until reconcile/install has run against the store.
+---
 
 ## 3.7 Inter-session delivery latency (item 2 — a correct verdict can still arrive stale)
 
@@ -329,6 +337,7 @@ entry now carries **machine-checkable present-state evidence** (`status`,
 A consumer that knows when the alert was generated can therefore **drop or downgrade a
 superseded nudge without a new round-trip**. That narrows the window; it does **not**
 close it — the residual is the Gateway transport backlog above.
+---
 
 ## 3.8 `sla-scan` — board SLA inspection (the PROTOCOL §15 rows patrol does not cover)
 
@@ -428,6 +437,7 @@ confirmation  found in this landing (registered as §12 **G-10 ⑤⑥⑦**) are 
   when the card held a reason — contrary to §4 #19 ("on **every** row"). It is now read once per card
   and carried by every row of that card (`null` iff the card carries none), including `leader_stalled`,
   which takes the value of its evidence-holder card.
+---
 
 ## 3.9 `tmp-gc` — scratch-file GC (the placement discipline's enforcement arm)
 
@@ -482,25 +492,31 @@ day-based mechanism was card archiving, `PROTOCOL §20.3`).
 - **First run / audit**: `node scripts/tmp-gc.mjs --sweep --days 14 --dry-run --json` reports what
   *would* go without touching anything (`--dry-run` is truly read-only — no unlink, no rmdir, no
   mtime change, no flag written). The entry in `--dry-run` reads the flag and spawns nothing.
+---
 
 ## 4. Decision Record
 - **Keep per-worker poll; do not do a "single board scan → dispatch"**: per-worker `*-poll` is an **independent fallback** (each worker atomically claims, so cards already created can still be claimed when Elon/main is stalled). Merging into "main scans → dispatch" would converge to a single Elon point and change the `PROTOCOL §1` "claim timing belongs to poll" semantics; the only gain is a few zero-cost config lines ⇒ not adopted.
 - **Patrol frequency**: the gate patrol `team-check-all` is set to **hourly**; because it triggers the model only on failure, a higher frequency adds no cost.
 - **Cron slimming **: per-worker poll was thinned **1m → 2m → 5m** (override `OPENCLAW_TEAM_POLL_INTERVAL`, default `5m`) and `task-patrol` widened to **15m**, and every framework job now runs with **`--light-context`** so scheduler triggers stay cheap. The trigger decision is still an atomic claim check — 5m keeps the "claim timing belongs to poll" fallback (PROTOCOL §1) while cutting scheduler wake-ups (worst-case claim latency ≤5m; worker crash recovery window ≈ patrol 15m + poll 5m).
 - **Fallback cadence widened**: per-worker poll **2m → 5m** (`OPENCLAW_TEAM_POLL_INTERVAL`) and `task-patrol` **5m → 15m**. The dispatch mainline is Elon assigning via `sessions_send` (push); poll only fires when that push did not land, so the accepted worst-case claim latency is now ≤5m and the accepted worker crash recovery window ≈ patrol 15m + poll 5m. Nothing else moves: the trigger decision stays an atomic claim check (PROTOCOL §1), `task-patrol` stays **light-context only**, and its stale threshold (>30min) is unchanged. **The ≤5m figure is a claim about the CADENCE, not about any single run**: it holds only while a poll run is not resident across the boundary, which is why  pins the run contract to a short hand-off turn and the run bound to one interval (§3.5).
+---
 
 ## 5. Management
-- **Install-time registration (declarative reconcile)**: `./install.sh` is the declaration source; `config/reconcile.mjs` aligns the runtime to it by `declarationKey` (`openclaw-team:poll:<agent>` / `openclaw-team:task-patrol` / `openclaw-team:team-check-all` / `openclaw-team:skills-update` / `openclaw-team:sla-scan` / `openclaw-team:tmp-gc`); `--skip-automations` disables it. Re-running is safe and **self-healing**: a missing key ⇒ `add`; a present key that drifts ⇒ `edit`; a present key that already matches ⇒ `skip`. **Drift** = `payload.lightContext !== true`; (interval jobs only) a schedule mismatch with the declared interval; or a live `trigger.script` body that differs from the declared `triggerScriptPath` file (⇒ `--trigger-script <path>`, §3.6). **Cron jobs (`team-check-all`, `skills-update`, `tmp-gc`) are never given `--every`** — only `lightContext`/trigger are reconciled, so the cron expression is left untouched. The registration is **provider-agnostic** — no `meerkat-taskpanel`/`taskctl` literal appears in any trigger script. The expected trigger body comes from the single template `team/automations/trigger-template.mjs`.
+- **Install-time registration (declarative reconcile)**: `./install.sh` is the declaration source; `config/reconcile.mjs` aligns the runtime to it by `declarationKey` (`openclaw-team:poll:<agent>` / `openclaw-team:task-patrol` / `openclaw-team:team-check-all` / `openclaw-team:skills-update` / `openclaw-team:sla-scan` / `openclaw-team:tmp-gc`); `--skip-automations` disables it. Re-running is safe and **self-healing**: a missing key ⇒ `add`; a present key that drifts ⇒ `edit`; a present key that already matches ⇒ `skip`. **Drift** = `payload.lightContext !== true`; (interval jobs only) a schedule mismatch with the declared interval; or a live `trigger.script` body that differs from the declared `triggerScriptPath` file (⇒ `--trigger-script <path>`, §3.6).
+  **Cron jobs (`team-check-all`, `skills-update`, `tmp-gc`) are never given `--every`** — only `lightContext`/trigger are reconciled, so the cron expression is left untouched. The registration is **provider-agnostic** — no `meerkat-taskpanel`/`taskctl` literal appears in any trigger script. The expected trigger body comes from the single template `team/automations/trigger-template.mjs`.
 - **Scheduling bounds** (set at registration; see §3.5): poll jobs get `--timeout-seconds` (run upper bound, `OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S`, default = one `OPENCLAW_TEAM_POLL_INTERVAL` — was 3600 s); every generated trigger passes `exec({ …, timeoutSeconds })` and the dispatcher applies `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default 8000 ms). Both are install-time overridable env vars.
 - View: `automations list` | Details: `automations get <jobId>` | History: `automations runs <jobId>`
 - Test run: `automations run <jobId> runMode=force`
 - Add/remove/modify: prefer the `automations` tool; **but that tool is read-only in agent/cron turns** (only status/list/get/remove/runs/next_check, no add/update/run) ⇒ to actually change scheduling, use the official CLI: `openclaw automations edit <jobId> --trigger-script <file>` (Gateway WS managed path, not a manual DB edit). Hand-editing sqlite/store is forbidden.
 - Constraint: `declarationKey` is **add-only** (fixed at creation, cannot be updated afterwards); changing a key requires remove + re-add.
 - Permissions: in a chat turn, `add`-ing a job for **another agent** is rejected by scope (`agentId outside caller scope`); workaround = create first, then `update agentId` (or have the owner create it in the Control UI).
+---
 
 ## 6. Patrol Metrics (attached to check-all)
 - **Trigger-script placeholder incident fix (historical)**: the trigger inline JS **does not do brace template substitution**, so a placeholder literal passed to shell fails (`bash: {{HOME}}/...: No such file or directory`) ⇒ the gate patrol falsely reports failure and burns a model turn (poll-type jobs silently fail instead). **Fix**: switch trigger scripts to **absolute paths** and write back each job via `openclaw automations edit <id> --trigger-script <file>`; verify `automations list` has no placeholders and the gate is all green ⇒ trigger evaluation is `fire:false`. **Convention**: trigger script paths are always absolute; placeholders are forbidden.
 - Redline-block drift = 0 | terminology-abstraction violations = 0 | §reference broken links = 0 | card-schema violations = 0 | contract tests all green.
 - **Epic completeness / roadmap × card reconciliation = 0 hard violations** (`scripts/check-epic-completeness.mjs`, `PROTOCOL §10.2/§10.3/§20.1`): every card named in an epic's roadmap ledger must exist **and** be a child of that epic, and every phase with no card must state a reason (hard domain = non-terminal epics — terminal ones are grandfathered and reported as warnings). The **dangling-roadmap sweep** (`workspace/<task>/plan.md`, `design/`, epic cards → "phase without a card") is **soft**: it reports, never sets the exit code.
 - **New-seg background-pack rate**: the gate verifies that "all running/closed segs in the card have `workspace/<task-id>/handoff.md` containing the four anchors" — target 100%; gaps are handled (generated/carded).
-- **Card-face Report completeness = 0 hard violations** (`scripts/check-report.mjs`, `PROTOCOL §20.1`; standard = `team/guides/worker-report-template.md`): an `in_review` card must have a non-blank `## Report` carrying the common-core slots `A1…A8`. Hard domain = **`in_review` created at/after the gate's effective cutoff**; terminal cards are never checked, earlier cards are grandfathered to warnings (12 at landing — no retro-reddening), and the register (`scripts/report-baseline.json` ∪ `<tasks>/.report-baseline.json`) can exempt a benign case when its gap set matches exactly. Measured motivation: the historical board drops the **card path** slot hardest on every role (criterion-bound — see guide §4, whose absolute numbers were **withdrawn** as unreproducible on 2026-10-15, defect  §T6 D6; current readings: `scripts/report-census.mjs`), Jobs is the weakest role on "command + exit code" by a wide margin, and four cards reached `in_review` with a blank Report on the night of 2026-10-14. Beyond slot presence the script declares two semantics, tracked here one-to-one with the script header and the guide: **(v) A0 report origin** (header (v); guide §1 A0) — the optional `A0` line reads `delivery` (the deliverer's own Report, the default when absent) or `import` (proxy-collected: a migration, or a pick-up for a dead session); an `import` Report is **not** delivery evidence and can never clear an `in_review` card on its own, and an unreadable `A0` token fails closed; and the **A4 → A6 coupling** (guide §5 row `A4 → A6 coupling`, script Δ1) — a `partial`/`not_met` Acceptance row must reappear in A6 with an owner, so a `partial` row beside an A6 that says "none" is flagged. That coupling, like the sent-back-round hint of header step (vi), is a **non-blocking hint**, never a violation.
+- **Card-face Report completeness = 0 hard violations** (`scripts/check-report.mjs`, `PROTOCOL §20.1`; standard = `team/guides/worker-report-template.md`): an `in_review` card must have a non-blank `## Report` carrying the common-core slots `A1…A8`. Hard domain = **`in_review` created at/after the gate's effective cutoff**; terminal cards are never checked, earlier cards are grandfathered to warnings (12 at landing — no retro-reddening), and the register (`scripts/report-baseline.json` ∪ `<tasks>/.report-baseline.json`) can exempt a benign case when its gap set matches exactly.
+  Measured motivation: the historical board drops the **card path** slot hardest on every role (criterion-bound — see guide §4, whose absolute numbers were **withdrawn** as unreproducible on 2026-10-15, defect  §T6 D6; current readings: `scripts/report-census.mjs`), Jobs is the weakest role on "command + exit code" by a wide margin, and four cards reached `in_review` with a blank Report on the night of 2026-10-14.
+  Beyond slot presence the script declares two semantics, tracked here one-to-one with the script header and the guide: **(v) A0 report origin** (header (v); guide §1 A0) — the optional `A0` line reads `delivery` (the deliverer's own Report, the default when absent) or `import` (proxy-collected: a migration, or a pick-up for a dead session); an `import` Report is **not** delivery evidence and can never clear an `in_review` card on its own, and an unreadable `A0` token fails closed; and the **A4 → A6 coupling** (guide §5 row `A4 → A6 coupling`, script Δ1) — a `partial`/`not_met` Acceptance row must reappear in A6 with an owner, so a `partial` row beside an A6 that says "none" is flagged. That coupling, like the sent-back-round hint of header step (vi), is a **non-blocking hint**, never a violation.

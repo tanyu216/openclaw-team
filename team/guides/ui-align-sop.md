@@ -200,6 +200,7 @@ Run:
 docker/ui-fidelity/verify.sh                    # self-test (conforming passes, violating fails)
 node tools/ui-fidelity/check.mjs --config ./.ui-fidelity.json --style-strict
 ```
+---
 
 ## 11. Flow C Path — UI Micro-Change (shortest chain, gate not skipped)
 
