@@ -683,7 +683,7 @@ test('buildPrompt：未被隔离 ⇒ 明确授权、点名 skill 回退落点与
   assert.match(p, /\.worktrees\//, '落点必须是 skill 1b 的默认值');
   assert.match(p, /T-20261016-111111/, '分支名必须写出——合并门禁靠分支名反推卡 id');
   assert.match(p, /base it on `dev`/);
-  assert.match(p, /Never commit on the protected branch \(main\)/);
+  assert.match(p, /Never commit directly on the protected release branch/, '发布分支只说角色，不写死名字');
   assert.doesNotMatch(p, /already in a lane worktree/, '未隔离时不得出现「你已在隔离树中」');
 });
 
@@ -700,6 +700,16 @@ test('buildPrompt：lane 缺省时不写出空反引号的「分支名」', () =
   const p = buildPrompt({ ...PROMPT_ARGS });
   assert.doesNotMatch(p, /Name the branch ``/, '不得渲染出空的分支名');
   assert.match(p, /\.worktrees\//, '落点与授权不依赖 lane 是否已知');
+});
+
+test('buildPrompt：集成分支名可配（与门禁同源），受保护分支则**不点名**（它随仓而异）', () => {
+  // 集成分支名从 lib.mjs#integrationBranch() 来，与 check-merge 同一个出处；显式传入可覆盖。
+  const p = buildPrompt({ ...PROMPT_ARGS, lane: 'T-1', integration: 'develop' });
+  assert.match(p, /base it on `develop`/, '须用传入的集成分支名');
+  assert.doesNotMatch(p, /base it on `dev`/);
+  // 受保护分支**不写死名字**：可能是 main / master / trunk —— 写死一个会误导车道。
+  assert.match(p, /protected release branch/, '说的是「发布分支」这个角色，不是一个具体名字');
+  assert.doesNotMatch(p, /\(main\)/, '不得写死 (main)');
 });
 
 test('buildPrompt：报告行必须是**末句** —— codex 后端要求提示词落在 argv 末位，抽取端以「末句以 report.md 结尾」为判据', () => {

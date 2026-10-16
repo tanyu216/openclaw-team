@@ -138,9 +138,9 @@ Two lanes must never share one checkout: multiple writers in a shared working tr
 # Rehearse what the lane will be told (zero side effects):
 bash ~/.openclaw/team/scripts/spawn-lane.sh <card> <owner> --dry-run
 ```
-The printed prompt's last line is the Report target; the workspace paragraph just above it names the branch and the base (`dev`).
+The printed prompt's last line is the Report target; the workspace paragraph just above it names the branch and the base (the integration branch).
 
-**Why the base needs no derivation any more**: the base is the skill's implicit `HEAD`, and the main checkout sits on `dev` (`PROTOCOL §⑥.4`) — so `HEAD` *is* `dev`. The consequence to respect is upstream of the spawn: a **continuation** segment may only start once the previous segment's branch has been merged into `dev`, and **rework of an unmerged branch stays in the same worktree**. `scripts/check-merge.mjs` enforces the merge at closeout (`§7` of the companion guide).
+**Why the base needs no derivation any more**: the base is the skill's implicit `HEAD`, and the main checkout sits on the **integration branch** (`dev` by default, `OPENCLAW_TEAM_INTEGRATION_BRANCH`; `PROTOCOL §⑥.4`) — so `HEAD` *is* that branch. The consequence to respect is upstream of the spawn: a **continuation** segment may only start once the previous segment's branch has been merged in, and **rework of an unmerged branch stays in the same worktree**. `scripts/check-merge.mjs` enforces the merge at closeout (`§7` of the companion guide).
 
 Same-file conflicts are no longer a spawn-time refusal: two lanes now work in separate trees and would collide at merge, so `scripts/samefile-guard.mjs` reports the overlap as a **warning** and the owner sequences the cards (`PROTOCOL §⑥.3` case ②). Serialize when the card says so or `depends_on` is unmet.
 
@@ -189,11 +189,11 @@ What this removed, and where it went:
 | `lane-isolation.mjs` decision + `isolation.*` output | nothing — no decision to make; the lane always isolates itself |
 | `lane-worktree.mjs` create/reuse/remove | the lane's `using-git-worktrees` git fallback |
 | same-file ⇒ **refuse to start** (`lane_samefile_conflict`) | `scripts/samefile-guard.mjs` **warns**; the owner sequences the cards (`PROTOCOL §⑥.3` case ②) |
-| `--base` / `OPENCLAW_LANE_BASE` derivation, `base_*` refusals | the base is the skill's implicit `HEAD`, and the main checkout **is** `dev` ⇒ `HEAD` *is* `dev` (`PROTOCOL §⑥.4`) |
+| `--base` / `OPENCLAW_LANE_BASE` derivation, `base_*` refusals | the base is the skill's implicit `HEAD`, and the main checkout holds the integration branch ⇒ `HEAD` *is* it (`PROTOCOL §⑥.4`) |
 | `--no-isolate` / `OPENCLAW_LANE_ISOLATION=0` | gone — there is no automation to switch off |
 
 **The obligation the derivation used to carry does not disappear, it moves earlier**: a continuation
-segment may only start once the previous segment's branch is **merged into `dev`**, and rework of an
+segment may only start once the previous segment's branch is **merged in**, and rework of an
 unmerged branch stays in the same worktree. `scripts/check-merge.mjs` enforces the merge at closeout;
 its residual limits are in `PROTOCOL §⑳.2`.
 

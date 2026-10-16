@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 /**
- * check-merge.mjs — 交付合并巡检：已关闭卡的 worktree 检出必须已并入 `dev`（纳入 check-all fast 段）
- * 依据：PROTOCOL §⑥.4（卡的产物必须先并入 dev 才算交付）；§⑳.1（机检门禁登记）；
- *       §⑳.2（明确不机器化的规则）；guides/dev-worktree-flow-sop.md（新 dev 分支开发流）。
+ * check-merge.mjs — 交付合并巡检：已关闭卡的 worktree 检出必须已并入**集成分支**（纳入 check-all fast 段）
+ * 依据：PROTOCOL §⑥.4（卡的产物必须先并入集成分支才算交付）；§⑳.1（机检门禁登记）；
+ *       §⑳.2（明确不机器化的规则）；guides/dev-worktree-flow-sop.md（集成分支开发流）。
  *
  * 口径一句话：`<repo>/.worktrees/` 下每一个**检出**，若其归属卡已 `done`，则该检出所在分支
- * **必须是 `dev` 的祖先**；否则判红。
+ * **必须是**集成分支**的祖先**——缺省 `dev`，`OPENCLAW_TEAM_INTEGRATION_BRANCH` 可改
+ * （`lib.mjs#integrationBranch()`，与车道提示语同源）；否则判红。
  *
  * ── (i) 为什么需要这个门禁：这是一条被声明了很久、却从无机检的不变量 ──────────────
- *   `PROTOCOL §⑥.4` 原文把「lane 的产物必须先并入 `dev` 才算交付」定为**终态 `done` 的前置条件**，
+ *   `PROTOCOL §⑥.4` 原文把「卡的产物必须先并入集成分支才算交付」定为**终态 `done` 的前置条件**，
  *   roles/elon 的验收纪律、worker-report-template 的 A2/A8 槽位都复述了它。但在本门禁落地前，
  *   **全库没有任何一行代码读过它**：`check-card.mjs` 只校验 frontmatter schema（读单卡、
  *   看不见上一次状态，结构上不可能校验转移）；`check-report.mjs` 只校验 Report 的**槽位存在性**，
@@ -62,7 +63,7 @@
  *     门禁**看不见已消失的树**。这是本口径最大的口子，故收口顺序必须「先合并、后 `--remove`」。
  *   · **分支名不合规即漏检**：既有的 `lane/<slug>` 一类手工分支名不含卡 id ⇒ 归属判定失败 ⇒
  *     skip + warn（不转红，也不放行）。
- *   · **只覆盖「未并入 dev」**，不覆盖「合并了但质量不合格」——后者是 Turing/Elon 的职责。
+ *   · **只覆盖「未并入集成分支」**，不覆盖「合并了但质量不合格」——后者是 Turing/Elon 的职责。
  *   · **归属卡找不到**的一律 skip（见 (iii)）。
  *   以上四条必须同步记入 `PROTOCOL §⑳.2`（Not Machine-Checkable），不得在别处声称已机检。
  *
@@ -77,8 +78,8 @@
  *   **不敢判的三态一律 skip + warn，绝不转红**（假红比漏报更有害，且本门禁是新增面）：
  *     · 仓根解析不到（drop 到 `repo-missing`）；
  *     · `<repo>/.worktrees/` 不存在（尚无隔离树 ⇒ 无事可查）；
- *     · `dev` 在仓里解析不到（**关键**：`merge-base --is-ancestor X dev` 在 `dev` 不存在时返回非零，
- *       若不加这道守卫，会与「未合并」不可区分 ⇒ 把无 dev 的仓全判红）。
+ *     · 集成分支在仓里解析不到（**关键**：`merge-base --is-ancestor X <integ>` 在该分支不存在时返回
+ *       非零，若不加这道守卫，会与「未合并」不可区分 ⇒ 把没有该分支的仓全判红）。
  *
  * 退出码：0 无「非豁免硬违规」（含 grandfather warn / skip）；1 有之。用 `process.exitCode` 而非
  * `process.exit`：管道 stdout 的 JSON 不得被截断（调用方要解析）。隔离：`OPENCLAW_TEAM_ROOT` /
@@ -88,15 +89,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { parseFrontmatter, TASKS_DIR } from './lib.mjs';
+import { parseFrontmatter, TASKS_DIR, integrationBranch } from './lib.mjs';
 
 // ---------- 常量与口径 ----------
 
 /** 隔离树目录名（仓内）。`using-git-worktrees` skill Step 1b 的默认落点即此。 */
 export const WORKTREES_DIRNAME = '.worktrees';
 
-/** 集成分支（草拟进 `dev` 才算交付）。 */
-export const INTEGRATION_BRANCH = 'dev';
+/**
+ * 集成分支名**不再是本模块的常量**：它是 `lib.mjs#integrationBranch()`（缺省 `dev`，
+ * `OPENCLAW_TEAM_INTEGRATION_BRANCH` 可改）。单一出处的理由见 lib.mjs —— 门禁查的分支与车道
+ * 提示语里让车道的分支**必须**是同一个名字，否则两边各说各话、门禁静默失效。
+ */
 
 /** 硬判状态：**只有** `done`。作业中的卡天然持有未合并的树，判它必红（见 (iii)）。 */
 export const HARD_STATUS = 'done';
@@ -170,16 +174,16 @@ function git(cwd, args) {
   return spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8' });
 }
 
-/** `dev` 在仓里是否可解析。解析不到 ⇒ 不敢判（否则 isAncestor 的非零会与「未合并」混淆）。 */
+/** 集成分支在仓里是否可解析。解析不到 ⇒ 不敢判（否则 isAncestor 的非零会与「未合并」混淆）。 */
 export function integrationRef(repo) {
-  const r = git(repo, ['rev-parse', '--verify', '--quiet', `refs/heads/${INTEGRATION_BRANCH}`]);
+  const r = git(repo, ['rev-parse', '--verify', '--quiet', `refs/heads/${integrationBranch()}`]);
   return r.status === 0 ? String(r.stdout).trim() : '';
 }
 
-/** 分支是否为 `dev` 的祖先（只读 `merge-base --is-ancestor`；同 spawn-lane 的 isAncestor 惯用法）。 */
+/** 分支是否为集成分支的祖先（只读 `merge-base --is-ancestor`）。 */
 export function isMerged(repo, branch) {
   if (!branch) return false;
-  return git(repo, ['merge-base', '--is-ancestor', branch, INTEGRATION_BRANCH]).status === 0;
+  return git(repo, ['merge-base', '--is-ancestor', branch, integrationBranch()]).status === 0;
 }
 
 /** 该 worktree 路径当前**真实检出**的分支；detached 或读不到 ⇒ 退回目录名（约定：目录名即分支名）。 */
@@ -262,7 +266,7 @@ export function scanMerges(tasksDir = TASKS_DIR, { repo, baseline, env = process
   if (!fs.existsSync(path.join(repoDir, WORKTREES_DIRNAME))) { notes.push('no-worktrees-dir'); return finish(repoDir); }
 
   const integ = integrationRef(repoDir);
-  if (!integ) { notes.push(`integration-unresolved:${INTEGRATION_BRANCH}`); return finish(repoDir); }
+  if (!integ) { notes.push(`integration-unresolved:${integrationBranch()}`); return finish(repoDir); }
 
   const wts = listWorktrees(repoDir);
   const base = baseline === undefined
@@ -333,12 +337,12 @@ function main() {
     console.error(`交付合并巡检**未判定**（未确认 ≠ 通过）：${r.notes.join(', ')}`);
   }
   if (r.violations.length) {
-    console.error(`交付合并违例：${r.violations.length} 张已 done 的卡，其 worktree 检出未并入 ${INTEGRATION_BRANCH} —— 按 guides/dev-worktree-flow-sop.md 收口：先合并分支入 ${INTEGRATION_BRANCH}，再移除 worktree（§⑥.4：未合并的分支不是交付）`);
-    for (const v of r.violations) console.error(`  · ${v.id} [${v.status}] ${WORKTREES_DIRNAME}/${v.dir} → 分支 ${v.branch} 不是 ${INTEGRATION_BRANCH} 的祖先`);
+    console.error(`交付合并违例：${r.violations.length} 张已 done 的卡，其 worktree 检出未并入 ${integrationBranch()} —— 按 guides/dev-worktree-flow-sop.md 收口：先合并分支入 ${integrationBranch()}，再移除 worktree（§⑥.4：未合并的分支不是交付）`);
+    for (const v of r.violations) console.error(`  · ${v.id} [${v.status}] ${WORKTREES_DIRNAME}/${v.dir} → 分支 ${v.branch} 不是 ${integrationBranch()} 的祖先`);
   }
   if (r.grandfathered.length) {
     console.error(`交付合并 warn（生效截止 ${r.effectiveAt} 之前创建的卡 ⇒ 不追溯转红）：${r.grandfathered.length} 条`);
-    for (const v of r.grandfathered) console.error(`  · warn ${v.id} created=${v.created_at} 分支 ${v.branch} 未并入 ${INTEGRATION_BRANCH}`);
+    for (const v of r.grandfathered) console.error(`  · warn ${v.id} created=${v.created_at} 分支 ${v.branch} 未并入 ${integrationBranch()}`);
   }
   if (r.unattributed.length) {
     console.error(`交付合并提示（非阻断）：${r.unattributed.length} 个 worktree 检出无法归属到板上任何卡 —— 分支名不含卡 id 即无从判断该不该合并（§⑳.2 已记上限）`);

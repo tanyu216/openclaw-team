@@ -28,7 +28,8 @@
  *   ①c **隔离由车道自己按 skill 建立**（T-20261016-：新 dev 工作流）：
  *      本入口**不再**判定/创建 worktree。cwd 恒为 project 解析出的仓根；隔离改由子会话按
  *      `using-git-worktrees` skill 自建（落点 `.worktrees/<branch>`，分支名 = `laneNameFor(card, seg)`，
- *      基于 `dev`）。理由与代价见 `guides/dev-worktree-flow-sop.md`：skill 的 Step 0 在未隔离时会
+ *      基于**集成分支**（缺省 `dev`，`OPENCLAW_TEAM_INTEGRATION_BRANCH` 可改））。理由与代价见
+ *      `guides/dev-worktree-flow-sop.md`：skill 的 Step 0 在未隔离时会
  *      **向用户征求同意**，而车道是无头 `claude -p` ⇒ 授权与分支名必须由 `buildPrompt` 声明。
  *      随之移除的是整条 bespoke 判定链：`lane-isolation.mjs` / `lane-worktree.mjs`（同文件串行拒绝、
  *      隔离预演、`base_*` 拒绝码、`isolation.*` 机器契约）。同文件冲突仍由 `samefile-guard.mjs`
@@ -61,7 +62,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn as spawnChild, spawnSync } from 'node:child_process';
-import { TEAM_ROOT, AGENTS, getProject, readCardById, parseDeps } from './lib.mjs';
+import { TEAM_ROOT, AGENTS, getProject, readCardById, parseDeps, integrationBranch } from './lib.mjs';
 import { anchorGaps } from './check-handoff.mjs';
 import { loadRegistry, isPidAlive, isEntryAlive, closePendingEntries } from './registry.mjs';
 import { read as aclRead, claim as aclClaim, sessionSet, sessionClose, sessionIdFor, handoff as aclHandoff } from '../skills/task-ops/lib/task.mjs';
@@ -359,28 +360,28 @@ const backendBin = (backend) =>
 
 /**
  * 子会话提示词：先读背景包（handoff），再执行卡。子会话不读牌面（PROTOCOL §⑥ clause 7）。
- * 隔离开启时追加一行工作树纪律：本 lane 在**自己的 worktree** 上，提交落在 lane 分支，
- * 收尾须回报 branch + sha 供整合（否则隔离树的产物无人知道；收口口径见
- * `guides/dev-worktree-flow-sop.md`）。
+ * 追加一段工作树纪律：本车道在**自己的 worktree** 上，提交落在**卡分支**，收尾须回报
+ * branch + sha 供整合（否则隔离树的产物无人知道；收口口径见 `guides/dev-worktree-flow-sop.md`）。
  *
- * 隔离段落**两态合一**（T-20261016-：新 dev 工作流）：
+ * 隔离段落**只有一态**（T-20261016-：集成分支开发流）：
  *   · 本入口不再隔离任何车道（见文件头 ①c）⇒ 唯一一态：**明确授权车道自建**，并点名 skill 的
- *     1b 回退（`git worktree add` → `.worktrees/<branch>`，基于 `dev`）。
+ *     1b 回退（`git worktree add` → `.worktrees/<branch>`，基于集成分支）。
  *   · 分支名 = `lane` 参数（`laneNameFor(card, seg)`），与合并门禁 `check-merge.mjs` 的
  *     「分支名反推卡 id」口径同源 —— 两处必须一致，否则门禁认不出这棵树属于哪张卡。
+ *     集成分支名同理由 `lib.mjs#integrationBranch()` 提供：门禁与提示语**必须**是同一个名字。
  *
  * **为什么要显式「授权、不必再问」**：`using-git-worktrees` skill 的 Step 0 在未隔离时会
  * **向用户征求同意**（"Would you like me to set up an isolated worktree?"）。车道是**无头**
  * `claude -p`，没有人能回答那个问题；skill 同时写着 "Honor any existing declared preference
  * without asking" ⇒ 偏好必须由**本提示语**声明，否则该步结构性不可满足。
  */
-export function buildPrompt({ handoffPath, cardPath, reportPath, lane = '' }) {
+export function buildPrompt({ handoffPath, cardPath, reportPath, lane = '', integration = integrationBranch() }) {
   const workspace = `Isolated workspace: set one up before you start — you are authorised, do NOT ask for consent. `
     + `Prefer a native worktree tool if the harness provides one; otherwise use the \`using-git-worktrees\` skill's git fallback `
     + `(\`git worktree add\`), which places the tree at \`.worktrees/<branch>\` inside this repo. `
     + (lane
-      ? `Name the branch \`${lane}\` — the merge gate derives the card from the branch name — and base it on \`dev\`. `
-      : `Name the branch after this card and base it on \`dev\`. `);
+      ? `Name the branch \`${lane}\` — the merge gate derives the card from the branch name — and base it on \`${integration}\`. `
+      : `Name the branch after this card and base it on \`${integration}\`. `);
   return [
     `Read your background pack first: ${handoffPath}`,
     `Task card: ${cardPath}`,
@@ -389,7 +390,9 @@ export function buildPrompt({ handoffPath, cardPath, reportPath, lane = '' }) {
     // 把别的句子缀在报告行之后就同时破坏了这个判据。落在末位也更合提示词顺序：最后一句是行动项。
     workspace
       + `Commit with explicit paths, and report the branch + commit sha in your Report so the work can be integrated. `
-      + `Never commit on the protected branch (main) — integration happens on dev, which is what the main checkout sits on.`,
+      // 受保护分支**不点名**：它是哪个随仓而异（main / master / trunk …），由 `branch-guard.mjs`
+      // 按仓默认分支 ∪ {main, master} 判定。此处写出「发布分支」这个**角色**，写死一个名字反而会误导。
+      + `Never commit directly on the protected release branch — integration happens on \`${integration}\`, which is what the main checkout sits on.`,
     `Execute the card's Acceptance and write your report to ${reportPath}.`,
   ].join('\n');
 }
