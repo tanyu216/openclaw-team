@@ -57,7 +57,10 @@ const SKIP = PROVIDER ? false : 'provider ACL library not installed (task-ops is
 
 /** 「已部署布局」+ 一个**真 git 仓**（本测试的「同仓」）：scripts/ + skills 软链 + 看板目录 */
 const LAYOUT = PROVIDER ? (() => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-spawniso-'));
+  // **realpath 归一**（与 lane-worktree.test.mjs 同因）：`os.tmpdir()` 在 macOS 上是符号链接路径
+  // （`/var/folders/…`），git 与 spawn-lane 返回的是真实路径（`/private/var/…`）；不归一 ⇒
+  // 路径断言在本机恒不等（Linux 上 `/var` 不是链接，故 CI 绿、宿主红）。
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'oc-spawniso-')));
   for (const d of ['scripts', 'tasks', 'tasks/.locks', 'workspace', 'skills', 'bin']) {
     fs.mkdirSync(path.join(root, d), { recursive: true });
   }
