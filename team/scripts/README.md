@@ -67,6 +67,7 @@ and documented under `team/guides/` or `CLAUDE.md`; **(data)** = deployed litera
 | `check-sessions.mjs` | card ↔ registry session consistency | **(gate)** |
 | `check-epic-completeness.mjs` | epic roadmap × card ledger + the dangling-roadmap sweep | **(gate)** |
 | `check-report.mjs` | `## Report` common core (`A1…A8`) for `in_review` cards | **(gate)** |
+| `check-merge.mjs` | every `.worktrees/` checkout whose card is `done` must be an ancestor of `dev` (`PROTOCOL §⑥.4`) | **(gate)** |
 | `scan-deps.mjs` | dependency CVE scan (warn-only unless `SCAN_STRICT=1`) | **(gate)** |
 | `archive.mjs` | archive terminal cards to `tasks/archive/YYYY-MM` (`--dry-run` inside the gate) | **(gate)** |
 | `prototype-guard.sh` | a prototype dir must not contain real-implementation tokens | **(gate)**, only when `PROTOTYPE_DIR` is set |

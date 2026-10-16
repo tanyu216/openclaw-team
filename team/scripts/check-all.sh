@@ -197,6 +197,19 @@ if [ "$provider_missing" = 0 ]; then
     echo "── 卡面 Report 完备性 check-report"
     echo "   (skip) $S/check-report.mjs 未部署（install.sh 部署后本步生效）"
   fi
+  # 交付合并巡检：已 done 的卡，其 worktree 检出必须已并入 dev（PROTOCOL §⑥.4 的前置条件）。
+  # 在本次落地前，这条不变量**全库无任何代码校验**（写卡层 git-blind）⇒ 本步是把它变成机检。
+  # 触发面**只有 `done`**：作业中的卡天然持有未合并的隔离树，无条件判会令每条在跑的 lane 转红。
+  # 仓根由脚本自己按 dispatch.mjs 的既有约定解析（$OPENCLAW_TEAM_REPO → .install-state.json
+  # repoPath）——live 模式下 shell 里没有 REPO_DIR，不能靠传参。生效截止 + 豁免登记见脚本头注 (iv)/(v)：
+  # 三条都是为**上线即零既存红**；已知上限（树被移除后无法复查、分支名不合规即漏检）记入 §⑳.2。
+  # 与 check-report 同款部署口：脚本未部署时显式 skip（避免「仓里已修 ≠ 线上已修」制造既存红）。
+  if [ -f "$S/check-merge.mjs" ]; then
+    run "交付合并巡检 check-merge" node "$S/check-merge.mjs"
+  else
+    echo "── 交付合并巡检 check-merge"
+    echo "   (skip) $S/check-merge.mjs 未部署（install.sh 部署后本步生效）"
+  fi
   run "契约测试（task-interface v1）"      node "$TEAM/skills/task-ops/tests/contract.test.mjs"
   run "ACL 终态不可逆守卫"                node "$TEAM/skills/task-ops/tests/terminal-guard.test.mjs"
   run "ACL 项目解析（identity code）"      node --test "$TEAM/skills/task-ops/tests/projects.test.mjs"
