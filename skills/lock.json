@@ -1008,6 +1008,18 @@
       "resolved": true
     },
     {
+      "name": "using-git-worktrees",
+      "targets": [
+        "claude"
+      ],
+      "ref": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
+      "repo": "https://github.com/obra/superpowers",
+      "tree_sha256": [
+        "sha256:ea5d1fac69afafd654338f09351cdd50c4052e4d11fb6ced191e4302e14e5368"
+      ],
+      "resolved": true
+    },
+    {
       "name": "video-downloader-skill",
       "targets": [
         "agent:assistant"

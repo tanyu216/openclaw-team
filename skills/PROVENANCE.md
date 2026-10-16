@@ -29,6 +29,48 @@ Two front-end skills resolved to verified GitHub upstreams and installed to
   `sha256sum`-style lines of every file under the pinned path
   (`find <path> -type f | sort | xargs shasum -a 256 | shasum -a 256`).
 
+### Newly registered (2026-10-16) — fetched from upstream, not vendored
+
+One skill resolved to a verified GitHub upstream and installed to `claude`:
+
+| skill | upstream | ref (pinned) | path |
+|---|---|---|---|
+| `using-git-worktrees` | `https://github.com/obra/superpowers` | `bb92a77741419a4ab5f06e711a283343f1ada0c3` | `skills/using-git-worktrees` |
+
+- `source.kind = github`, so no ClawHub fallback is registered for it.
+- **Scope of the registration**: `obra/superpowers` is a multi-harness plugin
+  repository (Claude Code / Codex CLI / Cursor / OpenCode / Gemini CLI / …).
+  Only **this one** skill is declared here. The rest of that collection is
+  deliberately not registered, so a consumer of this manifest inherits neither
+  the plugin's hooks nor its other skills.
+- `tree_sha256` computed with the in-repo `treeSha256()` exported by
+  `skills/update.mjs` — the same function `update.mjs --apply` writes with — so
+  the value here and the value a later `--apply` recomputes cannot disagree.
+
+#### ⚠️ Overlaps `PROTOCOL §⑥.4` worktree discipline — read before using this skill
+
+`using-git-worktrees` prescribes its own worktree defaults, which **diverge** from
+this repo's lane discipline on three axes:
+
+| axis | openclaw-team | the skill |
+|---|---|---|
+| location | sibling of the main checkout — `<repo>-wt-<lane>`, **outside** the repo | project-local `.worktrees/`, **inside** the repo (needs `.gitignore` + a commit) |
+| branch | `lane/<lane>` (namespaced) | `$BRANCH_NAME` |
+| base | `dev`; `OPENCLAW_LANE_BASE` overrides, unresolvable ⇒ fail-closed | unspecified ⇒ implicit `HEAD` |
+
+Normative source: `PROTOCOL §⑥.4`; mechanics `scripts/lane-worktree.mjs`;
+guide `guides/worktree-isolation-sop.md §3/§5`.
+
+The skill's own Step 1a resolves the conflict: it says to **prefer your
+platform's native worktree tool**, falling back to `.worktrees/` (Step 1b) only
+when none exists. **In this repo the native tool is `scripts/lane-worktree.mjs`**
+— do not create `.worktrees/` in a repo governed by this protocol. (A third
+landing spot to guard against: a harness-provided `EnterWorktree` places its tree
+under `.claude/worktrees/`, which is also not this repo's convention.)
+
+The skill body is deliberately **not** edited to record this: bodies are
+third-party upstream content and would be overwritten by `update.mjs --apply`.
+
 ### OpenClaw global (`skills/openclaw/` → `~/.openclaw/skills/`)
 
 | skill | license file | source |
