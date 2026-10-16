@@ -5,7 +5,7 @@ Skill **bodies are not stored in this repository** (option A). This directory ho
 
 | File | Role |
 |---|---|
-| `manifest.json` | The declaration: 93 entries, each with `targets` and a `source{kind,repo,ref,path}` (`kind` ∈ `github` / `clawhub` / `local`). This is the **single source of truth** — the old hand-maintained `~/.claude/sources/.installed-skills.json` is not. |
+| `manifest.json` | The declaration: 94 entries, each with `targets` and a `source{kind,repo,ref,path}` (`kind` ∈ `github` / `clawhub` / `local`). This is the **single source of truth** — the old hand-maintained `~/.claude/sources/.installed-skills.json` is not. |
 | `lock.json` | Resolved state: per entry `ref` + `tree_sha256` + `resolved`, so a drift in either direction is visible. |
 | `fetch.mjs` | **Install at the pinned ref.** `node fetch.mjs` / `--vendor` / `--offline`, driven by `install.sh`. Never decides *which* ref — that is `update.mjs`'s job. |
 | `update.mjs` | **Detect a drifted upstream ref, and (opt-in) advance to it.** See below. |
