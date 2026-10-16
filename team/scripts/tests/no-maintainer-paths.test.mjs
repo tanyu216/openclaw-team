@@ -9,6 +9,12 @@
  * 允许：合成夹具（如测试里的 `/home/tester`）与文档中的占位写法（`<repo>` / `<team>` / `$HOME`）。
  * 注意本文件自身**不能**含该字面量（否则自我命中），故用拼接构造针。
  *
+ * 只对**分发仓**有意义 ⇒ 非分发仓整体 skip（T-20261016-102552）：
+ *   本文件随 install.sh 装到 `<team>/scripts/tests/`（= `~/.openclaw/team/scripts/tests/`），
+ *   此时 `../../..` 是 `~/.openclaw` 而不是仓——那里**本来就**满是运行期件的本机路径（会话日志、
+ *   workspace 便签），扫它必然误报「本机路径泄漏」，而这条判据管的是**分发出去的内容**。
+ *   谁是不是分发仓由 host-paths.mjs 的标记判据说了算（与 repoRootFromScript 同源）。
+ *
  * Run: node --test team/scripts/tests/no-maintainer-paths.test.mjs
  */
 import fs from 'node:fs';
@@ -16,9 +22,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { REPO_MARKS, isDistributionRepo } from '../host-paths.mjs';
 
 const SCRIPTS = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(SCRIPTS, '..', '..', '..');
+const SKIP = isDistributionRepo(REPO)
+  ? false
+  : `部署布局：${REPO} 不是分发仓（缺 ${REPO_MARKS.join(' / ')}）——本套件只对分发仓有意义`;
 const NEEDLE = '/Us' + 'ers/';            // 拼接：避免本文件自我命中
 const NEEDLE_RE = new RegExp('/Us' + 'ers/[A-Za-z]');
 const SKIP_DIRS = new Set(['.git', 'node_modules', '.claude']);
@@ -31,7 +41,7 @@ function* walk(dir) {
   }
 }
 
-test('仓内文本文件不得出现维护者本机路径（/Users/<name>）', () => {
+test('仓内文本文件不得出现维护者本机路径（/Users/<name>）', { skip: SKIP }, () => {
   const hits = [];
   for (const p of walk(REPO)) {
     let buf;
