@@ -68,8 +68,8 @@ function linkSiblings(dir, except) {
 function resolveProviderRoot() {
   const candidates = [
     process.env.OPENCLAW_TASK_OPS_DIR,
-    path.join(os.homedir(), '.openclaw', 'team', 'skills', 'task-ops'),
-    path.join(os.homedir(), '.openclaw', 'skills', 'task-ops'),
+    // 部署布局相对候选：<team>/skills/task-ops（自 tests/ 上溯两级）—— 不读宿主 ~/.openclaw
+    path.resolve(import.meta.dirname, '..', '..', 'skills', 'task-ops'),
   ].filter(Boolean);
   for (const c of candidates) {
     if (fs.existsSync(path.join(c, 'lib', 'team-paths.mjs'))) return c;
@@ -734,12 +734,12 @@ test('D3：commit 判据收紧为「7–40 位小写 hex 或显式声明无提�
   assert.equal(a2Hints(A2('commit: abcd')).length, 1, '6 位缩写不足 7 位 ⇒ 必须提示');
   // 收紧不等于逼人改写法：不标注直接写 hash 仍然放行
   assert.deepEqual(a2Hints(A2('a1b2c3d4e5')), [], '不标注直接写 hash ⇒ 仍合规');
-  // **线上实测形状**（2026-10-15 全库只读扫描：按「值须恰为 sha」判会误报 12/12）⇒ 必须放行
-  assert.deepEqual(a2Hints(A2('commit: `270cce9` (7 files, +2956/−133)')), [], 'hash + 注记（线上真实形状）⇒ 合规');
+  // **真实卡库里的形状**（2026-10-15 全库只读扫描：按「值须恰为 sha」判会误报 12/12）⇒ 必须放行
+  assert.deepEqual(a2Hints(A2('commit: `270cce9` (7 files, +2956/−133)')), [], 'hash + 注记（真实形状）⇒ 合规');
   assert.deepEqual(a2Hints(A2('commit: `cf3a45c` (docs) + `f5b3e76` (cli)')), [], '多段 hash + 注记 ⇒ 合规');
   assert.deepEqual(a2Hints(A2('commit: `a825bf6` (base `9e4c1aa`)')), [], 'hash + base 括注 ⇒ 合规');
   assert.deepEqual(a2Hints(A2('commit: 无（写面 tasks/*.md 不在任何 git 仓）')), [],
-    '「无（…）」式显式无提交（线上真实形状）⇒ 合规');
+    '「无（…）」式显式无提交（真实形状）⇒ 合规');
   // 但「值里有 sha」不等于放行一切：裸字段 / 6 位缩写仍须提示（见上）
   // 直连判据
   assert.deepEqual(commitCoordinate('commit: a1b2c3d'), { ok: true });
