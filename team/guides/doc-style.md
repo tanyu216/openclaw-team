@@ -83,6 +83,7 @@ Numbered references follow `PROTOCOL §6.1` clause 11. Three things this file ad
 1. **One `---` before each `##` heading**, and none inside a section. Not "some sections", not "the long ones" — every one.
 2. **A document opens with a title, a header blockquote, and a `---`.** The blockquote carries `**Ownership / Maintainer**`, `**Status**`, `**Applies to**`, and — where the document is a method library — the `**Reference convention**` line.
 3. **A guide's H1 names its file**: `# Spawn-Lane SOP (`spawn-lane-sop.md`)`, so that a reader can cite it without guessing the path.
+4. **A document may close with one `---` before trailing end-matter** — a final note block (a contract self-check, a provenance line) that sits *after* the last section. That is end-matter, not "`---` inside a section", and it is kept.
 ---
 
 ## 8. Line length

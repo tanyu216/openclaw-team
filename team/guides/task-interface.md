@@ -12,6 +12,7 @@
 - **Provider (replaceable)**: reference implementation = the external project **meerkat-taskpanel** (task skill + `taskctl` CLI); card content persistence + session registry + trigger evaluation. Other systems (Jira/Linear/Plane…) integrate through the same ACL.
 - **Sole access point**: meerkat-taskpanel's task interface (`taskctl` / the task skill) — it exposes only the following **commands/events/data** externally.
 - **Constraint**: the upper layers **must not** directly read/write card files or bypass the interface; **everything goes through that access point** (command names in §4).
+---
 
 ## 2. Data Model (ACL minimal required set)
 
@@ -33,6 +34,7 @@
 > **`project` = a project identity code** (ACL layer; a stable id — under the current implementation the project name, e.g. `example-app` / the reserved `__team__`). It is **resolved via this ACL to a backend implementation** (currently meerkat-taskpanel, **swappable** for Jira/Linear/Plane, …); the upper layers **must not** depend on any backend's internal project id.
 > **Team-side extension keys (not part of the ACL set)**: the team layers a few keys on top of the provider's schema — `target` (project-internal location), `goal` (one-line goal), `review_of` (the reviewed card, §10), `writes`, `git_rules`, `subsession_ids`, `active_session_id`. The provider neither maps nor validates them; they ride the same verbatim round-trip as any unknown key (the product document names most of them explicitly in *Unknown keys are preserved*). The list and its discipline are owned by `PROTOCOL §1`.
 > **`writes` (optional, one of the extension keys above)**: a card declares the set of files/resources it will modify (comma-separated paths; defaults to `target` when absent). This feeds the **same-file concurrency warning** — before starting, a worker compares this card's write set against the other in-flight cards; an overlap means serialize first (or isolate via `git worktree`). Implemented team-side by `scripts/samefile-guard.mjs`.
+---
 
 ## 3. State Machine
 ```
@@ -41,6 +43,7 @@ backlog | todo → in_progress → in_review → done | canceled
 ```
 - `in_review` = delivered and awaiting Elon's acceptance; thereafter no heartbeat refresh, no re-claim, poll does not fire.
 - `done` / `canceled` (legacy word `failed`) are **terminal and frozen**: once entered, the ACL refuses any further write to the card unless the actor is Elon / a privileged management path (§4, §6.3).
+---
 
 ## 4. Commands (the upper layers call only these)
 | Command | Semantics |
@@ -54,9 +57,11 @@ backlog | todo → in_progress → in_review → done | canceled
 | `task.registerSubsession <card> <sessionId>` | Register a subsession (append + active) |
 | `task.query <filter>` | Read-only query (by assignee/status) |
 | `task.pollCandidates [assignee]` | **Read-only candidate query (zero side effects)**: returns the claimable candidates for guards/diagnostics; changes no card/registry state; a candidate result is **not** a claim — claiming still goes only through `task.claim`. **`kind:deploy` cards are never candidates** (excluded from every pool — §10) |
+---
 
 ## 5. Events (subscribed to by the collaboration layer)
 `onReady` · `onClaimed` · `onDelivered(in_review)` · `onBlocked` · `onComment` · `onTerminal(done|canceled)`
+---
 
 ## 6. Invariants (contract-test subjects)
 1. **claim is atomic** (no double-claiming).
@@ -66,6 +71,7 @@ backlog | todo → in_progress → in_review → done | canceled
 5. **Human decisions are trailed**: a comment with `author=operator` is a "user decision/confirmation".
 6. **Terminal states are archivable**: `done|canceled` after 7 full days may be archived.
 7. **`done` actor gate**: only `elon` (Elon's final acceptance) or a privileged internal management path (ACL-internal callers that pass no `actor` key ⇒ sentinel `lib`) may set the terminal `done`; a worker / unknown actor is refused (`done_requires_elon`) and told to close out as `in_review`. See §4 `task.setStatus`.
+---
 
 ## 7. Comments / Process Trail
 - **Use**: record **team collaboration discussions, operator input (suggestions / decisions / questions / clarifications / corrections) and confirmations, dual-signs, and anomaly-handling notes**.
@@ -76,6 +82,7 @@ backlog | todo → in_progress → in_review → done | canceled
 - **Report ≠ comment**: Report = delivery conclusion (one per card); comments = process flow (many times, any role).
 - **Handoff**: the PROTOCOL §14 confirmation gate's dual-sign ⇒ `kind:confirm`; PROTOCOL §7/PROTOCOL §11/PROTOCOL §9 clarifications and determinations ⇒ comment trail.
 - **Replaceability**: a comment ≈ an issue comment, the easiest thing to map in PM tools.
+---
 
 ## 8. Future-Swap Mapping (when swapping PM tools, only change the access-point implementation)
 | Contract | Current implementation | PM tool (example) |
@@ -102,6 +109,7 @@ backlog | todo → in_progress → in_review → done | canceled
 - **Two schemas: mapped once, never merged** (boundary): the mapping is **board `project` wire → §8 project metadata**, and nothing else. The team's **card frontmatter schema** (`lib.mjs` `parseFrontmatter` / `serializeFrontmatter`, governed by §11 idempotence) **stays team-side and is untouched**; the provider's board schema is **never re-declared** team-side.
 - **Resolution order** (semantics unchanged): builtin `__team__` → board base (CLI) → read-only `projects.json` fallback → `项目未注册` error.
 - **Known limit (CLI-only write path)**: the CLI reads full `meta` (`project list --json` carries the whole `meta` object) but `--meta k=v` is **string-valued only**, so structured metadata (`repos[]`, booleans, nested objects) cannot be **written** through it; the registration script (`seed-projects.mjs`) therefore still uses the provider bootstrap for the write path (a `--meta-json`-style flag would be a small provider enhancement, separate card).
+---
 
 ## 9. Session Association and Resume (save tokens)
 - **Deterministic id (claude)**: `sessionId(taskId, owner, seg)` = UUIDv5(`openclaw-team/<taskId>/<owner>/<seg>`), command `task.session-id <card> <owner> [seg]`; constant for the same parameters ⇒ predictable, and passed at spawn via `--session-id` (**claude only** — **codex has no `--session-id`** and self-assigns its session id at spawn, so the UUIDv5 is not a codex spawn parameter or resume handle) — **per-host exact form**: claude `--resume <id>`; codex `codex exec resume <id>`; pi `pi --print --session <id>` (`--resume`/`-r` is a no-arg selector).
@@ -112,6 +120,7 @@ backlog | todo → in_progress → in_review → done | canceled
 - **Recovery**: reconcile reads the card's `## Sessions` + registry and takes over by resuming that id in the host's exact form (above).
 - **Newly started seg background pack**: the task card (Goal/Acceptance/Background) + the card's `## Report` + `## Comments` + `state.md` (ensuring cross-seg consistency and avoiding reloading the old session context). **Generation**: `task.handoff <card> seg=…` → `workspace/<task-id>/handoff.md` (containing the four anchors, summarized); the subsession reads it first; **do not hand-write it**.
 - **Ownership**: OpenClaw agent side only (subsessions are unaware of task management; see `PROTOCOL §6#7`).
+---
 
 ## 10. Parent/Child Cards and Predecessor Dependencies (DAG)
 - **Split**: a composite task = a `kind:epic` parent card (container/aggregate, **not claimable**) + child cards (`parent=<epic>`, ordinary cards); **hierarchy depth follows the provider base** (meerkat-taskpanel: single parent + chain ≤8, no cycles/self-reference); **supports multiple levels; a parent must be an epic (so intermediate nodes are epics)**; breakdown granularity ⇒ `PROTOCOL §10.3`.
@@ -121,10 +130,12 @@ backlog | todo → in_progress → in_review → done | canceled
 - **Claim guard**: `epic` ⇒ `epic_container`; `depends_on` not all done ⇒ `deps_unmet` (**no new status added**).
 - **Auto-claim exclusion (`deploy`)**: a `kind:deploy` card (deployment / on-line execution — rebuild `dist`, restart `taskd`, a full `install.sh`) is **never returned as a candidate** — the candidate read surface excludes it in **every** pool (ready + stale recovery), while the **explicit** claim path still succeeds (only `epic` is refused). The two layers differ deliberately: `epic` = nobody can claim; `deploy` = only the automatic candidate read is closed, because a deploy card must be dispatched explicitly (Elon assign / `issue move`). Contract of record: `PROTOCOL §1` (which names the implementing surface); team-side kind set `AUTO_CLAIM_EXCLUDED_KINDS`; regression `poll-deploy.test.mjs`.
 - **Review cards must not `depends_on` the card under review**: a card with non-empty `review_of` is exempt from the dependency check for the entry equal to `review_of` (all other entries still apply) — the relation is carried by `review_of`, and the reviewed card must stop at `in_review` awaiting verification and never reaches `done` first, so such a `depends_on` would be permanently unsatisfiable and the review card permanently unclaimable (3 recurrences:  /  / exemption added by).
-- **The exemption is bounded by the review gate** (which generalises and **supersedes** the narrower): **a review card may be claimed only while the card under review is `in_review`**. With non-empty `review_of`, the target must **exist** and have `status=in_review`; otherwise the claim is refused with `reason=review_not_ready`, carrying `review_of` + the target's actual `status` (`status: null` when the target is absent/unreadable). This holds **regardless of whether** the reviewed card also appears in `depends_on` — the earlier rule checked the target only on the exempted-dependency branch, so the common shape (a review card that lists no `depends_on` at all) had **no** upper bound and could be poll-claimed before delivery ( claimed 2026-10-13T15:25:08Z while  was still `in_progress` — lane produced no artifact, triage set `blocked`; earlier  claimed ~10min early). Concretely: target `ready`/`todo`/`in_progress`/`blocked` ⇒ refuse (not delivered yet; claiming early makes the verifier spin or go `blocked`); target `done`/`canceled`/`failed` ⇒ refuse (**the review has no remaining subject** — such a card should be closed out by Elon instead of being claimed); target **missing** ⇒ refuse (the earlier "do not block + `warnings: ["review_of_not_found:<id>"]`" behaviour is withdrawn — a review card without its subject only spins). The reason string `review_unmet` is renamed to `review_not_ready`; the dependency exemption itself is untouched — when the gate passes, the `depends_on` entry equal to `review_of` is still excluded from the `done` check, and all other entries are still enforced.
+- **The exemption is bounded by the review gate** (which generalises and **supersedes** the narrower): **a review card may be claimed only while the card under review is `in_review`**. With non-empty `review_of`, the target must **exist** and have `status=in_review`; otherwise the claim is refused with `reason=review_not_ready`, carrying `review_of` + the target's actual `status` (`status: null` when the target is absent/unreadable). This holds **regardless of whether** the reviewed card also appears in `depends_on` — the earlier rule checked the target only on the exempted-dependency branch, so the common shape (a review card that lists no `depends_on` at all) had **no** upper bound and could be poll-claimed before delivery ( claimed 2026-10-13T15:25:08Z while  was still `in_progress` — lane produced no artifact, triage set `blocked`; earlier  claimed ~10min early).
+  Concretely: target `ready`/`todo`/`in_progress`/`blocked` ⇒ refuse (not delivered yet; claiming early makes the verifier spin or go `blocked`); target `done`/`canceled`/`failed` ⇒ refuse (**the review has no remaining subject** — such a card should be closed out by Elon instead of being claimed); target **missing** ⇒ refuse (the earlier "do not block + `warnings: ["review_of_not_found:<id>"]`" behaviour is withdrawn — a review card without its subject only spins). The reason string `review_unmet` is renamed to `review_not_ready`; the dependency exemption itself is untouched — when the gate passes, the `depends_on` entry equal to `review_of` is still excluded from the `done` check, and all other entries are still enforced.
 
 - **Aggregation**: `task.rollup` derives the parent card's status; parent card `done` = all child cards done **+ integration acceptance**; **with multiple layers, recurse bottom-up** (integration acceptance at every layer).
 - **Patrol**: relation invariants enter the patrol gate; archive reference protection.
+---
 
 ## 11. frontmatter Serialization Invariants and Write Guardrails
 - **Invariant (idempotence)**: escaping/unescaping of card frontmatter field values **must be idempotent** — `parse→serialize→parse` is stable, and repeatedly "read→write back" the same value (via any of heartbeat / comment / status / report) **does not grow the byte count**.
@@ -135,6 +146,7 @@ backlog | todo → in_progress → in_review → done | canceled
   - **`## Report` size cap**: reject a `## Report` section over **64 KiB** — the bound `worker-report-template.md` §6 inherits from the provider and states is enforced **at write time** (this is that write-time enforcement; the gate deliberately does not re-check it, §6). Bulk over the bound belongs in `workspace/<id>/`, referenced by A5. The cap is **write-time only**, so a historical over-bound card is never retro-reddened.
   - **A new card (no existing file) is not limited** — there is no baseline to compare against.
 - **Regression tests**: the idempotence matrix / old-format compatibility / real-card read-only regression / guardrails, executed with the patrol gate.
+---
 
 ## 12. Task-Provider Integration and Switching (ACL binding)
 - **Roles**: this project defines the ACL (this file's commands/events/data/invariants); the **provider** implements it. `meerkat-taskpanel` is only the **reference implementation**, **not a mandatory dependency**.
@@ -143,6 +155,7 @@ backlog | todo → in_progress → in_review → done | canceled
 - **Reference provider**: `meerkat-taskpanel` (installed via `./install.sh --with-meerkat-taskpanel`; not the default/mandatory).
 - **Pass criteria**: after swapping the provider, run the **ACL contract tests** (§6 invariants + §4 command semantics) to judge conformance; failing means unsupported.
 - **Scope boundary**: **the provider's own skill / MCP / authentication is user-supplied and out of this project's scope** (this project delivers only the ACL definitions + team-side adaptation conventions).
+---
 
 ## 14. Card-Creation Idempotency (`idem` key)
 
@@ -165,11 +178,14 @@ backlog | todo → in_progress → in_review → done | canceled
 | `task.idemCandidates [project=…] [assignee=…] [source=…]` | **The LLM semantic-de-duplication to-read list**: lists all non-terminal cards (`id`/`status`/`assignee`/`kind`/`target`/`idem`/`title`/`goal`). |
 
 - **`spawn`**: after validating the parent card and before writing, derives the key automatically (`kind='task'`, `source=parent`) and runs the same check; if a same-source child card with the same assignee+target already exists in a non-terminal state ⇒ `{ok:false, reason:'dup'}` (`allow_dup` skips).
-- **Patrol**: `check-idem` scans the board and groups **non-terminal** cards by idem key; for any group with >1 it routes by whether the key carries a real distinguishing signal — **`duplicates`** (red, exit 1) when **any** card in the group has a non-empty `review_of` (an explicit re-review of the same card), otherwise **`hints`** (non-blocking, no effect on the exit code). Sibling sub-cards of one parent (**same `kind` + `assignee` + `parent` + `target`**) are the **norm** for epic child cards (one project, many sub-tasks), so a shared non-empty `target` is **not** a distinguishing signal for parent-derived groups ⇒ they downgrade to `hints` **even when `target` is non-empty** (superseding 's "non-empty `target` ⇒ keep duplicates"). `target` still participates in the **key itself** (it decides whether two sibling sub-groups ever collide). `hints` are **human-only** (CLI stderr / manual patrol) and **must not** feed any automated alerting or blocking; the mechanical key stays a fallback — the **main gate is always LLM semantic de-duplication**. Part of `check-all` (right after `check-relations`).
-- **Baseline exemption**: the mechanical key necessarily collides for "same-project, same-person sequential milestones" (same `assignee` + same `target`, no `parent`/`review_of`), which are **not true duplicates**. Such **existing benign groups** are registered in the **runtime registry** `<scanned tasks dir>/.idem-baseline.json` (schema `{groups:[{key, ids, reason, date, by}]}`) — a file **inside the scanned `tasks/` directory**, which `install.sh` never deploys, so an upstream upgrade can no longer revert a registration; the retired `scripts/idem-baseline.json` remains as the read-only **shipped template**, merged in as defaults and pinned empty by the provider contract test (`idem.test.mjs:483`) ⇒ **runtime registrations never write it** ( decoupled the two roles). The criterion = the same `key` **and** the sorted `ids` **exactly matching** that group's card-id set ⇒ moved to `exempt` (not flagged); **once the id set changes (add/remove/swap) the exemption lapses**, and it warns again (preventing "register once, allow forever"); registrations are also per-scanned-root, so an isolated root (tests) never reads the live registry. `--no-baseline` ignores **both** sources (everything is treated as duplicates, for checking real duplicates or whether the registry is stale); a missing file is treated as an empty group list (no error).
+- **Patrol**: `check-idem` scans the board and groups **non-terminal** cards by idem key; for any group with >1 it routes by whether the key carries a real distinguishing signal — **`duplicates`** (red, exit 1) when **any** card in the group has a non-empty `review_of` (an explicit re-review of the same card), otherwise **`hints`** (non-blocking, no effect on the exit code). Sibling sub-cards of one parent (**same `kind` + `assignee` + `parent` + `target`**) are the **norm** for epic child cards (one project, many sub-tasks), so a shared non-empty `target` is **not** a distinguishing signal for parent-derived groups ⇒ they downgrade to `hints` **even when `target` is non-empty** (superseding 's "non-empty `target` ⇒ keep duplicates"). `target` still participates in the **key itself** (it decides whether two sibling sub-groups ever collide).
+  `hints` are **human-only** (CLI stderr / manual patrol) and **must not** feed any automated alerting or blocking; the mechanical key stays a fallback — the **main gate is always LLM semantic de-duplication**. Part of `check-all` (right after `check-relations`).
+- **Baseline exemption**: the mechanical key necessarily collides for "same-project, same-person sequential milestones" (same `assignee` + same `target`, no `parent`/`review_of`), which are **not true duplicates**. Such **existing benign groups** are registered in the **runtime registry** `<scanned tasks dir>/.idem-baseline.json` (schema `{groups:[{key, ids, reason, date, by}]}`) — a file **inside the scanned `tasks/` directory**, which `install.sh` never deploys, so an upstream upgrade can no longer revert a registration; the retired `scripts/idem-baseline.json` remains as the read-only **shipped template**, merged in as defaults and pinned empty by the provider contract test (`idem.test.mjs:483`) ⇒ **runtime registrations never write it** ( decoupled the two roles).
+  The criterion = the same `key` **and** the sorted `ids` **exactly matching** that group's card-id set ⇒ moved to `exempt` (not flagged); **once the id set changes (add/remove/swap) the exemption lapses**, and it warns again (preventing "register once, allow forever"); registrations are also per-scanned-root, so an isolated root (tests) never reads the live registry. `--no-baseline` ignores **both** sources (everything is treated as duplicates, for checking real duplicates or whether the registry is stale); a missing file is treated as an empty group list (no error).
 - **Weak signal** (warning only, **not** a de-duplication basis): same source and title similarity (character-bigram Jaccard) ≥ 0.6 ⇒ appears in `similar`.
 - **Unit tests**: an isolated `mkdtemp` test (including 5 concurrent same-key subprocesses ⇒ exactly 1 card).
 - **Engine declaration (this repository)**: `openclaw-team` **bundles no task-create path** — task management is delegated to the connected provider through this ACL. Therefore idempotency is **guaranteed by the connected provider** (`meerkat-taskpanel` by default satisfies this clause; any replacement must implement it and pass the ACL contract tests), and **the card creator must carry the `idem` key** (the ACL derives it, or `--idem` overrides). Both the `md base` (the team-side reference `task-ops` library) and the `meerkat-taskpanel base` implement this clause.
+---
 
 ## 15. Label Taxonomy (issue labels)
 
@@ -206,6 +222,7 @@ backlog | todo → in_progress → in_review → done | canceled
 A warning is advisory. A hard block is **not** applied — it would break free-form-label compatibility.
 
 **Base compatibility**: this is a **team-side convention only**; the base (meerkat-taskpanel) keeps `labels` as a free-form list and **is not forced to change**. Because it is a prefix convention, cards and the base stay valid whether or not the checker runs.
+---
 
 ## 13. Change Record
 Every change to date is a **`v1` supplement**; each shipped the section(s) named, whose rule now lives in that body section. This is the version-of-record; the full narrative is in git (the backticked card id is the audit trail).
