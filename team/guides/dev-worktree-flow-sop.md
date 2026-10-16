@@ -59,10 +59,26 @@ an owner for the terminal write.
 | 8 | Elon accepts: confirms the merge landed, records the merged sha, sets `done` | Elon | **prose** — the `done` write is *git-blind* (ACL requires only actor + non-terminal) |
 | 9 | gate re-checks: a `done` card's worktree must be an ancestor of the integration branch | gate | **machine** — `check-merge.mjs` (`PROTOCOL §⑳.1`) |
 | 10 | worktree removed | owner | **prose** — and only **after** the merge |
+| 11 | card branch deleted (`git branch -d`) | owner | **machine-safe** — `-d` (never `-D`) refuses an unmerged branch |
 
-**The order in steps 7–10 is the load-bearing part.** "Merge, *then* remove" is not tidiness: a
+**The order in steps 7–11 is the load-bearing part.** "Merge, *then* remove" is not tidiness: a
 removed worktree is invisible to `check-merge.mjs`, so removing first silently converts step 9 from a
 check into a no-op (`PROTOCOL §⑳.2`).
+
+**Step 11 — delete the branch — is the step everyone forgets, and the one the skill mandates.**
+`finishing-a-development-branch` (the companion to `using-git-worktrees`) says: once the merged result
+is green, clean up the worktree *and then* `git branch -d <feature-branch>`. The **old** mechanism
+deliberately never deleted branches — base derivation reconstructed a predecessor branch by name
+(`lane/<card>-<seg>`), so the branch was load-bearing after teardown. That machinery is gone
+(`PROTOCOL §⑥.4`), so the reason is gone with it, and keeping branches is now pure accumulation.
+
+**Why keeping them is not a disk problem, and why deleting is still right.** A branch is a **ref — 41
+bytes**; a *merged* branch shares every object with the integration branch (that is what merging
+means), so it duplicates **nothing**. The real cost was the **worktree** (a full checkout — megabytes),
+which step 10 removes. Hoarding merged branches is not a disk leak. It is a *legibility* leak:
+`git branch` / `git log --all` / ref advertisement fill up with branches nobody will ever look at
+again. Delete them — using `-d`, which simply refuses if the branch was never merged, so the safe
+behaviour is the default and no judgement call is needed.
 
 ### Continuation and rework
 
