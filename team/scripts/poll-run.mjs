@@ -34,8 +34,9 @@ export const HANDOFF_DIRECTIVE = [
   '`bash scripts/spawn-lane.sh <card> <owner> [seg] [backend]` 起 lane（detached，起后即返回），',
   '**不要**在本 run 内执行卡片、**不要**在本 run 内把 lane 轮询到终态。移交完即结束本 run；',
   'lane 的进度由 lane 自己回写卡片（心跳/Report），异常由后续 cron 回合（poll / task-patrol）接管。',
-  '**不要**给该命令手工追加 `--base`：定基由入口自己按卡面解析（`depends_on` 链上尚未并入的前置 tip），',
-  '手工钉一个 ref 会**覆盖**该判定（T-20261015-133720）；入口拒绝时按其报的拒绝码处置，勿绕过。',
+  '**不要**给该命令追加定基/隔离类旗标——`--base` 与 `--no-isolate` 都已随旧隔离机制移除，',
+  '传了即用法错误。隔离树由 lane 自己按 `using-git-worktrees` skill 在仓内 `.worktrees/<branch>` 建立，',
+  '分支名 = `<card>-<seg>`、基于 `dev`（见 guides/dev-worktree-flow-sop.md）；入口拒绝时按其报的拒绝码处置，勿绕过。',
   '理由：run 在飞会占住 Gateway 的 job 锁（`already-running`），使后续 tick 的兜底领取整段停摆（T-20261013-041718）。',
 ].join('');
 

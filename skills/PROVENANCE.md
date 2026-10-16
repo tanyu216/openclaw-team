@@ -47,29 +47,32 @@ One skill resolved to a verified GitHub upstream and installed to `claude`:
   `skills/update.mjs` — the same function `update.mjs --apply` writes with — so
   the value here and the value a later `--apply` recomputes cannot disagree.
 
-#### ⚠️ Overlaps `PROTOCOL §⑥.4` worktree discipline — read before using this skill
+#### This skill is what `PROTOCOL §⑥.4` now delegates to
 
-`using-git-worktrees` prescribes its own worktree defaults, which **diverge** from
-this repo's lane discipline on three axes:
+Since 2026-10-16 the framework's dev flow **is** this skill's flow, not a bespoke
+alternative to it. `scripts/spawn-lane.mjs` no longer decides or creates worktrees; the
+lane runs `using-git-worktrees`, whose git fallback puts the tree at
+`<repo>/.worktrees/<branch>` — the same place, so flow and skill agree rather than
+reconcile. `.worktrees/` is pre-ignored in `.gitignore`, which matters because the skill's
+Step 1b **mandates** that precondition before it will create a tree there.
 
-| axis | openclaw-team | the skill |
-|---|---|---|
-| location | sibling of the main checkout — `<repo>-wt-<lane>`, **outside** the repo | project-local `.worktrees/`, **inside** the repo (needs `.gitignore` + a commit) |
-| branch | `lane/<lane>` (namespaced) | `$BRANCH_NAME` |
-| base | `dev`; `OPENCLAW_LANE_BASE` overrides, unresolvable ⇒ fail-closed | unspecified ⇒ implicit `HEAD` |
+Two things the framework supplies that the skill cannot infer, both in the lane prompt
+(`buildPrompt`):
 
-Normative source: `PROTOCOL §⑥.4`; mechanics `scripts/lane-worktree.mjs`;
-guide `guides/worktree-isolation-sop.md §3/§5`.
+- **authorisation** — Step 0 otherwise asks *the user* for consent, and a lane is a headless
+  `claude -p` process with no user to answer; the skill honours a declared preference, so
+  the prompt declares one;
+- **the branch name** — `<card>-<seg>`, which `scripts/check-merge.mjs` later uses to
+  attribute the tree to a card at closeout.
 
-The skill's own Step 1a resolves the conflict: it says to **prefer your
-platform's native worktree tool**, falling back to `.worktrees/` (Step 1b) only
-when none exists. **In this repo the native tool is `scripts/lane-worktree.mjs`**
-— do not create `.worktrees/` in a repo governed by this protocol. (A third
-landing spot to guard against: a harness-provided `EnterWorktree` places its tree
-under `.claude/worktrees/`, which is also not this repo's convention.)
+The base needs no machinery: the skill bases on implicit `HEAD`, and the main checkout holds
+`dev` (`PROTOCOL §⑥.4`), so `HEAD` *is* `dev`.
 
-The skill body is deliberately **not** edited to record this: bodies are
-third-party upstream content and would be overwritten by `update.mjs --apply`.
+Normative source: `PROTOCOL §⑥.4`; sequence and closure strength:
+`guides/dev-worktree-flow-sop.md`.
+
+The skill body is deliberately **not** edited to record any of this: bodies are third-party
+upstream content and would be overwritten by `update.mjs --apply`.
 
 ### OpenClaw global (`skills/openclaw/` → `~/.openclaw/skills/`)
 

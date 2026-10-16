@@ -30,7 +30,7 @@ fresh install has no dangling entry path — the former "entry-path coupling" ga
 (`team/automations/README.md` gap #2).
 
 Not in the table above (they are **not** job entries — they are helpers a turn or an
-entry arms): `spawn-lane.sh`/`spawn-lane.mjs` (+ `lane-isolation.mjs`, `lane-worktree.mjs`)
+entry arms): `spawn-lane.sh`/`spawn-lane.mjs`
 start a lane, `lane-reaper.mjs` is the detached **session-terminal watchdog** that
 `spawn-lane` arms for every lane, `session-lifecycle.mjs` holds the shared criterion +
 two-sided close, and `session-reconcile.mjs` sweeps the historical card↔registry drift
@@ -77,15 +77,13 @@ and documented under `team/guides/` or `CLAUDE.md`; **(data)** = deployed litera
 | `sla-scan.mjs` | board SLA inspection over the `§⑮` rows + the threshold-drift check | **(job)** `sla-scan`; **(gate)** `--check-thresholds` |
 | `tmp-gc.mjs` | scratch GC of `workspace-*/.tmp` + `$OPENCLAW_HOME/tmp` + `team/tmp` (entry reads the last verdict; `--sweep` does the work) | **(job)** `tmp-gc` |
 | `spawn-lane.sh` / `spawn-lane.mjs` | the single mandatory lane entry (claim → handoff → spawn → `session-set`) | `PROTOCOL §⑥`; humans |
-| `lane-isolation.mjs` | same-repo concurrent-lane isolation decision | **(lib)** `spawn-lane.mjs` |
-| `lane-worktree.mjs` | per-lane worktree create / reuse / remove | **(lib)** `spawn-lane.mjs`; **(cli)** |
 | `lane-reaper.mjs` | detached session-terminal watchdog, armed per lane | **(lib)** `spawn-lane.mjs` |
 | `session-lifecycle.mjs` | shared session-terminal criterion + two-sided close | **(lib)** `poll.mjs`, `lane-reaper.mjs`, `session-reconcile.mjs` |
 | `session-reconcile.mjs` | historical card↔registry drift sweep | **(cli)** `lane-session-lifecycle-sop.md` |
 | `report-census.mjs` | read-only `## Report` census (parameterised, as-of echoed) | **(cli)** `worker-report-template.md` |
 | `branch-guard.mjs` | refuse a direct commit on the protected branch | **(cli)** `CLAUDE.md`, `PROTOCOL §⑥.4` |
 | `commit-guard.mjs` | the staged set must be only this card's files | **(cli)** `CLAUDE.md` |
-| `samefile-guard.mjs` | same-file concurrency warning across non-terminal cards | **(lib)** `lane-isolation.mjs`; **(cli)** `worktree-isolation-sop.md` |
+| `samefile-guard.mjs` | same-file concurrency **warning** across non-terminal cards (the spawn-time refusal was removed with the isolation machinery — `PROTOCOL §⑥.3` case ②) | **(cli)** patrol; `guides/dev-worktree-flow-sop.md` |
 | `seed-projects.mjs` | idempotently register project identity codes into the board | **(cli)** `task-interface.md`; **provider** |
 | `taskd-pointer-doctor.mjs` | read-only taskd runtime-pointer health check | **(cli)** `team/README.md` |
 | `lib.mjs` | shared library: frontmatter I/O, atomic claim, project registry | **(lib)** nearly everything; **provider** |

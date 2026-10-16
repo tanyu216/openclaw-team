@@ -10,7 +10,7 @@
  * 本模块提供 ①；② 在 `lib.mjs#cardPathOf`。
  *
  * 为什么单独一个模块而不是塞进 `lib.mjs`：`lib.mjs` 顶部 import provider 的 `team-paths.mjs`，
- * **缺失即硬失败**；而本模块的消费方（poll / check-sessions / samefile-guard / lane-isolation /
+ * **缺失即硬失败**；而本模块的消费方（poll / check-sessions / samefile-guard /
  * check-epic-completeness）本来就都在 provider 语境里，所以沿用同一前提，但把「枚举」这件事
  * 收成一处，免得 5 个脚本各写一遍、下次再分叉。依赖是**单向**的（本模块 → `lib.mjs`）；
  * `lib.mjs` **不**反向再导出本模块，否则成环。

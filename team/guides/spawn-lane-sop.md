@@ -12,7 +12,7 @@
 
 - **The only legitimate way to start a lane is the single entry**:
   ```bash
-  bash ~/.openclaw/team/scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [harness=cli|plugin] [phase=<p>] [role=exec|review] [--review] [--plugin] [--dry-run] [--no-isolate]
+  bash ~/.openclaw/team/scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [harness=cli|plugin] [phase=<p>] [role=exec|review] [--review] [--plugin] [--dry-run] [--no-reaper]
   ```
   The thin wrapper `scripts/spawn-lane.sh` execs the core `scripts/spawn-lane.mjs`.
   `role=exec` (default) starts an execution lane; `role=review` (`--review` is equivalent) starts a **review lane** (§9).
@@ -95,7 +95,7 @@ bash ~/.openclaw/team/scripts/spawn-lane.sh T-20261010-052210 turing backend=cod
 
 - The **last stdout line is JSON** `{ok, role, settings, session_id, pid, cwd, handoff, log, cmd, …}` for machine reading.
 - Exit codes: **0** started (or dry-run OK) · **1** refused (validation/handoff/claim/cap) · **2** usage error.
-- Refusal reasons are stable and greppable, e.g. `claimed_by_mismatch(…)`, `concurrency_cap(owner=…,running=…,cap=…)`, `handoff_anchor_missing:…`, `status_not_spawnable(…)`, `lane_samefile_conflict(…):serialize`, `lane_isolation_failed(…):serialize_or_fix` (`§11`).
+- Refusal reasons are stable and greppable, e.g. `claimed_by_mismatch(…)`, `concurrency_cap(owner=…,running=…,cap=…)`, `handoff_anchor_missing:…`, `status_not_spawnable(…)`, `card_busy(…)`, `session_running(…)` (`§7`).
 - After starting a lane you **still own polling it to terminal state** (`PROTOCOL §⑥` clause 4); the entry does not take over polling. You do **not** own the session's terminal *registration* any more: step 10's reaper writes it when the lane's process ends (`lane-session-lifecycle-sop.md`).
 
 ## 5. Detach discipline (macOS)
@@ -125,29 +125,26 @@ Both gates are aggregated by `scripts/check-all.sh`; a bypass lane therefore can
 - **`unknown_harness:<v>`** (usage, exit 2) — `harness=` was given a value outside `cli|plugin`. Nothing was started or written; use `harness=cli` (default) or `harness=plugin`.
 - **`harness_plugin_requires_codex(backend=<b>)`** (usage, exit 2) — `harness=plugin` was combined with a non-codex backend. The official embedded harness exists for the **Codex leg only** (`claude`/`pi` have none) — run the lane as `backend=codex`, or drop `harness=plugin` (§3.1).
 - **`thread_bind_timeout(seg=…,ms=…):reconcile`** (exit 1) — a plugin lane never reported its native thread id within `THREAD_BIND_TIMEOUT_MS` (default 120 s). The lane is marked `failed` and its dispatcher terminated; **do not** start a replacement blindly — reconcile the registry entry first, then re-run the entry (§3.1).
-- **`lane_samefile_conflict(with=…,overlap=…):serialize`** — a same-repo non-terminal card writes a file this card also writes. **Serialize**: wait for that card to reach terminal state, or re-scope the writes. Do **not** work around it with `--no-isolate` (that removes the protection, not the conflict) — isolation cannot fix a same-file collision, it only moves it to a branch merge (§11).
 - **`lane_reaper_failed(…)`** — the session reaper (step 10) could not be started, so the entry refused to run the lane and already closed the row it had registered (fail-closed: no lane is left running without an owner for its terminal write). Re-run the entry; if it keeps failing, check that the reaper can be spawned at all (node executable, `TEAM_ROOT` writable) — and do **not** work around it with `--no-reaper` unless you are taking the close over yourself (`lane-session-lifecycle-sop.md` §4).
-- **`lane_isolation_failed(…):serialize_or_fix`** — the lane's repo has a concurrent lane but its worktree could not be taken. Run `git worktree list` in the repo, clear the obstacle named in the reason (a stale path, a branch checked out elsewhere), then re-run the entry (§11). Never re-launch the lane in the shared checkout to "get it moving".
-- **`base_undeterminable(base_ambiguous):specify_base`** — the card's own dependency face does **not** determine a single base: two (or more) `depends_on` prerequisites have lane branches that are **not merged into `HEAD`** and neither contains the other, so the entry cannot say which one the card should be built on. (What is compared is the **whole** candidate set, so the two sides can be **two prerequisites** *or* **the card's own previous seg** against one unmerged prerequisite — a continuation whose earlier seg does not contain the prerequisite's tip is **refused**, not silently continued on the earlier seg as before `T-20261015-133720`; pin `--base` to continue it. One prerequisite still contributes at most one candidate — its **last** registered seg's branch, §11 — so two divergent segs of the *same* prerequisite are not an ambiguity.) Decide by hand and pin it: `--base <ref>` (§11). Do **not** just re-run — the refusal is stable until the prerequisites converge (one merges into `main`, or one is rebased onto the other). Remedy hint: the fix usually belongs on the board (make the two prerequisites a chain, or wait for the first to land).
-- **`base_required_not_isolated(dep=…,base=…):specify_base`** — the card declares a prerequisite whose lane-branch tip is **not in `HEAD`**, yet this spawn would **not** build an isolation worktree (the repo has no concurrent lane), so the lane would run in the shared checkout at `HEAD` — i.e. **without** the prerequisite. That is the wrong-base failure of §11 reached through a different door, so it is refused rather than done silently. **`--base` does not supply the base here, and is not the remedy**: with no tree to build there is nothing to build *on*, so an explicit base in this mode is only *reported* (`isolation.base_ignored`) — it lifts the refusal (that is the escape hatch pinned by `tests/spawn-lane-card-base.test.mjs` `REJECT. 显式 --base 可接管该拒绝`) and leaves the lane in the shared checkout at `HEAD`, still **without** the prerequisite. What actually delivers the base: wait for the prerequisite to land in `main`, or build the worktree by hand (`worktree-isolation-sop.md §6`) so the lane is isolated and the derived base applies. (`--no-isolate` is not a remedy either — it removes the tree, not the missing base.)
 - Any refusal that looks wrong ⇒ report to Elon with the JSON envelope; do not work around the entry by launching directly.
 
-## 8. Same-repo concurrent lane ⇒ worktree isolation (now automatic)
+## 8. Same-repo concurrent lanes ⇒ the lane isolates itself
 
 Two lanes must never share one checkout: multiple writers in a shared working tree corrupt each other's verification (061638 O2: an external lane's `b359780` mixed into an `in_review` snapshot — detected by content forensics, 27,807 B ≠ 18,432 B) and can sweep foreign hunks into a commit (`PROTOCOL §⑥`).
 
-The entry resolves cwd from the card's `project` + `target` (`§3` step 4), and **since `T-20261012-022948-2` it performs the isolation itself** — no dispatch-side memory required, no card edit (`§11`). The manual route below remains valid as an **override** (non-default lane/branch/base, or when the automatic path is switched off):
+**The entry no longer performs the isolation** (`PROTOCOL §⑥.4`). It resolves cwd from the card's `project` + `target` (`§3` step 4) and stops there — cwd is always the repo root. The **lane** sets up its own tree through the `using-git-worktrees` skill (git fallback: `git worktree add .worktrees/<branch> -b <branch>`), and the prompt already carries the two things the skill cannot know: the **authorisation** (its Step 0 would otherwise ask the *user*, which a headless lane cannot answer) and the **branch name** (`<card>-<seg>`, or `<card>-<seg1>` when `seg=` is omitted).
+
 ```bash
-# 1) overlap detected by scripts/samefile-guard.mjs (read-only)?
-# 2) take a per-lane worktree (idempotent; --dry-run first — zero side effects):
-node ~/.openclaw/team/scripts/lane-worktree.mjs <repo> <lane> [--branch <b>] [--base <ref>] --dry-run
-# 3) point the lane's working tree at the returned `path` (in practice: by hand, put it in the
-#    prompt or on the card `target`), then dispatch through §4 as usual.
+# Rehearse what the lane will be told (zero side effects):
+bash ~/.openclaw/team/scripts/spawn-lane.sh <card> <owner> --dry-run
 ```
+The printed prompt's last line is the Report target; the workspace paragraph just above it names the branch and the base (`dev`).
 
-Hand-building a worktree to **continue a card** (the `--base <previous-seg-tip>` workaround) is **no longer needed**: since `T-20261014-112936` the automatic path derives the base for a continuation spawn itself (`§11`, `worktree-isolation-sop.md §9`). The manual form survives only for a base that is neither the default (`dev`) nor the previous seg's tip.
+**Why the base needs no derivation any more**: the base is the skill's implicit `HEAD`, and the main checkout sits on `dev` (`PROTOCOL §⑥.4`) — so `HEAD` *is* `dev`. The consequence to respect is upstream of the spawn: a **continuation** segment may only start once the previous segment's branch has been merged into `dev`, and **rework of an unmerged branch stays in the same worktree**. `scripts/check-merge.mjs` enforces the merge at closeout (`§7` of the companion guide).
 
-**Full rule, judging criteria, naming/branch/base discipline, and cleanup**: `guides/worktree-isolation-sop.md` (§9 = the automatic path). Serialize instead when the card says so or `depends_on` is unmet (`PROTOCOL §⑥.3`).
+Same-file conflicts are no longer a spawn-time refusal: two lanes now work in separate trees and would collide at merge, so `scripts/samefile-guard.mjs` reports the overlap as a **warning** and the owner sequences the cards (`PROTOCOL §⑥.3` case ②). Serialize when the card says so or `depends_on` is unmet.
+
+**Sequence, naming, and cleanup**: `guides/dev-worktree-flow-sop.md`.
 
 ## 9. Review lanes (`role=review`) — the single entry, not a side registry
 
@@ -177,38 +174,34 @@ bash ~/.openclaw/team/scripts/spawn-lane.sh <card> turing --review backend=codex
 
 The preset is idempotent and side-effect-free under `--dry-run`, and it is done for every backend (for `codex`, which takes no `--settings`, the file is simply inert).
 
-## 11. Automatic same-repo lane isolation (default on; `--no-isolate` opts out)
+## 11. Isolation is the lane's own act (`PROTOCOL §⑥.4`)
 
-**Rule**: when the lane's repo already carries a **concurrent non-terminal lane**, the entry isolates the lane **by itself** — it creates a per-lane worktree through `scripts/lane-worktree.mjs` (`guides/worktree-isolation-sop.md §4`) and points the lane's cwd at it. The judgment is **not** recomputed here: `scripts/lane-isolation.mjs` reuses the existing policy (same **file** ⇒ strict serial; same **repo**, other **file** ⇒ isolate).
+**There is no automatic isolation in this entry any more** (`T-20261016-`). The entry resolves cwd
+from the card's `project` + `target` (`§3` step 4) and stops there: **cwd is always the repo root**.
+The lane sets up its own tree through the `using-git-worktrees` skill — git fallback
+`git worktree add .worktrees/<branch> -b <branch>` — and the prompt carries the authorisation and
+the branch name (`<card>-<seg>`) that the skill cannot infer.
 
-Where it sits in the sequence (`§3`): the **decision** runs at **①c**, *before* the claim, so a refusal has zero side effects (no claim, no registry, no log); the **worktree is created at ③b**, after the concurrency cap and the handoff/settings pre-checks, so a refused spawn never leaves a worktree behind. It reuses the entry's own cwd resolution (`§3` step 4) and the `lane-worktree.mjs` naming defaults: `lane = <card>-<seg>`, `path = <repo>-wt-<lane>`, `branch = lane/<lane>`.
+What this removed, and where it went:
 
-**Not isolated** (unchanged behaviour): no other non-terminal lane in the repo · a non-git repo (e.g. `project: __team__` ⇒ the team root, which is not a checkout) · `role=review` (a review lane is a *reader*; isolate the writer and pin the commit, `worktree-isolation-sop.md §3`) · the lane's cwd is already a linked worktree · the switch is off. In all of those `isolation.mode` is `none` / `already_isolated` / `disabled` and `cwd` is exactly what it was before this feature.
+| removed | now |
+|---|---|
+| `lane-isolation.mjs` decision + `isolation.*` output | nothing — no decision to make; the lane always isolates itself |
+| `lane-worktree.mjs` create/reuse/remove | the lane's `using-git-worktrees` git fallback |
+| same-file ⇒ **refuse to start** (`lane_samefile_conflict`) | `scripts/samefile-guard.mjs` **warns**; the owner sequences the cards (`PROTOCOL §⑥.3` case ②) |
+| `--base` / `OPENCLAW_LANE_BASE` derivation, `base_*` refusals | the base is the skill's implicit `HEAD`, and the main checkout **is** `dev` ⇒ `HEAD` *is* `dev` (`PROTOCOL §⑥.4`) |
+| `--no-isolate` / `OPENCLAW_LANE_ISOLATION=0` | gone — there is no automation to switch off |
 
-**Two new refusals** (exit 1, both zero-side-effect, both greppable):
+**The obligation the derivation used to carry does not disappear, it moves earlier**: a continuation
+segment may only start once the previous segment's branch is **merged into `dev`**, and rework of an
+unmerged branch stays in the same worktree. `scripts/check-merge.mjs` enforces the merge at closeout;
+its residual limits are in `PROTOCOL §⑳.2`.
 
-- `lane_samefile_conflict(with=…,overlap=…):serialize` — a same-repo non-terminal card shares a file with this one. Isolation does not fix that (the collision would just move to a branch merge), so the lane **waits**: serialize (`PROTOCOL §⑥.3` case ②).
-- `lane_isolation_failed(<inner reason>):serialize_or_fix` — the worktree could not be taken (path occupied by a non-worktree directory, lane branch checked out elsewhere, `bad_lane`, `worktree_add_failed`, or an explicit `--base` that does not resolve ⇒ `base_unresolved:<ref>`). **Fail-closed**: the entry refuses rather than starting the lane in the shared checkout, because "could not isolate" silently read as "green" is precisely the failure this closes. Fix the obstacle (`git worktree list`, remove the stale path, correct the ref) or serialize; do not work around it by spawning directly.
-
-**Output**: `isolation: { mode, lane, branch, path, main_repo, same_repo_lanes, action, applied, base }`; `cwd` equals `isolation.path` when isolated, and the sub-session prompt gains one line stating the worktree + branch and asking for the branch/sha in the Report. The card's `target` is **not** rewritten (it is the declaration and the `samefile-guard` fallback write set — rewriting it would silently disarm the same-file guard); the *effective* tree is `isolation.path`.
-
-**Base — a continuation / a stacked card is not a fresh start** (`T-20261014-112936`; default base `dev` since `T-20261015-devbranch`, `PROTOCOL §⑥.4`; extended to `depends_on` by `T-20261015-133720`). `isolation.head` is no longer always `HEAD`. When `--base` is absent the entry derives the base itself, in order: **explicit `--base`** (refused if unresolvable — `lane_isolation_failed(base_unresolved:<ref>):serialize_or_fix`, never a silent `HEAD`) › **previous seg's lane-branch tip** (derived by `lane-isolation.mjs`; `isolation.base` then reads `{ref, source: "prev_seg", prev_seg, resolved}`) › **a `depends_on` prerequisite's product tip** (its **last** registered seg's branch, only when not yet reachable from `HEAD`; `base.source: "dependency"`) › **default base** = `dev`, or `OPENCLAW_LANE_BASE` when set (`base.source: "default"`). The automatic path never passes `--base` (the poll hand-off starts the lane as `spawn-lane.sh <card> <owner> [seg] [backend]` and nothing else, `poll-run.mjs` `HANDOFF_DIRECTIVE`), so before this it silently built on `HEAD` and lost an unmerged prerequisite — twice on 2026-10-15 (`T-20261015-075826` → `T-20261015-063755`; `T-20261015-132952`) and once on the live board (`T-20261015-075845` → `T-20261015-051046-2`, tip unmerged). When no single most-complete candidate exists the base is **undetermined** and the entry refuses (`base_undeterminable(base_ambiguous)`, §7); when the required base cannot be delivered because no worktree would be built, it refuses too (`base_required_not_isolated`, §7) — **never** silently on `HEAD`. A prerequisite's segs are read from its own `## Sessions` (never a `lane/<dep>-*` prefix glob — card ids are prefixes of one another on this board), and the `depends_on` face is read **as written** (this layer does not check `done`; the automatic path is guarded upstream by the claim guard's `deps_unmet`, `lib.mjs#claimCard`; the face is already enforced by `check-relations.mjs`). Applies to **writer** lanes only (a `role=review` lane never gets a tree). **Full rule and evidence: `worktree-isolation-sop.md §9`.**
-
-**Rollback switch**: `--no-isolate`, or `OPENCLAW_LANE_ISOLATION=0` (`off`/`false`/`no`/`disabled`) ⇒ the pre-change behaviour, `isolation.mode = "disabled"`. (A derived dependency base is then reported as `isolation.base_ignored` — supplied but not used — and is **not** a refusal: `--no-isolate` is an explicit opt-out of the tree, not a claim about the base.)
-
-```bash
-# Default: automatic isolation (a worktree appears only if the repo really has a concurrent lane)
-bash ~/.openclaw/team/scripts/spawn-lane.sh <card> linus --dry-run     # rehearse: prints cwd + isolation, zero side effects
-bash ~/.openclaw/team/scripts/spawn-lane.sh <card> linus              # may create <repo>-wt-<card>-seg1
-bash ~/.openclaw/team/scripts/spawn-lane.sh <card> linus seg=seg2     # continuation: base = lane/<card>-seg1
-bash ~/.openclaw/team/scripts/spawn-lane.sh <card> linus --base 43bdf5f   # pin the base explicitly
-# Rollback to the explicit discipline
-bash ~/.openclaw/team/scripts/spawn-lane.sh <card> linus --no-isolate
-```
+Sequence, naming, cleanup and the openclaw↔claude collaboration model: `guides/dev-worktree-flow-sop.md`.
 
 ---
 
 > **Implementation & deploy notes.** Everything above is **method-library level**: it *implements* existing clauses and **redefines nothing**, so no `PROTOCOL §⑥` edit is triggered — the one additive exception is the Codex plugin leg (§3.1), which touches `§⑥` clauses 2/3/8, the board `## Sessions` schema comment and `§⑬.2`. Sections touched: §1 (entry signature), §3 + §3.1 (double-run guard; plugin two-step backfill), §4, §6 (liveness in the gate), §7 (refusal codes), §8 + §11 (isolation / base). They implement `PROTOCOL §⑥` execution uniqueness, `§⑥.3` (serialize vs isolate), `§⑥.4` (base snapshot), `§⑨.1` (single writer per file) and the registry single-source-of-truth.
 > - **Dispatch discipline**: every direct wake-up goes through `task.dispatch` — claim-first on the same lock/primitive as poll; a failed claim ⇒ `dispatched:false` ⇒ **no** `sessions_send`. The single enforcement point for "no second execution turn on a card" is **this entry** (a turn must not spawn a lane for a card another turn is already executing). This closes the "Elon direct dispatch vs poll claim" race (`T-20261009-235600`); dispatch-side discipline (`task.dispatch`, never a bare `sessions_send` that bypasses the claim) is unchanged and remains the rule.
 > - **Deploy note**: `scripts/registry.mjs` is imported by the provider ACL (`task.sessionSet` / `sessionClose` write the registry **through this file**), so the lane-identity dedupe + `duplicate_running_lane` refusal (and the `check-sessions` soft `duplicate_lane` note) take effect only **after the changed files are deployed to the live team dir** (`install.sh`) — not by the repo commit alone.
-> - **Tests / response guides**: the contract suites `tests/spawn-lane.test.mjs`, `tests/registry-lane-identity.test.mjs`, `tests/spawn-lane-plugin.test.mjs`, `tests/lane-continuation-base.test.mjs`, `tests/spawn-lane-card-base.test.mjs` (including its `REGRESSION` cases); response for the isolation/base changes is `guides/worktree-isolation-sop.md §9`, for the plugin leg `guides/codex-plugin-lane-contract.md`.
+> - **Tests / response guides**: the contract suites `tests/spawn-lane.test.mjs` (including the `buildPrompt` isolation-contract cases), `tests/registry-lane-identity.test.mjs`, `tests/spawn-lane-plugin.test.mjs`; response for the worktree flow is `guides/dev-worktree-flow-sop.md`, for the merge invariant `scripts/check-merge.mjs` (`PROTOCOL §⑳.1`), for the plugin leg `guides/codex-plugin-lane-contract.md`.

@@ -350,8 +350,13 @@ test('UNIT. parseArgs：--review 等价 role=review；未给 seg 时留空交给
   // 裸位置参数（T-20261012-022948-2 实证）：把 `--dry-run` 误写成 `dry-run` 曾被静默吞掉 ⇒ 真起会话。
   assert.equal(parseArgs(['C', 'turing', 'dry-run']).ok, false, '多余裸位置参数 ⇒ 用法错误（绝不静默忽略）');
   assert.equal(parseArgs(['C', 'turing', 'dry-run']).reason, 'unexpected_positional:dry-run');
-  assert.equal(parseArgs(['C', 'turing', '--no-isolate']).isolate, false, '--no-isolate ⇒ 回退开关');
-  assert.equal(parseArgs(['C', 'turing']).isolate, true, '默认开自动隔离');
+  // 隔离/定基旗标已随隔离机制移除 ⇒ 现在都是**未知旗标**（exit 2），绝不静默忽略：
+  // 误传 `--base` 却以为钉住了基准，正是「未确认读成已确认」那类失败模式。
+  assert.equal(parseArgs(['C', 'turing', '--no-isolate']).ok, false, '--no-isolate 已移除 ⇒ 未知旗标');
+  assert.equal(parseArgs(['C', 'turing', '--no-isolate']).reason, 'unknown_flag:--no-isolate');
+  assert.equal(parseArgs(['C', 'turing', '--base', 'abc123']).ok, false, '--base 已移除 ⇒ 未知旗标');
+  assert.equal(parseArgs(['C', 'turing']).base, undefined, '解析结果不再有 base 字段');
+  assert.equal(parseArgs(['C', 'turing']).isolate, undefined, '解析结果不再有 isolate 字段');
 });
 
 // ── 项2：settings 预置（幂等；消除「Settings file not found」秒退） ─────────────
@@ -682,16 +687,13 @@ test('buildPrompt：未被隔离 ⇒ 明确授权、点名 skill 回退落点与
   assert.doesNotMatch(p, /already in a lane worktree/, '未隔离时不得出现「你已在隔离树中」');
 });
 
-test('buildPrompt：已被 spawner 隔离 ⇒ 告知「就地作业、别再建一棵」，且沿用既有分支名', () => {
-  const p = buildPrompt({
-    ...PROMPT_ARGS,
-    isolation: { mode: 'worktree', path: '/repo/-wt-x', branch: 'lane/T-20261016-111111' },
-    lane: 'T-20261016-111111',
-  });
-  assert.match(p, /already isolated in a lane worktree at \/repo\/-wt-x/);
-  assert.match(p, /do NOT create another worktree/, '否则会叠出第二棵树');
-  assert.match(p, /lane\/T-20261016-111111/, '已隔离时必须用隔离树真实的分支名，而非 lane 名');
-  assert.doesNotMatch(p, /do NOT ask for consent/, '已隔离就无需授权语');
+test('buildPrompt：隔离已不再是入口的事 —— 本入口永不渲染「你已在隔离树中」，也不再接受 isolation 参数', () => {
+  // P4 之前本函数是两态的（spawner 隔离 / 未隔离）。隔离改由车道按 skill 自建后只剩一态：
+  // 传给它的 `isolation` 一律被忽略（参数已从签名移除），提示语始终是「自建」那一支。
+  const p = buildPrompt({ ...PROMPT_ARGS, lane: 'T-20261016-111111', isolation: { mode: 'worktree', path: '/repo/-wt-x' } });
+  assert.doesNotMatch(p, /already isolated in a lane worktree/, '入口不再声称已隔离');
+  assert.doesNotMatch(p, /do NOT create another worktree/, '也就不再有「别再建」那一支');
+  assert.match(p, /do NOT ask for consent/, '唯一一态 = 授权自建');
 });
 
 test('buildPrompt：lane 缺省时不写出空反引号的「分支名」', () => {
@@ -700,9 +702,7 @@ test('buildPrompt：lane 缺省时不写出空反引号的「分支名」', () =
   assert.match(p, /\.worktrees\//, '落点与授权不依赖 lane 是否已知');
 });
 
-test('buildPrompt：报告行必须是**末句**（两态皆然）—— codex 后端要求提示词落在 argv 末位，抽取端以「末句以 report.md 结尾」为判据', () => {
-  for (const isolation of [null, { mode: 'worktree', path: '/repo/-wt-x', branch: 'lane/T-1' }]) {
-    const p = buildPrompt({ ...PROMPT_ARGS, isolation, lane: 'T-1' });
-    assert.match(p, /report\.md\.?$/, `报告行须在末位（isolation=${isolation ? isolation.mode : 'none'}）：${p.slice(-120)}`);
-  }
+test('buildPrompt：报告行必须是**末句** —— codex 后端要求提示词落在 argv 末位，抽取端以「末句以 report.md 结尾」为判据', () => {
+  const p = buildPrompt({ ...PROMPT_ARGS, lane: 'T-1' });
+  assert.match(p, /report\.md\.?$/, `报告行须在末位：${p.slice(-120)}`);
 });

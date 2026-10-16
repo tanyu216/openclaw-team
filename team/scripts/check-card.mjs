@@ -37,7 +37,7 @@ export const TEAM_PROJECT = '__team__';
  * 项目内路径 containment 门禁（PROTOCOL §②.1）：非 `__team__` 卡的 `target`/`writes` 必须是
  * **项目内相对路径**；绝对 / 本机锚（`/Users/…`、`~/…`）/ 盘符 / `../` 逃逸 ⇒ 卡时缺陷报红。
  *
- * 洞（本规则立的理由）：`spawn-lane.mjs`/`lane-isolation.mjs` 用
+ * 洞（本规则立的理由）：`spawn-lane.mjs` 用
  * `path.resolve(getProject(project).root, target)` 算 lane cwd —— `path.resolve` 的第二个参数
  * 若是**绝对路径**会**丢弃第一个** ⇒ 一张 `project: A`、`target: /Users/…/B` 的卡，其 lane
  * 写入面静默落进 **B 项目**。本门禁在**卡时**拦下它（机读 `[role] <created_by>` 标签 + exit≠0）。
