@@ -64,7 +64,7 @@ const LAYOUT = PROVIDER ? (() => {
 // 这些名字在 live 版里是模块级常量；此处由受保护的 setup 赋值（无 provider ⇒ 保持 undefined，
 // 但那时所有 test 都 SKIP，回调不会执行）。
 let TASKS, WS, BIN, REG, STUB, CODEX_STUB;
-let spawnLane, parseArgs, buildCommand, sessionIdFor, sessionSet, checkSessions, checkHandoff, anchorGaps, upsertSessionEntry;
+let spawnLane, parseArgs, buildCommand, buildPrompt, sessionIdFor, sessionSet, checkSessions, checkHandoff, anchorGaps, upsertSessionEntry;
 let spawnRunningCount, pollRunningCount, pollClaimBudget;
 
 if (LAYOUT) {
@@ -75,7 +75,7 @@ if (LAYOUT) {
   process.env.OPENCLAW_TEAM_ROOT = LAYOUT;
 
   const staged = (rel) => import(pathToFileURL(path.join(LAYOUT, rel)).href);
-  ({ spawnLane, parseArgs, buildCommand, runningCount: spawnRunningCount } = await staged('scripts/spawn-lane.mjs'));
+  ({ spawnLane, parseArgs, buildCommand, buildPrompt, runningCount: spawnRunningCount } = await staged('scripts/spawn-lane.mjs'));
   ({ runningCount: pollRunningCount, claimBudget: pollClaimBudget } = await staged('scripts/poll.mjs'));
   ({ sessionIdFor, sessionSet } = await staged('skills/task-ops/lib/task.mjs'));
   ({ checkSessions } = await staged('scripts/check-sessions.mjs'));
@@ -659,3 +659,50 @@ test('NEG-④ 并发两执行 turn ⇒ 仅一执行：首条真起 lane，第二
   assert.equal(registryEntries(id).length, 1, 'registry 只应有第一条 lane 的登记');
 });
 
+
+// ---------------------------------------------------------------------------
+// buildPrompt —— 隔离段落的两态合同（P3：改建基于 using-git-worktrees 的 dev 开发流）
+//
+// 这一段是无头车道能否自建隔离树的**唯一开关**：`using-git-worktrees` skill 的 Step 0 在
+// 未隔离时会向用户征求同意，而车道是 `claude -p`、没有人能回答 —— 偏好必须由本提示语声明，
+// skill 才会照 "Honor any existing declared preference without asking" 直接建树。
+// 两态都必须成立：P3 时旧机制仍在隔离一部分车道，P4 才摘掉它。
+// ---------------------------------------------------------------------------
+
+const PROMPT_ARGS = { handoffPath: '/ws/handoff.md', cardPath: '/tasks/T.md', reportPath: '/ws/report.md' };
+
+test('buildPrompt：未被隔离 ⇒ 明确授权、点名 skill 回退落点与分支名、以 dev 为基', () => {
+  const p = buildPrompt({ ...PROMPT_ARGS, lane: 'T-20261016-111111' });
+  assert.match(p, /do NOT ask for consent/, '必须显式授权，否则 skill Step 0 的征求意见在无头下无法满足');
+  assert.match(p, /using-git-worktrees/, '点名 skill（车道是 claude 后端，该 skill 装在 claude 目标上）');
+  assert.match(p, /\.worktrees\//, '落点必须是 skill 1b 的默认值');
+  assert.match(p, /T-20261016-111111/, '分支名必须写出——合并门禁靠分支名反推卡 id');
+  assert.match(p, /base it on `dev`/);
+  assert.match(p, /Never commit on the protected branch \(main\)/);
+  assert.doesNotMatch(p, /already in a lane worktree/, '未隔离时不得出现「你已在隔离树中」');
+});
+
+test('buildPrompt：已被 spawner 隔离 ⇒ 告知「就地作业、别再建一棵」，且沿用既有分支名', () => {
+  const p = buildPrompt({
+    ...PROMPT_ARGS,
+    isolation: { mode: 'worktree', path: '/repo/-wt-x', branch: 'lane/T-20261016-111111' },
+    lane: 'T-20261016-111111',
+  });
+  assert.match(p, /already isolated in a lane worktree at \/repo\/-wt-x/);
+  assert.match(p, /do NOT create another worktree/, '否则会叠出第二棵树');
+  assert.match(p, /lane\/T-20261016-111111/, '已隔离时必须用隔离树真实的分支名，而非 lane 名');
+  assert.doesNotMatch(p, /do NOT ask for consent/, '已隔离就无需授权语');
+});
+
+test('buildPrompt：lane 缺省时不写出空反引号的「分支名」', () => {
+  const p = buildPrompt({ ...PROMPT_ARGS });
+  assert.doesNotMatch(p, /Name the branch ``/, '不得渲染出空的分支名');
+  assert.match(p, /\.worktrees\//, '落点与授权不依赖 lane 是否已知');
+});
+
+test('buildPrompt：报告行必须是**末句**（两态皆然）—— codex 后端要求提示词落在 argv 末位，抽取端以「末句以 report.md 结尾」为判据', () => {
+  for (const isolation of [null, { mode: 'worktree', path: '/repo/-wt-x', branch: 'lane/T-1' }]) {
+    const p = buildPrompt({ ...PROMPT_ARGS, isolation, lane: 'T-1' });
+    assert.match(p, /report\.md\.?$/, `报告行须在末位（isolation=${isolation ? isolation.mode : 'none'}）：${p.slice(-120)}`);
+  }
+});
