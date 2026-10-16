@@ -142,15 +142,55 @@ const killAndReap = (pid, signal = 'SIGTERM') => {
   try { process.kill(pid, signal); } catch { /* 已退出 */ }
 };
 
-/** 等 pid「不再存活」（判据与看守同源：`laneProcessAlive` 把僵尸态也算终结）。 */
-const waitDead = async (pid, timeout = 5000) => {
-  const t0 = Date.now();
-  for (;;) {
-    if (!lifecycle.laneProcessAlive(pid)) return true;
-    if (Date.now() - t0 > timeout) return false;
-    await new Promise((r) => setTimeout(r, 20));
+/**
+ * 等 pid「不再存活」（判据与看守同源：`laneProcessAlive` 把僵尸态也算终结）。
+ *
+ * 委托给共享原语 `session-lifecycle.waitPidDead`（T-20261016-210926）：上限 15s 是**活性**上界
+ * 而非性能断言（pid 一死就返回 ⇒ 绿路径不付它），一次到期不作数（重取一次）——宿主负载/休眠
+ * 让「观测不成」时不再把 stub 读成「一直活着」而误红；pid 真的一直活着仍两次到期 ⇒ 照旧红。
+ */
+const waitDead = (pid, timeout = lifecycle.PID_DEAD_WAIT_MS) => lifecycle.waitPidDead(pid, { timeoutMs: timeout });
+
+// ── 判据三态 / 「观测不成 ≠ 还活着」/「真失败仍红」（T-20261016-210926）───────────
+
+test('判据：probePidState 三态 —— ps 抛错 / 无输出都是 unknown（**不是** alive），Z 是 dead', { skip: SKIP }, () => {
+  // 观测不成的两种形态：与 kill(pid,0) 分歧时**不得**读成「还活着」这一结论
+  assert.equal(lifecycle.probePidState(process.pid, { ps: () => { throw new Error('EAGAIN'); } }), 'unknown', 'ps 起不来');
+  assert.equal(lifecycle.probePidState(process.pid, { ps: () => '' }), 'unknown', 'ps 无输出');
+  assert.equal(lifecycle.probePidState(process.pid, { ps: () => '   \n' }), 'unknown');
+  // 观测得成的两种形态
+  assert.equal(lifecycle.probePidState(process.pid, { ps: () => 'S+' }), 'alive');
+  assert.equal(lifecycle.probePidState(process.pid, { ps: () => 'Z' }), 'dead', '僵尸：kill(pid,0) 对它成功，只有 ps 看得出来');
+  assert.equal(lifecycle.probePidState(999999), 'dead', '真死 pid（真读数）');
+  // 看守侧的保守口径一字未改：unknown ⇒ 存活（它的错判代价是「多等一轮」，不是「关掉活 lane」）
+  assert.equal(lifecycle.laneProcessAlive(process.pid, { ps: () => { throw new Error('x'); } }), true);
+});
+
+test('判据：pid 观测不成 ⇒ 单次交回「没等死」（复现慢段 lane-reaper 假红），重取拿到真答案', { skip: SKIP }, async () => {
+  const id = 'T-20260101-060015-blind';
+  const pid = startLane(id);
+  killAndReap(pid, 'SIGKILL');
+  assert.ok(await waitDead(pid), '先让它真死透（真读数）');
+
+  // 「观测不成」＝ 负载/休眠把 `ps` 打掉的那个形态：头 200ms 一律 unknown，之后回到真判据。
+  const blindUntil = Date.now() + 200;
+  const probe = (p) => (Date.now() < blindUntil ? 'unknown' : lifecycle.probePidState(p));
+
+  const single = await lifecycle.waitPidDead(pid, { timeoutMs: 150, intervalMs: 5, probe, retries: 0 });
+  assert.equal(single, false, '单次语义：整个窗口观测不成 ⇒ 交回「没等死」—— 这正是慢段里那条 `stub 应自行退出` 的读数');
+  const recovered = await lifecycle.waitPidDead(pid, { timeoutMs: 150, intervalMs: 5, probe });
+  assert.equal(recovered, true, '一次击穿后重取，观测恢复 ⇒ 拿到真答案（停滞不再误红）');
+});
+
+test('判据：真失败仍红 —— pid 真的还活着时两次都到期 ⇒ 仍判「没等死」', { skip: SKIP }, async () => {
+  const id = 'T-20260101-060016-stillalive';
+  const pid = startLane(id);                       // `sleep 300` 的 stub：本用例全程活着
+  try {
+    assert.equal(await lifecycle.waitPidDead(pid, { timeoutMs: 100, intervalMs: 5 }), false, '活 pid 重取两次也不会被读成「已终结」');
+  } finally {
+    killAndReap(pid, 'SIGKILL');
   }
-};
+});
 
 // ── RED 形态：lane 终结后无人收口 ⇒ 卡行与 registry 双双停在 running ─────────────
 

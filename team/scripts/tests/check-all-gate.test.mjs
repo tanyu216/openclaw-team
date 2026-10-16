@@ -35,6 +35,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+import { withStallRetrySync, execTimeoutBreachOf } from '../host-stall.mjs';
 import {
   computeVerdict, readSlowCache, isLockLive, fmtAge,
   resolveTeamDir, DEFAULT_SLOW_TTL_MS, DEFAULT_FAST_TIMEOUT_MS,
@@ -277,36 +278,53 @@ function fixtureEnv(root, { checkall = CHECKALL, ...extra } = {}) {
   return env;
 }
 
+/** The bound every fixture child runs under (ms). */
+const EXEC_TIMEOUT_MS = 60_000;
+
+/** Last non-empty stdout line, parsed as the machine-readable envelope. */
+const lastLine = (stdout) => JSON.parse(String(stdout || '').trim().split('\n').filter(Boolean).pop());
+
+/**
+ * Run a child under a wall-clock bound, WITHOUT throwing — and with the bound's own verdict
+ * quarantined (T-20261016-210926).
+ *
+ * A BREACHED WAIT (`ETIMEDOUT`) is not a verdict about the child: when the host sleeps or is
+ * saturated past the bound, the wait returns an empty answer (`e.status === null`) even though the
+ * child was fine. The reported 12:22:36Z red was exactly this — `red.exit` **null !== 1** after a run
+ * of 1135929 ms. So a breach is re-derived once on a fresh bound; two breaches are the verdict
+ * (`exit: null`, i.e. still red). A real answer — any exit code, envelope or not — is never retried.
+ */
+function execBounded(file, args, { env, timeoutMs = EXEC_TIMEOUT_MS, retries = 1 } = {}) {
+  const once = () => {
+    try {
+      const stdout = execFileSync(file, args, { encoding: 'utf8', env, timeout: timeoutMs, stdio: ['ignore', 'pipe', 'pipe'] });
+      return { exit: 0, stdout, stderr: '' };
+    } catch (e) {
+      return { exit: e.status, stdout: String(e.stdout || ''), stderr: String(e.stderr || ''), waitBreached: !!execTimeoutBreachOf(e) };
+    }
+  };
+  const { value } = withStallRetrySync(once, {
+    classify: (v) => (v.waitBreached ? { reason: 'exec-wait-breached' } : null),
+    retries, budgetMs: timeoutMs,
+  });
+  return value;
+}
+
 /** Run the gate CLI; returns {exit, envelope}. */
 function runGate(root, extra = {}) {
-  try {
-    const out = execFileSync(process.execPath, [GATE], { encoding: 'utf8', env: fixtureEnv(root, extra), timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'] });
-    return { exit: 0, envelope: JSON.parse(out.trim().split('\n').filter(Boolean).pop()) };
-  } catch (e) {
-    const out = String(e.stdout || '');
-    return { exit: e.status, envelope: JSON.parse(out.trim().split('\n').filter(Boolean).pop()) };
-  }
+  const r = execBounded(process.execPath, [GATE], { env: fixtureEnv(root, extra) });
+  return { exit: r.exit, envelope: lastLine(r.stdout) };
 }
 
 /** Run the (real) segmented checkpoint script directly. */
 function runCheckAll(root, args) {
-  try {
-    const out = execFileSync('bash', [CHECKALL, ...args], { encoding: 'utf8', env: fixtureEnv(root), timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'] });
-    return { exit: 0, envelope: JSON.parse(out.trim().split('\n').filter(Boolean).pop()) };
-  } catch (e) {
-    const out = String(e.stdout || '');
-    return { exit: e.status, envelope: JSON.parse(out.trim().split('\n').filter(Boolean).pop()) };
-  }
+  const r = execBounded('bash', [CHECKALL, ...args], { env: fixtureEnv(root) });
+  return { exit: r.exit, envelope: lastLine(r.stdout) };
 }
 
 /** Run a child, capturing stdout/stderr/exit WITHOUT throwing — so a missing envelope is an assertion failure, not a parse crash. */
-function runRaw(file, args, env) {
-  try {
-    const stdout = execFileSync(file, args, { encoding: 'utf8', env, timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'] });
-    return { exit: 0, stdout, stderr: '' };
-  } catch (e) {
-    return { exit: e.status, stdout: String(e.stdout || ''), stderr: String(e.stderr || '') };
-  }
+function runRaw(file, args, env, opts = {}) {
+  return execBounded(file, args, { env, ...opts });
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -526,8 +544,8 @@ function runDispatch(root, entry) {
     OPENCLAW_TEAM_CHECKALL_CMD: `node ${GATE}`,
     OPENCLAW_TEAM_CHECKALL_NO_REFRESH: '1',
   });
-  const out = execFileSync(process.execPath, [DISPATCH, 'check-all'], { encoding: 'utf8', env, timeout: 30_000, stdio: ['ignore', 'pipe', 'pipe'] });
-  return JSON.parse(out.trim().split('\n').filter(Boolean).pop());
+  const out = execBounded(process.execPath, [DISPATCH, 'check-all'], { env, timeoutMs: 30_000 });
+  return JSON.parse(out.stdout.trim().split('\n').filter(Boolean).pop());
 }
 
 test('scheduled path: a confirmed-green gate stays quiet; a red gate fires WITH the failing items', () => {
