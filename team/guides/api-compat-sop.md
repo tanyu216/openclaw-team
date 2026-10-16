@@ -1,10 +1,26 @@
 # API Compatibility and Deprecation SOP (api-compat-sop.md)
 
-> **Ownership / Maintainer**: **Linus** (engineering) owns and maintains this SOP. The normative mechanism lives in **`PROTOCOL §㉕` (API compatibility & deprecation)**, which is the L1 clause **Elon alone** writes; this file references that clause and **never copies its text** (`PROTOCOL §⑰`).
+> **Ownership / Maintainer**: **Linus** (engineering) owns and maintains this SOP. The normative mechanism lives in **`PROTOCOL §㉕` (API compatibility & deprecation)**, the L1 clause **Elon alone** writes; this file references that clause and **never copies its text** (`PROTOCOL §⑰`).
 > **Depends on**: `PROTOCOL §⑥` (git discipline) · `§⑥.1` (engineering quality standards — **clause 8** owns the consumer-impact tracing this SOP completes) · `§⑨` (defect loop) · `§⑫` (two-way document sync) · `§⑭` (confirmation gate) · `§⑰` (doc layering / no verbatim copying) · `§⑳.1` (machine-checkable gates) · `§㉑` (release & versioning — owns semver) · `§㉔` (data/DB migration) · `§㉕` (the L1 clause this SOP details).
 > **Sibling guides**: `release-versioning-sop.md`, `data-migration-sop.md`, `incident-response-sop.md`, `ci-release-sop.md`.
 > **Scope**: this file is the **L2.5 method library** — the executable detail for API-contract compatibility, versioning and deprecation. Cross-role mechanism is owned by L1 (`PROTOCOL §㉕`) and is referenced, not restated.
 > **Reference convention**: always write `PROTOCOL §<n> <name>` or `guide-name §<section>`. **No line-number anchors, no card-number anchors** (`PROTOCOL §⑥.1` clause 11).
+
+---
+
+## File-level Stance / Responsibility / Landing Point
+
+> Every section below previously restated its own stance block; consolidated here. A section says inline where it genuinely differs.
+> **Responsibility (shared unless a row differs)**: the change implementer (**Linus**) produces the determination + impact list; **Elon** reviews/approves and gates decisions (`§⑭`), escalating to **Turing** for scenario-truthfulness or security adjudication.
+
+| § | Rule (source of truth) | Landing point |
+|---|---|---|
+| §1 | Any change to an interface/contract **that has consumers** falls under this SOP | §7 (machine gate + manual criteria) |
+| §2 | The §2.1 list is the **source of truth** for determination; reviews and changelogs cite its item numbers | B1/B2/B4/B5/B7/B8/B11/B12 **machine-checkable** (schema/route/error-code diff); **B3 (semantics) and "is an addition breaking" must be judged manually** |
+| §3 | `/vN/` = the compatibility-generation boundary; `N` only increments on a breaking change | route-prefix consistency **machine-checkable** (route table / contract tests); generation-cut decision **manual** |
+| §4 | A breaking removal always follows "deprecate first, remove later" | phases ①②④ contain manual actions; ③ (telemetry) is the machine-check main field. **Approving the deprecation period and the expiry removal is Elon's** (`§⑭`; overdue handling per `§⑮`) |
+| §5 | "Trace before you change; no proof, no deletion" (completes `§⑥.1` clause 8) | grep/search **machine-checkable** (a script can run it — §7); "was it traced completely" (frontend/cross-service) is **manual** (Elon/Turing, `§⑥.1` clause 10) |
+| §6 | Contract tests are a **gate, not an optional test** | **CI machine-check** (§7); scenario-truthfulness verification is Turing's (`§⑥.1` clause 10) |
 
 ---
 
@@ -29,13 +45,11 @@
 | **Handoff** | Determined breaking ⇒ version-bump magnitude and the changelog `BREAKING` trail go to `release-versioning-sop.md §2/§3`; a needed rollback / forward fix ⇒ follow its §5; a contract defect found ⇒ open a defect-loop card (`PROTOCOL §⑨`); a deprecation needing sign-off or public announcement ⇒ `PROTOCOL §⑭` (confirmation gate), via Elon |
 | **Not applicable** | Personal draft interfaces that are undelivered and have no consumers; purely internal CLI output formats (unless scripts/docs already depend on them as a contract) |
 
-> **Rule / responsibility / landing point**: rule = any change to an interface/contract **that has consumers** falls under this SOP; responsibility = the change implementer (Linus) produces the determination and the impact list, the reviewer (Elon) checks it at the confirmation gate; landing point = see §7 (machine gate + manual criteria).
-
 ---
 
 ## 2. Breaking-Change Determination Checklist
 
-> **Rule**: the basis for determination is **whether the behaviour for existing consumers changes**, not "whether code moved". Any change where a consumer **cannot keep working without changing its code** is breaking.
+> **Basis**: the determination is **whether the behaviour for existing consumers changes**, not "whether code moved". Any change where a consumer **cannot keep working without changing its code** is breaking.
 > **Interface rule**: `PROTOCOL §⑥.1` clause 8 already requires "determine Breaking change + trace impact scope / argument breaks"; this SOP **completes the "versioning/deprecation" step it does not cover**, aligning its determination actions to clause 8's numbering (**by number, without copying its text**).
 
 ### 2.1 Breaking vs Non-Breaking (item by item)
@@ -72,8 +86,6 @@
 | Does the change only touch error text/logging/internals, leaving the external contract (fields/codes/status/pagination) unchanged? | Yes ⇒ **PATCH** |
 | Have semantics changed while the signature/type did not (B3)? | Yes ⇒ **breaking** (hard to machine-detect, **must be judged manually**) |
 
-> **Rule / responsibility / landing point**: rule = the list above is the **source of truth** for determination, and reviews and changelogs cite its item numbers; responsibility = the determination and impact list are Linus's, review is Elon's (escalating to Turing if needed, `§⑭`); landing point = B1/B2/B4/B5/B7/B8/B11/B12 are **machine-checkable** (schema/route/error-code diff), while **B3 (semantics) and "is an addition breaking" can only be judged manually**.
-
 ---
 
 ## 3. Versioning Scheme
@@ -84,9 +96,9 @@
 
 | Scheme | Form (example) | Pros | Cons | Best for |
 |---|---|---|---|---|
-| **URI major version** | `/api/v1/items`, `/api/v2/items` | Most visible; easiest to route/see by path at CDNs/gateways/logs; intuitive to debug; a client changes one prefix | Multiple paths to maintain per resource; coarse-grained (whole bundle bumps) | **Major-version boundaries** (a whole API generation changes) |
-| **Header version** | `Accept-Version: 2` (or `X-Api-Version`) | Clean paths; end-point-level granularity; multiple versions on the same URL | Invisible (hard to tell apart in cache/logs); must remember the header to debug; easily stripped by gateways/proxies | **Single-endpoint transition** (local, temporary break) |
-| **Media-type version** | `Accept: application/vnd.<service>.v2+json` | Most rigorous semantics (REST-orthodox); unified with content negotiation | High client-implementation bar; unfamiliar to most teams/toolchains; costly to debug | A few interfaces with strong content-negotiation needs |
+| **URI major version** | `/api/v1/items`, `/api/v2/items` | Most visible/routable by path (CDNs/gateways/logs); intuitive to debug; a client changes one prefix | Multiple paths per resource; coarse (whole bundle bumps) | **Major-version boundaries** (a whole API generation changes) |
+| **Header version** | `Accept-Version: 2` (or `X-Api-Version`) | Clean paths; endpoint-level granularity; multiple versions on one URL | Invisible (hard to tell apart in cache/logs); must remember the header to debug; easily stripped by gateways/proxies | **Single-endpoint transition** (local, temporary break) |
+| **Media-type version** | `Accept: application/vnd.<service>.v2+json` | Most rigorous (REST-orthodox); unified with content negotiation | High client-implementation bar; unfamiliar to most teams/toolchains; costly to debug | A few interfaces with strong content-negotiation needs |
 
 ### 3.2 Major vs Minor Boundary
 
@@ -98,13 +110,6 @@
 
 - **Principle**: **within the same generation `/vN/`, do only "addition"**; once a "subtraction/re-meaning" is required, cut `/v(N+1)/` and put `/vN/` into deprecation (§4).
 - **Forbidden**: silently changing semantics under the same `/vN/` (B3) — this is the root cause of "the version didn't move, yet consumers broke".
-
-> ⚠️ **Versioning scheme: to be decided.**
-> **Recommended default (in force until decided)**: **use URI major versioning (`/api/vN/`) for external / cross-service APIs, with stable internal contracts**.
-> Rationale: ① best visibility and gateway routing; ② URI versioning is the most natural fit for services whose public routes already carry a `/api/v1/...` prefix, so adopting it = a natural continuation with no migration cost; ③ keep **internal module-to-module / event contracts as unversioned stable contracts** (internal parties can upgrade in lockstep, so versioning is only worth it where external/cross-module consumers exist) — this avoids scattering version numbers everywhere internally.
-> **Only when** a single endpoint needs a local transition and the whole bundle should not bump may a **Header version** be allowed as a special case (with a written reason and Elon's approval).
-
-> **Rule / responsibility / landing point**: rule = `/vN/` = the compatibility-generation boundary, and `N` only increments on a breaking change; responsibility = the scheme decision is Elon's (`§⑭`), implementation is Linus's; landing point = route-prefix consistency is **machine-checkable** (route table / contract tests), while the generation-cut decision is **manual**.
 
 ---
 
@@ -123,15 +128,7 @@
 
 - **Removal hard preconditions (all three required)**: ① the deprecation period has expired; ② there is **evidence** the old item has **no active consumers** (§5 "no caller proof ⇒ no deletion"); ③ the deprecation announcement and trail are complete.
 - **Trail carriers**: changelog `Deprecated`/`Removed` groups (`release-versioning-sop.md §3.1`) + a task comment; both must be traceable.
-
-### 4.2 Deprecation Period Duration
-
-> ⚠️ **Deprecation period duration: to be decided.**
-> **Recommended default (in force until decided)**: **at least ≥ 1 release cycle** (i.e. at least one full release / MINOR has crossed), and **≥ 30 days** for versioned external interfaces. Take the **longer** of "one release cycle" and "≥ 30 days".
-> Rationale: ① consumers need one release window to respond; ② too short (e.g. 1 week) is impossible for projects with only manual inspection and no CI; ③ this aligns with the release-channel/observation-window cadence of `release-versioning-sop.md`.
-> **Shortenable special case**: internal consumers only and all migrations confirmed complete (with §5 evidence) ⇒ may be shortened, but **the announcement + trail are still required** and Elon's approval is needed.
-
-> **Rule / responsibility / landing point**: rule = a breaking removal always follows "deprecate first, remove later"; responsibility = starting and observing the deprecation is Linus's, **approving the deprecation period and the expiry removal is Elon's** (`§⑭`; overdue handling per `§⑮`); landing point = phases ①②④ contain manual actions, and ③ is the machine-check main field (telemetry).
+- **Deprecation period duration**: see §9 (undecided; default in force).
 
 ---
 
@@ -157,8 +154,6 @@
 - **The impact list is input to deprecation/removal**: the "no active consumers" criterion in §4 "removal at expiry" is taken from this list + §4.1 ③ telemetry.
 - **Cross-segment consistency**: if the change crosses segment/worker boundaries, register the affected surface in the segment-completion snapshot per the cross-segment consistency contract.
 
-> **Rule / responsibility / landing point**: rule = "trace before you change; no proof, no deletion"; responsibility = tracing and the list are the change implementer's (Linus), and reviewing "was the frontend/cross-service side fully traced" is Elon's/Turing's (analogous to `§⑥.1` clause 10 scenario truthfulness); landing point = grep/search is **machine-checkable** (a script can run it, see §7), while "was it traced completely" is a **manual** criterion.
-
 ---
 
 ## 6. Contract Tests
@@ -179,10 +174,8 @@
 
 - **Form**: freeze the contract surface into a **snapshot artifact** (e.g. an OpenAPI document, a JSON Schema, or a route/error-code listing) under version control.
 - **Gate action**: on change, **diff** against the snapshot; a **breaking diff (matching a §2 B item) is blocked**; a non-breaking diff passes and is recorded.
-- **Snapshot artifact form: to be decided.** A lightweight, offline, zero-dependency form is recommended: generate an OpenAPI document where a generator exists, and in all cases export a JSON "route table + error-code table + wire field table" as a second snapshot. Both must run in CI with no network.
+- **Snapshot artifact form**: see §9 (undecided; default in force).
 - **Where no OpenAPI toolchain exists**, the exported JSON listings (error-code table + wire projection + route table + interface-contract document) are themselves the contract artifact and are already a contract-test subject.
-
-> **Rule / responsibility / landing point**: rule = contract tests are a **gate, not an optional test**; responsibility = authoring is the implementer's (Linus), and verifying scenario truthfulness is Turing's (`§⑥.1` clause 10); landing point = **CI machine-check** (see §7).
 
 ---
 
@@ -214,17 +207,14 @@
 |---|---|---|
 | **CI** | Contract tests (field names/types/status codes/error codes/pagination), contract-snapshot diff, route-prefix consistency, error-code vocabulary assertions, the unmarked-breaking-change lint | Must stay **offline / zero-dependency**: when no OpenAPI toolchain is available, use the exported JSON snapshot instead |
 | **check-all** | Team-level gate — validates this SOP's reference/redline consistency | Does **not** replace a project's own contract tests |
-| **Hooks** | Contract-snapshot comparison on `pre-push`/`pre-tag` | To be decided per project |
+| **Hooks** | Contract-snapshot comparison on `pre-push`/`pre-tag` | To be decided per project (§9) |
 | **Manual** | Breaking-change criterion, version-bump decision, deprecation approval, impact-list review | Responsibilities per §2/§3/§4/§5 |
 
 ---
 
-## 9. Related Clauses
+## 9. Open Items (undecided; recommended defaults in force until decided)
 
-- Version bump + changelog `BREAKING` trail → `release-versioning-sop.md §2/§3` (`PROTOCOL §㉑`); rollback → its §5.
-- Consumer-impact tracing (this SOP completes it) → `PROTOCOL §⑥.1` clause 8; scenario-truthfulness verification → clause 10; reference convention → clause 11.
-- Deprecation approval / expiry removal → `PROTOCOL §⑭` (confirmation gate); overdue handling → `§⑮`.
-- Contract defect found → defect loop, `PROTOCOL §⑨`.
-- DB/schema migration boundary → `data-migration-sop.md` (`PROTOCOL §㉔`).
-- Two-way document sync → `PROTOCOL §⑫`; doc layering / no verbatim copying → `§⑰`; machine-checkable gates → `§⑳.1`.
-- Release / deploy execution → `ci-release-sop.md`; incident handling → `incident-response-sop.md`.
+1. **Versioning scheme** — default: **URI major versioning (`/api/vN/`) for external / cross-service APIs** (best visibility + gateway routing; a natural continuation where public routes already carry `/api/v1/...`); keep **internal module-to-module / event contracts as unversioned stable contracts**. **Only when** a single endpoint needs a local transition and the whole bundle should not bump may a **Header version** be allowed as a special case (with a written reason and Elon's approval). Scheme decision: Elon (`§⑭`).
+2. **Deprecation period duration** — default: **take the longer of "one release cycle" and "≥ 30 days"** for versioned external interfaces (consumers need one release window; too short is impossible for projects with only manual inspection). **Shortenable** when only internal consumers remain and all migrations are confirmed complete (with §5 evidence) — but the **announcement + trail are still required** and Elon's approval is needed.
+3. **Contract-snapshot artifact form** — recommended: a lightweight, offline, **zero-dependency** form: generate an OpenAPI document where a generator exists, and in all cases export a JSON "route table + error-code table + wire field table" as a second snapshot; both must run in CI with **no network**.
+4. **Hook cadence** — contract-snapshot comparison on `pre-push`/`pre-tag` is **to be decided** per project (§8).
