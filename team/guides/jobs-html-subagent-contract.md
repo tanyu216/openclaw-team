@@ -48,10 +48,10 @@
 
 | 编号 | 事实（规格口径） | 本文核实状态 |
 |---|---|---|
-| **F1** | `sessions_spawn`（core）能力面：`runtime:"subagent"`；`agentId`；`model`（覆盖子会话模型）；`context:"isolated"\|"fork"`；`mode:"run"`；`cleanup:"delete"\|"keep"`；`visible`（持久 sidebar session）；`worktree`/`worktreeName`/`worktreeBaseRef`；`completionTarget:"parent"`；`expectsCompletionMessage`；`runTimeoutSeconds`；`lightContext`；继承调用方 tool-policy 上限；**子会话继承父 workspace**。 | **部分核实**：本机 OpenClaw 发行物（Control UI 工具目录）对 `sessions_spawn` 的描述为「Spawn hidden subagent (ephemeral) or visible work session (durable).」⇒ 印证「ephemeral subagent / durable visible session」二态与 `visible` 语义；同目录另有 `sessions_yield`（End turn to receive sub-agent results）、`subagents`（list/cancel 后台工作）、`agents_wait`（Wait for collector subagents.）。**逐参数清单**（`context`/`runTimeoutSeconds`/`worktree*`/`completionTarget` 等）本机无静态 schema 可回读，按规格口径引用，A2 落地前以运行时 schema 复核。 |
+| **F1** | `sessions_spawn`（core）能力面：`runtime:"subagent"`；`agentId`；`model`（覆盖子会话模型）；`context:"isolated"\|"fork"`；`mode:"run"`；`cleanup:"delete"\|"keep"`；`visible`（持久 sidebar session）；`worktree`/`worktreeName`/`worktreeBaseRef`；`completionTarget:"parent"`；`expectsCompletionMessage`；`runTimeoutSeconds`；`lightContext`；继承调用方 tool-policy 上限；**子会话继承父 workspace**。 | **部分核实**：本机发行物对 `sessions_spawn` 的描述 = 「ephemeral subagent / durable visible session」二态（印证 `visible` 语义）；同目录另有 `sessions_yield`/`subagents`/`agents_wait`。**逐参数清单**（`context`/`runTimeoutSeconds`/`worktree*`/`completionTarget` 等）本机无静态 schema 可回读，按规格口径引用，A2 落地前以运行时 schema 复核。 |
 | **F2** | `agents_list`（requester=jobs）→ 仅 `jobs`（`allowAny:false`）；`agents.entries` = main/jobs/linus/turing/assistant；`main.subagents.allowAgents=[jobs,linus,turing,assistant]`；**jobs 未配置 `subagents.allowAgents`**。 | **核实（静态面）**：`agents.entries` = main/jobs/linus/turing/assistant；`entries.main.subagents.allowAgents = [jobs,linus,turing,assistant]`；`entries.jobs` 无 `subagents` 键。**偏差**：`openclaw.json` 的 `agents` 下**无 `allowAny` 静态键**（该值来自 `agents_list` 运行时返回，非配置）。 |
 | **F3** | `providers.deepseek` 有 `deepseek-v4-pro`、`deepseek-flash`；另有 `minimax`。**全部 agent 现配 `model: deepseek/deepseek-flash`**。 | **核实**：`models.providers.deepseek.models` 含 `deepseek-v4-pro`/`deepseek-flash`；`minimax` provider 存在（`agents.defaults.models` 有 `minimax` 别名）；main/jobs/linus/turing/assistant 的 `model` 均为 `deepseek/deepseek-flash`；`agents.defaults.model.primary = deepseek/deepseek-flash`，fallbacks = `[deepseek/deepseek-v4-pro]`。 |
-| **F4** | `plugins.codex.enabled=true`（`global:codex`）；codex CLI `0.161.0`（≥门 `0.149`）；Epic A 契约已落 `team/guides/codex-plugin-lane-contract.md`。 | **部分核实 + 偏差**：插件启用实为 `plugins.entries.codex.enabled=true`；本地安装 `@openclaw/codex` **2026.10.2**，`contracts.tools` 含 `codex_threads`/`codex_plugins`/`codex_session_read`/`codex_session_send`/`codex_session_interrupt` 等。**偏差**：Epic A 契约现落于 `workspace/T-20261013-012318-3/codex-plugin-lane-contract.md`（A1 设计交付），**不在** `team/guides/` 下。codex CLI 版本（`0.161.0`）本会话未能复跑 `codex --version`（命令需审批），按规格口径引用。 |
+| **F4** | `plugins.codex.enabled=true`（`global:codex`）；codex CLI `0.161.0`（≥门 `0.149`）；Epic A 契约已落 `team/guides/codex-plugin-lane-contract.md`。 | **部分核实 + 偏差**：插件启用实为 `plugins.entries.codex.enabled=true`；本地装 `@openclaw/codex` **2026.10.2**，`contracts.tools` 含 `codex_threads`/`codex_plugins`/`codex_session_read`/`codex_session_send`/`codex_session_interrupt` 等。**偏差**：Epic A 契约现落于 `workspace/T-20261013-012318-3/codex-plugin-lane-contract.md`（A1 设计交付），**不在** `team/guides/` 下；codex CLI 版本本会话未能复跑 `codex --version`（命令需审批），按规格口径引用。 |
 | **F5** | 团队 registry `~/.openclaw/team/claude-sessions.json`：条目键 `task_id\|owner\|phase\|pid\|session_id\|status\|log\|startedAt\|endedAt`；卡 `## Sessions` 行 `- seg:<seg> · owner:… · backend:… · id:… · phase:… · status:… · pid:…`（upsert 键 `seg:<seg> ·`）；`check-sessions` 做卡↔registry 双向比对（`registry_only`/`card_only` 硬失败）。 | **核实**：本卡 registry 条目实测字段 = `task_id/owner/phase/startedAt/log/status/session_id/pid`（终态加 `endedAt`）；卡 `## Sessions` 行格式逐字一致；`registry.mjs` 去重键实测 = **`task_id\|owner\|phase\|session_id`**；`check-sessions.mjs` 按 `session_id` 对齐、按 `isPidAlive(pid)` 判活，产出 `registry_only`（硬）/`card_only`（硬）/`zombie_registry`（软）/`stale_card_line`（软）/`status_mismatch`（软）。 |
 | **F6** | spawn-lane 面：唯一入口 `scripts/spawn-lane.sh`；`BACKENDS = claude\|codex`；`check-handoff` 锚点 `['HANDOFF:v1','## 任务卡','## 上段结论','## 讨论/决策','state.md']`；`role=exec` 断言 `in_progress && claimed_by=owner`；并发帽 `linus/jobs <8`、`turing <3`。 | **核实**：`spawn-lane.mjs` `BACKENDS = ['claude','codex']`；`check-handoff.mjs` `ANCHORS` 逐字一致；`capFor` 与 role 断言与规格一致。 |
 | **F7** | 现状 `roles/jobs` 的 Claude 依赖点（HTML 相关）：`roles/jobs/AGENTS.md` Role Duties item 1 static-html 段（"must be done via a Claude Code sub-session" + ①②③）；§Tool Discipline「HTML path」红线 +「Tool scope / HTML path」注；§Pre-Delivery Checklist 两行；`roles/jobs/SOUL.md` 第 5 行；`roles/jobs/IDENTITY.md` theme 行。 | **核实（逐字）**：`workspace-<role>` 部署面 `roles/jobs/AGENTS.md`/`SOUL.md`/`IDENTITY.md` 六处措辞与 F7 一致；对应 before 串见 §9（E1–E10）。 |
@@ -63,49 +63,34 @@
 
 ## 2. 引擎裁定（(a) 原生 sub-agent / (b) codex 插件 harness / (c) 其它）
 
-> **本节为「建议 + 风险」陈述；引擎最终裁定权归 Elon（见本节 2.4）。执行方不预决。**
+> **本节为「建议 + 风险」陈述；引擎最终裁定权归 Elon（见 §2.4）。执行方不预决。**
 
 ### 2.1 (a) OpenClaw 原生 sub-agent —— **建议：作为默认引擎**
 
-**建议**：HTML path 默认引擎 = `sessions_spawn({runtime:"subagent", agentId, model, context:"isolated"})`，建议搭配 `mode:"run"` + `expectsCompletionMessage` + `completionTarget:"parent"`，使结果回到 Jobs 回合，并可经 `sessions_send` 追加修订（对应 R-1）。
+**建议**：HTML path 默认引擎 = `sessions_spawn({runtime:"subagent", agentId, model, context:"isolated"})`，搭配 `mode:"run"` + `expectsCompletionMessage` + `completionTarget:"parent"`，使结果回到 Jobs 回合，并可经 `sessions_send` 追加修订（对应 R-1）。
 
-**理由**：
-1. 直接兑现派单口径（「Jobs 用 `sessions_spawn` 启动独立 sub-agent session」），是全卡的存在理由；
-2. 去掉外部 `claude -p` CLI + `claude-sessions.json` 胶水 + pid 轮询三重机械（对比现状 F7）；
-3. 原生会话目录与可观测（`subagents` / `sessions_history`）、继承调用方 tool-policy 上限、原生 `worktree`、结果回父回合、`runTimeoutSeconds` / `cleanup` 生命周期（F1）；
-4. **设计门仍在 Jobs**：`design-spec.md` + 复核权不变，sub-agent 只执行、无设计判断权（R-7）。
+**理由**：直接兑现派单口径（「Jobs 用 `sessions_spawn` 启动独立 sub-agent session」，全卡存在理由）；去掉外部 `claude -p` CLI + `claude-sessions.json` 胶水 + pid 轮询三重机械（对比 F7）；原生会话目录与可观测（`subagents` / `sessions_history`）、继承调用方 tool-policy 上限、原生 `worktree`、结果回父回合、`runTimeoutSeconds` / `cleanup` 生命周期（F1）；**设计门仍在 Jobs**（`design-spec.md` + 复核权不变，sub-agent 只执行、无设计判断权，R-7）。
 
-**风险**：
-- **R1 模型质量**（严重度 高）：现全 agent = `deepseek-flash`（F3）；写 HTML/CSS/JS + jQuery + Tailwind/daisyUI 的成品质量**不足**。缓解见 §2.4 与 §11 R1。
-- **R2 判活/对账**（严重度 中）：native sub-agent **无独立 pid**，与现行 `kill -0` 判活、`check-sessions` 对齐口径冲突；且会话在网关进程内，网关重启可能中断在飞 lane。缓解见 §5 / §11 R2。
-- **R4 写面越界**（严重度 中）：F1「子会话继承父 workspace」⇒ 若不在本次 spawn 内钉死 cwd，sub-agent 可能写到父 workspace 而非原型仓。缓解见 §6 G2 / §11 R4。
-- **归属主体未定**（严重度 低）：F2 显示 jobs **未配置** `subagents.allowAgents` ⇒ (a) 必须回答「子会话跑哪个 agent（self / 专用条目）」——留 §2.4 待裁。
+**风险**：R1 模型质量（高，见 §11 R1）；R2 判活/对账（中，见 §5 / §11 R2）；R4 写面越界（中，见 §6 G2 / §11 R4）；归属主体未定（低，F2 显示 jobs **未配置** `subagents.allowAgents` ⇒ 见 §2.4）。
 
-### 2.2 (b) codex 插件 harness —— **建议：不作默认；仅作可选后端；证据模型同族统一**
+### 2.2 (b) codex 插件 harness —— **建议：不作默认；仅作 opt-in 可选后端；证据模型同族统一**
 
-**建议**：codex 插件 harness **不**作为 HTML path 默认引擎；**仅**在「原型需要 codex 级编码能力且需与 Epic A 统一」时作为 **opt-in 可选后端**。**但其证据/登记模型（G 门族、registry 字段、`## Sessions` harness 段）应与本契约同族统一**——统一的是证据模型，不是引擎。
+**建议**：**不**作为 HTML path 默认引擎；**仅**在「原型需 codex 级编码能力且需与 Epic A 统一」时 opt-in。**但其证据/登记模型（G 门族、registry 字段、`## Sessions` harness 段）应与本契约同族统一**——统一的是证据模型，不是引擎（Epic A 已钉死 G1–G12、registry 增量字段、两步回填，见 `codex-plugin-lane-contract.md` §3/§4/§5）。
 
-**理由**：Epic A 已把 codex lane 的 G1–G12、registry 增量字段（`backend`/`harness`/`thread_id`/`id_state`/`seg`）、卡 `## Sessions` 行增量（`harness` 段）、两步回填等钉死（`workspace/T-20261013-012318-3/codex-plugin-lane-contract.md` §3/§4/§5）。两机制**同形**（都无独立 pid、都两步回填、都需判活扩口径），故证据面应共用一套口径，避免团队出现两套并行审计语言。
-
-**风险**：
-- codex-only + app-server 版本门（`≥0.149.0`）+ 会改变 Jobs 现「Codex 在工具范围外」的口径（F7 §Tool scope 注）；
-- 把**设计生产腿绑到工程引擎**：设计交付物依赖 codex 运行时可判性，故障域从「设计」扩到「工程引擎」（对照 §11 R2）；
-- OpenClaw 沙箱激活态下 codex native Code Mode 被关闭（Epic A §11 G-4 同族），原型 lane 的原生执行面受限。
+**风险**：codex-only + app-server 版本门（`≥0.149.0`）+ 改变 Jobs 现「Codex 在工具范围外」口径（F7 §Tool scope 注）；把**设计生产腿绑到工程引擎**（故障域从「设计」扩到「工程引擎」，对照 §11 R2）；OpenClaw 沙箱激活态下 codex native Code Mode 被关闭（Epic A §11 G-4 同族），原型 lane 原生执行面受限。
 
 ### 2.3 (c) 其它（ACP / 裸 CLI）—— **建议：不采为默认**
 
-**理由**：ACP 当前适配面窄、生命周期与登记面无团队级证据链；裸 `claude -p` / `codex exec` 正是 2026-10-10「单入口」纪律要退休的胶水形态（`PROTOCOL §⑥` 单入口小节；`guides/spawn-lane-sop.md` §2 两类失效）。
-
-**风险**：绕过 ACL 登记 ⇒ 复现 `registry_only` / `card_only` 硬红；无可判版本门；无可观测会话目录。**不建议采纳**。
+**理由**：ACP 适配面窄、生命周期与登记面无团队级证据链；裸 `claude -p` / `codex exec` 正是「单入口」纪律要退休的胶水形态（`PROTOCOL §⑥` 单入口小节；`guides/spawn-lane-sop.md` §2 两类失效）。**风险**：绕过 ACL 登记 ⇒ 复现 `registry_only` / `card_only` 硬红；无可判版本门；无可观测会话目录。**不建议采纳**。
 
 ### 2.4 交 Elon 确认（**不预决**）
 
-- **引擎三选**：(a) 原生 sub-agent / (b) codex 插件 harness / (c) 其它 —— 本契约**建议 (a) 为默认、(b) 为可选后端、(c) 不采**，但**最终由 Elon 裁定**。
-- **模型三选**（必须写入风险，见 R1）：① 默认非 Claude 强模型（如 `deepseek/deepseek-v4-pro`）；② 可配（`team.config.json` 增 `prototype.subagent_model`）；③ 允许 Claude 模型经 OpenClaw agent 跑。
-- **语义边界待明确**：口径「不再依赖 claude」的边界 = 「不再依赖 **Claude Code CLI**」还是「不再使用 **Claude 模型**」？**逐字待 Elon 明确**（影响选项③是否越界）。
+- **引擎三选**：(a) 原生 sub-agent / (b) codex 插件 harness / (c) 其它 —— **建议 (a) 默认、(b) 可选、(c) 不采**，最终由 Elon 裁定。
+- **模型三选**（见 R1）：① 默认非 Claude 强模型（如 `deepseek/deepseek-v4-pro`）；② 可配（`team.config.json` 增 `prototype.subagent_model`）；③ 允许 Claude 模型经 OpenClaw agent 跑。
+- **语义边界**：「不再依赖 claude」= 「不再依赖 **Claude Code CLI**」还是「不再使用 **Claude 模型**」？**逐字待 Elon 明确**（影响③是否越界）。
 - **子 agent 主体**：JHS 子会话跑 **self（jobs agent）** 还是**专用 agent 条目**（如 `prototyper`，Jobs 名下，配 code-capable 模型）？因 F2 显示 jobs 未配 `subagents.allowAgents`，须一并裁定。
 
-> 以上四项的裁决结果写入 `state.md`；未裁决前**不落地** E1–E10，仅保留本契约设计。
+> 四项裁决结果写入 `state.md`；未裁决前**不落地** E1–E10，仅保留本契约设计。
 
 ---
 
@@ -122,7 +107,7 @@
 | `owner`（团队侧） | 卡 `claimed_by` 的 owner（本机制恒为 `jobs`） | 执行权与并发额度仍按 owner 计（`capFor`；jobs < 8）。 |
 | `harness_host`（网关侧） | `gateway`（OpenClaw 网关进程） | 子会话由网关持有；lane **不等价于**一个独立 shell 子进程。 |
 
-⇒ 关键结构性差异：CLI lane 是「worker 回合派生的独立子进程（有自身 pid、脱离父进程组存活）」；JHS lane 是「**网关侧的子会话**（句柄 = 子会话 id / sessionKey，无独立 pid）」。该差异驱动 §5、§6 G6/G7、§11 R2。
+⇒ 关键结构性差异（CLI lane = 独立子进程，有自身 pid；JHS lane = **网关侧子会话**、**无独立 pid**）的同族论证见 `codex-plugin-lane-contract.md` §2.1；该差异驱动 §5、§6 G6/G7、§11 R2。
 
 ### 3.2 执行唯一权
 
@@ -158,7 +143,7 @@
 | 网关面 | OpenClaw 子会话（`subagents` / 会话目录） | 子会话 id / sessionKey（宿主自赋） |
 | registry 面 | `claude-sessions.json` 条目 | `session_id`（= 子会话 id）+ `id_state ∈ {pending,bound}` + `harness=native` + `seg` |
 
-**native 无 `--session-id`**（子会话 id 由宿主 spawn 时自赋）⇒ **不能**像 claude 那样先取确定性 UUIDv5。因此契约定义**两步回填**：
+**native 无 `--session-id`**（子会话 id 由宿主 spawn 时自赋）⇒ **不能**像 claude 那样先取确定性 UUIDv5。两步回填机制与 Epic A 同族（`codex-plugin-lane-contract.md` §3.1），native 差异：句柄为**子会话 id**（非 native thread id）。契约定义**两步回填**：
 
 1. **spawn 时 `session-set` 先写 `id:pending`**：`seg/owner=jobs/backend=subagent/harness=native/phase/status=running` 齐全，`pid` 省略或置 `-`；registry 条目 `id_state=pending`、`session_id=pending` 占位。
 2. **spawn 成功后（读回子会话 id）二次 `session-set` 覆盖同一 `seg:` 行**：`id:<subsession_id>`、`id_state=bound`；registry 同键覆盖为 `session_id=<subsession_id>`、`id_state=bound`。
@@ -190,12 +175,11 @@
 
 ### 5.2 registry schema 增量字段
 
-| 字段 | 现值 | 增量 | 说明 |
-|---|---|---|---|
-| `backend` | 无 | 增 `backend ∈ {claude,codex,subagent}` | 让 registry 能独立辨别宿主。 |
-| `harness` | 无 | 增 `harness ∈ {native,cli,plugin}` | 仅 `subagent`（native）/ codex 插件（plugin）有意义。 |
-| `id_state` | 无 | 增 `id_state ∈ {pending,bound}` | 两步回填状态位。 |
-| `seg` | 无（由 `phase` 隐含） | 增 `seg`，并**纳入 registry upsert 键** | 见 §13 U-4（现行键 `task_id\|owner\|phase\|session_id` 在大绑定后会产生两行）。 |
+schema 增量同族定义见 `codex-plugin-lane-contract.md` §4.2。**native 差异**：
+- `backend` 值域扩为 **`claude | codex | subagent`**（native 以 `subagent` 标识宿主；现 `BACKENDS` 仅 claude/codex）；
+- `harness` 取 `native`（值域 `{native,cli,plugin}`）；
+- **无 `thread_id` 字段**——native 句柄即 `session_id`（子会话 id）；
+- `id_state ∈ {pending,bound}`；`seg` 须**纳入 registry upsert 键**（见 §13 U-4，现行键 `task_id\|owner\|phase\|session_id` 在大绑定后会产生两行）。
 
 保留既有字段与白名单：`status ∈ {done,closed,failed,running}`（`registry.mjs` `VALID_STATUS`）；终态加 `endedAt`。
 
@@ -347,20 +331,20 @@
 
 | 门 | native sub-agent（JHS，本机制） | claude lane（CLI） | codex 插件 harness（Epic A） |
 |---|---|---|---|
-| **G1 并发** | 适用（**本门核心**：JHS 与 CLI 合并计数，扇出计入 `running(jobs)<8`） | 适用（现行 `running<8` 纪律不变） | 适用（同族：与 CLI 合并计数） |
-| **G2 cwd+沙箱** | 适用（**本门核心**：子会话继承父 workspace ⇒ 必须钉死原型仓 cwd） | 适用（现行 cwd 归一 + 沙箱） | 适用（沙箱值域映射，Epic A §8.5） |
-| **G3 卡↔Sessions 同写** | 适用（两步回填皆同写） | 适用（现行单次同写） | 适用（两步回填皆同写） |
-| **G4 确定性/可修订** | 适用（改为子会话 id + `sessions_send` 续接断言；无 UUIDv5） | 适用（确定性 UUIDv5 + `--resume <id>`，形态**不变**） | 适用（thread_id + resume 断言） |
-| **G5 机读+exit** | 适用（receipt + `*.out.jsonl`） | 适用（现行 `--dry-run` JSON + `*.out.jsonl`） | 适用 |
-| **G6 卡↔会话映射** | 适用（**本门核心**：卡 id ↔ 子会话 id ↔ registry） | **N/A**（claude 无 native sub-agent 概念；其 id 为确定性 UUIDv5，映射由 `## Sessions` 单面承担，无独立「网关面」） | 适用（卡 ↔ native thread id） |
-| **G7 网关重启对账** | 适用（**本门核心**：JHS 子会话在网关进程内，随网关重启而中断） | **N/A**（claude lane 为独立子进程，不随网关重启；现行 `kill -0` reconcile 已覆盖） | 适用（Epic A §5 G7） |
-| **G8 日志/记录 24h 导出** | 适用（子会话记录/网关日志有滚动窗口） | **N/A**（claude lane 输出落 `<ws>/*.out.jsonl`，无网关 prune 问题） | 适用（插件/网关日志 24h prune） |
-| **G9 审批不阻塞** | 适用（**本门核心**：审批层挂起即归属失效） | **N/A**（claude 侧信任 / `--permission-mode`，无独立审批层） | 适用（插件多层审批） |
+| **G1 并发** | 适用 | 适用 | 适用 |
+| **G2 cwd+沙箱** | 适用 | 适用 | 适用（沙箱值域映射，Epic A §8.5） |
+| **G3 卡↔Sessions 同写** | 适用 | 适用 | 适用 |
+| **G4 确定性/可修订** | 适用（子会话 id + `sessions_send` 续接；无 UUIDv5） | 适用（确定性 UUIDv5 + `--resume <id>`，形态**不变**） | 适用（thread_id + resume 断言） |
+| **G5 机读+exit** | 适用 | 适用 | 适用 |
+| **G6 卡↔会话映射** | 适用 | **N/A**（claude 无 native sub-agent 概念；其 id 为确定性 UUIDv5，映射由 `## Sessions` 单面承担，无独立「网关面」） | 适用（卡 ↔ native thread id） |
+| **G7 网关重启对账** | 适用 | **N/A**（claude lane 为独立子进程，不随网关重启；现行 `kill -0` reconcile 已覆盖） | 适用（Epic A §5 G7） |
+| **G8 日志/记录导出** | 适用 | **N/A**（claude lane 输出落 `<ws>/*.out.jsonl`，无网关 prune 问题） | 适用（插件/网关日志 24h prune） |
+| **G9 审批不阻塞** | 适用 | **N/A**（claude 侧信任 / `--permission-mode`，无独立审批层） | 适用（插件多层审批） |
 | **G10 引擎 N/A 声明** | 适用（**本门 = 声明门本身**） | 适用（被声明对象） | 适用（被声明对象） |
-| **G11 版本门+doctor** | 适用（native 门 = OpenClaw 版本 + `status`/`doctor` 可判） | **N/A**（claude lane 无 app-server 版本门，版本由 CLI 自身承担） | 适用（codex app-server 版本门 ≥0.149.0） |
-| **G12 引擎可判** | 适用（`agents_list` + spawn receipt） | **N/A**（claude lane 由 `spawn-lane` 单入口可判，不涉 `agents_list` 派发面） | 适用（`openclaw plugins inspect codex`） |
+| **G11 版本门+doctor** | 适用（native 门 = OpenClaw 版本 + `status`/`doctor` 可判） | **N/A**（无 app-server 版本门，版本由 CLI 自身承担） | 适用（codex app-server 版本门 ≥0.149.0） |
+| **G12 引擎可判** | 适用（`agents_list` + spawn receipt） | **N/A**（走 `spawn-lane` 单入口可判，不涉 `agents_list` 派发面） | 适用（`openclaw plugins inspect codex`） |
 
-**一句话**：native sub-agent 与 codex 插件 harness **同形**（无独立 pid、两步回填、网关内会话）⇒ G6/G7/G8 对二者**适用**而对 claude lane **N/A**；其余通用编排门（G1/G2/G3/G5/G10）对三者**适用**。**三处以上 N/A 已显式声明**（本表 `N/A` 共 7 处，分布 G6/G7/G8/G9/G11/G12 对 claude lane）。
+**一句话**：native sub-agent 与 codex 插件 harness **同形**（无独立 pid、两步回填、网关内会话）⇒ G6/G7/G8 对二者**适用**而对 claude lane **N/A**；其余通用编排门（G1/G2/G3/G5/G10）对三者**适用**。**N/A 共 7 处**（G6/G7/G8/G9/G11/G12 对 claude lane），均显式声明。
 
 ---
 
@@ -390,67 +374,18 @@
 > 覆盖 E1–E12；逐处 before/after，**不改向**（R-9 基线）。落改属下游卡；本契约为设计交付。
 > **未获 §2.4 引擎/模型裁定前，E1–E10 不落改**（避免先落地后返工）。
 
-#### E1 `roles/jobs/AGENTS.md` · Role Duties item 1 · static-html 段引导句
-
-- **before**：`"...it **must be done via a Claude Code sub-session**, in three steps:"`
-- **after**：`"...it **must be done via a Jobs-owned sub-agent session** (OpenClaw \`sessions_spawn\`), in three steps:"`
-
-#### E2 同段 ①
-
-- **before**：`"...so Claude Code **needs no design judgement of its own**;"`
-- **after**：`"...so the sub-agent **needs no design judgement of its own**;"`
-
-#### E3 同段 ②
-
-- **before**：`"**Spawn a Claude Code sub-session** to write **HTML/CSS/JS** … — Claude Code only edits code, takes no part in design decisions; orchestration discipline same as Linus: register \`claude-sessions.json\`, concurrency <8, cwd normalized, output to files, poll to terminal state);"`
-- **after**：`"**Spawn a Jobs-owned sub-agent session** via OpenClaw \`sessions_spawn\` (\`runtime:"subagent"\`, \`context:"isolated"\`) to write **HTML/CSS/JS** … — the sub-agent only edits code, takes no part in design decisions; orchestration discipline: register the sub-agent session (card \`## Sessions\` + team registry, one ACL step), concurrency <8, cwd normalized to the prototype repo, output to files, await to terminal state);"`
-
-#### E4 同段 ③
-
-- **before**：`"…mismatch ⇒ send back to Claude Code for revision (never hand-edit yourself)."`
-- **after**：`"…mismatch ⇒ send back to the sub-agent session (\`sessions_send\`) for revision (never hand-edit yourself)."`
-
-#### E5 `roles/jobs/AGENTS.md` · §Tool Discipline 红线「HTML path」
-
-- **before**：`"② **spawn Claude Code** to code per spec (Claude Code only edits code…"`
-- **after**：`"② **spawn a Jobs-owned sub-agent session** to code per spec (the sub-agent only edits code…"`
-
-#### E6 同段「Tool scope」注
-
-- **before**：`"> - **HTML path**: **allowed and required** to spawn a **Claude Code** sub-session (only for HTML/JS code editing); orchestration discipline same as Linus (\`claude-sessions.json\`, concurrency <8, normalized cwd, output to files, poll to terminal state). **Codex is still outside Jobs's tool scope.**"`
-- **after**：`"> - **HTML path**: **allowed and required** to spawn a **Jobs-owned sub-agent session** via OpenClaw \`sessions_spawn\` (only for HTML/JS code editing); orchestration discipline same as Linus (register the sub-agent session on card + registry, concurrency <8, normalized cwd, output to files, await to terminal state). **Claude Code sub-sessions and Codex remain outside Jobs's tool scope for the HTML path.**"`
-
-#### E7 §Pre-Delivery Checklist · carrier 行
-
-- **before**：`"…**HTML path** ⇒ produce design-spec.md → **spawn Claude Code to code (Jobs hand-writes nothing)** → Jobs verifies & reviews"`
-- **after**：`"…**HTML path** ⇒ produce design-spec.md → **spawn the Jobs-owned sub-agent session to code (Jobs hand-writes nothing)** → Jobs verifies & reviews"`
-
-#### E8 §Pre-Delivery Checklist · HTML path 行
-
-- **before**：`"…(all HTML/CSS/JS produced via Claude Code; …); …; Claude Code orchestration registered in the registry"`
-- **after**：`"…(all HTML/CSS/JS produced via the Jobs-owned sub-agent session; …); …; sub-agent session registered on the card + registry"`
-
-#### E9 `roles/jobs/SOUL.md` 第 5 行
-
-- **before**：`"**design/prototypes/images are always produced via a Claude Code sub-session, never hand-written**"`
-- **after**：`"**design docs/images via a Claude Code sub-session；HTML prototypes via a Jobs-owned sub-agent session（OpenClaw \`sessions_spawn\`）—— 一律非亲手写**"`
-
-#### E10 `roles/jobs/IDENTITY.md` theme 行
-
-- **before**：`"UX/UI quality gate (via Claude Code / MCP design tool)"`
-- **after**：`"UX/UI quality gate (via a Jobs-owned sub-agent / Claude Code / MCP design tool)"`
-
-#### E11（团队级，标「需 Elon 双签」）· `team/guides/redlines.core.md` 第 7 条
-
-- **现状**：`"writing code goes through Claude Code; testing through codex"`
-- **待裁**：是否需为 Jobs HTML 原型**划范围**（"HTML prototype code via the Jobs-owned sub-agent"）。
-- **处置**：**契约只标注、不落改**（`redlines.core.md` 是生成源，生成件 `roles/*/AGENTS.md` 红线段禁手改，owner=Elon）。**需 Elon（+ 团队级双签）裁决**。
-
-#### E12（范围外，仅声明）· `guides/spawn-lane-sop.md` §1
-
-- **现状**：§1 把 lane 限定为 `claude -p` / `codex exec` 子会话。
-- **问题**：Jobs 的 sub-agent session **不是 shell lane**（不经 `claude -p`/`codex exec`）。
-- **处置**：须在 `§12` 声明「该 SOP 范围需**扩展**或**显式排除** HTML sub-agent」+ 登记等价物（R-4/R-5：`task.session-set` 两步回填 + 子会话可达性判活）。**不改向、不改 SOP 正文**；是否扩展由 §8 单入口裁决联动。
+- **E1** `roles/jobs/AGENTS.md` · Role Duties item 1 · static-html 段引导句：`"...it **must be done via a Claude Code sub-session**..."` → `"...it **must be done via a Jobs-owned sub-agent session** (OpenClaw \`sessions_spawn\`)..."`。
+- **E2** 同段 ①：`"...so Claude Code **needs no design judgement of its own**"` → `"...so the sub-agent **needs no design judgement of its own**"`。
+- **E3** 同段 ②：`"**Spawn a Claude Code sub-session** to write **HTML/CSS/JS**…"` → `"**Spawn a Jobs-owned sub-agent session** via OpenClaw \`sessions_spawn\` (\`runtime:"subagent"\`, \`context:"isolated"\`) to write **HTML/CSS/JS**…"`；编排纪律改为「登记 sub-agent session（卡 `## Sessions` + registry，一步 ACL），并发 <8，cwd 归一原型仓，输出落文件，await 终态」。
+- **E4** 同段 ③：`"…send back to Claude Code for revision"` → `"…send back to the sub-agent session (\`sessions_send\`) for revision (never hand-edit yourself)"`。
+- **E5** `roles/jobs/AGENTS.md` · §Tool Discipline 红线「HTML path」：`"② **spawn Claude Code** to code per spec"` → `"② **spawn a Jobs-owned sub-agent session** to code per spec"`。
+- **E6** 同段「Tool scope」注：HTML path「**allowed and required** to spawn a **Claude Code** sub-session」→「…a **Jobs-owned sub-agent session** via OpenClaw `sessions_spawn`」；尾句「**Codex is still outside Jobs's tool scope.**」→「**Claude Code sub-sessions and Codex remain outside Jobs's tool scope for the HTML path.**」；编排同 Linus（登记 sub-agent session 于卡 + registry，并发 <8，cwd 归一，输出落文件，await 终态）。
+- **E7** §Pre-Delivery Checklist · carrier 行：`"…**spawn Claude Code to code (Jobs hand-writes nothing)**…"` → `"…**spawn the Jobs-owned sub-agent session to code (Jobs hand-writes nothing)**…"`。
+- **E8** §Pre-Delivery Checklist · HTML path 行：`"(all HTML/CSS/JS produced via Claude Code…)"` → `"(all HTML/CSS/JS produced via the Jobs-owned sub-agent session…)"`；「Claude Code orchestration registered in the registry」→「sub-agent session registered on the card + registry」。
+- **E9** `roles/jobs/SOUL.md` 第 5 行：`"**design/prototypes/images are always produced via a Claude Code sub-session**"` → `"**design docs/images via a Claude Code sub-session；HTML prototypes via a Jobs-owned sub-agent session（OpenClaw \`sessions_spawn\`）—— 一律非亲手写**"`。
+- **E10** `roles/jobs/IDENTITY.md` theme 行：`"UX/UI quality gate (via Claude Code / MCP design tool)"` → `"…(via a Jobs-owned sub-agent / Claude Code / MCP design tool)"`。
+- **E11（团队级，标「需 Elon 双签」）** `team/guides/redlines.core.md` 第 7 条：现状 `"writing code goes through Claude Code; testing through codex"`。**待裁**：是否需为 Jobs HTML 原型**划范围**（"HTML prototype code via the Jobs-owned sub-agent"）。**处置：契约只标注、不落改**（`redlines.core.md` 是生成源，生成件 `roles/*/AGENTS.md` 红线段禁手改，owner=Elon）。**需 Elon（+ 团队级双签）裁决**。
+- **E12（范围外，仅声明）** `guides/spawn-lane-sop.md` §1：该 §1 把 lane 限定为 `claude -p` / `codex exec` 子会话；Jobs 的 sub-agent session **不是 shell lane**（不经 `claude -p`/`codex exec`）。**处置**：须在 `§12` 声明「该 SOP 范围需**扩展**或**显式排除** HTML sub-agent」+ 登记等价物（R-4/R-5：`task.session-set` 两步回填 + 子会话可达性判活）。**不改向、不改 SOP 正文**；是否扩展由 §8 单入口裁决联动。
 
 ---
 
@@ -518,13 +453,13 @@
 
 **判定：有文档影响**（本卡触及接口 / 数据结构 / 约定变更：`## Sessions` 行 schema、registry 字段、resume 形态、判活口径、引擎约定）。需同步章节如下——**由下游实现卡落地时按 `§⑫` 反向回填同步**（本契约为设计交付，只定义、不改文档）：
 
-| 目标文档 | 需同步章节 | 变更要点 |
+| 目标文档 | 需同步章节 | 变更要点（明细锚） |
 |---|---|---|
-| `PROTOCOL.md` | `§⑥` 顶部红线段（「HTML path must go through a Claude Code subsession」） | 改为「Jobs 自持 sub-agent session」；**需 Elon 裁决**（L1 正文） |
-| `PROTOCOL.md` | `§⑥` 第 2 条（并发额度）、第 3 条（cwd 归一注）、第 8 条（会话关联与 resume）、单入口小节 | JHS 与 CLI 合并计数；native cwd 钉死；resume = `sessions_send`；单入口是否覆盖 JHS |
-| `PROTOCOL.md` | `§⑥` 第 1 条（reconcile/`kill -0`）、`§①` Board 的 `## Sessions` schema 注、`§⑬.2` | 判活扩为 pid 或子会话可达性；`## Sessions` 行增 `harness` 段、`pid` 省略/`-` |
+| `PROTOCOL.md` | `§⑥` 顶部红线段（「HTML path must go through a Claude Code subsession」） | 改为「Jobs 自持 sub-agent session」；**需 Elon 裁决**（L1 正文，§8 对照） |
+| `PROTOCOL.md` | `§⑥` 第 2/3/8 条、单入口小节 | §8 对照表：合并计数 / native cwd 钉死 / resume = `sessions_send` / 单入口是否覆盖 JHS |
+| `PROTOCOL.md` | `§⑥` 第 1 条（reconcile/`kill -0`）、`§①` Board 的 `## Sessions` schema 注、`§⑬.2` | §5.3/§5.4：判活扩为 pid 或子会话可达性；`## Sessions` 行增 `harness` 段、`pid` 省略/`-` |
 | `guides/spawn-lane-sop.md` | §1 Rule、§3 Sequence、§6 gates、§7 refusal | **范围声明**（E12）：扩展或显式排除 HTML sub-agent + 登记等价物；若扩展则增 native 分支与拒绝码 |
-| `guides/task-interface.md` | **AgentSession 的 canonical schema 归产品（引用，不在此声明）**：`skills/meerkat-taskpanel/references/card-schema.md`；`task-interface §2` = 仅 ACL 最小必需集（**不再含 AgentSession**）；§9 Session Association and Resume（team 侧处理）；§8 Future-Swap Mapping | AgentSession 增 `harness/id_state/seg`（落产品 `## Sessions` schema）；`## Sessions` 行映射（§9）；native resume 形态（`sessions_send`） |
+| `guides/task-interface.md` | §2 = 仅 ACL 最小必需集（**不再含 AgentSession**；canonical schema 归产品 `skills/meerkat-taskpanel/references/card-schema.md`）；§9 Session Association and Resume；§8 Future-Swap Mapping | AgentSession 增 `harness/id_state/seg`（落产品 `## Sessions` schema）；`## Sessions` 行映射（§9）；native resume 形态（`sessions_send`） |
 | `scripts/README.md` | spawn-lane / registry 段 | 若单入口扩展：后端分派增 native 分支；registry 字段增量 |
 | `roles/jobs/AGENTS.md` · `SOUL.md` · `IDENTITY.md` | Role Duties item 1 / §Tool Discipline / §Pre-Delivery Checklist / 第 5 行 / theme 行 | E1–E10 before/after（§9） |
 | `team/guides/redlines.core.md` | 第 7 条 | E11：是否划范围（**需 Elon 双签**，只标注不落改） |

@@ -17,7 +17,7 @@
 | Dimension | This SOP (product-level runtime observability) | Team's own gateway handbook (`team/README.md §4`) |
 |---|---|---|
 | **Object** | The **product/service runtime** delivered to users (e.g. a long-running service, a batch/strategy job) | The team's own **gateway / worker / session** runtime |
-| **Goal** | Make the product's **logs / metrics / alerts / health** observable, judgeable, reviewable | Let **team collaboration** recover from stuck / restart / config corruption |
+| **Goal** | Make the product's **logs / metrics / alerts / health** observable/reviewable | Let **team collaboration** recover from stuck / restart / config corruption |
 | **Owner** | The product **on-call** (see `incident-response-sop.md`) | Team worker self-healing + operator patrol + the team-stalled exception channel (`PROTOCOL §⑮.1`) |
 | **Failure signal** | Silent alerts, distorted metrics, false-positive health probes | Stale heartbeat, double-run, poll stalled |
 
@@ -31,24 +31,28 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
 |---|---|
 | **Do** | Define the minimal convention and landing points for product-level **logging / metrics / alerting / health checks / inspection**; give the applicable convention for both **long-running services** and **batch/strategy jobs** |
 | **Do not** | Do not define the team's own gateway recovery (`team/README.md §4 Recovery Handbook`); do not define product release/rollback (`release-versioning-sop.md`); do not define incident grading / on-call rota / retro (`incident-response-sop.md` — this file only **hands off** to it) |
-| **Handoff** | Alert fires → incident response (`incident-response-sop.md`); metric thresholds and monitoring-stack selection → decision owner (**to be decided**); machine-checkable gate landing points follow `PROTOCOL §⑳.1` |
+| **Handoff** | Alert fires → incident response (`incident-response-sop.md`); metric thresholds and monitoring-stack selection → decision owner (**to be decided**, §9); machine-checkable gate landing points follow `PROTOCOL §⑳.1` |
 
-**Unified convention (applied throughout this file)**: every observability capability must answer three questions — **convention** (how the criteria / fields / naming are defined), **ownership** (who maintains it, who is on call), and **landing point** (which of CI / the team check-all gate / hooks / manual it lands on). Each section below is given through these three columns.
+### 1.1 Convention / ownership / landing point (file-level)
+
+> Each section below previously restated its own "convention / ownership / landing point" block; consolidated here. A section says inline where it genuinely differs.
+
+| § | Convention | Ownership | Landing point |
+|---|---|---|---|
+| §2 Logging | Structured JSON lines; unified fields; unified wrapper; redaction | Product owner (engineering lands the implementation); on-call readability | CI (schema lint, §2.4) + hooks (no bare `print`) + manual (inspection spot-check) |
+| §3 Metrics | Minimal metric set + naming convention (prefix + unit) | Product owner; metric convention maintained by Linus | CI (naming lint, optional) + manual (dashboards / inspection); collection stack **to be decided** (§9) |
+| §4 Alerting | Grading + executable + inhibition/dedup + silence windows / on-call | On-call (hands off to `incident-response-sop.md`); rules maintained by Linus | Monitoring stack (**to be decided**, §9) + manual (silence-window approval, on-call handover) |
+| §5 Health Checks | Separate `/health` (liveness) from `/ready` (readiness) | Product owner (engineering) | CI (container verification — the sole source of truth) + hooks/orchestrator (compose healthcheck) + manual |
+| §6 Inspection | Routine checklist: period / item / criterion / owner / trail | Product on-call (executes) + operator patrol (spot-checks) | Mostly manual; items that can be machine-checked are folded into CI/hooks (`PROTOCOL §⑳.1`) |
 
 ---
 
 ## 2. Logging
 
-**Convention / ownership / landing point**
-
-| Convention | Ownership | Landing point |
-|---|---|---|
-| Structured JSON lines; unified fields; unified wrapper; redaction | Product owner (engineering lands the implementation); on-call readability | CI (schema lint, below) + hooks (no bare `print`) + manual (inspection spot-check) |
-
 ### 2.1 Structured convention (JSON lines)
 
 - **Format**: **one JSON object per line** (JSON lines / NDJSON); **multi-line stack traces mixed into the stream are forbidden** (put the stack inside a field value, escape the newlines).
-- **Reason**: directly parseable by collectors / `grep` / `jq`, keeping one troubleshooting method across the whole stack.
+- **Reason**: directly parseable by collectors / `grep` / `jq`, keeping one troubleshooting method stack-wide.
 
 ### 2.2 Levels and use
 
@@ -86,8 +90,8 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
 
 ### 2.5 Rotation and retention
 
-- **Rotation**: trigger on **both size and time** (so a single file cannot fill the disk); rotated files may be compressed/archived.
-- **Retention**: **to be decided** (per product data volume and compliance requirements). Until decided, apply the floor: **cover at least one review/retro window**.
+- **Rotation**: trigger on **both size and time** (a single file cannot fill the disk); rotated files may be compressed/archived.
+- **Retention**: **to be decided** (per product data volume and compliance requirements; §9). Until decided, apply the floor: **cover at least one review/retro window**.
 - **Landing point**: rotation config ships with the product deployment; the retention policy is a **to-be-decided** item.
 
 ### 2.6 Redaction of sensitive information (hard rule)
@@ -99,12 +103,6 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
 ---
 
 ## 3. Metrics
-
-**Convention / ownership / landing point**
-
-| Convention | Ownership | Landing point |
-|---|---|---|
-| Minimal metric set + naming convention (prefix + unit) | Product owner; metric convention maintained by Linus | CI (naming lint, optional) + manual (dashboards / inspection); collection stack **to be decided** |
 
 ### 3.1 Minimal metric set (all long-running services)
 
@@ -127,18 +125,12 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
 
 ### 3.3 Collection and exposure
 
-- **Method**: **to be decided** (e.g. Prometheus / OpenTelemetry / …).
+- **Method**: **to be decided** (e.g. Prometheus / OpenTelemetry / …; §9).
 - **Tool-independent convention**: metrics must be **programmatically scrapeable** (e.g. a `/metrics` endpoint or OTLP export) — they must **not** exist only as log text.
 
 ---
 
 ## 4. Alerting
-
-**Convention / ownership / landing point**
-
-| Convention | Ownership | Landing point |
-|---|---|---|
-| Grading + executable + inhibition/dedup + silence windows / on-call | On-call (hands off to `incident-response-sop.md`); rules maintained by Linus | Monitoring stack (**to be decided**) + manual (silence-window approval, on-call handover) |
 
 ### 4.1 Grading and routing
 
@@ -148,7 +140,7 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
 | **P2 / warn** | Degradation / approaching threshold / partial failure | Respond in working hours | On-call or product owner |
 | **P3 / info** | Informational / deferrable | Handled in the inspection roll-up | Inspection checklist (§6) |
 
-> Thresholds and specific routing targets: **to be decided** (must combine SLO and capacity baselines).
+> Thresholds and specific routing targets: **to be decided** (must combine SLO and capacity baselines; §9).
 
 ### 4.2 Alerts must be executable (hard requirement)
 
@@ -157,7 +149,7 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
 | Element | Description |
 |---|---|
 | **Trigger condition** | An explicit decision expression (e.g. "5xx share > X% within 5 min") |
-| **Threshold** | A concrete value/range (**to be decided** where not yet set — use a placeholder until then) |
+| **Threshold** | A concrete value/range (**to be decided** where not yet set — use a placeholder until then; §9) |
 | **Impact** | What it will cause (user-visible / internal) |
 | **First action** | The on-call's first handling step (runbook pointer) |
 | **Escalation target** | When and to whom it escalates (the escalation chain in `incident-response-sop.md`) |
@@ -179,12 +171,6 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
 ---
 
 ## 5. Health Checks (health / liveness / readiness)
-
-**Convention / ownership / landing point**
-
-| Convention | Ownership | Landing point |
-|---|---|---|
-| Separate `/health` (liveness) from `/ready` (readiness) | Product owner (engineering) | CI (container verification — the sole source of truth) + hooks/orchestrator (compose healthcheck) + manual |
 
 ### 5.1 Endpoint semantics (★ stated explicitly)
 
@@ -219,17 +205,11 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
   - `interval` / `timeout` / `retries` / `start_period` ⇒ the service should turn `healthy` within a bounded window;
   - the healthcheck is a **contract**: it must keep passing from the skeleton all the way to the real implementation (not relaxed because the implementation changed).
 - **Task-completion criterion**: after bringing the stack up (`docker compose up -d --build`, or equivalent), the long-running service reaches `healthy`.
-- **Metrics / alerts**: **to be decided** (a monitoring stack may not exist yet — health probes only).
+- **Metrics / alerts**: **to be decided** (a monitoring stack may not exist yet — health probes only; §9).
 
 ---
 
 ## 6. Inspection Convention
-
-**Convention / ownership / landing point**
-
-| Convention | Ownership | Landing point |
-|---|---|---|
-| Routine checklist: period / item / criterion / owner / trail | Product on-call (executes) + operator patrol (spot-checks) | Mostly manual; items that can be machine-checked are folded into CI/hooks (`PROTOCOL §⑳.1`) |
 
 ### 6.1 Routine inspection checklist (template)
 
@@ -267,24 +247,19 @@ Reusable checklist form:
 
 ## 7. Applicability and Landing Points by Runtime Shape
 
-**Ownership summary** (the product owner lands the engineering; convention decisions go through the L1 writer):
+> Ownership summary: the product owner lands the engineering; convention decisions go through the L1 writer.
 
 | Runtime shape | Applicability | Landing point (CI / team check-all / hooks / manual) | Notes |
 |---|---|---|---|
-| **Long-running service** | Full model (§2–§6) | **CI**: container verification = sole health source of truth (reusable for pre-/post-release health check); **hooks/orchestrator**: compose `healthcheck`; **metrics/alerts**: **to be decided** | Health probe exists and is a contract; logs/metrics/alerts may still need building out |
-| **Batch / strategy job (not a long-running service)** | Partial | **manual + team check-all** | Observability is mainly **run logs** (§2) + **result-artifact verification**; the output artifacts do **not** enter version control but a **run snapshot may be kept** for review; there is no long-running service ⇒ the §5 liveness/readiness probe semantics do **not** apply |
-
-**Per-shape notes**:
-
-- **Long-running service**: the full model. If a monitoring stack does not exist yet, metrics/alerts are the **biggest gap**; health checks follow §5 and land in CI + hooks.
-- **Batch / strategy job**: **not long-running** — the liveness/readiness probe semantics do not apply. Its observability = each run's **run log** (§2 convention) + **result-artifact verification** (assert / snapshot-compare the output artifacts; the artifacts themselves do not enter version control, but a **run snapshot may be kept** for review). Landing point = **manual + the team check-all gate** (which only covers shared-area consistency, not product runtime — §6.2).
+| **Long-running service** | Full model (§2–§6) | **CI**: container verification = sole health source of truth (reusable for pre-/post-release health check); **hooks/orchestrator**: compose `healthcheck`; **metrics/alerts**: **to be decided** | Health probe exists and is a contract; logs/metrics/alerts may still need building out; if no monitoring stack exists yet, metrics/alerts are the **biggest gap** |
+| **Batch / strategy job (not a long-running service)** | Partial | **manual + team check-all** | Observability is mainly **run logs** (§2) + **result-artifact verification**; the output artifacts do **not** enter version control but a **run snapshot may be kept** for review; there is no long-running service ⇒ the §5 liveness/readiness probe semantics do **not** apply. Landing point = manual + the team check-all gate (which only covers shared-area consistency, not product runtime — §6.2) |
 
 ---
 
-## 8. Related Clauses
+## 8. Open Items (undecided; defaults in force until decided)
 
-- Runtime observability (the L1 clause this SOP details) → `PROTOCOL §㉒`; product incident response (alert→incident handoff) → `PROTOCOL §㉓` / `incident-response-sop.md`; performance / SLA → `PROTOCOL §㉗` / `performance-sla-sop.md`.
-- Engineering quality standards (unified logging wrapper, redaction) → `PROTOCOL §⑥.1`; container-form acceptance → `PROTOCOL §⑨.3`; SLA / timeout → `PROTOCOL §⑮`; team-stalled exception channel → `PROTOCOL §⑮.1`.
-- Machine-checkable gates → `PROTOCOL §⑳.1`; not-machine-checkable items → `PROTOCOL §⑳.2`; two-way document sync → `PROTOCOL §⑫`.
-- Document layering / no verbatim copying → `PROTOCOL §⑰`; release / rollback → `release-versioning-sop.md`; CI gate / build / release / deploy → `ci-release-sop.md`.
-- Team's own gateway recovery handbook (a **different object**) → `team/README.md §4 Recovery Handbook`.
+1. **Log retention policy** — **to be decided** (per product data volume and compliance); floor until then: cover at least one review/retro window (§2.5).
+2. **Metric collection stack / exposure method** — **to be decided** (e.g. Prometheus / OpenTelemetry); metrics must stay programmatically scrapeable, never log-text-only (§3.3).
+3. **Alert thresholds and specific routing targets** — **to be decided** (must combine SLO and capacity baselines); where a threshold is not yet set, use a placeholder until then (§4.1 / §4.2).
+4. **Metrics / alerts monitoring stack** — **to be decided** (a monitoring stack may not exist yet — health probes only) (§5.4 / §7).
+5. **Metric naming lint in CI** — optional; to be decided (§3).

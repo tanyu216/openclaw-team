@@ -103,10 +103,10 @@
 - **resume 形态**：`bound` 后 resume = `openclaw codex continue <thread_id>`（原生 thread resume；对照 CLI 旧形态 `codex exec resume <id>`）。
 - **幂等**：重复绑定同一 `(card_id, seg)` 不产生新 thread（回填覆盖，非追加）。
 
-### 3.3 G3 同写与 G4 确定性（与 §4 联动，此处给门定义）
+### 3.3 G3 同写与 G4 确定性（门定义见 §5 G3/G4）
 
-- **G3（卡↔Sessions 同写）**：卡 `## Sessions` 行与 registry 条目由**同一次** `task.session-set` 落盘（`task.mjs` `sessionSet` 内 `writeCardAtomic` + `upsertSessionEntry` 各一次）。两步回填的两个时刻各自都是**同一次**同写（pending 同写、bound 同写），无半写窗口。
-- **G4（确定性/可 resume）**：codex 插件 lane **放弃**确定性 UUIDv5，改用「**记录 native thread id + resume 断言**」：同 thread 可 resume，且 resume 前后 transcript 连续（非空跑对照：新会话答不出前次 marker）。证据与命令见 §5。
+- **G3（卡↔Sessions 同写）**：卡 `## Sessions` 行与 registry 条目由**同一次** `task.session-set` 落盘（`task.mjs` `sessionSet` 内 `writeCardAtomic` + `upsertSessionEntry`）；两步回填的两个时刻各自都是同一次同写，无半写窗口。
+- **G4（确定性/可 resume）**：放弃确定性 UUIDv5，改用「**记录 native thread id + resume 断言**」——同 thread 可 resume、transcript 连续（非空跑对照：新会话答不出前次 marker）。证据与命令见 §5。
 
 ---
 
@@ -263,24 +263,21 @@
 
 ## 6. 三宿主显式 N/A 声明（G10）
 
-> 逐门标注：`适用` = 该门对该宿主有意义且受本契约约束；`N/A` = 该门对本卡/该宿主不适用，**附理由**。禁止用「未验证」代替「N/A」。
+> 逐门标注：`适用` = 该门对该宿主有意义且受本契约约束；`N/A` = 该门对本卡/该宿主不适用，**附理由**。禁止用「未验证」代替「N/A」。各门定义见 §5；本节只列**非适用**项（`适用` 为默认）。
 
-| 门 | codex（plugin） | claude | pi |
-|---|---|---|---|
-| **G1 并发** | 适用（新增：插件 lane 与 CLI lane 合并计数） | 适用（现行 `running<8` 纪律不变） | 适用（通用编排纪律，与宿主无关；本卡无 pi lane 登记，若起则同受约束） |
-| **G2 cwd+沙箱** | 适用（新增：插件沙箱 ↔ CLI `-s` 映射，见 §8） | 适用（现行 cwd 归一 + `--permission-mode`） | 适用（通用；本卡无 pi lane） |
-| **G3 卡↔Sessions 同写** | 适用（两步回填皆同写） | 适用（现行单次同写） | 适用（通用） |
-| **G4 确定性/resume** | 适用（改为 thread_id + resume 断言；无 UUIDv5） | 适用（确定性 UUIDv5 + `--resume`，形态**不变**） | **N/A**（本卡不改 pi resume 形态；pi 无官方 embedded harness） |
-| **G5 机读+exit** | 适用 | 适用（现行 `--dry-run` JSON + `*.out.jsonl`） | 适用（通用） |
-| **G6 卡↔native thread 映射** | 适用（**本门核心**） | **N/A**（claude 无 native thread；`claude-cli` 为 CLI-backend 文本回退，**非** harness） | **N/A**（无官方 harness） |
-| **G7 网关重启对账** | 适用（**本门核心**：CCD lane 在网关进程内，随网关重启而中断） | **N/A**（claude lane 为独立子进程，不随网关重启；现行 `kill -0` reconcile 已覆盖） | **N/A** |
-| **G8 日志 24h 导出** | 适用（插件/网关日志 24h prune） | **N/A**（claude lane 日志落 `<ws>/*.out.jsonl`，无网关 prune 问题） | **N/A** |
-| **G9 审批不阻塞** | 适用（插件多层审批） | **N/A**（claude 侧信任 / `--permission-mode`，无插件审批层） | **N/A** |
-| **G10 三宿主 N/A 声明** | 适用（**本门 = 声明门本身**） | 适用（被声明对象） | 适用（被声明对象） |
-| **G11 版本门+doctor** | 适用（codex app-server 版本门 + doctor） | **N/A**（claude 无 app-server 版本门） | **N/A**（无插件 harness） |
-| **G12 插件加载可判** | 适用 | **N/A**（claude 插件不作为 coding lane 载体） | **N/A** |
+claude/pi **无官方 embedded harness**（`concepts/agent-runtimes.md`：`claude-cli`/`pi` 属 CLI-backends）⇒ **G6/G7/G8/G9/G11/G12 对二者 N/A**（官方插件路**天然只有 Codex 腿**）：
 
-**一句话**：claude/pi **无官方 embedded harness**（`concepts/agent-runtimes.md`：`claude-cli`/`pi` 属 CLI-backends），故 **G6/G7/G8/G9/G11/G12 对二者 N/A**；通用编排门（G1/G2/G3/G5/G10）对二者适用且形态不变。官方插件路**天然只有 Codex 腿**。
+| N/A 门 | 理由 |
+|---|---|
+| **G6 卡↔native thread 映射** | claude 无 native thread（`claude-cli` 为 CLI-backend 文本回退，**非** harness）；pi 无官方 harness |
+| **G7 网关重启对账** | claude lane 为独立子进程，不随网关重启（现行 `kill -0` reconcile 已覆盖）；pi 同 |
+| **G8 日志 24h 导出** | claude lane 日志落 `<ws>/*.out.jsonl`，无网关 prune 问题；pi 同 |
+| **G9 审批不阻塞** | claude 侧信任 / `--permission-mode`，无插件审批层；pi 同 |
+| **G11 版本门+doctor** | claude/pi 无 app-server 版本门 |
+| **G12 插件加载可判** | claude 插件不作为 coding lane 载体；pi 同 |
+
+**G4 确定性/resume**：codex 适用（thread_id + resume 断言，无 UUIDv5）；claude 适用（确定性 UUIDv5 + `--resume`，形态**不变**）；**pi N/A**（本卡不改 pi resume 形态；pi 无官方 embedded harness）。
+**其余**（G1 并发 / G2 cwd+沙箱 / G3 卡↔Sessions 同写 / G5 机读+exit / G10 三宿主 N/A 声明）对三宿主**均适用**（G2 插件沙箱 ↔ CLI `-s` 映射见 §8；G10 本门 = 声明门本身）。
 
 ---
 
@@ -288,14 +285,14 @@
 
 > 逐条对照 `PROTOCOL §⑥`（会话编排纪律）六项：并发额度 / cwd+沙箱 / 登记 / 终态 / reconcile / 单入口 spawn-lane。矛盾处**显式标注「需 Elon 裁决」**。
 
-| §⑥ 纪律 | 现行口径 | CCD 新增·变更点 | 矛盾？ |
-|---|---|---|---|
-| **并发额度**（`§⑥` 第 2 条） | `running(owner)` 按 owner 计（linus/jobs<8、turing<3），判活 = pid 存活（`runningCount` / `isPidAlive`） | **新增**：插件 lane 与 CLI lane **合并计数**（同 registry）；registry 条目须带 `backend/harness` 以辨宿主 | **无变更**（沿用 `capFor`/`runningCount`；仅要求 registry 能识别插件条目） |
-| **cwd + 沙箱**（`§⑥` 第 3 条 / cwd 归一小节） | cwd 由 `project`+`target` 经 ACL 解析；codex 走 `-C <cwd> -s workspace-write` | **新增**：插件侧沙箱映射 `appServer.sandbox ∈ {read-only,workspace-write,danger-full-access}` ↔ CLI `-s` 同值；`defaultWorkspaceDir`/thread cwd = resolved cwd | **需 Elon 裁决**：OpenClaw 沙箱激活态下 codex **native Code Mode 被关闭**（`plugins/codex-harness.md`），插件 lane 原生执行面受限；须裁定「是否要求插件 lane 在无 OpenClaw 沙箱态运行」 |
-| **登记**（`§⑥` 第 8 条 / registry 字段小节） | 一条 `task.session-set` 写卡 `## Sessions` + registry（含 pid） | **新增**：registry 增 `backend/harness/thread_id/id_state/seg`（§4.2）；`## Sessions` 行增 `harness`（§4.3）；**两步回填**（pending→bound） | **需 Elon 裁决**：现行「spawn 后**立即** session-set（含 pid）」假设存在子进程；CCD 无独立子进程 ⇒ 登记改为「pending 先写、bound 后覆盖」；是否放宽「立即完整登记」口径 |
-| **终态**（`§⑬.2` / `session-close`） | `task.session-close <card> <seg> done\|failed\|closed`；卡行 status + registry `setSessionStatus` + `endedAt` | **变更**：终态同步沿用 `session-close`；CCD 额外保留 `thread_id`（供 resume/审计），`id_state` 保持 `bound` | **无变更** |
-| **reconcile**（`§⑥` 第 1 条 / `kill -0`） | 判活 = `kill -0 <pid>`；僵尸清理/接管 | **变更**：CCD 无独立 pid ⇒ 判活扩为「`isPidAlive(pid)` **或** thread 可达（`codex_session_read` / `openclaw codex sessions --json`）」；网关重启场景见 G7 | **需 Elon 裁决**：是否把「native thread 可达性」正式纳入 `§⑥` reconcile 判活口径 |
-| **单入口 spawn-lane**（`§⑥` 单入口小节 / `guides/spawn-lane-sop.md`） | 新 lane 只能经 `scripts/spawn-lane.sh`；一次 claim→handoff→spawn→session-set | **新增**：入口增 `harness=plugin` 分支与两步回填；`--dry-run` 语义不变（只校验+打印，零副作用） | **无变更**（单入口纪律不变；仅为插件路增加一条分支） |
+| §⑥ 纪律（现行口径见 `PROTOCOL §⑥`） | CCD 新增·变更点 | 矛盾？ |
+|---|---|---|
+| **并发额度**（第 2 条） | 插件 lane 与 CLI lane **合并计数**（同 registry）；registry 条目须带 `backend/harness` 以辨宿主 | **无变更**（沿用 `capFor`/`runningCount`） |
+| **cwd + 沙箱**（第 3 条 / cwd 归一小节） | 插件侧沙箱映射 `appServer.sandbox ∈ {read-only,workspace-write,danger-full-access}` ↔ CLI `-s` 同值；`defaultWorkspaceDir`/thread cwd = resolved cwd | **需 Elon 裁决**：OpenClaw 沙箱激活态下 codex **native Code Mode 被关闭**（`plugins/codex-harness.md`），须裁定「是否要求插件 lane 在无 OpenClaw 沙箱态运行」 |
+| **登记**（第 8 条 / registry 字段小节） | registry 增 `backend/harness/thread_id/id_state/seg`（§4.2）；`## Sessions` 行增 `harness`（§4.3）；**两步回填**（pending→bound） | **需 Elon 裁决**：CCD 无独立子进程 ⇒ 登记改「pending 先写、bound 后覆盖」；是否放宽「立即完整登记（含 pid）」口径 |
+| **终态**（`§⑬.2` / `session-close`） | 沿用 `task.session-close <card> <seg> done\|failed\|closed`；CCD 额外保留 `thread_id`（供 resume/审计），`id_state` 保持 `bound` | **无变更** |
+| **reconcile**（第 1 条 / `kill -0`） | 判活扩为「`isPidAlive(pid)` **或** thread 可达（`codex_session_read` / `openclaw codex sessions --json`）」；网关重启场景见 G7 | **需 Elon 裁决**：是否把「native thread 可达性」正式纳入 `§⑥` reconcile 判活口径 |
+| **单入口 spawn-lane**（单入口小节 / `guides/spawn-lane-sop.md`） | 入口增 `harness=plugin` 分支与两步回填；`--dry-run` 语义不变（只校验+打印，零副作用） | **无变更**（单入口纪律不变；仅增一条分支） |
 
 > 结论：六条纪律中 **三条无变更**（并发额度 / 终态 / 单入口），**三条含变更且各有一处矛盾点，均标注「需 Elon 裁决」**（沙箱态、两步登记、reconcile 判活）。矛盾点汇总见 §11。
 
@@ -409,10 +406,9 @@ bash scripts/spawn-lane.sh <card> <owner> seg=<seg> backend=codex harness=plugin
 
 **判定：有文档影响**（本卡触及接口 / 数据结构 / 约定变更）。需同步章节如下——**由 A2 落地时按 `§⑫` 反向回填同步**（A1 为设计交付，只定义、不改文档）：
 
-| 目标文档 | 需同步章节 | 变更要点 |
+| 目标文档 | 需同步章节 | 变更要点（明细锚） |
 |---|---|---|
-| `PROTOCOL.md` | `§⑥` 第 2 条（并发额度）、第 3 条（cwd/沙箱注）、第 8 条（会话关联与 resume）、单入口小节 | 插件 lane 合并计数；沙箱映射；codex id = native thread id（非确定性 UUIDv5）+ `harness`；入口增 `harness=plugin` |
-| `PROTOCOL.md` | `§⑥` 第 1 条（reconcile/`kill -0`）、`§①` Board 的 `## Sessions` schema 注、`§⑬.2` | reconcile 判活扩为 pid 或 thread 可达；`## Sessions` 行增 `harness` 段 |
+| `PROTOCOL.md` | `§⑥` 第 2/3/8 条、单入口小节、第 1 条（reconcile/`kill -0`）、`§①` Board `## Sessions` schema 注、`§⑬.2` | §4、§7 对照表：插件 lane 合并计数；沙箱映射；codex id = native thread id（非确定性 UUIDv5）+ `harness`；入口增 `harness=plugin`；reconcile 判活扩为 pid 或 thread 可达；`## Sessions` 行增 `harness` 段 |
 | `guides/spawn-lane-sop.md` | §1 Rule、§3 Sequence、§6 How the gates back this up、§7 When the entry refuses | 增 `harness=plugin` 入参与两步回填；新增拒绝码 `unknown_harness` / `thread_bind_timeout` |
 | `guides/task-interface.md` | **AgentSession 的 canonical schema 归产品（引用，不在此声明）**：`skills/meerkat-taskpanel/references/card-schema.md`；`task-interface §2` = 仅 ACL 最小必需集（**不再含 AgentSession**）；§9 Session Association and Resume（team 侧处理）；§8 Future-Swap Mapping | AgentSession 增 `harness/thread_id/id_state`（落产品 `## Sessions` schema）；registry 行映射（§9）；codex resume 形态（插件 `openclaw codex continue <thread_id>`） |
 | `scripts/README.md` | spawn-lane / registry 段 | 后端分派新增插件分支；registry 字段增量 |

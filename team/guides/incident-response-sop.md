@@ -11,10 +11,10 @@
 
 ## 0. Object Declaration (read first)
 
-> 🚩 **This SOP has a different object from `PROTOCOL §⑮` / `§⑮.1`:**
+> 🚩 **This SOP has a different object from `PROTOCOL §⑮` / `§⑮.1` (canonical boundary: `sla-inspection-contract.md §0`):**
 > - **This SOP = a product/service incident in production** (production unavailable / data corruption / money or transaction anomaly / security event). Its landing point is **the delivered product or service**.
-> - **`§⑮` = team-collaboration SLA / timeout-escalation table** (cards `blocked` awaiting clarification, confirmation gates awaiting review, stale heartbeats — i.e. **collaboration wait timeouts**). Its object is **the team collaboration process itself**.
-> - **`§⑮.1` = team-stalled exception channel** (the coordinator patrol/dispatch has been idle >6h; a worker may report directly through the exception path). Its object is **team-orchestration stall**, **not** a product fault.
+> - **`§⑮`** = the **team-collaboration SLA / timeout-escalation table** (blocked cards, confirmation gates awaiting review, stale heartbeats) — object = **the team collaboration process itself**.
+> - **`§⑮.1`** = the **team-stalled exception channel** (coordinator patrol/dispatch idle >6h) — object = **team-orchestration stall**, not a product fault.
 >
 > **One-line boundary**: **product/service is down ⇒ this SOP; team collaboration is stuck ⇒ `§⑮`; team orchestration is stalled ⇒ `§⑮.1`.** The three do not substitute for each other and must not be conflated (see §6).
 
@@ -24,12 +24,10 @@
 
 | Item | Content |
 |---|---|
-| **Does** | **Grading**, **on-call first response**, **stop-the-bleed / mitigation**, **escalation**, **recovery confirmation**, **postmortem** and **backfill** for product/service incidents in production. |
+| **Does** | **Grading**, **on-call first response**, **stop-the-bleed / mitigation**, **escalation**, **recovery confirmation**, **postmortem**, **backfill** for production product/service incidents. |
 | **Does not** | Collaboration wait timeouts (`§⑮`); the team-stalled exception report (`§⑮.1`); the release action itself and version-number/rollback-plan details (that is `release-versioning-sop.md`); building monitoring / alerting / health checks (that is `runtime-observability-sop.md`); the engineering process for fixing a code defect (that is the defect-repair-and-regression loop, `PROTOCOL §⑨`). |
-| **Handoff in** | Discovery usually comes from observability/alerting (`runtime-observability-sop.md`); if stopping the bleed needs a rollback/revert to a previous version, follow `release-versioning-sop.md`; defect reproduction and regression go to the testing owner (`§⑨`); action-item card creation and any external notification are performed by Elon (`§⑤`). |
+| **Handoff in** | Discovery comes from observability/alerting (`runtime-observability-sop.md`); a rollback/revert to a previous version follows `release-versioning-sop.md`; defect reproduction/regression goes to the testing owner (`§⑨`); action-item cards and external notification are done by Elon (`§⑤`). |
 | **Does not apply** | Problems in a not-yet-live development/test environment (use the `§⑨` defect flow); pure requirement changes (use the triage flow); the team's own orchestration-gateway failure (see `team/README.md §4 Recovery Handbook` — not a product incident). |
-
-> ⚠️ **Distinguish "the team's own gateway" from "the product/service"**: the team's own orchestration gateway hanging / restarting / getting its config corrupted ⇒ `team/README.md §4 Recovery Handbook`. A fault in the **delivered product/service** ⇒ this SOP.
 
 ---
 
@@ -57,7 +55,7 @@
 | **S3 Minor** | Non-core function abnormal, performance degradation, single-point user impact, a clear workaround exists | **≤4h** | **≤24h** (or the next working day) | Recommended **≤1 week** |
 | **S4 Trivial** | No user-visible impact or a negligible one (copy/style, alert noise, an internal-metric anomaly) | Routine (with the normal card flow) | Routine | Optional / batch into others |
 
-> **Escalation is not optional**: if any level misses its mitigation target within the deadline ⇒ **step up one level** (S4→S3→S2→S1) and state the step-up reason and timestamp in the status update.
+> **Escalation is not optional**: any level missing its mitigation target within the deadline ⇒ **step up one level** (S4→S3→S2→S1), stating the reason and timestamp in the status update.
 
 ### 2.3 Grading examples
 
@@ -82,10 +80,9 @@
 | Item | Content |
 |---|---|
 | **Who is on call** | First-response responsibility = the **on-duty engineering owner** (by default Linus, engineering side). The **sole channel facing the human = Elon** (`§⑤`). |
-| **Rotation** | The rotation schedule (who is on call, cycle length, timezone coverage, holiday rules) is **to be decided**. Until it lands, the **default is Linus for engineering first response + Elon for coordination/reporting**. |
+| **Rotation** | The rotation schedule (who is on call, cycle length, timezone coverage, holiday rules) is **to be decided** (§8). Until it lands, the **default is Linus for engineering first response + Elon for coordination/reporting**. |
 | **How to hand over** | Handover must be explicit: **open incidents and their grading / current status / actions taken / open items and next step / evidence paths**; the handover record lands in the incident card's `Progress` (append-only, timestamped). |
 | **On-duty responsibilities** | ① **First response** (ack) ② **Grading** (per §2) ③ **Open/join the incident** (create or link the incident card and claim it) ④ **Broadcast** (status updates, see §4.4) ⑤ direct the mitigation ⑥ initiate the postmortem. |
-| **Open questions** | The on-call tooling, the duty channel, and the alert-delivery path are **to be decided** (to be closed together with `runtime-observability-sop.md`). |
 
 ### 3.2 Minimum actions executable by a single person (agent-team specialisation)
 
@@ -128,7 +125,7 @@ discover → triage → mitigate → locate → fix → recover → verify
 
 | Category | Path | Escalation threshold | Deadline |
 |---|---|---|---|
-| **Technical** (service / code / config / dependency) | Relevant worker → **Elon** (`§⑤`: workers do not go outward directly and do not bypass Elon) | From S2, Elon's coordination is required; if an S2 is **not mitigated ≤30min after ack** ⇒ escalate to Elon to coordinate reinforcements | Within ack |
+| **Technical** (service / code / config / dependency) | Relevant worker → **Elon** (`§⑤`: workers do not go outward directly or bypass Elon) | From S2, Elon's coordination is required; an S2 **not mitigated ≤30min after ack** ⇒ escalate to Elon for reinforcements | Within ack |
 | **Business / money / security** | **Elon → the operator** (`§⑤` / `§⑮`: only Elon escalates to the operator) | **A red-line factor hit (data / money / security) escalates immediately regardless of level**; S1 immediately | Immediate |
 | **Cross-system / cross-project** | Worker → Elon → the relevant product owner | Impact on ≥2 deliverables or involvement of a shared service (e.g. a shared identity service or database) | S1 immediate / S2 ≤30min |
 | **Team stalled** (not a product incident) | **Switch to the `§⑮.1` exception channel** (coordinator idle >6h) | This is the switch point between product-incident escalation and `§⑮.1` (see §6) | Per `§⑮.1` |
@@ -196,8 +193,7 @@ discover → triage → mitigate → locate → fix → recover → verify
 |---|---|---|
 | Release action, version number, changelog, **rollback plan** | `release-versioning-sop.md` | Incident mitigation often needs a rollback ⇒ follow its forward-edit revert plan (obeying `§⑥`) |
 | Monitoring / logs / metrics / **alert discovery** / health checks / patrol | `runtime-observability-sop.md` | An incident's "discovery" and "why not detected earlier" depend on its basis |
-| Team collaboration **wait timeout** (blocked awaiting clarification, confirmation gate awaiting review, stale heartbeat) | `PROTOCOL §⑮` | **Object = the collaboration process**, not a product fault |
-| **Team stalled** (coordinator patrol/dispatch idle >6h) | `PROTOCOL §⑮.1` | **Object = team-orchestration stall**; the worker → operator exception report |
+| Team collaboration **wait timeout** / **team stalled** | `PROTOCOL §⑮` / `§⑮.1` | **Different objects** — see §0 (collaboration process vs team-orchestration stall); the worker→operator exception report is `§⑮.1` |
 | Code-defect repair and the regression loop | `PROTOCOL §⑨` | An incident's root-cause fix goes through the defect flow |
 | Container-form acceptance / post-recovery health check | `PROTOCOL §⑨.3` | Recovery confirmation must be exercised live in the target runtime form |
 | Confirmation gate (major / money-security escalation to the operator) | `PROTOCOL §⑭` | Interlocks with the §4.2 escalation paths |
@@ -218,3 +214,10 @@ discover → triage → mitigate → locate → fix → recover → verify
 | **Product with no production runtime** (e.g. a public repo/library with only a CI/CD channel) | **CI** does the **post-recovery health check** (`§⑨.3` container form, CI consistent with local) + **manual** judgement. The main incident form is a **release/CI incident** (pipeline failed, artifact not published, tag misplaced); S1 is unlikely, but release incidents still apply (mostly S2/S3). |
 
 > **Unified basis**: for **every** product, **recovery confirmation** requires "exercised live in the target runtime form + evidence on disk" (`§⑨.3`); a **red-line factor (data / money / security)** hit ⇒ **top severity and immediate escalation to the operator**, never discounted because a product is small.
+
+---
+
+## 8. Open Items (undecided; defaults in force until decided)
+
+1. **On-call rotation schedule** — who is on call, cycle length, timezone coverage, holiday rules are **to be decided**; default until then: Linus (engineering first response) + Elon (coordination/reporting) (§3.1).
+2. **On-call tooling, duty channel, alert-delivery path** — **to be decided** (to be closed together with `runtime-observability-sop.md`) (§3.1).
