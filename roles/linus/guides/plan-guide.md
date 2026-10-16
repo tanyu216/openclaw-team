@@ -2,6 +2,13 @@
 
 > **This guide = the detailed method for development process Phases 1-2** (the detailed tutorial referenced by AGENTS.md "Development Process SOP").
 > Usage: first follow the "Execution Checklist" item by item; "Details" is the concrete reference for each step, consult as needed.
+>
+> **Layer**: L2.5 role method library (`PROTOCOL §⑰`). **Owner**: Linus. **Effective**: 2026-10-16.
+> **On conflict**: `PROTOCOL` governs, then `roles/<role>/AGENTS.md`, then this guide.
+> **Single-home boundary** (the same text must not live in two places — `PROTOCOL §⑰`): the six plan
+> checks are canonical in `team/guides/plan-quality.md` — this guide supplies the *method* behind each
+> check and does not restate them. Coverage thresholds / the TDD table / the evidence gate belong to
+> `execute-guide.md`; the Report slots belong to `team/guides/worker-report-template.md`.
 
 ---
 
@@ -9,7 +16,7 @@
 
 ### Phase 1: Produce Plan
 - [ ] 1. **Read the full task card** (Goal / Acceptance / Background / project / target)
-- [ ] 2. **If there is a decision fork => first draw the design tree + compute the frontier** (see AGENTS.md "Decision Fork Prerequisite"); no fork => go straight to the next step
+- [ ] 2. **If there is a decision fork => first draw the design tree + compute the frontier** (see AGENTS.md "Decision Fork Prerequisite"); write it to `workspace/<task-id>/design-tree.md` (or as the first section of `plan.md`). No fork => go straight to the next step
 - [ ] 3. **Write `plan.md`** (to `workspace/<task-id>/plan.md`), it must include:
   - [ ] Requirement breakdown (requirement → implementation approach)
   - [ ] Affected files list (exact paths, "and related files" forbidden)
@@ -26,7 +33,8 @@
   types + Breaking determination — this is the **interface/field-change specialisation** of check ④
   (Details §Pattern 2).
 - [ ] 6. Self-check fails => return to step 3 to revise; **if a blocking defect exists => must not
-  proceed to execution**
+  proceed to execution**. Record the verdict in the plan (or the card's Progress) using one of:
+  **execute as-is / execute after revision / needs rewrite** — `needs rewrite` sends you back to Phase 1.
 
 > **④ is unconditional**: the end-to-end execution path (vertical path + per-hop up/downstream impact
 > + side effects/consumers) is required for **every** plan — including changes that touch no
@@ -41,7 +49,12 @@
 
 ## Details
 
-### Pattern 1: Analysis mode (analysis) — design philosophy (detail for check ③)
+> These are the **methods behind the checks**, not a second checklist — each is invoked from the
+> checklist item it serves. (An earlier revision framed them as "analysis / review / update modes";
+> no such mode exists in the tooling — `spawn-lane`'s `phase=` is a free-form display label, not a
+> method selector — so the framing was removed.)
+
+### Pattern 1: Design philosophy (detail for check ③)
 
 Check ③ in `team/guides/plan-quality.md` is the canonical wording: **simple, feasible, elegant,
 readable, maintainable**. Examine the design along these dimensions:
@@ -108,13 +121,17 @@ Analyze requirement by requirement, starting from the requirements:
 
 Execution step Todo format (`[ADD]/[DELETE]/[MODIFY]/[integration]` code-level markers), matching the plan content, complete unit/integration test coverage for every requirement.
 
-### Pattern 7: Review mode (review) — final gate
+### Pattern 7: Review pass — the final gate (checklist items 4-6)
 
-Document structure review + overall quality assessment, giving the final verdict: **recommend execution / execute after revision / needs rewrite**.
+Once the patterns above have run: review the plan's document structure (is every required section
+present and in order?) plus an overall quality assessment, and record the verdict —
+**execute as-is / execute after revision / needs rewrite**.
 
-### Pattern 8: Update mode (update)
+### Pattern 8: Revising the plan (checklist item 6)
 
-Perform precise text edits on the plan file based on the analysis report, keeping the original style and structure; after editing, run conflict detection + integrity verification. The only mode allowed to write files.
+Apply precise text edits to `plan.md` against the review findings, keeping the original style and
+structure; after editing, re-run the conflict detection + integrity check. This is the only step
+that writes `plan.md` (it starts with a Claude Code sub-session that wrote it — see AGENTS.md Phase 1).
 
 ---
 
