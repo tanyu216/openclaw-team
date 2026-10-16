@@ -40,7 +40,11 @@ const SKIP = PROVIDER ? false : 'provider ACL library not installed (task-ops is
 
 /** 物化一个「已部署布局」：vendored scripts/ + skills/task-ops 软链（lib.mjs 的查找口径） */
 const LAYOUT = PROVIDER ? (() => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-laneiso-'));
+  // **realpath 归一**（与 lane-worktree / spawn-lane-isolation 两套件同因）：`os.tmpdir()` 在 macOS 上
+  // 是符号链接路径（`/var/folders/…`），而 git 与 `lane-isolation` 返回的是真实路径（`/private/var/…`）。
+  // 不归一不只是断言不等 —— 这里会**真的改变判定**：`main_repo`（真实）与卡 `target`（未归一）比不中
+  // ⇒ 误报 `same_file_conflict` ⇒ 该隔离的退了串行。Linux 上 `/var` 不是链接，故 CI 绿、宿主红。
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'oc-laneiso-')));
   for (const d of ['scripts', 'tasks', 'tasks/.locks', 'workspace', 'skills', 'bin']) {
     fs.mkdirSync(path.join(root, d), { recursive: true });
   }
@@ -70,7 +74,7 @@ if (LAYOUT) {
 
 // ── git 夹具 ────────────────────────────────────────────────────────────────
 function makeRepo(name) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `${name}-`));
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `${name}-`)));   // realpath 归一，见上
   const g = (...a) => {
     const r = spawnSync('git', ['-C', dir, ...a], { encoding: 'utf8' });
     assert.equal(r.status, 0, `git ${a.join(' ')} 失败: ${r.stderr}`);
@@ -222,7 +226,7 @@ test('NONE-3. 他卡在同仓但是**只读角色**（role=review）⇒ 不隔�
 
 test('NONE-4. 非 git 仓（project=__team__ ⇒ team 根，如本机 ~/.openclaw/team）⇒ none/not_a_git_repo', { skip: SKIP }, () => {
   clearBoard();
-  const plain = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-laneiso-plain-'));
+  const plain = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'oc-laneiso-plain-')));   // realpath 归一，见上
   try {
     writeCard('T-20260102-300000-self', { status: 'in_progress' });
     writeCard('T-20260102-300001-other', { status: 'in_progress' });

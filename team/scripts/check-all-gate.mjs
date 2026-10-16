@@ -55,7 +55,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // <TEAM_DIR>/scripts
 
@@ -255,6 +255,12 @@ export function main(argv = process.argv.slice(2), env = process.env) {
 }
 
 // Run only when invoked as a CLI — importing this module (unit tests) must stay side-effect free.
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  process.exit(main());
-}
+// Guard 以 **realpath 归一后**比较（与 lib.mjs / build-guard / check-card 等 23 个脚本同口径）：
+// `import.meta.url` 是解析后的真实路径，`process.argv[1]` 是**调用时**路径；符号链接调用
+// （macOS `/tmp -> private/tmp`、`os.tmpdir()` 在 `/var` 之下同理）时二者不等 ⇒ 朴素比较会让本脚本
+// **静默 no-op、exit 0**。对这道 fail-closed 的门而言，「什么都没做」与「判定为绿」在触发层看来一模一样。
+try {
+  const self = fs.realpathSync(new URL(import.meta.url));
+  const arg = fs.realpathSync(path.resolve(process.argv[1]));
+  if (arg === self) process.exit(main());
+} catch { /* realpath 失败 ⇒ 不执行 main */ }

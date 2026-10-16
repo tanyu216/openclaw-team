@@ -463,6 +463,10 @@ script), so a green local run and a green CI run mean the same thing. It covers
 shell/node syntax, manifest+lock integrity, installer/fetcher dry-runs, a real
 file deploy into a throwaway HOME, and the install→upgrade→backup path.
 
+**What it does *not* cover:** the framework test suite (`team/scripts/tests/*.test.mjs`)
+lives in `check-all.sh`'s *slow* segment, which this script — and therefore CI — never
+invokes. A green CI run says nothing about that suite.
+
 For **UI fidelity** there is a second, network-based image that pins the browser
 and fonts so pixel diffs are deterministic:
 
