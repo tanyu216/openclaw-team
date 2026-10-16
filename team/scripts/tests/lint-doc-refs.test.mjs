@@ -1,10 +1,12 @@
 /**
- * lint-doc-refs.test.mjs — 文档路径引用门禁的行为契约。
+ * lint-doc-refs.test.mjs — 文档引用门禁的行为契约（两腿：文件路径 + 跨文件章节锚）。
  *
  * 两道防线都要钉住：
- *   ① **真问题必红** —— 方法库指针断了（历史实证：`roles/turing/guides/` 从未存在）必须判红；
+ *   ① **真问题必红** —— 方法库指针断了（历史实证：`roles/turing/guides/` 从未存在）、
+ *      跨文件章节锚断了（历史实证：`§6.3` / `§3.3` 写成子标题而目标无此标题）必须判红；
  *   ② **误报必零** —— 扩展名散文（`.md`）、运行时点文件（`.claude/settings.json`）、
- *      provider 侧路径（`skills/**`，有意不随仓）、实例/运行时路径（`workspace/…`）一律不得判红。
+ *      provider 侧路径（`skills/**`，有意不随仓）、实例/运行时路径（`workspace/…`）、
+ *      **目标文件没有编号标题**（如空的 `shared.md`）一律不得判红。
  * ② 与 ① 同等重要：一个上线即红的门会被立刻关掉，等于没有。
  */
 import { test, before, after } from 'node:test';
@@ -16,7 +18,8 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const CLI = fileURLToPath(new URL('../lint-doc-refs.mjs', import.meta.url));
-const { extractPathRefs, skipReason, lintDocRefs } = await import('../lint-doc-refs.mjs');
+const { extractPathRefs, extractSectionRefs, skipReason, lintDocRefs } =
+  await import('../lint-doc-refs.mjs');
 
 let ROOT;
 /** 造一个「最小分发仓」：repo 模式只扫 `<repo>/team` 与 `<repo>/roles`。 */
@@ -33,6 +36,8 @@ before(() => {
   put('roles/linus/guides/linus-only.md');
   put('team/PROTOCOL.md');
   put('team/guides/shared.md');
+  // 第二腿夹具：一份**有编号标题**的目标（`## 3` / `## 6` + `### 6.3`），用以证 §N 的解析语义。
+  put('team/guides/numbered.md', '## 3. Steps\n1. one\n## 6. Invariants\n### 6.3 Sub\ntext\n');
   put('team/AUTOMATIONS.md');
   put('team/automations/README.md', 'see `../AUTOMATIONS.md`\n');
   put('team/scripts/tests/real.test.mjs');
@@ -46,8 +51,15 @@ before(() => {
     'skip-external: `src/core/storage/md/import.mjs` and `workspace/T-1/x.md`',
     'skip-bare: `dispatch.mjs` and `providers.json`',
     'skip-url: `https://example.com/a.md`',
+    'ok-secref: `guides/numbered.md` §3',
+    'ok-secref-child: `guides/numbered.md` §6.3',
+    'ok-secref-parent: `guides/numbered.md` §6',
+    'ok-secref-list: `guides/numbered.md` §3 / §6.3',
+    'skip-secref-noheading: `guides/shared.md` §9',
+    'skip-secref-self: see §3.3',            // 无文件名 ⇒ 文件内一类，本腿**有意**不判
     '```',
     'skip-fenced: `team/guides/nope.md`',
+    'skip-fenced-secref: `guides/numbered.md` §9',
     '```',
     '',
   ].join('\n'));
@@ -111,6 +123,57 @@ test('突变：fenced code block 内的引用不检查（不得因示例而红�
   const saved = fs.readFileSync(f, 'utf8');
   try {
     assert.deepEqual(lint().bad, []);
+  } finally { fs.writeFileSync(f, saved); }
+});
+
+// ── 第二腿：跨文件章节锚（`<name>.md §N` / `§N.M`）────────────────────────
+
+test('提取：只取 `§` **紧邻**文件名的跨文件锚；文件内与圈码一概不取', () => {
+  assert.deepEqual(extractSectionRefs('see `guides/a.md` §6.3'), [{ file: 'guides/a.md', nums: ['6.3'] }]);
+  assert.deepEqual(extractSectionRefs('`guides/a.md` §3 / §4 / §6.3'),
+    [{ file: 'guides/a.md', nums: ['3', '4', '6.3'] }]);
+  // `§` 不紧邻文件名 ⇒ 指自己所在文件：本腿**有意**只做跨文件（文件内编号可能有意变动）
+  assert.deepEqual(extractSectionRefs('see `guides/a.md`; also §3.3'), []);
+  assert.deepEqual(extractSectionRefs('see §3.3'), []);
+  // 圈码引用是 `lint-refs.mjs` 的领域（且只对 PROTOCOL.md），本腿不碰
+  assert.deepEqual(extractSectionRefs('see `team/PROTOCOL.md` §⑥.4'), []);
+});
+
+test('基线（含第二腿）：路径锚与章节锚一起零断引用', () => {
+  const { bad, sectionChecked } = lint();
+  assert.deepEqual(bad, [], `不应有断引用：${JSON.stringify(bad)}`);
+  assert.ok(sectionChecked > 0, '必须真的检查了章节锚（否则第二腿是空的）');
+});
+
+test('突变：章节锚断了必红 —— §N 指向目标没有的编号', () => {
+  const f = path.join(ROOT, 'team/guides/refs.md');
+  const saved = fs.readFileSync(f, 'utf8');
+  fs.writeFileSync(f, saved + '\nbad-secref: `guides/numbered.md` §9\n');
+  try {
+    const { bad } = lint();
+    assert.equal(bad.length, 1, `应恰好一条：${JSON.stringify(bad)}`);
+    assert.equal(bad[0].token, 'guides/numbered.md §9');
+  } finally { fs.writeFileSync(f, saved); }
+  assert.deepEqual(lint().bad, [], '恢复后须回绿');
+});
+
+test('§N 语义 = 「N 这一节**及其子节**」：只有 ### 6.3 时 §6 照样命中', () => {
+  const f = path.join(ROOT, 'team/guides/numbered.md');
+  const saved = fs.readFileSync(f, 'utf8');
+  fs.writeFileSync(f, '## 3. Steps\n### 6.3 Sub\ntext\n');   // 去掉 `## 6`，只留子节
+  try {
+    assert.deepEqual(lint().bad, [], '§6 不得因为父标题不在而误报');
+  } finally { fs.writeFileSync(f, saved); }
+});
+
+test('目标文件不存在 ⇒ 本腿不判（那是路径腿的职责，不得同一处报两条）', () => {
+  const f = path.join(ROOT, 'team/guides/refs.md');
+  const saved = fs.readFileSync(f, 'utf8');
+  fs.writeFileSync(f, saved + '\nabsent: `guides/absent.md` §3\n');
+  try {
+    const { bad } = lint();
+    assert.equal(bad.length, 1, `应只有路径腿那一条：${JSON.stringify(bad)}`);
+    assert.equal(bad[0].token, 'guides/absent.md');
   } finally { fs.writeFileSync(f, saved); }
 });
 
