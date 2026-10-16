@@ -43,6 +43,23 @@
  * **只做跨文件**：文件内 `§N`（如 `dependency-cve-gate.md` 里 "see §3.3" 指自己）编号可能
  * 有意变动，风险高，留待记法约定落地后再谈。
  *
+ * **第三腿 —— 节内条款号（`§N clause M` / `§N step M` / `§N.M #M`）**：引用还可能指向
+ * **子节里的第 M 条**（有序列表项），而不是一个标题。`lint-refs.mjs` 只管 `§①…§⑳` 的**标题**
+ * 是否存在，这类条目引用此前无人校验 ⇒ 重排条目编号会**静默断**，且断得很隐蔽（标题还在，
+ * 只是第 11 条变成了别的条）。
+ * 识别集**刻意窄**：只收「目标可判定为有序列表」的三类 ——
+ *   ① 圈码锚 + `clause|step` + K（`§⑥.1 clause 11`、`§⑥ clause 2,7`）⇒ 按本仓约定恒指 `PROTOCOL.md`；
+ *   ② 圈码锚 + `#K`（`§⑥.1 #8`、`§⑨.1 hard gate #1`）⇒ 同上；
+ *   ③ 显式 `<name>.md` 锚 + ASCII 节号 + `clause|step` + K。
+ * **不识别（一律 skip 计数，绝不判红）**：**裸阿拉伯 `#K`** —— 本仓该形状表示**表格行**
+ * （实测约 36 条，如 `sla-inspection-contract.md §4 #9`；误判会误红写对的引用）；无文件锚的
+ * ASCII `§N step K`；`rule` / `invariant` 等标记词；把 `§N.M` 读成「§N 的第 M 条」（会与真
+ * `### N.M` 标题撞车 —— 正是第二腿存在的理由）。
+ * 解析：子节体 = **该标题 → 下一个任意级标题**（这样 `spawn-lane-sop §3` 的条目在 `### 3.1`
+ * 处停止，不会把子节的 1..3 串上来）；只数**顶层**有序项；**围栏内跳过**；顶层序号必须恰为
+ * `1..n`（重启/跳号/重复 ⇒ `ambiguous` ⇒ skip）；体内无有序列表 ⇒ `no-list` ⇒ skip。
+ * 只在「文件可解析 且 标题存在 且 体是 1..n 连续顶层列表 且 K > n」时判红 —— 所有守卫**朝 skip 收敛**。
+ *
  * 模式：`host-paths.mjs#resolveMode`（repo = 仓内自证，无需实例；live = 巡检安装实例）。
  * 退出码：0 全解析；1 有断引用；2 用法错或模式不可判定。
  * 用法：node lint-doc-refs.mjs [--repo <R> | --live]
@@ -118,6 +135,86 @@ function sectionsOf(abs) {
 function sectionOk(nums, n) {
   for (const x of nums) if (x === n || x.startsWith(`${n}.`)) return true;
   return false;
+}
+
+// ── 第三腿：节内条款号 ──────────────────────────────────────────────────────
+
+/**
+ * 节内条款号的逐条例外：键 = `<扫描根内相对路径>:<token>`，值 = 理由。
+ * 只登记「确实指得没错、但不写成有序列表项」的引用；能改引用就别登记。
+ */
+const ITEM_ALLOW = {};
+
+const CIRC = '①-⑳';
+/** 节号与标记词之间允许的填充：空白、反引号收尾、右括号（`` `§⑥.1` clause 11 `` 这类拆写）。 */
+const GAP = '[\\s`)]*';
+
+/** ① 圈码锚 + `clause|step` + K。 */
+const RE_ITEM_CIRC_WORD = new RegExp(`§${GAP}([${CIRC}])(?:\\.([0-9]+))?${GAP}(clause|step)${GAP}([0-9]+)`, 'g');
+/** ② 圈码锚 + 可选词限定 + `#K`。 */
+const RE_ITEM_CIRC_HASH = new RegExp(
+  `§${GAP}([${CIRC}])(?:\\.([0-9]+))?${GAP}(?:[A-Za-z][A-Za-z-]*(?:${GAP}[A-Za-z][A-Za-z-]*)?${GAP})?#([0-9]+)`, 'g');
+/** ③ 显式 `.md` 锚 + ASCII 节号 + `clause|step` + K。 */
+const RE_ITEM_FILE_WORD = /`?([A-Za-z0-9][\w./-]*\.md)`?[ \t]*§[ \t]*(\d+(?:\.\d+)*)[ \t]*(clause|step)[ \t]*([0-9]+)/g;
+
+/**
+ * 从一行取出节内条款号引用。
+ * `file === null` ⇒ 按本仓约定指 `PROTOCOL.md`（圈码锚是 PROTOCOL 的命名空间）。
+ */
+export function extractItemRefs(line) {
+  const out = [];
+  const push = (file, sec, kind, item) => {
+    const k = Number(item);
+    if (Number.isInteger(k) && k >= 1) out.push({ file, sec, kind, item: k });
+  };
+  for (const m of line.matchAll(RE_ITEM_CIRC_WORD)) push(null, m[2] ? `${m[1]}.${m[2]}` : m[1], m[3], m[4]);
+  for (const m of line.matchAll(RE_ITEM_CIRC_HASH)) push(null, m[2] ? `${m[1]}.${m[2]}` : m[1], '#', m[3]);
+  for (const m of line.matchAll(RE_ITEM_FILE_WORD)) push(m[1], m[2], m[3], m[4]);
+  return out;
+}
+
+/** 标题的编号键：圈码 `⑥.1` 与阿拉伯 `6.1` 都归一为原样字符串，供 `itemIndex` 比对。 */
+function headingNumberOf(l) {
+  let m = /^(#{2,6})\s*(?:§)?([①-⑳])(?:\.([0-9]+))?/.exec(l);
+  if (m) return m[3] ? `${m[2]}.${m[3]}` : m[2];
+  m = /^(#{2,6})\s*(?:§)?(\d+(?:\.\d+)*)/.exec(l);
+  return m ? m[2] : null;
+}
+
+/**
+ * 「`sec` 这一节的顶层有序列表有几条」。
+ * 体 = 该标题 → **下一个任意级标题**（子节条目不得串进父节）。
+ * 返回 `{ok:true,count}` 或 `{ok:false,why}`；`why ∈ no-section | no-list | ambiguous | nofile`。
+ */
+const _itemCache = new Map();
+function itemIndex(abs, sec) {
+  const key = `${abs}\u0000${sec}`;
+  if (_itemCache.has(key)) return _itemCache.get(key);
+  let res;
+  try {
+    const lines = fs.readFileSync(abs, 'utf8').split('\n');
+    const hi = lines.findIndex((l) => headingNumberOf(l) === sec);
+    if (hi < 0) {
+      res = { ok: false, why: 'no-section' };
+    } else {
+      let hi2 = -1;
+      for (let j = hi + 1; j < lines.length; j++) if (/^#{2,6}\s/.test(lines[j])) { hi2 = j; break; }
+      const body = lines.slice(hi + 1, hi2 < 0 ? lines.length : hi2);
+      const nums = [];
+      let fence = false;
+      for (const l of body) {
+        if (/^\s*```/.test(l)) { fence = !fence; continue; }
+        if (fence) continue;
+        const m = /^(\d{1,3})\.\s/.exec(l);           // 顶层：不允缩进 ⇒ 嵌套子列表不计入
+        if (m) nums.push(Number(m[1]));
+      }
+      if (!nums.length) res = { ok: false, why: 'no-list' };
+      else if (nums.some((n, i) => n !== i + 1)) res = { ok: false, why: 'ambiguous' };
+      else res = { ok: true, count: nums.length };
+    }
+  } catch { res = { ok: false, why: 'nofile' }; }
+  _itemCache.set(key, res);
+  return res;
 }
 
 /**
@@ -207,6 +304,7 @@ export function lintDocRefs(M) {
   const skipped = {};
   let checked = 0;
   let sectionChecked = 0;
+  let itemChecked = 0;
   for (const f of targets(M)) {
     const key = path.relative(M.mode === 'repo' ? M.repo : M.home, f);
     const keyPosix = key.split(path.sep).join('/');
@@ -233,6 +331,23 @@ export function lintDocRefs(M) {
         }
       }
 
+      // ── 第三腿：节内条款号 ──
+      for (const { file: tgt, sec, kind, item } of extractItemRefs(line)) {
+        const abs = tgt
+          ? bases.map((b) => path.resolve(b, tgt)).find((p) => fs.existsSync(p))
+          : path.join(M.mode === 'repo' ? path.join(M.repo, 'team') : M.team, 'PROTOCOL.md');
+        if (!abs || !abs.endsWith('.md') || !fs.existsSync(abs)) {
+          skipped['itemref-nofile'] = (skipped['itemref-nofile'] || 0) + 1; continue;
+        }
+        const r = itemIndex(abs, sec);
+        if (!r.ok) { skipped[`itemref-${r.why}`] = (skipped[`itemref-${r.why}`] || 0) + 1; continue; }
+        const token = `${tgt || 'PROTOCOL'} §${sec} ${kind} ${item}`;
+        if (ITEM_ALLOW[`${keyPosix}:${token}`]) continue;
+        itemChecked++;
+        if (item <= r.count) continue;
+        bad.push({ file: key, line: i + 1, token });
+      }
+
       for (const t of extractPathRefs(line)) {
         // `~/…` 宿主/实例路径：repo 模式不可判定（记 skip）；**live 模式对真实 home 判定** ——
         // 这是唯一能抓住「引用实例上并不存在的方法库」（历史上 `workspace-linus/skills/plan-toolkit`）的腿。
@@ -252,7 +367,7 @@ export function lintDocRefs(M) {
       }
     });
   }
-  return { bad, skipped, checked, sectionChecked };
+  return { bad, skipped, checked, sectionChecked, itemChecked };
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
@@ -263,13 +378,13 @@ function main() {
     if (e instanceof UsageError) { console.error(`✗ ${e.message}`); process.exit(2); }
     throw e;
   }
-  const { bad, skipped, checked, sectionChecked } = lintDocRefs(M);
+  const { bad, skipped, checked, sectionChecked, itemChecked } = lintDocRefs(M);
   const where = (p) => String(p).replace(M.home, '~').replace(M.repo || '\u0000', '<repo>');
   for (const { file, line, token } of bad) {
     console.log(`✗ ${where(file)}:${line} 断引用 ${token}`);
   }
   const skips = Object.entries(skipped).map(([k, v]) => `${k}:${v}`).join(' ');
-  const counts = `已检查 ${checked} 路径 + ${sectionChecked} 章节锚`;
+  const counts = `已检查 ${checked} 路径 + ${sectionChecked} 章节锚 + ${itemChecked} 条目锚`;
   if (bad.length) {
     console.log(`\n断引用：${bad.length}（${counts}；未判 ${skips}）`);
     process.exit(1);
