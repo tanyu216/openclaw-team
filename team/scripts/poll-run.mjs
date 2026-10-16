@@ -25,7 +25,8 @@
  *   node poll-run.mjs message <agent>            # 打印 run payload（无卡路径的模板态）
  *   node poll-run.mjs timeout-default <interval> # 打印默认 run 上界秒数（interval 形如 5m/2m/90s）
  */
-import { pathToFileURL } from 'node:url';
+import fs from 'node:fs';
+import path from 'node:path';
 
 /** 握手（移交）指令：poll run 的唯一动作。文案改这里，poll.mjs 与 install.sh 同时生效。 */
 export const HANDOFF_DIRECTIVE = [
@@ -115,6 +116,10 @@ function main(argv) {
 }
 
 // 仅当作为 CLI 调用时执行（被 import 时无副作用）。
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main(process.argv.slice(2));
-}
+// main-guard：经 realpath 归一后比较（与 lib.mjs / build-guard 等同口径）——朴素比较在**符号链接调用**
+// 下不成立（`import.meta.url` 已解析为真实路径，`argv[1]` 是调用时路径）⇒ 静默 no-op、exit 0。
+try {
+  const self = fs.realpathSync(new URL(import.meta.url));
+  const arg = fs.realpathSync(path.resolve(process.argv[1]));
+  if (arg === self) main(process.argv.slice(2));
+} catch { /* realpath 失败 ⇒ 不执行 main */ }

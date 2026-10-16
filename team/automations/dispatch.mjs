@@ -59,7 +59,7 @@
 //     obligation must alarm when it could not look, never report green.
 
 import { spawnSync } from "node:child_process";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -294,7 +294,17 @@ export function main(argvIn = process.argv.slice(2), env = process.env) {
 }
 
 // Run only when invoked as a CLI — importing this module (unit tests) must stay side-effect free.
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+//
+// Guard 必须以 **realpath 归一后**比较（与 lib.mjs / build-guard / check-card 等 23 个脚本同口径）：
+// `import.meta.url` 是 Node 解析后的**真实**路径，而 `process.argv[1]` 是**调用时**的路径。
+// 二者经符号链接调用时不等（macOS 上 `/tmp -> private/tmp`、`os.tmpdir()` 在 `/var` 之下同理），
+// 朴素比较 ⇒ **main() 从不执行**：进程 exit 0、stdout 与 stderr 皆空 —— 一个**静默 no-op**。
+// 对 dispatcher 尤危：调度层「什么都没发生」与「判定为不该 fire」在触发脚本看来一模一样。
+try {
+  const self = fs.realpathSync(new URL(import.meta.url));
+  const arg = fs.realpathSync(path.resolve(process.argv[1]));
+  if (arg === self) main();
+} catch { /* realpath 失败 ⇒ 不执行 main */ }
 
 // ---- helpers ---------------------------------------------------------------
 

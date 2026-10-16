@@ -17,7 +17,8 @@
  * `dargs` 是 dispatch.mjs 的作业参数：`poll <agent>` / `patrol` / `check-all`。
  */
 
-import { pathToFileURL } from "node:url";
+import fs from "node:fs";
+import path from "node:path";
 
 /**
  * @param {{teamDir:string, dargs:string, evalTimeoutS:number|string, evalTimeoutMs:number|string}} o
@@ -47,6 +48,10 @@ function main(argv) {
 }
 
 // 仅当作为 CLI 调用时执行（被 import 时无副作用）。
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main(process.argv.slice(2));
-}
+// main-guard：经 realpath 归一后比较（与 lib.mjs / build-guard 等同口径）——朴素比较在**符号链接调用**
+// 下不成立（`import.meta.url` 已解析为真实路径，`argv[1]` 是调用时路径）⇒ 静默 no-op、exit 0。
+try {
+  const self = fs.realpathSync(new URL(import.meta.url));
+  const arg = fs.realpathSync(path.resolve(process.argv[1]));
+  if (arg === self) main(process.argv.slice(2));
+} catch { /* realpath 失败 ⇒ 不执行 main */ }
