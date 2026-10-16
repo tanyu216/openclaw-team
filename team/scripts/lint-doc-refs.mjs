@@ -2,9 +2,9 @@
 /**
  * lint-doc-refs.mjs — 文档路径引用可解析（「方法库指针断了没人知道」的防复发门）。
  *
- * 为什么存在：`lint-refs.mjs` 只校验 `§①…§⑳` **编号**引用；而本仓另一类断引用是
+ * 为什么存在：`lint-refs.mjs` 只校验**节引用**（`PROTOCOL §6.1` 这类，看标题在不在）；而本仓另一类断引用是
  * **文件/目录路径**引用 —— 例如某角色 AGENTS.md 指向一个从未建立的方法库目录。
- * 历史实证（2026-10-16 侦察，三簇）：`PROTOCOL §⑥.1 #7/#8` 指向 `workspace-linus/skills/`
+ * 历史实证（2026-10-16 侦察，三簇）：`PROTOCOL §6.1` clause 7/8 指向 `workspace-linus/skills/`
  * 的四个不存在的文件、`roles/turing/AGENTS.md` 指向从未存在的 `roles/turing/guides/`。
  * 这类断引用零成本复发、且没有任何门禁看得见 —— 本脚本是那道门。
  *
@@ -30,9 +30,9 @@
  *   · ALLOW 表逐条登记的例外
  *
  * **第二腿 —— 跨文件章节锚（`<name>.md §N` / `§N.M`）**：同一类断引用还有一半藏在这里。
- * 规范来源：**`PROTOCOL §⑥.1` clause 11**（文档引用约定）—— 该条同时规定「章节内条目/步骤」
+ * 规范来源：**`PROTOCOL §6.1` clause 11**（文档引用约定）—— 该条同时规定「章节内条目/步骤」
  * 的记法（`§N clause M` / `§N step M`），即本腿守的那条；改口径先改它。
- * `lint-refs.mjs` 只校验 `§①…§⑳` **编号**引用（且仅对 `PROTOCOL.md`），而**数字**形式
+ * `lint-refs.mjs` 只管**节的标题在不在**，而**章节内条目**（`§6 clause 3`）此前无人校验
  * 的跨文件锚（`guides/task-interface.md §6.3`）此前无人校验 —— 实测三簇（2026-10-16）：
  * `PROTOCOL.md`→`task-interface.md §6.3`、`README.md` 两处→`spawn-lane-sop.md §3.3`，
  * 三条都是把「§N 里的第 M 条/步」写成了「子标题」记法（`§6.3` 在别的文件里**真是**子标题，
@@ -185,11 +185,10 @@ export function extractItemRefs(line) {
   return out;
 }
 
-/** 标题的编号键：圈码 `⑥.1` 与阿拉伯 `6.1` 都归一为原样字符串，供 `itemIndex` 比对。 */
+/** 标题的编号键（`## 6.` / `### 6.3` / `#### 6.3.1` ⇒ `6` / `6.3` / `6.3.1`），供 `itemIndex` 比对。
+ *  阿拉伯化后全库标题一律阿拉伯数字、且以句点结尾，故不再需要圈码分支。 */
 function headingNumberOf(l) {
-  let m = /^(#{2,6})\s*(?:§)?([①-⑳])(?:\.([0-9]+))?/.exec(l);
-  if (m) return m[3] ? `${m[2]}.${m[3]}` : m[2];
-  m = /^(#{2,6})\s*(?:§)?(\d+(?:\.\d+)*)/.exec(l);
+  const m = /^(#{2,6})\s*(?:§)?(\d+(?:\.\d+)*)/.exec(l);
   return m ? m[2] : null;
 }
 
