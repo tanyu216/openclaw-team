@@ -250,7 +250,7 @@ function main() {
     console.log('登记理由请写入 test/docs/clause-allowlist.json（键 `file:axis:atom` 精确登记，或 `files[file][axis]` 整轴登记）。');
     process.exit(1);
   }
-  console.log(`\n条款零丢失 ✔（base=${o.base}，扫描 ${report.files.length + 0} 个有差异文件；已登记 ${report.missingTotal} 条有意移除）`);
+  console.log(`\n条款零丢失 ✔（base=${o.base}，${report.files.length} 个文件有缺失、已登记 ${report.missingTotal} 条有意移除）`);
   process.exit(0);
 }
 
