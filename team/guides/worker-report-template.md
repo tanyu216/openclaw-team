@@ -284,82 +284,47 @@ un-acceptable as delivery evidence until the deliverer's own Report exists.
 
 ## 4. Common gaps (what actually goes missing)
 
-> **Relative conclusions only — absolute numbers are not evidence (rev. 2026-10-15).**
-> This section says **which families leak and where**, not how often. The census that stood
-> here before (a published `n = 487` with a per-slot hit-rate table) was **withdrawn**: it
-> shipped with no script, no **as-of** and no stated criterion, and an independent re-run
-> reproduced neither its `n` nor most of its rates under any criterion (defect **D6**;
-> evidence `T-20261015-010749-3` §T6). A frozen absolute is not merely *stale* here — it is
-> **un-derivable**, for two reasons:
->
-> - **the population is live.** 584 card files / 471 non-empty Reports at 18:34Z → 594 / 490
->   at 19:53Z on 2026-10-14 — two readings, eighty minutes apart. **Almost all** of that
->   population is **terminal** (`done`/`failed`/`canceled`; compare `--status=terminal` with
->   `--status=nonterminal`), i.e. exactly the surface `check-report.mjs` **never inspects**;
->   the table therefore describes *history*, not the enforced surface, and its denominator
->   moves every hour.
-> - **the criteria are a parameter, and on one family they flip the conclusion.** Under
->   `--card-path=path` (the form A2 actually asks for) the card path is among the **weakest**
->   families on every role; under `--card-path=id` (a bare card id anywhere) it is among the
->   **strongest**. Neither reading is wrong — the criterion is what makes the claim true, and
->   the published table never said which one it used.
->
-> The census is now a script: **`team/scripts/report-census.mjs`** — read-only, every axis
-> parameterised (`--sample=nonempty|section|board`,
-> `--status=all|nonterminal|terminal|<csv>`, `--criterion=topic|shape`,
-> `--card-path=id|path|abs`, `--slots=…`, `--include-archived`), with `params` and `asOf`
-> echoed in the `--json` envelope. **Quote a rate only together with its command and its
-> as-of.** `node scripts/report-census.mjs --compare` re-prints the withdrawn table against a
-> fresh reading with a per-family verdict (`equal` / `near` / `diverged`): on the 2026-10-15
-> reading seven families land `near` (±5 pt) and four — `Acceptance item-by-item`,
-> `A/B before-after`, `pending decision`, `change surface` — are `diverged` by 20–50 pt.
+> **Relative conclusions only — absolute numbers are not evidence.** This section names
+> **which families leak and where**, not how often. The census that once stood here (a
+> published `n = 487` hit-rate table) was **withdrawn**: no script, no **as-of**, no stated
+> criterion (defect **D6**; evidence `T-20261015-010749-3` §T6) — the population is live and
+> mostly terminal (the surface `check-report.mjs` **never inspects**), and the criterion is a
+> parameter that flips one family's conclusion (under `--card-path=path` the card path is
+> among the weakest on every role; under `--card-path=id` among the strongest). **Quote a rate
+> only together with its command and its as-of**; the census is now
+> **`team/scripts/report-census.mjs`** — read-only, every axis parameterised, `params` / `asOf`
+> echoed in the `--json` envelope, and `--compare` re-prints the old table with a per-family
+> verdict (`equal` / `near` / `diverged`).
 
-Measured **relatively** (re-run the script for a current reading; the criterion is named
-wherever the ordering depends on it):
+Read it as: **the core anchors are real** (commit hash / evidence pointer / conclusion are
+habit on every role), but these families leak systematically:
 
-| slot | relative finding |
-|---|---|
-| commit hash · evidence pointer · conclusion | **the habit band** — highest on every role under both criteria |
-| Acceptance item-by-item | **middling and criterion-sensitive** (table/checkbox shape sits 13–24 pt below a mere mention of "acceptance") — *not* the habit slot the withdrawn table claimed |
-| **command + exit code** | **Jobs is the weakest role on it by a wide margin** — the slot Linus/Turing carry in most of their Reports, Jobs carries in a small minority; the one relative finding that held under every criterion, both readings, and in the withdrawn table itself |
-| **card path** | among the **weakest** on every role under `path`; among the **strongest** under `id` — the criterion decides |
-| A/B before-after · pending decision · change surface | the **leak band** — low on every role; the title-less "soft" slots the §1 anchor grammar exists to stabilise |
-| not-pushed accounting · residuals / risks | middling-low; Turing is the weakest role on both |
-
-Read it as: **the core anchors are real** (hash / evidence pointer / conclusion are habit),
-but the families below leak systematically.
-
-1. **Card path.** The redline asks for "conclusion + card path + hash" yet the path is
-   usually dropped. Slot **A2** exists to make it un-droppable; `check-report.mjs` warns when
-   A2 carries no card id or hash. *The claim is criterion-bound, and this rev. says so: it
-   holds when you require the path form and reverses when you accept a bare card id.*
-2. **Jobs: command + exit code.** Jobs' Reports describe the design and stop before the
-   machine-readable proof — the sharpest per-role contrast in the table (the slot Linus and
-   Turing carry in most of their Reports, Jobs carries in a small minority). Slot **J5/J4**
-   plus **A5** force the command + exit code.
-3. **Turing: the leak band is lowest here.** Verification reports list findings without a
-   verdict or a decision fork. Turing is the weakest role on pending decision, change
-   surface, not-pushed accounting and residuals (and, under the shape criterion, on A/B
-   before-after too). Slots **A1**, **A6** and the role slots carry them.
-4. **All roles: the "soft" slots are unstable** — change surface, residuals, A/B
-   comparison, pending decision. Their titles vary per Report, so acceptance has to guess
-   where to look. The anchor grammar in §0 fixes the handle, not the prose.
-5. **The empty-Report accident.** On the night of 2026-10-14, four cards reached
-   `in_review` with a **blank `## Report`** — the shape was not the problem, the absence
-   was. `check-report.mjs` hard-checks exactly that case (`in_review` ⇒ Report present,
-   non-empty, all eight slots); see §5 for the trigger surface, the effective cutoff, and
-   the exemption switch.
-6. **The proxy Report — the sharper half of that accident.** A Report that exists but was
-   written by **someone other than the deliverer** (a migration, or a proxy pick-up for a
-   dead session) carries no delivery evidence, yet it *looks* complete: all eight slots can
-   be filled and the card still has nothing in it to accept. That is why the origin is a
-   slot of its own (`§1 A0`) and why `import` can never clear an `in_review` card on its own.
-   **A0 is the one slot where saying nothing is the normal case** — which makes the
-   undeclared proxy Report the residual risk (§1 A0, §5).
-7. **The reused Report — the round gap.** When a card is sent back and re-delivered, the
-   previous round's Report may simply stay on the card and satisfy every slot. There is no
-   write-timestamp on a `## Report` section, so the only counter is A2's delivery
-   time/round declaration for sent-back cards — a hint, not a block (§5).
+1. **Card path** — the redline asks for it yet it is usually dropped; slot **A2** makes it
+   un-droppable (`check-report.mjs` warns when A2 carries no card id or hash). The claim is
+   criterion-bound: it holds when you require the `path` form and reverses when a bare card id
+   is accepted.
+2. **Jobs: command + exit code** — Jobs' Reports describe the design and stop before the
+   machine-readable proof (the sharpest per-role contrast: the slot Linus/Turing carry in most
+   of their Reports, Jobs carries in a small minority). Slots **J5/J4** + **A5** force it.
+3. **Turing: the leak band is lowest here** — verification reports list findings without a
+   verdict or a decision fork; Turing is weakest on pending decision, change surface,
+   not-pushed accounting and residuals (and, under the shape criterion, A/B before-after).
+   Slots **A1**, **A6** and the role slots carry them.
+4. **All roles: the "soft" slots are unstable** — change surface, residuals, A/B comparison,
+   pending decision (their titles vary, so acceptance guesses where to look; the §0 anchor
+   grammar fixes the handle, not the prose).
+5. **The empty-Report accident** — four cards reached `in_review` with a **blank `## Report`**
+   on 2026-10-14: the absence, not the shape, was the problem. `check-report.mjs` hard-checks
+   exactly that (`in_review` ⇒ Report present, non-empty, all eight slots; §5).
+6. **The proxy Report — the sharper half of that accident** — a Report written by **someone
+   other than the deliverer** carries no delivery evidence yet *looks* complete (all eight
+   slots filled, nothing to accept); hence the origin slot (`§1 A0`), and `import` never clears
+   an `in_review` card on its own. **A0 is the one slot where saying nothing is the normal
+   case** — which makes the undeclared proxy Report the residual risk (§1 A0, §5).
+7. **The reused Report — the round gap** — a sent-back card's previous round can stay on the
+   card and satisfy every slot; there is no write-timestamp on a `## Report` section, so the
+   only counter is A2's delivery time/round declaration for sent-back cards (a hint, not a
+   block; §5).
 
 ## 5. Effective date, grandfathering and the gate surface
 
@@ -427,13 +392,11 @@ In practice:
   `workspace/<id>/` (the artifact A5 points at), not on the card face.
 - A `truncated` marker on a stored Report is a **defect to report**, not a normal state.
 
-**The gate does not validate size or item counts — deliberately.** Three reasons:
-
-1. The bound is enforced **upstream, at write time**; the card face the gate reads is
-   already the post-bound artifact, so a size check here cannot fire on a well-formed card.
-2. `check-report.mjs` is a **read-only slot-presence check** by design (§0, §5); adding a
-   second, weaker copy of a provider rule would blur which layer owns the bound.
-3. A size limit at this layer would red on exactly what the bound exists to protect —
-   **legitimately long Reports**. The framework has already refused one such Report for
-   size (the report-volume guard misfiring on a 9.7× legitimate write,
-   `T-20261015-010749-3` §T6 **D8**); duplicating that failure mode at the gate is not a fix.
+**The gate does not validate size or item counts — deliberately.** The bound is enforced
+**upstream, at write time**, so the card face the gate reads is already the post-bound
+artifact (a size check here cannot fire on a well-formed card); `check-report.mjs` is a
+**read-only slot-presence check** by design (§0, §5), and a second, weaker copy of a provider
+rule would blur which layer owns the bound — worse, a size limit at this layer would red on
+exactly what the bound exists to protect, **legitimately long Reports** (the framework has
+already refused one such Report for size, the report-volume guard misfiring on a 9.7×
+legitimate write, `T-20261015-010749-3` §T6 **D8**).

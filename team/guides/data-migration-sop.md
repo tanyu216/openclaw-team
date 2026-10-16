@@ -14,6 +14,17 @@
 > ⚠️ The object of this SOP is **the discipline of data / DB / schema change** — the lifecycle of tables, columns, indexes, constraints, data backfills and migration scripts.
 > It is **not** a release / versioning SOP (tags, changelog, channels, release approval → `release-versioning-sop.md`, `PROTOCOL §㉑`), and **not** a runtime observability SOP.
 
+**File-level method (Responsibility / Landing point — every section below is under it)**: per-section wording is owned and landed as:
+
+| Section | Responsibility | Landing point |
+|---|---|---|
+| §1 Scope and boundary | wording maintained by **Linus** (engineering); L1 text integration belongs to **Elon** | project repository (migration files) + project CI + the team-level aggregator gate (`§⑳.1`) + human approval |
+| §2 Forward compatibility | the change plan is designed by the **implementer (Linus)** with the three-step breakdown written in the plan; **destructive cleanup (step ③) requires approver sign-off** (§7) | each step gets its **own migration file** (§3); the step ③ "no reader dependency" evidence goes into the card's progress record |
+| §5 Data validation | the validation script + idempotent implementation belong to the **implementer (Linus)**; the **validation assertions are independently re-checked by an independent verifier (Turing) at acceptance** (real business scenarios, aligned with `§⑥.1`) | the validation script goes into the project (called by CI); idempotency is enforced by the runner + bookmark table |
+| §6 Invariants and constraints | constraint/trigger design belongs to the **implementer (Linus)**; consistency is machine-checked by the **contract tests** | project CI (running the test suite); a new constraint must be committed together with its migration file (§3) |
+| §4 Rollback | rollback / forward-fix is **approved through the confirmation gate** (`§⑭`), with major changes escalating to the next authority; **execution belongs to Linus**; the trail is a confirmation-gate record (`kind=confirm`, `§⑭`) | the data dimension only (§4.1) |
+| §7 Approval and trail | the approval **decision** belongs to the confirmation-gate approver (`§⑭`); **execution belongs to Linus** | a confirmation-gate record (`task.comment kind=confirm`) — see §7.2 |
+
 | Dimension | This SOP (data/DB migration discipline) | Adjacent SOP (different object, not interchangeable) |
 |---|---|---|
 | **Object** | schema evolution and data backfill (migration) | release action and version numbers (`release-versioning-sop.md`) |
@@ -22,7 +33,7 @@
 
 - **vs `§⑥.1` (test-resource residue cleanup)**: different object — that clause governs leftover test runners / temp DBs / ports; this file governs the **production schema/data evolution**. They connect (after a migration runs, clean up temp DBs/connections) but do not replace each other.
 - **vs `§⑨.3` (container-form acceptance)**: if a migration or data validation runs in a container form ⇒ it must be **actually run inside the target form** (e.g. DB connectivity inside the container), never self-certified on the host process form.
-- **vs `§③` (shared-structure invariants)**: this file is the methodology for the **data side**; `§③` defines the mechanism boundary for **collaboration structures** (card frontmatter / scripts / project-registry schema maintained by the maintainer and implementers, which agents must not restructure). This file references that wording, never copies it.
+- **vs `§③` (shared-structure invariants)**: a **different object** — `§③` governs **collaboration structures**, this file the **product data plane** (see §3.3).
 
 ---
 
@@ -34,9 +45,7 @@
 | **Does not** | ① **backup / restore drills** (object is disaster recovery, not schema evolution); ② **capacity planning** (object is resource sizing); ③ **product observability** (logs/metrics/alerts/health — a separate observability SOP); ④ version numbers / tags / changelog (→ `release-versioning-sop.md`); ⑤ live incident response / on-call (→ `incident-response-sop.md`) |
 | **Handoffs** | migration scripts land in the project repository (§10); destructive/irreversible migrations are **pre-approved** through the confirmation gate (`§⑭`, see §7); runtime observation after a migration/rollback is handed to the observability path; a failed migration triggers the defect loop (`§⑨`) |
 
-- **Wording**: this file defines only "how a data/schema change is made safe, traceable and machine-checkable". Cross-role mechanisms (approval / gates registration) are always **referenced by their L1 numbers**, never copied (`§⑰` single source of truth).
-- **Responsibility**: wording is maintained by **Linus** (engineering); L1 text integration belongs to **Elon**.
-- **Landing points**: project repository (migration files) + project CI + the team-level aggregator gate (`§⑳.1`) + human approval.
+- **Wording**: this file defines only "how a data/schema change is made safe, traceable and machine-checkable". Cross-role mechanisms (approval / gates registration) are always **referenced by their L1 numbers**, never copied (`§⑰` single source of truth). (Responsibility / Landing point → the §0 file-level table.)
 
 ---
 
@@ -55,9 +64,6 @@
 - **"No reader dependency" criteria** (Contract precondition; evidence trail required): ① the whole repository has **no read reference** to the old column/table (code search + contract assertion); ② downstream / external consumers have confirmed the migration (where it is an external contract); ③ within the observation window, access to the old path is 0 (where measurable).
 - **Stepwise dual-write / dual-read**: readers switch via "dual-read → canary to new → stop old read"; writers switch via "dual-write → validate consistency → stop old write"; each step is independently reversible (see §4).
 - **Example**: widening a status enumeration ⇒ ① relax the `CHECK` / add a nullable column and dual-write; ② backfill historical rows; ③ once no reader depends on it, tighten the constraint and drop the old column.
-
-- **Responsibility**: the change plan is designed by the **implementer (Linus)** with the three-step breakdown written in the plan; **destructive cleanup (step ③) requires approver sign-off** (§7).
-- **Landing point**: each step gets its **own migration file** (§3); the step ③ "no reader dependency" evidence goes into the card's progress record.
 
 ### 2.2 Destructive-Change Blacklist (never ship in a single step)
 
@@ -129,7 +135,6 @@ A representative implementation of this discipline:
 | A migration is **already applied** but a bug is found | **forward-fix** (a corrective new migration) | applied migrations are append-only (§3) |
 | Cause **not yet located** | **stop the bleeding first** (switch back / stop the new write path), then locate | do not chain forward changes before the cause is known |
 
-- **Responsibility**: the **decision** to roll back / forward-fix is **approved through the confirmation gate** (`§⑭`), with major changes escalating to the next authority; **execution belongs to Linus**; the trail is a confirmation-gate record (`kind=confirm`, `§⑭`).
 - **After rollback**: a "root-cause + regression" card must be opened (aligned with the defect loop, `§⑨`), and the change record must be annotated `Fixed`/`Removed`.
 - **To be decided**: the production "switch back to the old code" deployment/traffic-switch mechanism depends on each project's deployment form and is out of this SOP's scope.
 
@@ -159,9 +164,6 @@ A representative implementation of this discipline:
 - **Means**: ① a version bookmark table decides "already applied?"; ② statements use idempotent forms such as `IF NOT EXISTS` / `INSERT ... ON CONFLICT DO NOTHING`; ③ backfill statements carry `WHERE new_col IS NULL` (backfill only unbackfilled rows).
 - **Why idempotent**: CI reruns, retries after failure, and multi-environment replays ⇒ a non-idempotent migration causes duplicate data or a failed re-create.
 
-- **Responsibility**: the validation script + idempotent implementation belong to the **implementer (Linus)**; the **validation assertions are independently re-checked by an independent verifier (Turing) at acceptance** (real business scenarios, aligned with `§⑥.1`).
-- **Landing point**: the validation script goes into the project (called by CI); idempotency is enforced by the runner + bookmark table.
-
 ---
 
 ## 6. Invariants and Constraints (Machine-Check Gate)
@@ -187,9 +189,6 @@ A representative implementation of this discipline:
 - A contract test **exercises both** "the DB-trigger path" and "the service-layer validation path"; if the two drift ⇒ red (ensuring the machine-checked invariant and the business message share one source).
 - A parity contract test **diffs both ways**: the tables the migration `.sql` actually creates ↔ the code's declared table manifest.
 
-- **Responsibility**: constraint/trigger design belongs to the **implementer (Linus)**; consistency is machine-checked by the **contract tests**.
-- **Landing point**: project CI (running the test suite); a new constraint must be committed together with its migration file (§3).
-
 ---
 
 ## 7. Approval and Trail
@@ -205,7 +204,6 @@ A representative implementation of this discipline:
 | **Destructive / irreversible** (`DROP` / column deletion / type change / data deletion) | **Yes** | **the confirmation-gate approver (`§⑭`)** |
 
 - **Default (until a further ruling)**: **production migrations** (including any destructive change) go through the confirmation gate (`§⑭`); **major changes** (irreversible / cross-repo / touching core data) escalate to the next authority. (The exact escalation path is **to be decided**.)
-- **Responsibility**: the approval **decision** belongs to the confirmation-gate approver (`§⑭`); **execution belongs to Linus**.
 
 ### 7.2 Trail Carrier
 
@@ -283,13 +281,3 @@ A representative implementation of this discipline:
 - A directory that is **excluded from git** (a locally scoped root, a vault root, or similar) **must not** host migration files and rely on version management; verify where the real migration files land first.
 - In a multi-repo layout, decide **which repository** the migration files belong to before starting: if each sub-project builds its own DB, give each its own `migrations/` directory; if a schema change also touches shared design/interface wording, sync those docs (`§⑫`).
 - **Recommendation** (pending confirmation): land migration files in the repository of the sub-project that implements the DB, and reuse the discipline of §3 / §5 / §6.
-
----
-
-## 11. Related Clauses
-
-- The L1 clause this SOP details → `PROTOCOL §㉔` (data/DB migration discipline).
-- Shared-structure invariants (a different object from the product DB) → `PROTOCOL §③`; git discipline → `PROTOCOL §⑥`; engineering quality standards → `PROTOCOL §⑥.1`.
-- Defect loop → `PROTOCOL §⑨`; container-form acceptance → `PROTOCOL §⑨.3`.
-- Two-way document sync → `PROTOCOL §⑫`; confirmation gate → `PROTOCOL §⑭`; doc layering / no verbatim copying → `PROTOCOL §⑰`; machine-checkable gates → `PROTOCOL §⑳.1`; release & versioning (a migration is a sub-step of a release) → `PROTOCOL §㉑`.
-- Sibling guides: `release-versioning-sop.md`, `incident-response-sop.md`, `api-compat-sop.md`, `ci-release-sop.md`.

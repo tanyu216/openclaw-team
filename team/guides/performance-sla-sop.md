@@ -21,17 +21,22 @@
 | **Output** | Thresholds, baseline file, acceptance criteria | Collection definitions, the five actionable elements of alerts | Incident ticket, post-mortem, action items |
 | **Linkage** | Metric **naming and units reference `PROTOCOL §㉒`** (does not copy it); thresholds are the **input** to that guide's alert thresholds | Alert fires → incident response | Post-mortem action items **backfill** this baseline |
 
-**Unified method (used throughout this file)**: every baseline must answer three questions — **Definition** (how the metric is defined, what the threshold is, what the pass criteria are), **Responsibility** (who maintains it, who adjudicates it, who accepts it), **Landing point** (which concrete target it lands on: CI / check-all / hook / human). The tables below carry these three columns.
+**Unified method (file-level; every section below is under it)**: every baseline answers three questions — **Definition** (how the metric is defined, threshold, pass criteria — carried inline in each section), **Responsibility** (who maintains / adjudicates / accepts), **Landing point** (which concrete target it lands on: CI / check-all / hook / human). Responsibility and Landing point are consolidated here and not restated per section:
+
+| Section | Responsibility | Landing point |
+|---|---|---|
+| §1 Scope | Linus (definitions and engineering landing points); Elon (threshold/numeric adjudication and integration into L1) | **CI** (benchmark script + threshold assertion) / **check-all** (baseline file present/format) / **human** (path selection, numeric adjudication, regression adjudication) |
+| §2 Critical path | Linus proposes the candidate list; Elon / the product owner adjudicates "which count as critical" | the list lands in the baseline file (the `paths[]` of §6 `perf-baseline.json`); list changes go through the confirmation gate |
+| §3 Metric definitions | metric definitions maintained by Linus; numeric thresholds adjudicated by Elon / the project decision (see §9.3) | CI (benchmark-script output + optional naming lint) / human (threshold adjudication) |
+| §4 SLA vs SLO | the SLO is proposed by Linus and adjudicated by Elon; the **external SLA commitment is decided by the operator** (the external-facing owner) | human (numeric adjudication, confirmation gate); SLI collection belongs to `PROTOCOL §㉒` |
+| §5 Performance acceptance | Linus produces the test and the evidence; Turing verifies the test's authenticity and scenario fidelity (`PROTOCOL §⑥.1`); Elon gives final sign-off | CI (benchmark script + threshold assertion) / human (acceptance adjudication) |
+| §6 Baseline management | Linus maintains the baseline file; Elon adjudicates "whether a degradation is acceptable" (a human judgement, §7) | the file is committed (product repo); check-all validates presence/format; CI does the threshold assertion |
 
 ---
 
 ## 1. Scope and Boundaries
 
-**Definition / Responsibility / Landing point**
-
-| Definition | Responsibility | Landing point |
-|---|---|---|
-| Define critical-path performance metrics, SLA/SLO baseline, the performance-acceptance process and its landing points | Linus (definitions and engineering landing points); Elon (threshold/numeric adjudication and integration into L1) | **CI** (benchmark script + threshold assertion) / **check-all** (baseline file present/format) / **human** (path selection, numeric adjudication, regression adjudication) |
+**Definition**: define critical-path performance metrics, SLA/SLO baseline, the performance-acceptance process and its landing points (Responsibility / Landing point → the §0 table).
 
 | Item | Content |
 |---|---|
@@ -45,10 +50,7 @@
 
 ## 2. Critical-Path Identification
 
-**Definition**: a critical path = a **critical user main path** (the minimal end-to-end call sequence a user must traverse to complete the core business). Path identification reuses the **end-to-end critical path** definition of `PROTOCOL §⑨.3` (e.g. "login ⇒ obtain token ⇒ access a protected endpoint"), because that clause already makes the "real user main path" a mandatory verification object of container-form acceptance; **this SOP uses it as the main-path baseline** and does not invent a second one.
-
-**Responsibility**: Linus proposes the candidate list; Elon / the product owner adjudicates "which count as critical".
-**Landing point**: the list lands in the baseline file (the `paths[]` of §6 `perf-baseline.json`); list changes go through the confirmation gate.
+**Definition**: a critical path = a **critical user main path** (the minimal end-to-end call sequence a user must traverse to complete the core business). Path identification reuses the **end-to-end critical path** definition of `PROTOCOL §⑨.3` (e.g. "login ⇒ obtain token ⇒ access a protected endpoint"), because that clause already makes the "real user main path" a mandatory verification object of container-form acceptance; **this SOP uses it as the main-path baseline** and does not invent a second one. (Responsibility / Landing point → §0.)
 
 ### 2.1 Generic shape of a critical path (template)
 
@@ -71,18 +73,11 @@ Every critical path registers **at least** the following six items in the baseli
 5. **Concurrency / queue depth**: concurrency tiers and backpressure ceiling;
 6. **Sample definition**: dataset, concurrency tier, warm-up and sampling window (§5.2).
 
-### 2.3 Open question
-
-> The per-project critical-path list is **to be decided**.
-> **Recommended**: start with the **end-to-end main path** listed under `PROTOCOL §⑨.3` (login ⇒ obtain token ⇒ access protected endpoint) as the **minimum mandatory path**; each workload profile (§8) adds one **read path**, one **write path** and one **read-back path**. The list is adjudicated by Elon and backfilled into §2 and the baseline file's `paths[]`.
-
 ---
 
 ## 3. Metric Definitions (hard requirements)
 
-**Definition**: **the naming and unit convention is identical to `PROTOCOL §㉒` (runtime observability, which owns it)** — `<service>_<subsystem>_<metric>_<unit>` (time `_seconds`, size `_bytes`, count `_total`). This file **references that clause, it does not copy the wording**. Details of collection are in `runtime-observability-sop.md`.
-**Responsibility**: metric definitions maintained by Linus; numeric thresholds adjudicated by Elon / the project decision (see §4.3).
-**Landing point**: CI (benchmark-script output + optional naming lint) / human (threshold adjudication).
+**Definition**: **the naming and unit convention is identical to `PROTOCOL §㉒` (runtime observability, which owns it)** — `<service>_<subsystem>_<metric>_<unit>` (time `_seconds`, size `_bytes`, count `_total`). This file **references that clause, it does not copy the wording**. Details of collection are in `runtime-observability-sop.md`. (Responsibility / Landing point → §0.)
 
 ### 3.1 Latency — **percentiles, not averages**
 
@@ -123,18 +118,11 @@ Every critical path registers **at least** the following six items in the baseli
 | Concurrency tier | Load-test concurrent users / connections (acceptance must state "at X concurrency") |
 | Queue depth | Pending tasks / message backlog (backpressure warning; links to `runtime-observability-sop.md`) |
 
-### 3.6 Open question
-
-> The thresholds and the concrete p95/p99 numbers for latency / throughput / error rate per path are **to be decided** (Elon / project decision).
-> **Recommended defaults** (an adjudication starting point, not final values): latency per the §3.1 table; error rate **5xx ≤ 0.1%**, **business failure ≤ 1%**; saturation **CPU/mem ≤ 80%**, **connection-pool wait = 0**; queue depth **backlog does not grow monotonically with load duration** (steady-state criterion).
-
 ---
 
 ## 4. SLA vs SLO Definitions
 
-**Definition**: the three must be distinguished and never conflated; an **SLI** is the measured value, an **SLO** is the internal target, an **SLA** is the external commitment.
-**Responsibility**: the SLO is proposed by Linus and adjudicated by Elon; the **external SLA commitment is decided by the operator (the external-facing owner)** because it is an external contract.
-**Landing point**: human (numeric adjudication, confirmation gate); SLI collection belongs to `PROTOCOL §㉒` (runtime observability).
+**Definition**: the three must be distinguished and never conflated; an **SLI** is the measured value, an **SLO** is the internal target, an **SLA** is the external commitment. (Responsibility / Landing point → §0.)
 
 ### 4.1 The three distinguished (★ write this out)
 
@@ -163,18 +151,11 @@ Every critical path registers **at least** the following six items in the baseli
 - **Use**: ① an **exhausted error budget ⇒ freeze non-essential releases** and prioritise stability fixes (links to the release channels of `release-versioning-sop.md`); ② it is the quantitative source of the "availability-class criteria" in §5 acceptance.
 - **Landing point**: budget **observation** belongs to `PROTOCOL §㉒` (runtime observability); the **release-freeze action** after exhaustion belongs to `release-versioning-sop.md`.
 
-### 4.3 Open question
-
-> The per-project SLA / SLO numbers are **to be decided** (Elon / project decision).
-> **Recommended defaults** (adjudication starting point): **availability SLO = 99.9% (30d)**; latency SLO uses the p95 thresholds (§3.1); error-rate SLO **5xx ≤ 0.1%**. **No SLA is preset** — the external commitment must be decided by the operator (an external-contract escalation).
-
 ---
 
 ## 5. Performance Acceptance (hard requirements)
 
-**Definition**: performance is an **acceptable item** and must close the loop on four questions — **when / how / pass criteria / environment**.
-**Responsibility**: Linus produces the test and the evidence; Turing verifies the test's authenticity and scenario fidelity (`PROTOCOL §⑥.1`); Elon gives final sign-off.
-**Landing point**: CI (benchmark script + threshold assertion) / human (acceptance adjudication).
+**Definition**: performance is an **acceptable item** and must close the loop on four questions — **when / how / pass criteria / environment**. (Responsibility / Landing point → §0.)
 
 ### 5.1 When to test (triggers)
 
@@ -237,9 +218,7 @@ Every critical path registers **at least** the following six items in the baseli
 
 ## 6. Baseline Management and Regression
 
-**Definition**: the baseline is a **versionable set of numbers**, landed in a file, comparable and traceable; regression is judged as degradation relative to the baseline.
-**Responsibility**: Linus maintains the baseline file; Elon adjudicates "whether a degradation is acceptable" (a human judgement, §7).
-**Landing point**: the file is committed (product repo); check-all validates presence/format; CI does the threshold assertion.
+**Definition**: the baseline is a **versionable set of numbers**, landed in a file, comparable and traceable; regression is judged as degradation relative to the baseline. (Responsibility / Landing point → §0.)
 
 ### 6.1 Baseline file (`perf-baseline.json`)
 
@@ -281,11 +260,6 @@ Every critical path registers **at least** the following six items in the baseli
 - **Same-definition comparison is mandatory**: same dataset / same concurrency tier / same environment form; if the definitions differ, the comparison conclusion is **invalid** and must be re-run (to stop "environment difference" masquerading as "performance degradation", or vice versa).
 - **Relative vs absolute**: first pass the §5.3 **absolute criteria** (does it meet thresholds), then pass this section's **relative criteria** (did it degrade); **both must pass** to pass.
 
-### 6.3 Open question
-
-> The degradation thresholds (the X in "degrade > X% = fail" per dimension) are **to be decided**.
-> **Recommended**: latency p95 **20%**, p99 **30%**; throughput **15%**; error rate as above; saturation **20%** escalated to human. Once adjudicated by Elon these are backfilled into this table and used as CI assertion parameters.
-
 ---
 
 ## 7. Machine-checkable vs Human Judgement (master table)
@@ -302,11 +276,11 @@ Every critical path registers **at least** the following six items in the baseli
 | Baseline file unit convention | **check-all**: `_seconds`/`_bytes`/`_total` naming lint | — |
 | Regression comparison | **CI**: degradation vs baseline > X% = fail | **the adjudication of whether a degradation is acceptable** (Elon) |
 | Critical-path list selection | — | **Linus nominates + Elon adjudicates** (§2) |
-| SLA / SLO numeric adjudication | — | **Elon (SLO) / the operator (external SLA)** (§4.3) |
+| SLA / SLO numeric adjudication | — | **Elon (SLO) / the operator (external SLA)** (§9.3) |
 | External SLA commitment | — | **decided by the operator** (external contract) |
 | Environment form authenticity (container/orchestration) | **check-all**: declared-form consistency lint (partially machine-checkable) | final sign-off "the target form has actually been run" (Elon, `PROTOCOL §⑨.3`) |
 | Dataset / concurrency-tier reasonableness | — | **Turing** (test-scenario authenticity, `PROTOCOL §⑥.1`) |
-| Degradation threshold value (X%) | — | **adjudicated by Elon** (§6.3) |
+| Degradation threshold value (X%) | — | **adjudicated by Elon** (§9.4) |
 
 ---
 
@@ -316,26 +290,16 @@ Not every deliverable is a long-running request/response service. The metric fra
 
 | Profile | Applicability | Landing point (CI / check-all / hook / human) | Notes |
 |---|---|---|---|
-| **Long-running service** | A resident service / API exposing endpoints | **CI**: run the benchmark script + threshold assertion inside the container form; **check-all**: `perf-baseline.json` validation; **human**: threshold adjudication | The container-form acceptance basis (if the project already has one) is reused directly so a separate environment is not built |
-| **Non-resident / batch runner** | A single-run job (e.g. a backtest, a batch pipeline, a strategy runner) that is **not** a resident service | **human + check-all**: the performance definition is the **single run** — duration, resource use, output verification | Do **not** apply the "QPS / p95" web definition; the metric definition switches to **run duration** (p50/p95/p99 across multiple runs), **peak memory** (`_bytes`), and **batch throughput** (units processed per second, e.g. backtest-years/second); the runner's generated artifacts are not versioned |
-
-**Per-profile notes**:
-
-- **Long-running service**: the critical path follows the "login ⇒ obtain token ⇒ access protected read" template (§2.1) as the minimum mandatory path. If the project already has a container-form acceptance basis, performance acceptance runs directly in that form (satisfying `PROTOCOL §⑨.3`); CI workflows can attach the benchmark script + threshold assertion — this is the **most mature landing point**.
-- **Non-resident / batch runner**: because it is **non-resident**, the metric definition switches to the "**single run**" dimension: run-duration percentiles (p50/p95/p99 across multiple runs), peak memory (`_bytes`), and batch throughput. The specific benchmark and metric definitions are **to be decided** by the project.
+| **Long-running service** | A resident service / API exposing endpoints | **CI**: run the benchmark script + threshold assertion inside the container form; **check-all**: `perf-baseline.json` validation; **human**: threshold adjudication | The critical path follows the §2.1 template as the minimum mandatory path; if the project already has a container-form acceptance basis, performance acceptance runs directly in that form (satisfying `PROTOCOL §⑨.3`), so a separate environment is not built — the **most mature landing point** |
+| **Non-resident / batch runner** | A single-run job (e.g. a backtest, a batch pipeline, a strategy runner) that is **not** a resident service | **human + check-all**: the performance definition is the **single run** — duration, resource use, output verification | Do **not** apply the "QPS / p95" web definition; the metric definition switches to **run duration** (p50/p95/p99 across multiple runs), **peak memory** (`_bytes`), and **batch throughput** (units processed per second, e.g. backtest-years/second); the specific benchmark and metric definitions are **to be decided** by the project; the runner's generated artifacts are not versioned |
 
 ---
 
-## 9. Related Clauses
+## 9. Open Questions (unresolved — not yet L1)
 
-- Engineering quality standards (evidence discipline, test authenticity, reference convention) → `PROTOCOL §⑥.1`.
-- Container-form acceptance (the source of this SOP's critical-path and real-form acceptance definitions) → `PROTOCOL §⑨.3`.
-- Two-way document sync (backfill after acceptance) → `PROTOCOL §⑫`.
-- SLA / timeout — **different object** (team-collaboration wait times, not product performance), must be explicitly distinguished → `PROTOCOL §⑮`.
-- Document layering / no verbatim copying → `PROTOCOL §⑰`.
-- Machine-checkable gates → `PROTOCOL §⑳.1`; non-machine-checkable routed to human → `PROTOCOL §⑳.2`.
-- Release & versioning (pre-release checklist mount point; error-budget release freeze) → `PROTOCOL §㉑`, `release-versioning-sop.md`.
-- Runtime observability (owns metric naming and units; consumes this SOP's thresholds as alert inputs; observes the error budget) → `PROTOCOL §㉒`, `runtime-observability-sop.md`.
-- Performance / SLA baseline — the L1 clause this SOP details → `PROTOCOL §㉗`.
-- Incident response (this SOP does not define incident grading; post-mortem action items backfill this baseline) → `incident-response-sop.md`.
-- CI gate / release execution detail → `ci-release-sop.md`.
+Each item is **to be decided** (Elon / project decision); until adjudicated it stays open and is backfilled into the named section (and the baseline file / CI assertion parameters). Origin section numbers are kept for traceability.
+
+1. **(ex §2.3) Per-project critical-path list** — **to be decided**. **Recommended**: start with the **end-to-end main path** listed under `PROTOCOL §⑨.3` (login ⇒ obtain token ⇒ access protected endpoint) as the **minimum mandatory path**; each workload profile (§8) adds one **read path**, one **write path** and one **read-back path**. The list is adjudicated by Elon and backfilled into §2 and the baseline file's `paths[]`.
+2. **(ex §3.6) Thresholds / p95·p99 numbers per path** (latency / throughput / error rate) — **to be decided**. **Recommended defaults** (an adjudication starting point, not final values): latency per the §3.1 table; error rate **5xx ≤ 0.1%**, **business failure ≤ 1%**; saturation **CPU/mem ≤ 80%**, **connection-pool wait = 0**; queue depth **backlog does not grow monotonically with load duration** (steady-state criterion).
+3. **(ex §4.3) Per-project SLA / SLO numbers** — **to be decided**. **Recommended defaults**: **availability SLO = 99.9% (30d)**; latency SLO uses the p95 thresholds (§3.1); error-rate SLO **5xx ≤ 0.1%**. **No SLA is preset** — the external commitment must be decided by the operator (an external-contract escalation).
+4. **(ex §6.3) Degradation thresholds** (the X in "degrade > X% = fail" per dimension) — **to be decided**. **Recommended**: latency p95 **20%**, p99 **30%**; throughput **15%**; error rate as above; saturation **20%** escalated to human. Once adjudicated by Elon these are backfilled into the §6.2 table and used as CI assertion parameters.
