@@ -36,7 +36,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { TASKS_DIR, CARD_ID_RE, TEAM_ROOT, parseFrontmatter, getProject } from './lib.mjs';
+import { TASKS_DIR, TEAM_ROOT, parseFrontmatter, getProject } from './lib.mjs';
 import { resolveWriteSet } from './samefile-guard.mjs';
 import { isNonTerminal } from './status.mjs';
 import { laneWorktree, branchHead, revParse, defaultBase } from './lane-worktree.mjs';
@@ -53,7 +53,9 @@ export function isolationEnabled(value = process.env[ISOLATION_ENV]) {
 /**
  * 该 lane 的 worktree 名（**确定性** ⇒ 幂等复用、可人工清理）。
  * `lane = <card>-<seg>`（`seg` 非法字符折成 `-`），如 `T-20261012-022948-2-seg1`。
- * 卡 id 已过 `CARD_ID_RE`（路径安全）；顺手净化 seg 以兜住异常 seg 名（如含 `/` 的旧式 seg）。
+ * 卡 id 的路径安全由调用方的解析入口保证（`lib.mjs#cardPathOf` 的显式 containment ——
+ * 「id 是单一路径段」这条**安全性质**，与命名规则无关）；本函数顺手净化 seg 以兜住异常 seg 名
+ * （如含 `/` 的旧式 seg）。
  */
 export function laneNameFor(taskId, seg) {
   const s = String(seg == null ? '' : seg).replace(/[^A-Za-z0-9._-]/g, '-').replace(/^[.-]+/, '');
@@ -249,16 +251,19 @@ export function scanNonTerminal(exclude = '') {
   const out = [];
   if (!fs.existsSync(TASKS_DIR)) return out;
   for (const f of fs.readdirSync(TASKS_DIR)) {
-    if (!f.endsWith('.md') || !CARD_ID_RE.test(f.slice(0, -3))) continue;
-    const id = f.slice(0, -3);
-    if (id === exclude) continue;
+    if (!f.endsWith('.md') || f.startsWith('.')) continue;   // 结构性识别（见 card-ids.mjs）
     let fm;
     try {
       fm = parseFrontmatter(fs.readFileSync(path.join(TASKS_DIR, f), 'utf8')).fm;
     } catch {
       continue;
     }
-    if (!fm || !fm.id || !isNonTerminal(fm.status)) continue;
+    if (!fm || !fm.id) continue;
+    // 身份以 frontmatter `id` 为准（文件名只是承载形态；历史卡有带 slug 的文件名，
+    // 其 `id` 不含 slug）—— 与 card-ids.mjs / check-relations 同一口径。
+    const id = fm.id;
+    if (id === exclude) continue;
+    if (!isNonTerminal(fm.status)) continue;
     out.push({ id, status: String(fm.status), fm, writes: resolveWriteSet(fm) });
   }
   return out;

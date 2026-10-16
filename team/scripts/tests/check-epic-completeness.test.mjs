@@ -57,7 +57,8 @@ const absolutizeImports = (src) => src.replace(/from '(\.\/[^']+)'/g, (_m, rel) 
 const TMP = [];
 after(() => { for (const r of TMP) fs.rmSync(r, { recursive: true, force: true }); });
 
-// 合法卡 id（CARD_ID_RE = T-YYYYMMDD-HHMMSS + 可选段）：台账「卡列」只认真实 id
+// 卡 id 形状归 task provider（本仓不再定义）；这里用 T- 形态只是「当前基座的样例数据」，
+// 门禁的判据是「像某个**看板派生**命名空间下的 id」，不是形状。
 const EPIC = 'T-20261012-171026';
 const C1 = 'T-20261012-171026-2';
 const C2 = 'T-20261012-171026-3';
@@ -143,10 +144,17 @@ test('parseLedgerTables：识别「阶段+卡」台账；卡列可缺；无阶�
   assert.equal(mod.parseLedgerTables('| 阶段 | 卡 |\n| a | b |').length, 0, '缺分隔行不成表');
 });
 
-test('extractCardIds：从散文/多 id 单元抽合法 id（去重、保序）；非 id 返回空', () => {
-  assert.deepEqual(mod.extractCardIds(`| ${C1} 与 ${C2} |`), [C1, C2]);
-  assert.deepEqual(mod.extractCardIds('（Elon 运维步骤）'), []);
-  assert.deepEqual(mod.extractCardIds(`${C1} / ${C1}`), [C1]);
+test('extractCardIds：从散文/多 id 单元抽卡引用（去重、保序）；非卡返回空', () => {
+  // 判据不再是「命名形状」而是「像某个**看板派生**命名空间下的 id」⇒ 命名空间由调用方注入。
+  const ns = new Set(['T-']);
+  const sel = (t) => mod.extractCardIds(t, { namespaces: ns });
+  assert.deepEqual(sel(`| ${C1} 与 ${C2} |`), [C1, C2]);
+  assert.deepEqual(sel('（Elon 运维步骤）'), []);
+  assert.deepEqual(sel(`${C1} / ${C1}`), [C1]);
+  // 看板上不存在的卡（合法形态）仍须被识别 —— 否则 `ledger_dangling` 无从判起
+  assert.deepEqual(sel(`| ${GHOST} |`), [GHOST]);
+  // 不在本看板命名空间里的 token 不算卡
+  assert.deepEqual(sel('not-a-card'), []);
 });
 
 test('hasExplicitReason：空/占位符 ⇒ false；写清理由 ⇒ true', () => {

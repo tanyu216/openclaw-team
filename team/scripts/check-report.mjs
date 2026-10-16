@@ -166,6 +166,17 @@ const SHA_LOWER = /\b[0-9a-f]{7,40}\b/;
 const SHA_UPPER40 = /\b[0-9A-F]{40}\b/;
 const NO_COMMIT_VALUE = /^(?:none\b|n\/?a\b|—|-|无|no commit\b)/i;
 const NO_COMMIT_PHRASE = /\bno commit\b|无提交|未提交/i;
+
+/**
+ * ⚠️ **provider 作用域（有意保留，非疏漏）**：卡 id 的**形状**归 task provider，本仓不再定义它
+ * （`card-ids.mjs`）。但这两处用的是**启发式**，不是有效性判据：
+ *   · `CARD_REF_IN_TEXT_RE` —— A2 是否「提到了卡」的**提示级**判据（只产生 hint，永不置红）；
+ *   · `CARD_ID_DATE_RE` —— 抹掉卡引用里的 8 位日期，免得它被当成小写 hex sha 而**误判「有 commit」**。
+ * 两者都在**当前基座**的 id 形态上工作。精确解 = provider 侧声明卡 id 形态（另开卡）；
+ * 在那之前，这里如实标注作用域，而不是把形态伪装成通用规则。
+ */
+const CARD_REF_IN_TEXT_RE = /[A-Za-z]+-\d{8}-\d{6}/;
+const CARD_ID_DATE_RE = /[A-Za-z]+-\d{8}-\d{6}[^\s·|,，;；]*/g;
 function commitField(seg) {
   const m = /(?:^|[\s·|;；])(?:commit|提交)\s*[:：]\s*([^\n·|;；]*)/i.exec(seg);
   return m ? m[1].trim() : null;                       // null = 字段不在；'' = 字段在但空
@@ -177,7 +188,7 @@ export function commitCoordinate(seg) {
     if (SHA_LOWER.test(field) || SHA_UPPER40.test(field) || NO_COMMIT_VALUE.test(field)) return { ok: true };
     return { ok: false, reason: field ? `commit 字段值不是合法 sha：\`${field}\`` : 'commit 字段为空' };
   }
-  const scrubbed = String(seg).replace(/T-\d{8}-\d{6}[^\s·|,，;；]*/g, ' ');
+  const scrubbed = String(seg).replace(CARD_ID_DATE_RE, ' ');
   if (SHA_LOWER.test(scrubbed) || SHA_UPPER40.test(scrubbed) || NO_COMMIT_PHRASE.test(scrubbed)) return { ok: true };
   return { ok: false, reason: 'A2 里既无小写 hex sha（7–40 位）也无显式无提交声明' };
 }
@@ -327,7 +338,7 @@ export function contentHints(body) {
   const a2 = /(^|\n)[ \t]*(?:[-*+][ \t]+)?(?:\*\*)?A2(?![0-9])[\s\S]*?(?=\n[ \t]*(?:[-*+][ \t]+)?(?:\*\*)?A[0-9]|\n#{1,6}\s|$)/.exec(body);
   if (a2) {
     const seg = a2[0];
-    if (!/T-\d{8}-\d{6}/.test(seg)) hints.push({ slot: 'A2', hint: '未含卡路径（`tasks/T-YYYYMMDD-HHMMSS….md`）——实测全岗最缺槽位（口径相关：guide §4 只给相对结论，不引百分比；取数 scripts/report-census.mjs）' });
+    if (!CARD_REF_IN_TEXT_RE.test(seg)) hints.push({ slot: 'A2', hint: '未含卡引用（卡 id 或卡路径）——实测全岗最缺槽位（口径相关：guide §4 只给相对结论，不引百分比；取数 scripts/report-census.mjs）' });
     const cc = commitCoordinate(seg);                      // D3
     if (!cc.ok) {
       hints.push({ slot: 'A2', hint: `未提交坐标：${cc.reason} —— 规则＝**7–40 位小写 hex**（大写 40 位 sha-1 真值亦可），或 \`commit: none\` 式**显式声明无提交**` });
