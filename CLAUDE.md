@@ -54,8 +54,15 @@ repository, so treat them as source, not as host configuration.
 ./install.sh --keep-existing       # never overwrite (skip instead of upgrade)
 ./install.sh --force               # overwrite managed content
 
-# Framework tests — green bare; suites that need the task-ops provider skip themselves.
-# To run them for real, point OPENCLAW_TASK_OPS_DIR at a checkout containing lib/.
+# Framework tests — 0 failures bare, but ~75% of the suite SKIPS without the provider.
+# Suites that need the task-ops provider self-skip (they do not fail). To actually run them,
+# point OPENCLAW_TASK_OPS_DIR at a checkout containing lib/ — that is the mode the deployed
+# instance runs (`check-all.sh --segment slow`).
+#   bare            : 781 tests · 199 pass · 0 fail · 582 skip
+#   + provider      : 781 tests · 777 pass · 0 fail ·   4 skip
+# NOT covered by CI: CI runs `docker/verify-in-container.sh`, which runs only
+# `check-all.sh --segment fast`; this suite lives in the SLOW segment. A green CI run
+# therefore says nothing about it.
 node --test team/scripts/tests/*.test.mjs
 node --test team/scripts/tests/claim-guard.test.mjs        # a single suite
 
@@ -92,6 +99,11 @@ node team/scripts/lane-worktree.mjs <repo> <lane> --remove    # refuses a dirty 
 CI (`.github/workflows/verify.yml`) runs exactly `docker/verify-in-container.sh`,
 which is the single source of truth — a green local `docker/verify.sh` and a
 green CI run mean the same thing.
+**Scope of that parity:** it covers the installer, the skills pipeline and
+`check-all.sh --segment fast` (the gate). It does **not** cover `team/scripts/tests/`
+(those live in the gate's *slow* segment and are never invoked from CI), and the
+container has no task-ops provider, so it could not run most of them anyway.
+A green CI run is not evidence about that suite.
 
 ## Architecture
 
