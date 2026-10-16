@@ -20,7 +20,10 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { DEFAULT_DAYS, isExpired, defaultRoots, collectPlan, gc } from '../tmp-gc.mjs';
+import {
+  DEFAULT_DAYS, isExpired, defaultRoots, collectPlan, gc, runEntry, runSweep,
+  stateDir, readFailure, acquireLock, releaseLock, LOCK_NAME, FAIL_NAME, STATE_FILES,
+} from '../tmp-gc.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CLI = path.join(HERE, '..', 'tmp-gc.mjs');
@@ -52,9 +55,10 @@ function put(p, days, bytes = 1000) {
   return p;
 }
 
-/** 独立进程跑真实 CLI；返回 stdout（默认 --json） */
-function runCli(home, args = ['--days', '14', '--json']) {
-  return execFileSync('node', [CLI, ...args], {
+/** 独立进程跑真实 CLI。默认 --sweep（真正干活）；mode='entry' 跑调度入口那一侧。 */
+function runCli(home, args = ['--days', '14', '--json'], mode = 'sweep') {
+  const argv = mode === 'sweep' ? ['--sweep', ...args] : args;
+  return execFileSync('node', [CLI, ...argv], {
     env: { ...process.env, OPENCLAW_HOME: home },
     encoding: 'utf8',
   });
@@ -235,6 +239,145 @@ test('--dry-run 真只读：不删、不改 mtime，且计数与真跑一致', (
   const real = lastJson(runCli(home, ['--days', '14', '--json']));
   assert.equal(real.deleted, dry.deleted);
   assert.equal(fs.existsSync(f), false);
+});
+
+// ── 分离式清扫：入口 / 单飞锁 / 失败标记 ─────────────────────────────────────────────
+// 清扫比一次触发评估的预算大（实测 32 万文件 ≈ 10 s vs 7.5 s 预算），故入口只做
+// 「读上次判定 + 派活」，遍历 detached 跑完。
+
+test('入口模式毫秒级返回：不自己遍历，只派活（spawn 注入，不起真进程）', () => {
+  const home = mkHome();
+  const tmp = mkWorkspaceTmp(home);
+  put(path.join(tmp, 'old'), 30);
+  const calls = [];
+  const fakeSpawn = (cmd, args, opts) => { calls.push({ cmd, args, opts }); return { unref() {} }; };
+
+  const t0 = Date.now();
+  const env = runEntry({ openclawHome: home, days: 14, roots: [], deadlineMs: 6000 }, fakeSpawn);
+  const ms = Date.now() - t0;
+
+  assert.equal(env.fire, false, '没有失败标记 ⇒ 静默');
+  assert.equal(env.state.spawned, true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].args[0], fs.realpathSync(CLI), 'detached 子进程就是本脚本');
+  assert.ok(calls[0].args.includes('--sweep'), '子进程跑 --sweep');
+  assert.ok(calls[0].args.includes('--openclaw-home') && calls[0].args.includes(home));
+  assert.equal(calls[0].opts.detached, true);
+  assert.ok(ms < 2000, `入口必须远快于预算（实测 ${ms}ms）`);
+  assert.equal(fs.existsSync(path.join(tmp, 'old')), true, '入口自己不删任何东西');
+});
+
+test('入口不给子进程套上入口侧的 6s 截止 —— 否则 detached 的清扫会被截断成天天误报', () => {
+  const home = mkHome();
+  const calls = [];
+  const fakeSpawn = (cmd, args) => { calls.push(args); return { unref() {} }; };
+  // 入口侧 deadlineMs 恒为 6000，绝不能被透传给 --sweep
+  runEntry({ openclawHome: home, days: 14, roots: [], deadlineMs: 6000 }, fakeSpawn);
+  assert.equal(calls[0].includes('--deadline-ms'), false, '未显式要求时不得传 --deadline-ms');
+  // 显式要求时照传
+  runEntry({ openclawHome: home, days: 14, roots: [], sweepDeadlineMs: 120000 }, fakeSpawn);
+  const i = calls[1].indexOf('--deadline-ms');
+  assert.ok(i >= 0 && calls[1][i + 1] === '120000');
+});
+
+test('入口遇到「已有清扫在跑」⇒ 不重复派活（单飞）', () => {
+  const home = mkHome();
+  fs.mkdirSync(stateDir(home), { recursive: true });
+  fs.writeFileSync(path.join(stateDir(home), LOCK_NAME), JSON.stringify({ pid: process.pid, at: Date.now() }));
+  let spawned = false;
+  const env = runEntry({ openclawHome: home, days: 14, roots: [] }, () => { spawned = true; return { unref() {} }; });
+  assert.equal(spawned, false);
+  assert.equal(env.state.alreadyRunning, true);
+  assert.equal(env.state.spawned, false);
+  assert.equal(env.fire, false);
+});
+
+test('陈旧锁被接管：死 pid / 超时 ⇒ 仍能派活（一次崩溃不能永久停摆作业）', () => {
+  const home = mkHome();
+  fs.mkdirSync(stateDir(home), { recursive: true });
+  fs.writeFileSync(path.join(stateDir(home), LOCK_NAME), JSON.stringify({ pid: 999999, at: Date.now() }));
+  assert.equal(acquireLock(stateDir(home)).ok, true, '死 pid ⇒ 接管');
+  releaseLock(stateDir(home));
+  fs.writeFileSync(path.join(stateDir(home), LOCK_NAME), JSON.stringify({ pid: process.pid, at: Date.now() - 60 * 60 * 1000 }));
+  assert.equal(acquireLock(stateDir(home)).ok, true, '超时 ⇒ 接管');
+});
+
+test('--dry-run 入口不派活、不写标记（真只读）', () => {
+  const home = mkHome();
+  let spawned = false;
+  const env = runEntry({ openclawHome: home, days: 14, roots: [], dryRun: true }, () => { spawned = true; return { unref() {} }; });
+  assert.equal(spawned, false);
+  assert.equal(env.state.spawned, false);
+  assert.equal(fs.existsSync(stateDir(home)), false, 'dry-run 连状态目录都不建');
+});
+
+test('清扫未确认 ⇒ 写失败标记；下一次入口 fire:true 并把原因带出去', () => {
+  const home = mkHome();
+  const tmp = mkWorkspaceTmp(home);
+  const locked = path.join(tmp, 'locked');
+  fs.mkdirSync(locked, { recursive: true });
+  fs.chmodSync(locked, 0o000);
+  try {
+    const swept = runSweep({ openclawHome: home, days: 14, roots: [tmp], deadlineMs: 6000 });
+    assert.equal(swept.fire, true);
+    const flag = readFailure(stateDir(home));
+    assert.ok(flag, '未确认的清扫必须留下标记');
+    assert.match(flag.message, /could not confirm/);
+    // 入口现在应报警
+    const env = runEntry({ openclawHome: home, days: 14, roots: [tmp] }, () => ({ unref() {} }));
+    assert.equal(env.fire, true);
+    assert.match(env.message, /could not confirm/);
+  } finally {
+    fs.chmodSync(locked, 0o755);
+  }
+});
+
+test('清扫确认完成 ⇒ 清掉失败标记（报告一次即止，不天天吵）', () => {
+  const home = mkHome();
+  const tmp = mkWorkspaceTmp(home);
+  put(path.join(tmp, 'old'), 30);
+  fs.mkdirSync(stateDir(home), { recursive: true });
+  fs.writeFileSync(path.join(stateDir(home), FAIL_NAME), JSON.stringify({ message: 'stale alarm' }));
+  const swept = runSweep({ openclawHome: home, days: 14, roots: [], deadlineMs: 6000 });
+  assert.equal(swept.fire, false);
+  assert.equal(readFailure(stateDir(home)), null, '成功清扫必须自清标记');
+  const env = runEntry({ openclawHome: home, days: 14, roots: [] }, () => ({ unref() {} }));
+  assert.equal(env.fire, false);
+});
+
+test('清扫永不把运行期状态文件当删除目标 —— 放得再旧也不动，同目录的普通旧文件照删', () => {
+  const home = mkHome();
+  const dir = stateDir(home);
+  fs.mkdirSync(dir, { recursive: true });
+  for (const n of STATE_FILES) put(path.join(dir, n), 400);
+  put(path.join(dir, 'old-junk'), 400);
+
+  const plan = collectPlan({ roots: [dir], now: Date.now(), days: 14, deadlineMs: 6000 });
+  const targets = plan.targets.map((t) => path.basename(t.path));
+  for (const n of STATE_FILES) assert.equal(targets.includes(n), false, `${n} 不得成为删除目标`);
+  assert.ok(targets.includes('old-junk'), '普通旧文件仍要删（这条排除不是把整个目录放过）');
+});
+
+test('sweep 模式经真实 CLI 也能跑通并给出清扫信封', () => {
+  const home = mkHome();
+  put(path.join(mkWorkspaceTmp(home), 'old'), 30);
+  const env = lastJson(runCli(home));
+  assert.equal(env.deleted, 1);
+  assert.equal(env.state.mode, 'sweep');
+  assert.equal(env.fire, false);
+});
+
+test('dispatch tmp-gc ⇒ fire:false 的入口信封（真实 CLI 路径，不唤醒模型）', () => {
+  const home = mkHome();
+  const out = execFileSync('node', [path.join(HERE, '..', '..', 'automations', 'dispatch.mjs'), 'tmp-gc'], {
+    env: { ...process.env, OPENCLAW_HOME: home },
+    encoding: 'utf8',
+    timeout: 20000,
+  });
+  const env = lastJson(out);
+  assert.equal(env.fire, false);
+  assert.equal(env.state.job, 'tmp-gc');
+  assert.equal(env.state.mode, 'entry');
 });
 
 // ── 内部截止 ──────────────────────────────────────────────────────────────────────

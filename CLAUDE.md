@@ -139,8 +139,12 @@ skip). Overrides for local testing: `OPENCLAW_TEAM_POLL_CMD`,
 discipline `PROTOCOL §⑬.9`: every role keeps its temporary files in its own
 `workspace-<role>/.tmp/`, and the job deletes anything older than 14 days there,
 plus `~/.openclaw/tmp/` and `~/.openclaw/team/tmp/`. Roots come from a glob, so
-the repo never carries a second copy of the role roster. Audit with
-`node team/scripts/tmp-gc.mjs --days 14 --dry-run --json`.
+the repo never carries a second copy of the role roster. It is **split in two**,
+because walking the scratch tree costs the tree size (~320k files ≈ 10–12 s on the
+reference host) and does not fit the 7.5 s entry bound: the entry only reads the
+last sweep's failure flag and spawns the next sweep detached and returns (~40 ms);
+the `--sweep` half does the work out of band and its verdict carries over to the
+next evaluation. Audit with `node team/scripts/tmp-gc.mjs --sweep --days 14 --dry-run --json`.
 
 ### The gate — [team/scripts/check-all.sh](team/scripts/check-all.sh)
 
