@@ -55,7 +55,10 @@ process.env.OPENCLAW_TEAM_ROOT = ROOT;
 if (PROVIDER) process.env.OPENCLAW_TASK_OPS_DIR = PROVIDER;
 
 const mod = PROVIDER ? await import('../check-merge.mjs') : null;
-const { scanMerges, effectiveAt, EFFECTIVE_AT, INTEGRATION_BRANCH, WORKTREES_DIRNAME, cardOfBranch, validExemption } = mod || {};
+const { scanMerges, effectiveAt, EFFECTIVE_AT, WORKTREES_DIRNAME, cardOfBranch, validExemption } = mod || {};
+// 集成分支名由 lib.mjs 单一出处提供（本模块不再自带常量）——测试与实现读同一处，避免各自漂移。
+const libMod = PROVIDER ? await import('../lib.mjs') : null;
+const integrationBranch = libMod ? libMod.integrationBranch : null;
 
 // ---------- 夹具 ----------
 
@@ -183,7 +186,7 @@ test('dev 解析不到 ⇒ skip + note，**绝不**把无 dev 的仓全判红（
   const r = scanMerges(TASKS, { repo, baseline: [] });
   assert.equal(r.ok, true, '缺 dev 不得转红');
   assert.deepEqual(r.violations, []);
-  assert.deepEqual(r.notes, [`integration-unresolved:${INTEGRATION_BRANCH}`]);
+  assert.deepEqual(r.notes, [`integration-unresolved:${integrationBranch()}`]);
 });
 
 // ---------------------------------------------------------------------------
@@ -312,7 +315,7 @@ test('CLI：未并入 ⇒ exit 1，且 stdout 仍是可解析的完整 JSON；�
   assert.equal(parsed.ok, false);
   assert.equal(parsed.violations.length, 1);
   assert.match(red.stderr, /交付合并违例/);
-  assert.match(red.stderr, new RegExp(INTEGRATION_BRANCH));
+  assert.match(red.stderr, new RegExp(integrationBranch()));
 
   clearBoard();
   writeCard('T-20261016-000020', { created: AFTER });
@@ -371,4 +374,50 @@ test('默认生效截止是常量、可被 env 覆盖且非法值回退（绝不
   assert.equal(effectiveAt(), EFFECTIVE_AT, '非法值必须回退常量');
   if (saved === undefined) delete process.env.OPENCLAW_TEAM_MERGE_EFFECTIVE_AT;
   else process.env.OPENCLAW_TEAM_MERGE_EFFECTIVE_AT = saved;
+});
+
+test('GENERALIZE. 集成分支名可配：OPENCLAW_TEAM_INTEGRATION_BRANCH 指向哪个分支就查哪个', () => {
+  // 集成分支名随仓而异。默认 `dev`，但一个用 `develop` 的仓不该因此永远 skip（那等于没门禁）。
+  // 造一个**没有 dev、只有 develop** 的仓：默认配置下应 skip（不敢判），配上 env 后应正常判定。
+  const repo = tmp('repo-develop');
+  git(repo, ['init', '-q', '-b', 'develop']);
+  fs.writeFileSync(path.join(repo, 'README.md'), '# fixture\n');
+  git(repo, ['add', '-A']);
+  git(repo, ['commit', '-q', '-m', 'base']);
+
+  clearBoard();
+  mkWorktree(repo, 'T-20261016-000030', { merged: false });
+  writeCard('T-20261016-000030', { created: AFTER });
+
+  const env = {
+    ...process.env,
+    OPENCLAW_TEAM_ROOT: ROOT,
+    OPENCLAW_TASK_OPS_DIR: PROVIDER,
+    OPENCLAW_TEAM_INTEGRATION_BRANCH: 'develop',
+  };
+  const red = spawnSync(process.execPath, [SCRIPT, '--repo', repo], { encoding: 'utf8', env });
+  assert.equal(red.status, 1, red.stderr);
+  assert.match(red.stderr, /develop/, '违例报文须点名真正在查的集成分支');
+  assert.equal(JSON.parse(red.stdout).integrationResolved.length > 0, true, 'develop 应解析到');
+
+  // 同一仓、**不带** env ⇒ 找不到 dev ⇒ skip + note，绝不误判（这是「不敢判」那一档）
+  const bare = spawnSync(process.execPath, [SCRIPT, '--repo', repo], {
+    encoding: 'utf8',
+    env: { ...process.env, OPENCLAW_TEAM_ROOT: ROOT, OPENCLAW_TASK_OPS_DIR: PROVIDER },
+  });
+  assert.equal(bare.status, 0, bare.stderr);
+  assert.deepEqual(JSON.parse(bare.stdout).notes, ['integration-unresolved:dev']);
+});
+
+test('GENERALIZE. integrationBranch() 是单一出处：env 覆盖、空串回退缺省', () => {
+  const { integrationBranch, INTEGRATION_BRANCH_ENV, INTEGRATION_BRANCH_DEFAULT } = libMod;
+  const saved = process.env[INTEGRATION_BRANCH_ENV];
+  delete process.env[INTEGRATION_BRANCH_ENV];
+  assert.equal(integrationBranch(), INTEGRATION_BRANCH_DEFAULT);
+  process.env[INTEGRATION_BRANCH_ENV] = 'develop';
+  assert.equal(integrationBranch(), 'develop');
+  process.env[INTEGRATION_BRANCH_ENV] = '   ';
+  assert.equal(integrationBranch(), INTEGRATION_BRANCH_DEFAULT, '纯空白 ⇒ 回退缺省');
+  if (saved === undefined) delete process.env[INTEGRATION_BRANCH_ENV];
+  else process.env[INTEGRATION_BRANCH_ENV] = saved;
 });

@@ -2,18 +2,21 @@
 /**
  * branch-guard.mjs — 提交侧**分支守卫**（T-20261015-devbranch）
  *
- * 背景：开发统一集成在长期分支 `dev` 上（`PROTOCOL §⑥.4`）——每个开发任务在自己的 lane 分支
- * `lane/<lane>` 上跑（并发条件下配独立 worktree），lane 产物并入 `dev`，`dev` 仅在显式集成/发布
- * 步骤并入受保护分支 `main`。**lane 的提交落在 `lane/*` 上、不在 `dev` 上**，故本守卫**不是**
- * 「只许 dev」，而是「不许直接提交受保护分支」——直译「只许 dev」会把全部正常工作拦掉。
+ * 背景：开发统一集成在长期**集成分支**上（缺省 `dev`，`OPENCLAW_TEAM_INTEGRATION_BRANCH` 可改；
+ * `PROTOCOL §⑥.4`）——每个开发任务在自己的**卡分支** `<card-id>` 上跑（配独立 worktree），产物并入
+ * 集成分支，集成分支仅在显式集成/发布步骤并入**受保护分支**。**卡分支的提交不在集成分支上**，故本守卫
+ * **不是**「只许集成分支」，而是「不许直接提交受保护分支」——直译前者会把全部正常工作拦掉。
+ *
+ * **受保护分支的名字不假定**：发布/默认分支随仓而异（`main` / `master` / `trunk` …）。缺省集 =
+ * **仓的默认分支（本地探测 `refs/remotes/origin/HEAD`）∪ `main` ∪ `master`**；探测不到就只剩那两个
+ * 通用名——探测失败**不缩小**保护面。要精确指定用 `OPENCLAW_PROTECTED_BRANCHES` / `--protected`。
  *
  * 判定（**只读 git**，绝不写仓 / 绝不改分支）：
  *   · 非 git 仓 ⇒ 拒绝 `not_a_git_repo`；
  *   · detached HEAD ⇒ 拒绝 `detached_head_commit`（开发须落在具名分支上）；
- *   · HEAD 分支 ∈ 受保护集（缺省 `main`；`OPENCLAW_PROTECTED_BRANCHES` / `--protected` 覆盖）
- *     ⇒ 拒绝 `protected_branch_commit:<branch>`；`--allow-protected` 降级为告警 + `overridden:true`
- *     （`dev→main` 集成步骤的显式、留痕出口）；
- *   · 其余（`lane/*` / `dev` / 其它）⇒ 放行。
+ *   · HEAD 分支 ∈ 受保护集 ⇒ 拒绝 `protected_branch_commit:<branch>`；`--allow-protected` 降级为
+ *     告警 + `overridden:true`（集成/发布步骤的显式、留痕出口）；
+ *   · 其余（卡分支 / 集成分支 / 其它）⇒ 放行。
  *
  * 用法：node branch-guard.mjs [--repo <dir>] [--protected <a,b>] [--allow-protected] [--json]
  * 输出：JSON（stdout，末行机读）；退出码 0=通过 / 1=发现违规 / 2=用法错误。
@@ -27,7 +30,27 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 export const PROTECTED_ENV = 'OPENCLAW_PROTECTED_BRANCHES';
-export const PROTECTED_DEFAULT = 'main';
+/**
+ * 缺省受保护集：`main` 与 `master` **都在**。
+ * 发布/默认分支的名字**随仓而异**（`git init` 的历史默认是 `master`，新默认是 `main`，也可能被
+ * 项目改成别的），故**不假定其一**：只写 `main` 会让 `master` 仓**静默失去保护**，而本守卫的全部
+ * 价值就是「不许直接提交发布分支」——静默失效比误拦有害得多。
+ */
+export const PROTECTED_DEFAULTS = ['main', 'master'];
+
+/**
+ * 仓的**默认分支**（本地探测，不联网、不改仓）：`refs/remotes/origin/HEAD` 指向谁就是谁。
+ * 这条腿盖住 `trunk` / `release` 这类自定义默认分支名。
+ * 探不到（无远程 / 未 `set-head` / 非 git 仓）⇒ `null`，调用方回退 `PROTECTED_DEFAULTS`——
+ * 于是探测失败**不缩小**保护面，只是少了那层加分。
+ */
+export function defaultBranchOf(repo) {
+  const r = git(repo, 'symbolic-ref', '--short', '-q', 'refs/remotes/origin/HEAD');
+  if (!r.ok || !r.out) return null;
+  // 形如 `origin/main`；未 set-head 时可能原样返回 `origin/HEAD` ⇒ 那不是分支名，弃之。
+  const b = r.out.replace(/^origin\//, '').trim();
+  return b && b !== 'HEAD' ? b : null;
+}
 
 export function parseArgs(argv) {
   const o = { repo: process.cwd(), protected: [], allowProtected: false, json: false };
@@ -42,11 +65,18 @@ export function parseArgs(argv) {
   return o;
 }
 
-/** 受保护分支集：`--protected`（CLI）> `OPENCLAW_PROTECTED_BRANCHES` > 缺省 `main`。 */
-export function protectedSet(o, env = process.env) {
+/**
+ * 受保护分支集：`--protected`（CLI）> `OPENCLAW_PROTECTED_BRANCHES` >
+ * **仓的默认分支（探测）∪ `main` ∪ `master`**。
+ * 前两档是显式意图，**原样采用**（不并集）——写了就是写了；只有落到探测档时才并集，
+ * 因为探测是「尽力而为」，不能让它*缩小*保护面。
+ */
+export function protectedSet(o, env = process.env, repo = o.repo) {
   if (o.protected.length) return o.protected;
   const fromEnv = String(env[PROTECTED_ENV] || '').split(',').map((s) => s.trim()).filter(Boolean);
-  return fromEnv.length ? fromEnv : [PROTECTED_DEFAULT];
+  if (fromEnv.length) return fromEnv;
+  const detected = defaultBranchOf(repo);
+  return [...new Set([...(detected ? [detected] : []), ...PROTECTED_DEFAULTS])];
 }
 
 /** 只读 git：成功 ⇒ {ok:true,out}；失败 ⇒ {ok:false,error} */
@@ -63,7 +93,7 @@ export function runCheck(o) {
   if (!fs.existsSync(path.join(repo, '.git'))) {
     return { ok: false, reason: 'not_a_git_repo', repo };
   }
-  const protectedBranches = protectedSet(o);
+  const protectedBranches = protectedSet(o, process.env, repo);
   const branch = git(repo, 'symbolic-ref', '--short', '-q', 'HEAD');
   if (!branch.ok) {
     return {
@@ -71,7 +101,7 @@ export function runCheck(o) {
       reason: 'detached_head_commit',
       repo,
       protected: protectedBranches,
-      hint: '开发须落在具名分支上（lane/<lane> 或 dev）；detached HEAD 不得提交',
+      hint: '开发须落在具名分支上（你的卡分支 `<card-id>` 或集成分支）；detached HEAD 不得提交',
     };
   }
   const b = branch.out;
@@ -83,7 +113,7 @@ export function runCheck(o) {
       branch: b,
       repo,
       protected: protectedBranches,
-      message: `分支守卫拒绝：不得直接提交受保护分支 ${b}——开发集成在 dev 上，提交请落在 lane/<lane> 或 dev（PROTOCOL §⑥.4）。确需集成为发布步骤时用 --allow-protected（留痕）。`,
+      message: `分支守卫拒绝：不得直接提交受保护分支 ${b}——开发落在你的卡分支（\`<card-id>\`）上，产物并入集成分支（PROTOCOL §⑥.4）。确需集成为发布步骤时用 --allow-protected（留痕）。`,
     };
   }
   return {

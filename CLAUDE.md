@@ -233,22 +233,35 @@ refreshes that cache out of band.
 
 ## Branch and worktree discipline
 
-Development **integrates on the long-lived branch `dev`**; `main` is the protected
-release branch. Every task runs on its own **card branch** in its own worktree, and
-its product merges into `dev` before the card is closed. `dev → main` is the explicit
-integration/release step.
+Development **integrates on one long-lived integration branch** (`dev` by default) and every task
+runs on its own **card branch** in its own worktree; a card's product merges into the integration
+branch before the card is closed, and that branch reaches the **release branch** only through the
+explicit integration/release step. **Neither branch name is baked in** — this repository happens to
+use `dev` and `main`, another repo may use `develop` and `master`.
 
 | Branch | Role |
 |---|---|
-| `main` | protected release branch; the only write is the `dev → main` step |
-| `dev` | integration branch — **and what the main checkout sits on** |
+| the **release branch** | protected; its only write is the `dev → main` step. **Not assumed to be named `main`** — see below |
+| the **integration branch** | **and what the main checkout sits on**; `OPENCLAW_TEAM_INTEGRATION_BRANCH`, default `dev` |
 | `<card-id>` | one task / one segment, in `<repo>/.worktrees/<card-id>` until it merges |
 
-- **The main checkout holds `dev`.** Integration happens on `dev`, so that is what the
-  checkout sits on. Consequently `main` has no long-lived checkout, and the `dev → main`
-  step is done from a **throwaway worktree** (`git worktree add <tmp> main` → merge →
-  remove) rather than by flipping the main checkout's branch, which would interrupt work
-  in progress on `dev`.
+- **Branch names are resolved, not assumed.** A repo's release branch may be `main`, `master` or
+  `trunk`, and its integration branch may be `dev` or `develop` — so neither is hardcoded:
+  - [branch-guard.mjs](team/scripts/branch-guard.mjs) protects the repo's **own default branch**
+    (detected locally from `refs/remotes/origin/HEAD`) **∪ `main` ∪ `master`**, so a `master` repo
+    cannot silently lose protection. A failed detection does not shrink the set. Pin it with
+    `OPENCLAW_PROTECTED_BRANCHES` (taken **as written**, never unioned).
+  - The integration branch comes from `OPENCLAW_TEAM_INTEGRATION_BRANCH` (default `dev`) via
+    `lib.mjs#integrationBranch()` — one source, read by **both** the merge gate and the lane prompt,
+    because those two disagreeing is a silent failure. The lane prompt names the integration branch
+    but deliberately **does not name the release branch** (it says "the protected release branch"):
+    writing one name there would mislead every repo that uses another.
+
+- **The main checkout holds the integration branch.** Integration happens there, so that is what the
+  checkout sits on. Consequently the release branch has no long-lived checkout, and the release step is
+  done from a **throwaway worktree** (`git worktree add <tmp> <release>` → merge → remove) rather than
+  by flipping the main checkout's branch, which would interrupt work in progress on the integration
+  branch.
 - **Isolation is the lane's own act.** [spawn-lane.mjs](team/scripts/spawn-lane.mjs) puts
   a lane in the repo root and stops there — it neither decides nor creates worktrees. The
   lane follows the `using-git-worktrees` skill, whose git fallback places the tree at
@@ -256,25 +269,24 @@ integration/release step.
   because the skill's Step 0 would otherwise ask the *user* for consent, which a headless
   `claude -p` lane can never give. `.worktrees/` is git-ignored already, so the skill's
   "add to .gitignore" precondition never fires.
-- **The base is `HEAD`, which *is* `dev`.** The skill bases on `HEAD` and the main checkout
-  holds `dev`, so no bespoke base derivation exists. Two rules follow: a **continuation**
-  segment may only start once the previous segment's branch is **merged into `dev`**, and
+- **The base is `HEAD`, which *is* the integration branch.** The skill bases on `HEAD` and the main
+  checkout holds the integration branch, so no bespoke base derivation exists. Two rules follow: a
+  **continuation** segment may only start once the previous segment's branch is **merged in**, and
   **rework of an unmerged branch stays in the same worktree**.
-- **No role develops on `main`.** It is never a development base; the only write to it is
-  the explicit `dev → main` step.
+- **No role develops on the release branch.** It is never a development base; the only write to it is
+  the explicit release step.
 - **Never commit on the protected branch.** [branch-guard.mjs](team/scripts/branch-guard.mjs)
-  refuses a direct commit on `main` (`OPENCLAW_PROTECTED_BRANCHES` overrides the set);
-  `dev → main` is the one sanctioned exception and must pass `--allow-protected`, whose
-  `overridden:true` is the trail. Note the mechanism: like `commit-guard.mjs`, the guard is
+  refuses a direct commit on the repo's protected set (default: its own default branch ∪ `main` ∪
+  `master`; `OPENCLAW_PROTECTED_BRANCHES` replaces the set); the release step is the one sanctioned
+  exception and must pass `--allow-protected`, whose `overridden:true` is the trail. Note the mechanism: like `commit-guard.mjs`, the guard is
   **invoked by SOP, not wired as a git hook** (`.git/hooks/` is empty) — run it yourself;
   nothing blocks a bare `git commit`.
-- **A card's product merges into `dev` before the card is closed.** The merge is a
-  **precondition of the terminal `done`**, not a step after it: the owner merges the card
-  branch into `dev` and reports the merged sha, and Elon records it on the card before
-  closing. An unmerged branch is **not** delivery. Remove the worktree only **after** the
-  merge — a removed worktree is invisible to the gate.
-- **Bootstrapping:** a repo with no `dev` has no integration target — create it once
-  (`git branch dev <base>`).
+- **A card's product merges into the integration branch before the card is closed.** The merge is a
+  **precondition of the terminal `done`**, not a step after it: the owner merges the card branch and
+  reports the merged sha, and Elon records it on the card before closing. An unmerged branch is **not**
+  delivery. Remove the worktree only **after** the merge — a removed worktree is invisible to the gate.
+- **Bootstrapping:** a repo with no integration branch has no integration target — create it once
+  (`git branch dev <base>`), or point `OPENCLAW_TEAM_INTEGRATION_BRANCH` at the branch it already has.
 
 Normative source: [team/PROTOCOL.md](team/PROTOCOL.md) §⑥.4. Mechanics:
 [dev-worktree-flow-sop.md](team/guides/dev-worktree-flow-sop.md),
