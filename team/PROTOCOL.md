@@ -694,10 +694,12 @@ Job inventory and cadence: `team/AUTOMATIONS.md §1`; the per-turn reminder is r
 
 **Hard rules**:
 1. **Anything with a date / card number / commit / one-off decision record → goes only to L5**; but **permanent operational conventions with an effective date** (e.g. "video sole entry point") stay in L2 (drop the date or note the effective date).
-2. **Verbatim copying forbidden**: the same text appearing in ≥2 places is a violation; it should be lifted to L1 and changed to a numbered reference.
+2. **Verbatim copying forbidden**: the same text appearing in ≥2 places is a violation; it should be lifted to L1 and changed to a numbered reference. **Exception — deliberate constraint carriage**: text duplicated *by design*, so that a layer still carries its constraints when this file is never opened, is **not** a violation — the redline/constraint set a worker transcribes into `CLAUDE.md` or a subsession prompt (rule 4), the one-line redline quick-reference, and the role-shared action skeleton seeded into each L2 `AGENTS.md` (including the REDLINES block injected into all role seeds) are exactly this. **What is still a violation**: repetition that carries no such constraint — narrative copied for convenience, a rule restated because it was not looked up, detail copied where a numbered reference would serve. **Removing or lifting deliberate carriage is itself a convention change**: it requires explicit owner sign-off and must never be done as a routine dedup or cleanup pass.
 3. **L1 summary + L2/L2.5 delegated detail** is legitimate (see the §⑭ two-layer model).
 4. **Reference transmission**: before a worker spawns a subsession, it must **transcribe the referenced L1 constraints into CLAUDE.md / the subsession prompt** (otherwise the subsession layer has no constraints).
 5. **Broken-reference periodic check**: Elon's patrol includes a "§x reference resolvable" lint (periodic, not one-off).
+
+> **Formatting convention**: how a document in these layers is laid out — headings, marker vocabulary, which container each kind of content uses, provenance and rationale placement, separators, line length — is stated once in `guides/doc-style.md`. This section states the **layering**; that guide states the **form**. The deliberate-duplication carve-out in rule 2 is recorded in both.
 
 ## ⑱ Research Convention Hard Constraints (applies to research outputs)
 

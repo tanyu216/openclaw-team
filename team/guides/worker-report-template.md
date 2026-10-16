@@ -221,7 +221,7 @@ Report states what it is.
   and the GREEN after restoring it.
 - **T5 Requirement → implementation → assertion consistency matrix** — every
   requirement mapped to the implementation site and to the assertion that covers it
-  (`PROTOCOL §⑥` clause 13). A requirement with no assertion is a gap, not a pass.
+  (`PROTOCOL §⑥.1` clause 13). A requirement with no assertion is a gap, not a pass.
 - **T6 Defect grading** — per defect: severity, reproduction steps, expected vs actual,
   suspected owner, evidence path.
 - **T7 Explicit "not fixed, report only"** — state plainly that verification fixes
