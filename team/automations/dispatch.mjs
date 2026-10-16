@@ -9,7 +9,7 @@
 //
 //   {"fire": <bool>, "message"?: <string>, "state"?: <object>}
 //
-// Usage:  node dispatch.mjs <job> [agent]      job ∈ poll | patrol | check-all | skills-update | sla-scan
+// Usage:  node dispatch.mjs <job> [agent]      job ∈ poll | patrol | check-all | skills-update | sla-scan | tmp-gc
 //
 // Provider resolution:
 //   provider   = $OPENCLAW_TEAM_TASK_PROVIDER              (default: meerkat-taskpanel)
@@ -21,6 +21,7 @@
 //                  check-all     -> $OPENCLAW_TEAM_CHECKALL_CMD
 //                  skills-update -> $OPENCLAW_TEAM_SKILLSUPDATE_CMD
 //                  sla-scan      -> $OPENCLAW_TEAM_SLA_CMD
+//                  tmp-gc        -> $OPENCLAW_TEAM_TMPGC_CMD
 //
 // Placeholders: {team} -> the deployed team dir (~/.openclaw/team, resolved from
 // this file's location); {agent} -> the agent argument; {repo} -> the framework repo
@@ -78,6 +79,7 @@ const JOB_KEY = {
   "check-all": "checkAll",
   "skills-update": "skillsUpdate",
   "sla-scan": "slaScan",
+  "tmp-gc": "tmpGc",
 };
 const JOB_ENV = {
   poll: "OPENCLAW_TEAM_POLL_CMD",
@@ -85,6 +87,7 @@ const JOB_ENV = {
   "check-all": "OPENCLAW_TEAM_CHECKALL_CMD",
   "skills-update": "OPENCLAW_TEAM_SKILLSUPDATE_CMD",
   "sla-scan": "OPENCLAW_TEAM_SLA_CMD",
+  "tmp-gc": "OPENCLAW_TEAM_TMPGC_CMD",
 };
 
 /** Default trigger-evaluation bound (ms): one multi-claim poll evaluation fits well inside it. */
@@ -141,8 +144,16 @@ export function entryTimeoutMs(bound) {
  * T-20261013-025818; `guides/sla-inspection-contract.md` §10.2 for the SLA inspector). Their
  * NORMAL outcome is still `fire:false`, so the zero-cost idle path is preserved; only an
  * unconfirmed evaluation is treated as an alarm.
+ *
+ * `tmp-gc` (the daily scratch GC, `PROTOCOL §⑬.9`) is a JANITOR that shares the same leg for the
+ * same reason: the thing it observes is free disk. Its normal outcome is `fire:false` even when
+ * it deleted a lot — by itself that is the job working, not an event worth a model turn. But an
+ * evaluation it could not complete (root unreadable, unlink failed) is the ONE failure mode that
+ * matters here, and it is invisible by construction: a janitor that silently stopped working
+ * looks exactly like a host with nothing to clean. It is the only signal of that condition, so it
+ * alarms rather than passing silently.
  */
-export function firesOnDegrade(job) { return job === "check-all" || job === "skills-update" || job === "sla-scan"; }
+export function firesOnDegrade(job) { return job === "check-all" || job === "skills-update" || job === "sla-scan" || job === "tmp-gc"; }
 
 /** Budget + entry bound for the evaluation in flight; set by main() from the job env. */
 let EVAL_TIMEOUT_MS = DEFAULT_EVAL_TIMEOUT_MS;
@@ -191,7 +202,7 @@ export function main(argvIn = process.argv.slice(2), env = process.env) {
   const agent = argvIn[1] || "";
   EVAL_TIMEOUT_MS = resolveEvalTimeoutMs(env.OPENCLAW_TEAM_EVAL_TIMEOUT_MS);
   ENTRY_TIMEOUT_MS = entryTimeoutMs(EVAL_TIMEOUT_MS);
-  if (!JOB_KEY[job]) degrade(job, "unknown-job", { usage: "dispatch.mjs <poll|patrol|check-all|skills-update|sla-scan> [agent]" });
+  if (!JOB_KEY[job]) degrade(job, "unknown-job", { usage: "dispatch.mjs <poll|patrol|check-all|skills-update|sla-scan|tmp-gc> [agent]" });
 
   let provider = env.OPENCLAW_TEAM_TASK_PROVIDER || "meerkat-taskpanel";
 

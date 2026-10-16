@@ -10,8 +10,8 @@
  *   teamRoot()       OPENCLAW_TEAM_ROOT → <OPENCLAW_HOME>/team → ~/.openclaw/team
  *   openclawHome()   OPENCLAW_HOME → <OPENCLAW_TEAM_ROOT 的父目录> → ~/.openclaw
  *                    第二项让 `OPENCLAW_TEAM_ROOT=<sandbox>/team` 时 workspace 落在 `<sandbox>/`：
- *                    沙箱内的两棵树始终同一个 home，绝不串到真 `~/.openclaw`（今天最坏的失败模式
- *                    正是「指向沙箱，却静默读到维护者的 live workspace」）。
+ *                    沙箱内的两棵树始终同一个 home，绝不串到真 `~/.openclaw`（最坏的失败模式
+ *                    正是「指向沙箱，却静默读到宿主真实的 live workspace」）。
  *   workspaceDir(r)  <openclawHome()>/workspace-<r>
  *
  * 已知的重复解析（本次**有意不合并**，免得下一个人再加第四个）：

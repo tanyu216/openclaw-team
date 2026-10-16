@@ -14,8 +14,9 @@
 //   - lightContext: every declared job must have payload.lightContext === true.
 //   - interval (poll/patrol): the runtime `schedule` must carry the declared interval;
 //     drift ⇒ append `--every <interval>`.
-//   - cron (team-check-all): only lightContext is reconciled — the cron expression is
-//     NEVER rewritten (a `--every` would silently turn a cron into an interval job).
+//   - cron (team-check-all / skills-update / tmp-gc): only lightContext is reconciled — the
+//     cron expression is NEVER rewritten (a `--every` would silently turn a cron into an
+//     interval job).
 //   - trigger-script body (T-20261010-092547): when a declared job carries
 //     `triggerScriptPath`, the live `trigger.script` must byte-match that file's content
 //     (trailing-newline tolerant); drift ⇒ append `--trigger-script <triggerScriptPath>`.
@@ -32,7 +33,7 @@
 //       <action>|<key>|<name>|<agent>|<job>|<id>|<editArgs space-joined>
 //
 // Declared job shape:
-//   { key, name, agent, job: "poll"|"patrol"|"check-all",
+//   { key, name, agent, job: "poll"|"patrol"|"check-all"|"skills-update"|"sla-scan"|"tmp-gc",
 //     kind: "interval"|"cron", interval?: "5m", lightContext: true,
 //     triggerScriptPath?: "/abs/path/to/expected-trigger.js" }
 //

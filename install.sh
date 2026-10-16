@@ -15,7 +15,7 @@
 # Connectors for other systems (Jira, Linear, Plane, ...) are out of scope.
 #
 # Team-level SCHEDULING is FRAMEWORK-OWNED and provider-agnostic: the scheduled
-# jobs (*-poll / task-patrol / team-check-all / skills-update / sla-scan) are registered
+# jobs (*-poll / task-patrol / team-check-all / skills-update / sla-scan / tmp-gc) are registered
 # here and dispatch to the configured provider through team/automations/dispatch.mjs
 # (meerkat-taskpanel by default; select another with OPENCLAW_TEAM_TASK_PROVIDER). See
 # --skip-automations.
@@ -343,7 +343,7 @@ write_trigger() {
 }
 
 # register_automation <name> <agent> <declarationKey> <job> <schedule-args...>
-#   job ∈ poll|patrol|check-all|skills-update (dispatch job; poll also passes <agent>)
+#   job ∈ poll|patrol|check-all|skills-update|sla-scan|tmp-gc (dispatch job; poll also passes <agent>)
 # Idempotent by declarationKey; never hard-codes a provider name.
 register_automation() {
   local name="$1" agent="$2" key="$3" job="$4"; shift 4
@@ -365,6 +365,7 @@ register_automation() {
     sla-scan)  msg="[openclaw-team] Board SLA alert(s) from sla-scan (the alerts list is in this message): handle each §⑮ action as the leader — clarification/reassign, review the confirmation gate, create the defect or acceptance card. The inspector only notifies; it never changes a card (guides/sla-inspection-contract.md)." ;;
     check-all) msg="[openclaw-team] Team gate patrol failed: run the team gate checks and handle per the PROTOCOL gates/archiving rules." ;;
     skills-update) msg="[openclaw-team] Upstream skill ref(s) moved (the change list is in this message), or the upstream check failed: review, then advance with \`node skills/update.mjs --apply\` after Elon's review (third-party bodies are agent instructions — see team/AUTOMATIONS.md)." ;;
+    tmp-gc)    msg="[openclaw-team] tmp-gc scratch cleanup could not be confirmed (an unreadable root or a failed delete — the details are in this message). Check permissions/space on the scratch roots (workspace-*/.tmp, ~/.openclaw/tmp, ~/.openclaw/team/tmp) and re-run \`node scripts/tmp-gc.mjs --dry-run\` to see the state (PROTOCOL §⑬.9)." ;;
     *)         msg="[openclaw-team] Scheduled job $name." ;;
   esac
   tmp="$(mktemp "${TMPDIR:-/tmp}/openclaw-trigger.XXXXXX")"
@@ -529,6 +530,8 @@ if [ "$DO_AGENTS" = 1 ]; then
   for i in "${!ROLES[@]}"; do
     role="${ROLES[$i]}"; id="${AGENT_ID[$i]}"; wsdir="$OPENCLAW_HOME/${WORKSPACE[$i]}"
     run mkdir -p "$wsdir"
+    # 临时文件唯一归口（PROTOCOL §⑬.9）：装完即存在，作业 tmp-gc 据此清扫。
+    run mkdir -p "$wsdir/.tmp"
     for f in AGENTS.md SOUL.md IDENTITY.md USER.md; do
       src="$REPO/roles/$role/$f"
       [ -f "$src" ] || continue
@@ -682,9 +685,10 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
   info "scheduler: framework-owned  ·  provider: $auto_provider (callee via the ACL)"
   info "dispatcher: $TEAM_DIR/automations/dispatch.mjs"
   info "bounds: trigger-eval ${EVAL_TIMEOUT_MS}ms (OPENCLAW_TEAM_EVAL_TIMEOUT_MS) · poll run ${POLL_RUN_TIMEOUT_S}s (default = interval; OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S, 0=off)"
-  info "poll: every $POLL_INTERVAL (OPENCLAW_TEAM_POLL_INTERVAL) · --light-context on poll/patrol/check-all/skills-update/sla-scan"
+  info "poll: every $POLL_INTERVAL (OPENCLAW_TEAM_POLL_INTERVAL) · --light-context on poll/patrol/check-all/skills-update/sla-scan/tmp-gc"
   info "skills-update: Sundays 05:00 Asia/Shanghai (detect-only; --apply is manual after review)"
   info "sla-scan: every $SLA_INTERVAL (OPENCLAW_TEAM_SLA_INTERVAL; must stay < 30m — §⑮'s tightest row, contract §12 G-6)"
+  info "tmp-gc: daily 02:20 Asia/Shanghai — delete scratch >14 days under workspace-*/.tmp, \$OPENCLAW_HOME/tmp, \$OPENCLAW_HOME/team/tmp (PROTOCOL §⑬.9; zero-cost idle, wakes only on an unconfirmed sweep)"
   # built-in workers only for poll (skip main/elon), derived from ROLES/AGENT_ID
   auto_agents=()
   for i in "${!ROLES[@]}"; do
@@ -737,6 +741,12 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
       # inspector's own mechanism period P stay one number (contract §12 G‑6 reconciliation).
       tp="$DECLARED_DIR/trigger-sla-scan.js"; write_trigger "sla-scan" "$tp"
       printf '%s|%s|%s|%s|%s|%s|%s\n' "openclaw-team:sla-scan" "sla-scan" "main" "sla-scan" "interval" "$SLA_INTERVAL" "$tp" >> "$MANIFEST"
+      # tmp-gc: the daily scratch GC (PROTOCOL §⑬.9) — deletes files older than 14 days under every
+      # workspace-*/.tmp plus $OPENCLAW_HOME/tmp and $OPENCLAW_HOME/team/tmp. Janitor semantics:
+      # a completed sweep is fire:false even when it deleted a lot (zero cost, no model wake); only
+      # an UNCONFIRMED sweep (root unreadable / unlink failed) fires, carrying the cause.
+      tp="$DECLARED_DIR/trigger-tmp-gc.js"; write_trigger "tmp-gc" "$tp"
+      printf '%s|%s|%s|%s|%s|%s|%s\n' "openclaw-team:tmp-gc" "tmp-gc" "main" "tmp-gc" "cron" "" "$tp" >> "$MANIFEST"
       node -e '
         const fs=require("fs");
         const lines=fs.readFileSync(process.argv[1],"utf8").split("\n").filter(Boolean);
@@ -758,6 +768,9 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
               sla-scan)  register_automation "$name" "$agent" "$key" sla-scan --every "$SLA_INTERVAL" ;;
               check-all) register_automation "$name" "$agent" "$key" check-all --cron "0 * * * *" --tz Asia/Shanghai ;;
               skills-update) register_automation "$name" "$agent" "$key" skills-update --cron "0 5 * * 0" --tz Asia/Shanghai ;;
+              # daily 02:20 Asia/Shanghai — a slot free of the other crons (team-check-all on :00;
+              # the plugin-owned memory-dreaming 03:00 / token-hygiene 04:00 / session-rollover 06:00).
+              tmp-gc)    register_automation "$name" "$agent" "$key" tmp-gc --cron "20 2 * * *" --tz Asia/Shanghai ;;
             esac ;;
           edit) info "edit     $name  ($key)"; run "${OCL[@]}" automations edit "$id" $eargs ;;
           skip) info "ok       $name  ($key)" ;;
