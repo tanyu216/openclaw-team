@@ -82,7 +82,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn as spawnChild, spawnSync } from 'node:child_process';
-import { TEAM_ROOT, CARD_ID_RE, AGENTS, getProject, readCardById, parseDeps } from './lib.mjs';
+import { TEAM_ROOT, AGENTS, getProject, readCardById, parseDeps } from './lib.mjs';
 import { anchorGaps } from './check-handoff.mjs';
 import { loadRegistry, isPidAlive, isEntryAlive, closePendingEntries } from './registry.mjs';
 import { isolationEnabled, laneIsolationPlan, applyLaneIsolation, prevSegCandidates, laneNameFor } from './lane-isolation.mjs';
@@ -617,7 +617,10 @@ export function dependencyChain(startId, readCard, max = DEP_CHAIN_MAX) {
       const c = read(id);
       if (!c || !c.fm) continue;
       for (const dep of parseDeps(c.fm.depends_on)) {
-        if (!CARD_ID_RE.test(dep) || seen.has(dep)) continue;
+        if (seen.has(dep)) continue;
+        // 只跟随**解析得到**的依赖 —— 这比原先的「形状合法才跟随」更强：一个形状合法但
+        // 看板上并不存在的 dep 不再被当成分支点（它会一路空转）。判据不再是命名规则。
+        if (!read(dep)?.fm) continue;
         seen.add(dep);
         order.push(dep);
         next.push(dep);
@@ -737,7 +740,10 @@ export function spawnLane(opts = {}) {
     return reject(`card_unreadable:${String(e && e.message ? e.message : e)}`);
   }
   const taskId = c.fm.id || path.basename(c.cardPath, '.md');
-  if (!CARD_ID_RE.test(String(taskId))) return reject(`bad_card_id:${taskId}`);
+  // 卡 id 的**形状**归 task provider，不在这里判（`card-ids.mjs` 头注）。到这一步卡已经解析到手
+  // （上面的 `card_unreadable` 才是真正的失败码）；原先的 `bad_card_id` 形状断言是对 provider
+  // 命名规则的镜像，已删除。
+  if (!String(taskId).trim()) return reject(`card_unreadable:empty_card_id`);
   const cardPath = c.cardPath;
   let claims = [];
   let status = String(c.fm.status || '');

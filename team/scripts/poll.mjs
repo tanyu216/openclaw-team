@@ -30,7 +30,6 @@ import {
   TASKS_DIR,
   LOCKS_DIR,
   AGENTS,
-  CARD_ID_RE,
   isAutoClaimableKind,
   CLAIM_STALE_SAME_MS,
   CLAIM_STALE_ANY_MS,
@@ -101,7 +100,7 @@ export function scanCandidatesDetailed(assignee, { registry = null } = {}) {
   if (!fs.existsSync(TASKS_DIR)) return { candidates: cards, inconsistent };
   const reg = registry == null ? loadRegistry() : registry;
   for (const f of fs.readdirSync(TASKS_DIR)) {
-    if (!f.endsWith('.md') || !CARD_ID_RE.test(f.slice(0, -3))) continue;
+    if (!f.endsWith('.md') || f.startsWith('.')) continue;   // 结构性识别（见 card-ids.mjs）；下方 `fm.id` 才是判据
     const p = path.join(TASKS_DIR, f);
     let fm;
     let body = '';

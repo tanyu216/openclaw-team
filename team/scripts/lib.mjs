@@ -6,7 +6,9 @@
  *
  * 约定：
  * - TEAM_ROOT 默认 ~/.openclaw/team，可用环境变量 OPENCLAW_TEAM_ROOT 覆盖（单测隔离用）
- * - 卡 id 即文件名（T-YYYYMMDD-HHMMSS.md），引用一律绝对路径
+ * - 卡 id 的**形状与承载形态归 task provider**（`guides/task-interface.md` + ACL）；team 侧只做
+ *   结构性识别（`card-ids.mjs`：带 frontmatter `id` 的 `.md`）与显式路径安全（`cardPathOf`）。
+ *   本文件**不定义卡命名规则**。引用一律绝对路径。
  * - 时间戳一律 ISO 8601 UTC（new Date().toISOString()）
  * - frontmatter 回写保持原键顺序，正文(body)原样保留
  */
@@ -53,9 +55,9 @@ export const CLAIM_STALE_SAME_MS = 30 * 60 * 1000;    // 陈旧 claim：> 30min 
 export const CLAIM_STALE_ANY_MS = 6 * 60 * 60 * 1000; // > 6h 任意 assignee 可领并升级上报
 
 export const AGENTS = ['elon', 'jobs', 'linus', 'turing', 'assistant'];
-// 卡 id：T-YYYYMMDD-HHMMSS + 可选多段后缀（如 -designaudit-v1 / -fe-login-review）。
-// 每段以字母开头（T-…-v1 这类「段首数字」用 [A-Za-z][A-Za-z0-9]* 兜住整段）。
-export const CARD_ID_RE = /^T-\d{8}-\d{6}(-[A-Za-z0-9]+)*$/;
+// `CARD_ID_RE` 已删除：卡 id 的**形状**（`T-YYYYMMDD-HHMMSS` 是当前基座的实现细节）属于 task provider，
+// 不属于本仓。team 侧需要的两件事分别由 `card-ids.mjs`（结构性识别 + 看板派生命名空间）与
+// `cardPathOf`（显式路径安全）承担。
 
 // ---------- 自动领取排除的 kind（部署类卡） ----------
 // 口径（PROTOCOL §①；与基座 meerkat-taskpanel 同源，T-20261013-232004 / T-20261014-013629-2）：
@@ -187,15 +189,32 @@ export function escapeReason(v) {
 }
 
 // ---------- 任务卡 IO ----------
+
+/**
+ * 卡引用 → 规范绝对路径。**不再假定卡 id 的形状**（形状与承载形态归 task provider，见 `card-ids.mjs`）；
+ * 保留两条与命名无关的安全性质：
+ *   ① **id 是单一路径段** —— 裸参数含分隔符 / 绝对路径 / `.` / `..` 时不按 id 拼接（注入防线）；
+ *   ② 路径形态的入参必须落在 `.md` 上。
+ *
+ * ⚠️ **已知边界（本次刻意未做）**：路径形态入参的 **containment**（必须落在任务目录内）。
+ * 为什么不做：provider 侧的 `task.mjs` 按 **`import.meta.url`** 自算它的 `TASKS`（不读
+ * `OPENCLAW_TEAM_ROOT`），而 `TASKS_DIR` 来自 provider 的 `team-paths.mjs`（读 env）；两者在生产下
+ * 同源、只在**沙箱 env** 下分叉。在这里单方面收紧，会把 provider 自己的读卡路径判为越界
+ * （`task.query` 首当其冲）。统一两个根是 **provider 侧**的改动（跨仓 + 双签，另开卡）；
+ * 届时这里才收紧。旧实现同样没有 containment（它只看**文件名**像不像卡）。
+ */
 export function cardPathOf(arg) {
-  // 入参：绝对路径 或 卡 id（T-…）；返回规范绝对路径
-  let p = arg;
-  if (CARD_ID_RE.test(arg)) p = path.join(TASKS_DIR, `${arg}.md`);
-  p = path.resolve(p);
-  const base = path.basename(p);
-  if (!base.endsWith('.md') || !CARD_ID_RE.test(base.slice(0, -3))) {
-    throw new Error(`非法任务卡路径/id: ${arg}`);
+  const s = String(arg == null ? '' : arg).trim();
+  if (!s) throw new Error(`非法任务卡路径/id: ${arg}`);
+
+  // ① id 分支：单一路径段 ⇒ 任务目录下的 `<id>.md`（**不做形状校验** —— 形状归 provider）
+  if (!s.includes('/') && !s.includes('\\') && !path.isAbsolute(s) && s !== '.' && s !== '..') {
+    return path.join(TASKS_DIR, `${s}.md`);
   }
+
+  // ② 路径分支：必须是 `.md`
+  const p = path.resolve(s);
+  if (!p.endsWith('.md')) throw new Error(`非法任务卡路径/id: ${arg}`);
   return p;
 }
 
