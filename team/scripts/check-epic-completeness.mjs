@@ -3,7 +3,7 @@
  * check-epic-completeness.mjs — 建卡完备性门禁（epic 子卡完整性 + 「路线图 × 卡」对账）
  *                                   + 悬空路线图巡检（软告警）
  *
- * 依据：PROTOCOL §⑩.2（登记一次到位、放行可分批）/ §⑩.3（粒度与拆卡权威）/ §⑳.1（机检落地）；
+ * 依据：PROTOCOL §10.2（登记一次到位、放行可分批）/ PROTOCOL §10.3（粒度与拆卡权威）/ PROTOCOL §20.1（机检落地）；
  *       目标伞卡 T-20261012-171026 机制 ③「建卡完备性闸门」与 ⑤「悬空路线图巡检」。
  * 事故实证（同伞卡 Background）：「原型↔实现对齐」M0/M1 done 且有独立复核，M2–M4 **从未建卡**
  *       ⇒ 目标半途消失；Elon 补卡时又只补 M2、漏 M3/M4。根因＝**路线图与卡之间没有对账**。
@@ -18,7 +18,7 @@
  * 与 T-20261012-165652 的「阶段台账（路线图 × 卡 对账）」。
  *
  * ── 硬判（exit 1）：domain = **非终态 epic 且声明了台账** ─────────────────────────────────────
- * 与 §⑩.4「`__team__` 缺 target」同款口径：门禁的目的是**卡时**捕获缺陷，历史**终态** epic 已永不
+ * 与 PROTOCOL §10.4「`__team__` 缺 target」同款口径：门禁的目的是**卡时**捕获缺陷，历史**终态** epic 已永不
  * dispatch，回溯转红只是噪声 ⇒ **grandfather**（同类违例降为**告警**，仍可见、不改退出码）。
  * 规则域同时要求「声明了台账」：本门禁约束**已在用的对账表**必须自洽，不强制 21 张历史 epic 补表
  * （补表是 Elon 的作业面，缺表只软告警 `epic_no_roadmap`，见下）。
@@ -27,7 +27,7 @@
  *   ③ ledger_phase_no_card:<行> —— 某阶段行**无卡 id 且无显式理由**（空/`-`/`TBD`/`待建`…）。
  *   ④ ledger_self_ref           —— 台账把 epic 自己列为阶段卡。
  *
- * ── 软告警（**绝不改退出码**，§⑩.3 软护栏同款） ─────────────────────────────────────────────
+ * ── 软告警（**绝不改退出码**，PROTOCOL §10.3 软护栏同款） ─────────────────────────────────────────────
  *   · epic_no_roadmap:<epic>          —— 非终态 epic 有子卡却**无台账**（补表提示，不阻断）。
  *   · ledger_unlisted_child:<卡>      —— 子卡未出现在本 epic 台账任何一行（反向对账，提示漏登）。
  *   · ledger_card_duplicate:<卡>      —— 同一卡在台账中出现多次。
@@ -168,11 +168,11 @@ export function checkEpicCompleteness({ tasksDir = TASKS_DIR, workspaceDir, root
     }
     if (tables.length === 0) continue;
     ledgered++;
-    // 硬判域＝**非终态** epic 的台账违例；终态 epic 同款违例降为告警（grandfather，§⑩.4 同款）
+    // 硬判域＝**非终态** epic 的台账违例；终态 epic 同款违例降为告警（grandfather，PROTOCOL §10.4 同款）
     if (!terminal) hardScoped++;
     const hard = !terminal;
     // 非终态 ⇒ 每条违例独立进 bad（可执行的红）；终态 ⇒ grandfather，逐条**折叠为一行**告警
-    // （历史不追溯转红，但不隐藏——「可见但不判红」，与 §⑩.4 同款）。
+    // （历史不追溯转红，但不隐藏——「可见但不判红」，与 PROTOCOL §10.4 同款）。
     const cited = new Set();
     const seenCount = new Map();
     const violations = [];
@@ -272,7 +272,7 @@ function main() {
   const s = r.stats;
   console.log(`epic 完备性：${s.epics} 张 epic（${s.ledgered} 张有台账、${s.hardScoped} 张在硬判域）· 卡 ${s.cards} 张`);
   console.log(r.bad.length ? r.bad.join('\n') : '「路线图 × 卡」对账通过 ✔');
-  if (r.warn.length) console.log(`\n⚠ 软告警（不阻断，§⑩.3）：\n${r.warn.map((w) => `  · ${w}`).join('\n')}`);
+  if (r.warn.length) console.log(`\n⚠ 软告警（不阻断，PROTOCOL §10.3）：\n${r.warn.map((w) => `  · ${w}`).join('\n')}`);
   const dangling = r.notes.filter((n) => n.tag === SOFT_TAGS.PHASE_NO_CARD);
   if (dangling.length) {
     console.log(`\n⚠ 悬空路线图巡检：「有阶段无卡」${dangling.length} 处（软告警，不改退出码）`);

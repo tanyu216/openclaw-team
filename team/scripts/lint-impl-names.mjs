@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * lint-impl-names.mjs — 术语抽象门禁（task-interface v1 §1）
- * 上层文档不得出现「实现名」；实现名只许出现在 PROTOCOL §①（基座 spec）与 ACL/代码内部。
- * 扫描范围：PROTOCOL.md（跳过 §① 节）、各角色 AGENTS.md、ROLES.md、guides/redlines.core.md
+ * 上层文档不得出现「实现名」；实现名只许出现在 PROTOCOL §1（基座 spec）与 ACL/代码内部。
+ * 扫描范围：PROTOCOL.md（跳过 §1 节）、各角色 AGENTS.md、ROLES.md、guides/redlines.core.md
  * 用法：node lint-impl-names.mjs [--repo <R> | --live] [--report]
  *       --repo <R> / 仓内自动判定 ⇒ 扫仓内种子；实例在场 ⇒ live（行为与历史一致）
  *       --report  只报告不失败（基线）
@@ -29,7 +29,7 @@ const BANNED = [
 function files() {
   const list = [];
   const proto = path.join(docRoot, 'PROTOCOL.md');
-  if (fs.existsSync(proto)) list.push({ path: proto, skipSection: '## ①' });
+  if (fs.existsSync(proto)) list.push({ path: proto, skipSection: '## 1.' });
   for (const a of ROLES) {
     const p = M.mode === 'repo' ? path.join(M.repo, 'roles', a, 'AGENTS.md') : path.join(M.home, `workspace-${a}`, 'AGENTS.md');
     if (fs.existsSync(p)) list.push({ path: p });
@@ -42,12 +42,12 @@ function files() {
 }
 
 function skipRanges(text, heading) {
-  // 返回需跳过的 [start,end) 行区间（§① 节）
+  // 返回需跳过的 [start,end) 行区间（§1 节）
   const lines = text.split('\n');
   const hi = lines.findIndex((l) => l.startsWith(heading));
   if (hi === -1) return null;
   let end = lines.length;
-  for (let i = hi + 1; i < lines.length; i++) if (/^## [①-⑳]/.test(lines[i])) { end = i; break; }
+  for (let i = hi + 1; i < lines.length; i++) if (/^## \d+\./.test(lines[i])) { end = i; break; }
   return [hi, end];
 }
 

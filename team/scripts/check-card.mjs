@@ -16,8 +16,8 @@ const ASSIGNEES = ['elon', 'jobs', 'linus', 'turing', 'assistant'];
 export const PRIORITY = ['low', 'medium', 'high', 'urgent'];
 const REQUIRED = ['id', 'title', 'assignee', 'status', 'goal', 'project'];
 /**
- * 内部事务卡的项目码（PROTOCOL §①/§⑩.4）。`__team__` 卡的 cwd 由卡片 `target` 决定
- * （§⑥ cwd normalization）；**缺 target ⇒ `spawn-lane.resolveCwd` 回落到 live team 根**
+ * 内部事务卡的项目码（PROTOCOL §1/PROTOCOL §10.4）。`__team__` 卡的 cwd 由卡片 `target` 决定
+ * （PROTOCOL §6 cwd normalization）；**缺 target ⇒ `spawn-lane.resolveCwd` 回落到 live team 根**
  * （`~/.openclaw/team`）——正是「不动 live」被静默破坏的系统口子（T-20261013-015831）。
  * 故 `__team__` 卡 `target` 必填；缺失按 carding 缺陷报红（机读 `[role]` 标签 + exit≠0）。
  */
@@ -34,7 +34,7 @@ export const TEAM_PROJECT = '__team__';
  */
 
 /**
- * 项目内路径 containment 门禁（PROTOCOL §②.1）：非 `__team__` 卡的 `target`/`writes` 必须是
+ * 项目内路径 containment 门禁（PROTOCOL §2.1）：非 `__team__` 卡的 `target`/`writes` 必须是
  * **项目内相对路径**；绝对 / 本机锚（`/Users/…`、`~/…`）/ 盘符 / `../` 逃逸 ⇒ 卡时缺陷报红。
  *
  * 洞（本规则立的理由）：`spawn-lane.mjs` 用
@@ -56,7 +56,7 @@ export const TEAM_PROJECT = '__team__';
  *
  * `created_at` 缺失/不可解析 ⇒ 同按 grandfather（保守：绝不因缺字段转红；口径同 check-report.mjs）。
  * 规则域 = **非终态**（`!isTerminal(status)`，故 `backlog` 亦在域内）；`project: __team__`
- * 排除（其 target 绝对形态由 §⑩.4 硬门管辖，见上）。
+ * 排除（其 target 绝对形态由 PROTOCOL §10.4 硬门管辖，见上）。
  */
 export const PATH_EFFECTIVE_AT = '2026-11-01T00:00:00Z';
 
@@ -102,14 +102,14 @@ export function checkOne(p) {
   if (fm.assignee && !ASSIGNEES.includes(fm.assignee)) errs.push(`非法 assignee: ${fm.assignee}`);
   if (fm.priority && !PRIORITY.includes(fm.priority)) errs.push(`非法 priority: ${fm.priority}`);
   if (fm.status === 'in_progress' && !fm.claimed_by) errs.push('in_progress 但缺 claimed_by');
-  // `project=__team__` 卡 target 必填（§⑩.4 约定）：缺 target ⇒ spawn-lane 默认 cwd=live。
+  // `project=__team__` 卡 target 必填（PROTOCOL §10.4 约定）：缺 target ⇒ spawn-lane 默认 cwd=live。
   // 规则域限**非终态**（T-20261013-023535-2）：终态历史卡 grandfather、不追溯转红。
   // 报错串带机读 `[role] <归口>` 标签（归口 = 建卡人 created_by，缺省 elon——carding 硬门责任人）。
   if (fm.project === TEAM_PROJECT && !isTerminal(fm.status) && !String(fm.target ?? '').trim()) {
     const role = fm.created_by || 'elon';
     errs.push(`project=__team__ 缺 target [role] ${role}（carding 缺陷：spawn-lane 否则默认 cwd=live ~/.openclaw/team）`);
   }
-  // 项目内路径 containment（§②.1）：非 __team__ 卡的 target/writes 越出项目边界的卡时缺陷
+  // 项目内路径 containment（PROTOCOL §2.1）：非 __team__ 卡的 target/writes 越出项目边界的卡时缺陷
   errs.push(...pathViolations(fm));
   return errs;
 }

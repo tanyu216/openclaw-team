@@ -1,13 +1,13 @@
 # UI Alignment SOP (human-readable end-to-end process)
 
-> **Ownership**: `PROTOCOL §⑨.1` (UI fidelity: prototype is the contract). This file is the **full SOP** referenced by that clause, placed at a stable path (`~/.openclaw/team/guides/ui-align-sop.md`) for humans to execute end to end.
+> **Ownership**: `PROTOCOL §9.1` (UI fidelity: prototype is the contract). This file is the **full SOP** referenced by that clause, placed at a stable path (`~/.openclaw/team/guides/ui-align-sop.md`) for humans to execute end to end.
 > **Maintainer**: **Jobs** (owner of aesthetics and the UX/UI quality gate). Changes must stay consistent with the text below and must not conflict.
 > **Single sources of truth (this file references, does not copy)**:
-> - Mechanisms and hard numbering (three lines of defense / acceptance hard gate / anti-patterns / reinforcement clauses / ambiguity discrimination) → `PROTOCOL §⑨.1`;
+> - Mechanisms and hard numbering (three lines of defense / acceptance hard gate / anti-patterns / reinforcement clauses / ambiguity discrimination) → `PROTOCOL §9.1`;
 > - Machine-check engine and manifest schema (`.ui-align.json`, `<page>.json`, the check vocabulary, computed style, exit codes, integration, security model, known boundaries) → `tools/ui-align/README.md`;
 > - Assertion artifact contract (selector-manifest JSON + runner determination) → `guides/ui-align-assert-spec.md`;
-> - Related redlines: prototype must not contain implementation → `PROTOCOL §⑨.2`; document reference convention / no verbatim copying → `PROTOCOL §⑥.1 clause 11`, `§⑰`; machine-checkable gate landing points → `PROTOCOL §⑳.1`; container-form acceptance → `PROTOCOL §⑨.3`.
-> **Reference convention**: always write "document name §section name", with **no line-number anchors and no card-number anchors** (following `§⑥.1 clause 11`).
+> - Related redlines: prototype must not contain implementation → `PROTOCOL §9.2`; document reference convention / no verbatim copying → `PROTOCOL §6.1 clause 11`, `PROTOCOL §17`; machine-checkable gate landing points → `PROTOCOL §20.1`; container-form acceptance → `PROTOCOL §9.3`.
+> **Reference convention**: always write "document name §section name", with **no line-number anchors and no card-number anchors** (following `PROTOCOL §6.1 clause 11`).
 
 ---
 
@@ -26,43 +26,43 @@ Every UI card must complete all three layers; missing any one means unfinished. 
 | Line | Timing | Owner | Output | Determination / evidence |
 |---|---|---|---|---|
 | **Before · structural contract** | **before** the card starts | **Jobs** (Elon creates and dispatches the card) | The page's **structural contract**: enumerate all prototype **blocks** (block name / id / role / `data-*` + selector) + data-contract annotation + machine-checkable acceptance points; lands in `workspace/<task-id>/` (manifest JSON, contract version) | The block list **includes "consistent" items** (anti-omission); **no line-number anchors**; serves as the source of the card's machine-check conditions in Acceptance |
-| **During · structural assertion** | when development completes | **Linus** | The selector assertion script artifact (`ui-selectors.json` + runner), run through with `tools/ui-align` | If assertions **fail ⇒ the card must not be delivered as todo** (`§⑨.1` hard gate) |
-| **After · screenshot comparison** | at acceptance | **Turing** (machine re-run, independent) + **Jobs** (visual certification); **Elon** audits the reports the card's flow produces (`PROTOCOL §⑩.5` report table) at final review | Assertion re-run report + **same viewport × same theme × same language** screenshot comparison (prototype vs implementation) | Dual-core: machine check + visual; Elon **must confirm the independent verification in the Report**, not rely only on "API passes/build passes/worker self-report" — he does **not** re-run the comparison himself. **Per-card scope follows the card's flow (§2.1, `PROTOCOL §⑩.5`).** |
+| **During · structural assertion** | when development completes | **Linus** | The selector assertion script artifact (`ui-selectors.json` + runner), run through with `tools/ui-align` | If assertions **fail ⇒ the card must not be delivered as todo** (`PROTOCOL §9.1` hard gate) |
+| **After · screenshot comparison** | at acceptance | **Turing** (machine re-run, independent) + **Jobs** (visual certification); **Elon** audits the reports the card's flow produces (`PROTOCOL §10.5` report table) at final review | Assertion re-run report + **same viewport × same theme × same language** screenshot comparison (prototype vs implementation) | Dual-core: machine check + visual; Elon **must confirm the independent verification in the Report**, not rely only on "API passes/build passes/worker self-report" — he does **not** re-run the comparison himself. **Per-card scope follows the card's flow (§2.1, `PROTOCOL §10.5`).** |
 
-> Note: the three layers' "timings" are **gate positions** — before the structural contract is issued, development should not start; before the during-assertions pass, the card should not be delivered; before the **implementation Report (Linus)** and the **independent** after-comparison are **present in the Reports** (the report set the card's flow produces — §2.1, `PROTOCOL §⑩.5` report table), Elon should not set done. The layers' **surface** scales with the card's flow; the **"During" assertion gate is uniform across A/B/C** and is never scaled (`PROTOCOL §⑨.1` Addendum III).
+> Note: the three layers' "timings" are **gate positions** — before the structural contract is issued, development should not start; before the during-assertions pass, the card should not be delivered; before the **implementation Report (Linus)** and the **independent** after-comparison are **present in the Reports** (the report set the card's flow produces — §2.1, `PROTOCOL §10.5` report table), Elon should not set done. The layers' **surface** scales with the card's flow; the **"During" assertion gate is uniform across A/B/C** and is never scaled (`PROTOCOL §9.1` Addendum III).
 
 ### 2.1 Flow scope (A / B / C) — the single definition
 
-Routing lives in `PROTOCOL §⑩.5`; the C-form floor (reduced but non-empty) is `PROTOCOL §⑨.1` Addendum III. Everything below applies at the flow's surface — **the surface may shrink, the evidence may not**.
+Routing lives in `PROTOCOL §10.5`; the C-form floor (reduced but non-empty) is `PROTOCOL §9.1` Addendum III. Everything below applies at the flow's surface — **the surface may shrink, the evidence may not**.
 
 | Flow | Before | During | After (independent) | Report set |
 |---|---|---|---|---|
 | **A** (full UI card) | full structural contract | assertions on all blocks | Turing machine check + Jobs visual certification | Linus + Turing + Jobs |
 | **B** | — | subset assertions on the **touched** blocks (+ a reproduction test) | Turing reproduce → pass + regression (Jobs only arbitrates, no report) | Linus + Turing |
-| **C** (micro-change inside the frozen design, §11) | reuses the frozen "Before" contract (`PROTOCOL §⑩.6`) | subset assertions on the **touched** blocks | the **rolling sample**: Turing machine-samples **20%/week** of accepted B/C cards + Jobs visual spot-check on **the same batch**, or **one asynchronous Jobs visual pass** when the change is visually non-trivial (§11) | Linus (+ the sampling verifier's report when this card was sampled) |
+| **C** (micro-change inside the frozen design, §11) | reuses the frozen "Before" contract (`PROTOCOL §10.6`) | subset assertions on the **touched** blocks | the **rolling sample**: Turing machine-samples **20%/week** of accepted B/C cards + Jobs visual spot-check on **the same batch**, or **one asynchronous Jobs visual pass** when the change is visually non-trivial (§11) | Linus (+ the sampling verifier's report when this card was sampled) |
 
-**The "During" assertion gate is uniform across A/B/C** and is never scaled (`PROTOCOL §⑨.1` Addendum III); only the surface scales.
+**The "During" assertion gate is uniform across A/B/C** and is never scaled (`PROTOCOL §9.1` Addendum III); only the surface scales.
 
 ---
 
 ## 3. End-to-End Process (by stage)
 
 ### Stage A · Before card splitting (Elon)
-- **Check in-flight segments' dirty-surface files**: UI cards touching the same file must be serial, avoiding "concurrent writes to the same file by two cards" (the `§⑨.1` endnote lesson). The card must explicitly declare the **single writer per file and the serial order**.
-- **Attach machine-check conditions at card creation**: a UI card's Acceptance must physically contain the three items "block list (including consistent items) + machine-check assertions (selectors) + screenshot comparison" (`§⑨.1` reinforcement clause). Missing any one ⇒ the card is invalid. **(Full set = flow A; B/C take the applicable subset — §2.1.)**
+- **Check in-flight segments' dirty-surface files**: UI cards touching the same file must be serial, avoiding "concurrent writes to the same file by two cards" (the `PROTOCOL §9.1` endnote lesson). The card must explicitly declare the **single writer per file and the serial order**.
+- **Attach machine-check conditions at card creation**: a UI card's Acceptance must physically contain the three items "block list (including consistent items) + machine-check assertions (selectors) + screenshot comparison" (`PROTOCOL §9.1` reinforcement clause). Missing any one ⇒ the card is invalid. **(Full set = flow A; B/C take the applicable subset — §2.1.)**
 - Dispatch the "before · structural contract" to **Jobs**.
 
 ### Stage B · Before-stage contract (Jobs)
 1. Read the page's **prototype** in full and enumerate **all blocks** (not just "the ones to build", but the **full set**, including already-consistent items).
 2. For each block give: **block name + id/role/`data-*` semantic hook + selector**; annotate the **data contract** (data source/fields/state: loading/empty/error states).
 3. Produce the **machine-checkable acceptance points** (selector + count/non-empty, etc.), structurally matching the **selector-manifest JSON** contract in `guides/ui-align-assert-spec.md` (that file defines the artifact schema and runner determination).
-4. Selectors **prefer `data-*` semantic hooks** and **must not depend on Tailwind class names** (to avoid breaking JS/tests when class names change; see `PROTOCOL §⑥.1 clause 11` and Jobs's HTML-path conventions).
+4. Selectors **prefer `data-*` semantic hooks** and **must not depend on Tailwind class names** (to avoid breaking JS/tests when class names change; see `PROTOCOL §6.1 clause 11` and Jobs's HTML-path conventions).
 5. Visual conventions: first confirm the **unified design style guide** (`design-style-guide.md`, the single source of truth for palette/fonts/spacing/tokens); if absent, define it first — **pages must not invent their own** (Jobs is the sole arbiter of aesthetics and style).
 
 ### Stage C · During development (Linus)
 - Implement per the structural contract; **land each block already present in the prototype one by one**; deviations must be justified in the card and approved by Elon.
-- **Prototype text ambiguity discrimination** (`§⑨.1` addendum): the **visible text** in the prototype must distinguish "UI copy" from "annotations written for developers" (e.g. "(static placeholder)", "data API pending backend") — **annotations must not enter the UI**; the prototype side should express "pending wiring" in **non-visible** forms such as comments/`data-pending`.
-- **Prototype must not contain implementation** (`§⑨.2`): `prototype/**` is a pure design draft; writing `fetch`/auth/credentials/real endpoints into it is **forbidden**; implementation always lands in the real frontend project directory.
+- **Prototype text ambiguity discrimination** (`PROTOCOL §9.1` addendum): the **visible text** in the prototype must distinguish "UI copy" from "annotations written for developers" (e.g. "(static placeholder)", "data API pending backend") — **annotations must not enter the UI**; the prototype side should express "pending wiring" in **non-visible** forms such as comments/`data-pending`.
+- **Prototype must not contain implementation** (`PROTOCOL §9.2`): `prototype/**` is a pure design draft; writing `fetch`/auth/credentials/real endpoints into it is **forbidden**; implementation always lands in the real frontend project directory.
 
 ### Stage D · During-stage assertions (Linus)
 1. Write `.ui-align.json` at the project root and `<page>.json` in the manifest directory (format in `tools/ui-align/README.md` §3 / §4; this SOP's section 6 gives the minimal steps).
@@ -70,31 +70,31 @@ Routing lives in `PROTOCOL §⑩.5`; the C-form floor (reduced but non-empty) is
 3. Only when **all assertions pass** may it be delivered as todo; `pending` (unimplemented) blocks count as failures under `--strict` — the point of the full manifest is that **no block can silently disappear**.
 4. Results land in files first (`--json`); the Report attaches command + exit code + summary.
 
-### Stage E · Acceptance — the report set follows the card's flow (§2.1, `PROTOCOL §⑩.5` report table)
+### Stage E · Acceptance — the report set follows the card's flow (§2.1, `PROTOCOL §10.5` report table)
 1. **Turing** (independent) re-runs the assertion script + checks the acceptance hard gate (section 4); **must not reuse Linus's conclusion**. (Flows A/B both produce a Turing report; in flow C this per-card lane is replaced by the rolling sample — §11.)
 2. **Jobs** does UX/UI **visual certification**: browser/tool same viewport (1512/1240/980/760/430) × same theme × same language **screenshot comparison** (prototype vs implementation), block-by-block; check whether any **visible annotations** like "placeholder/pending backend/TODO" appear (if so, reject). The "Issue list" is written to `workspace/<task-id>/review/`. (Flow A per card; B → Jobs only arbitrates, no report; C → no per-card certification, the rolling sample covers it — §2.1 / §11.)
-3. **Elon audits the workers' reports at final review** (`§⑨.1` reinforcement clause): confirm **Linus's implementation Report** and the independent verification of **the set his card's flow produces** (§2.1) are **present and cover every hard-gate item**, check for omitted key points and card conformance, confirm the documentation-impact determination (`§⑫`), then set the terminal state. Elon does **not** personally re-run the comparison.
+3. **Elon audits the workers' reports at final review** (`PROTOCOL §9.1` reinforcement clause): confirm **Linus's implementation Report** and the independent verification of **the set his card's flow produces** (§2.1) are **present and cover every hard-gate item**, check for omitted key points and card conformance, confirm the documentation-impact determination (`PROTOCOL §12`), then set the terminal state. Elon does **not** personally re-run the comparison.
 
 ### Stage F · Closing
-- Check off Acceptance line by line; **documentation-impact determination** (if it touches interfaces/data structures/architecture/config/conventions ⇒ sync the docs; otherwise explicitly declare "no documentation impact") (`§⑫`).
+- Check off Acceptance line by line; **documentation-impact determination** (if it touches interfaces/data structures/architecture/config/conventions ⇒ sync the docs; otherwise explicitly declare "no documentation impact") (`PROTOCOL §12`).
 - Differences and leftovers are written into the card's Report; cross-segment decisions are written into `state.md`.
 
 ---
 
 ## 4. Acceptance Hard Gate (all required before a UI card is done)
 
-Aligned with `PROTOCOL §⑨.1` "acceptance hard gate", landed as operable items:
+Aligned with `PROTOCOL §9.1` "acceptance hard gate", landed as operable items:
 
-1. **Full block list (including consistent items)**: **all blocks** of the page are in the list, **including already-consistent items** (anti-omission); every difference has "**file + block name/selector**" evidence (`§⑨.1` hard gate #1).
+1. **Full block list (including consistent items)**: **all blocks** of the page are in the list, **including already-consistent items** (anti-omission); every difference has "**file + block name/selector**" evidence (`PROTOCOL §9.1` hard gate #1).
 2. **Machine-check conditions**: the fix card's Acceptance uses **selector assertions (machine-check conditions)**, **not "looks like"**.
 3. **The structural assertion script fully passes.**
 4. **Screenshot comparison**: same viewport × same theme × same language, **prototype vs implementation** (five widths: 1512/1240/980/760/430).
 5. **console / page errors = `[]`**; **no horizontal overflow** at all five widths.
 6. **Single writer per file**: the card explicitly declares the serial order (to prevent concurrent writes to the same file by two cards).
-7. (Reinforcement) **Elon audits the workers' reports at final review** (confirms the **report set his card's flow produces** is present in the Reports — §2.1, `PROTOCOL §⑩.5` report table); the **UI card's Acceptance physically contains** "block list + machine-check assertions + screenshot comparison" **(flow A)**; missing any one ⇒ must not be done.
-8. **Requirement conformance (Turing, independent)**: a **requirement→implementation traceability matrix** — every requirement/prototype block mapped to evidence (selector assertion / screenshot) — filed by Turing against Jobs' baseline; any conformance gap ⇒ not done (`PROTOCOL §⑥.1` clause 13).
+7. (Reinforcement) **Elon audits the workers' reports at final review** (confirms the **report set his card's flow produces** is present in the Reports — §2.1, `PROTOCOL §10.5` report table); the **UI card's Acceptance physically contains** "block list + machine-check assertions + screenshot comparison" **(flow A)**; missing any one ⇒ must not be done.
+8. **Requirement conformance (Turing, independent)**: a **requirement→implementation traceability matrix** — every requirement/prototype block mapped to evidence (selector assertion / screenshot) — filed by Turing against Jobs' baseline; any conformance gap ⇒ not done (`PROTOCOL §6.1` clause 13).
 
-> **Applicability by flow (`PROTOCOL §⑩.5`, added 2026-10-13)**: items 1 (full block list), 4 (screenshot comparison) and 8 (conformance matrix) are the **flow-A** gate. Items **2, 3 and 5** (machine-check conditions in Acceptance / the assertions pass / clean console + no overflow) apply to **every** flow — at **subset weight** (the touched blocks) for B and C. Item 6 (single writer per file) is unconditional. For **flow C** there is no per-card Jobs certification and no per-card Turing lane — that "After" line is served by the **rolling sample** (§11). Item 7 binds Elon to **the report set its flow produces** (`PROTOCOL §⑩.5` report table), not to a fixed roster.
+> **Applicability by flow (`PROTOCOL §10.5`, added 2026-10-13)**: items 1 (full block list), 4 (screenshot comparison) and 8 (conformance matrix) are the **flow-A** gate. Items **2, 3 and 5** (machine-check conditions in Acceptance / the assertions pass / clean console + no overflow) apply to **every** flow — at **subset weight** (the touched blocks) for B and C. Item 6 (single writer per file) is unconditional. For **flow C** there is no per-card Jobs certification and no per-card Turing lane — that "After" line is served by the **rolling sample** (§11). Item 7 binds Elon to **the report set its flow produces** (`PROTOCOL §10.5` report table), not to a fixed roster.
 
 ---
 
@@ -105,8 +105,8 @@ Aligned with `PROTOCOL §⑨.1` "acceptance hard gate", landed as operable items
 - **Inventing structures absent from the prototype** (e.g. replacing the prototype's Hero card with a self-invented component).
 - **Concurrent writes to the same file by multiple cards** (no serialization).
 - Substituting "**build passes**" for **visual-alignment acceptance**.
-- Rendering the prototype's **developer annotations** ("(static placeholder)", etc.) into the user interface as copy (`§⑨.1` ambiguity discrimination).
-- Writing real requests/auth/credentials into `prototype/**`, or using the prototype page as the E2E system under test (`§⑨.2`).
+- Rendering the prototype's **developer annotations** ("(static placeholder)", etc.) into the user interface as copy (`PROTOCOL §9.1` ambiguity discrimination).
+- Writing real requests/auth/credentials into `prototype/**`, or using the prototype page as the E2E system under test (`PROTOCOL §9.2`).
 - Substituting "API 200 / build passes / **implementer** self-report" for the **independent verification (Turing machine check + Jobs visual)**; an acceptance that waives a missing independent-verification key point.
 - Setting todo/delivering when assertions were not run or did not pass.
 
@@ -147,9 +147,9 @@ Aligned with `PROTOCOL §⑨.1` "acceptance hard gate", landed as operable items
 
 ## 7. Evidence Format and "Consistent Items Must Also Be in the List"
 
-- **Evidence format**: every difference / every assertion carries `evidence` = a "**file + block name/selector**" location (`§⑨.1` hard gate #1). **Document bodies and references never write line-number anchors**; the precise schema of the tool manifest's `evidence` field is governed by `tools/ui-align/README.md` §4.
+- **Evidence format**: every difference / every assertion carries `evidence` = a "**file + block name/selector**" location (`PROTOCOL §9.1` hard gate #1). **Document bodies and references never write line-number anchors**; the precise schema of the tool manifest's `evidence` field is governed by `tools/ui-align/README.md` §4.
 - **Consistent items must also be in the list**: the manifest is **the enumeration of all blocks of the page**; items **with no difference must still be listed** (`status: delivered`). Rationale: omissions cannot be found by a "list differences only" method — a whole block once went missing undiscovered for **5 days**. "Full manifest + consistent items" is the only means to prevent omissions.
-- **Determination trail**: screenshot comparisons, assertion `--json` reports, and issue lists all land in `workspace/<task-id>/` (evidence does not enter inter-session messages; see `§⑬` token trimming).
+- **Determination trail**: screenshot comparisons, assertion `--json` reports, and issue lists all land in `workspace/<task-id>/` (evidence does not enter inter-session messages; see `PROTOCOL §13` token trimming).
 
 ---
 
@@ -157,7 +157,7 @@ Aligned with `PROTOCOL §⑨.1` "acceptance hard gate", landed as operable items
 
 | Role | What it does in this SOP |
 |---|---|
-| **Elon** | Check dirty-surface files before card splitting / create UI cards and attach the three Acceptance items (full set = flow A) / **audit the reports the card's flow produces** (§2.1, `PROTOCOL §⑩.5` report table) at final review (no hands-on re-verification) / approve "deviation rationales" / documentation-impact determination |
+| **Elon** | Check dirty-surface files before card splitting / create UI cards and attach the three Acceptance items (full set = flow A) / **audit the reports the card's flow produces** (§2.1, `PROTOCOL §10.5` report table) at final review (no hands-on re-verification) / approve "deviation rationales" / documentation-impact determination |
 | **Jobs** | Before: **structural contract** (full block list + machine-check points) / After: **visual screenshot comparison** certification + "Issue list" (flow A per card; see §2.1 for B/C) / maintain this file and the unified design style guide |
 | **Linus** | Implement per the contract / write the manifest and config / get the **during-stage assertions** to pass / self-prove before delivery (command + exit code) |
 | **Turing** | **Independently** re-run assertions / check the acceptance hard gate / screenshot comparison (same viewport × same theme × same language) / **requirement-conformance verification** against Jobs' baseline (traceability matrix) |
@@ -203,14 +203,14 @@ node tools/ui-fidelity/check.mjs --config ./.ui-fidelity.json --style-strict
 
 ## 11. Flow C Path — UI Micro-Change (shortest chain, gate not skipped)
 
-> Routing and the hard boundary live in `PROTOCOL §⑩.5`; the C-form floor (reduced but non-empty) is `PROTOCOL §⑨.1` Addendum III. This section is the **operational walk** for a flow-C card; everything else in this SOP still applies — at a reduced **surface**, never with reduced **evidence**.
+> Routing and the hard boundary live in `PROTOCOL §10.5`; the C-form floor (reduced but non-empty) is `PROTOCOL §9.1` Addendum III. This section is the **operational walk** for a flow-C card; everything else in this SOP still applies — at a reduced **surface**, never with reduced **evidence**.
 
 | Stage | Flow C (micro-change inside the frozen design) |
 |---|---|
-| **Before** | **No new contract round.** The card **reuses the frozen structural contract** of that surface (`PROTOCOL §⑩.6`); the touched blocks and their selectors are taken from the **existing** `ui-align` block list. If the surface has **no** frozen contract ⇒ this is **not** flow C: escalate through Elon (flow A) **before** touching anything. |
-| **During (Linus)** | Edit strictly inside the frozen design (spacing / token value / alignment / wording of already-decided copy / visual polish). Run the **assertion subset for the touched blocks** (DOM existence / count / non-empty / no horizontal overflow / clean console) and attach command + exit code + `--json` artifact pointer to the Report. **Red ⇒ not deliverable.** Adding a block, changing an interaction, changing copy **semantics**, or changing a token **definition** ⇒ **stop — that is flow A** (`PROTOCOL §⑦`: card `blocked` + send back). |
+| **Before** | **No new contract round.** The card **reuses the frozen structural contract** of that surface (`PROTOCOL §10.6`); the touched blocks and their selectors are taken from the **existing** `ui-align` block list. If the surface has **no** frozen contract ⇒ this is **not** flow C: escalate through Elon (flow A) **before** touching anything. |
+| **During (Linus)** | Edit strictly inside the frozen design (spacing / token value / alignment / wording of already-decided copy / visual polish). Run the **assertion subset for the touched blocks** (DOM existence / count / non-empty / no horizontal overflow / clean console) and attach command + exit code + `--json` artifact pointer to the Report. **Red ⇒ not deliverable.** Adding a block, changing an interaction, changing copy **semantics**, or changing a token **definition** ⇒ **stop — that is flow A** (`PROTOCOL §7`: card `blocked` + send back). |
 | **After** | **No per-card independent lane.** The card is covered by the **rolling sample**: Turing machine-samples 20%/week of the accepted B/C cards and re-runs the assertions independently, and Jobs visual-spot-checks **the same batch**. **One exception**: when the change is visually **non-trivial** (affects layout / multiple viewports) ⇒ Jobs does **one asynchronous visual pass**. |
-| **Elon** | Final **acceptance audit** of the Report(s) (`PROTOCOL §⑨`): the C report set is **Linus (+ the sampling verifier's report when this card was sampled)**. Elon re-runs nothing. |
+| **Elon** | Final **acceptance audit** of the Report(s) (`PROTOCOL §9`): the C report set is **Linus (+ the sampling verifier's report when this card was sampled)**. Elon re-runs nothing. |
 
 **What C may never skip**: ① the assertion subset at delivery; ② the written self-proof in the Report; ③ the card's eligibility for the rolling sample.
 **What C does skip**: the Jobs contract round, the screenshot comparison (unless the change is visually non-trivial), and the per-card Turing lane.

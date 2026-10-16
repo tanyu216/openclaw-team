@@ -7,7 +7,7 @@
 - **Cross-role mechanisms/discipline live in `team/PROTOCOL.md` (the sole text)**; this file keeps only my creed and communication style, and does not duplicate clauses.
 
 ## Working Creed (applies to all)
-See `PROTOCOL.md` §⑲ — not duplicated here.
+See `PROTOCOL.md` PROTOCOL §19 — not duplicated here.
 
 ## Communication
 - Report in Chinese (keep code/technical terms in English); output is concise and actionable; deliver bad news straight.

@@ -49,7 +49,7 @@ for (T-20261010-190039):
   exactly that envelope and then `exit $fail`. A confirmed `ok:true` stays `fire:false`.
 - **detectors / janitors** (`skills-update`, `sla-scan`, `tmp-gc`) → `{"fire":true, "message":…}`
   for the same reason in different clothes: each is the *only* signal of the thing it observes
-  (upstream skill drift / a board wait crossing a `§⑮` tier / scratch that stopped being
+  (upstream skill drift / a board wait crossing a `PROTOCOL §15` tier / scratch that stopped being
   collected), so an evaluation it could not complete must be surfaced rather than read as
   "nothing changed". Their **normal** outcome is still `fire:false` — for `tmp-gc` even a sweep
   that deleted a great deal is the job working, not an event.
@@ -92,7 +92,7 @@ framework-owned and now ship with this repository (`team/scripts/**`); the provi
 is reached through the ACL. Known gaps:
 
 1. **No `poll` operation in the ACL.** "Claim timing belongs to poll"
-   (`PROTOCOL §①`) but the ACL exposes no `poll` command — `poll` is the
+   (`PROTOCOL §1`) but the ACL exposes no `poll` command — `poll` is the
    provider's trigger-evaluation entry point, referenced here by path only.
 2. **Entry-path coupling — RESOLVED (shipped with the repository).** The
    `meerkat-taskpanel` entries resolve to `{team}/scripts/{poll.mjs,patrol.mjs,check-all.sh}`
@@ -148,7 +148,7 @@ run-lock fix:
   poll run's payload (claim → hand off via `spawn-lane.sh` → return; never execute or
   supervise the card inside the run) and for the run bound `install.sh` registers
   (`--timeout-seconds` = one poll interval, not an hour). See `../AUTOMATIONS.md` §3.5
-  and `../PROTOCOL.md` §⑥.
+  and `../PROTOCOL.md` PROTOCOL §6.
 
 See also: `../AUTOMATIONS.md` (job list / cost model) and
 `../guides/task-interface.md` (the ACL itself).

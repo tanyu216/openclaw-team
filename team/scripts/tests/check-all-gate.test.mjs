@@ -135,7 +135,7 @@ test('a red FAST segment is reported in-band with the failing steps (the masking
   assert.match(v.message, /check-all gate RED/);
   assert.match(v.message, /check-card/);
   assert.match(v.message, /lint-refs/);
-  assert.match(v.message, /PROTOCOL §⑳/, 'the alarm stays actionable');
+  assert.match(v.message, /PROTOCOL §20/, 'the alarm stays actionable');
 });
 
 test('an UNCONFIRMED fast segment never reads as green', () => {

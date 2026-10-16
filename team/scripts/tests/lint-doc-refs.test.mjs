@@ -5,11 +5,11 @@
  *   ① **真问题必红** —— 方法库指针断了（历史实证：`roles/turing/guides/` 从未存在）、
  *      跨文件章节锚断了（历史实证：`§6.3` / `§3.3` 写成子标题而目标无此标题）、
  *      节内条款号断了（本腿上线首跑即抓到 `worker-report-template.md` 的
- *      `PROTOCOL §⑥ clause 13` —— §⑥ 只有 8 条，实指 `§⑥.1` 第 13 条）必须判红；
+ *      `PROTOCOL §6 clause 13` —— PROTOCOL §6 只有 8 条，实指 `PROTOCOL §6.1` 第 13 条）必须判红；
  *   ② **误报必零** —— 扩展名散文（`.md`）、运行时点文件（`.claude/settings.json`）、
  *      provider 侧路径（`skills/**`，有意不随仓）、实例/运行时路径（`workspace/…`）、
  *      **目标文件没有编号标题**（如空的 `shared.md`）、**体不是 `1..n` 连续顶层有序列表**
- *      （表格 / 体内跳号）、**裸阿拉伯 `#K`**（本仓表示表格行）一律不得判红。
+ *      （表格 / 体内跳号）、**裸 `#K`**（本仓表示表格行）一律不得判红。
  * ② 与 ① 同等重要：一个上线即红的门会被立刻关掉，等于没有。
  */
 import { test, before, after } from 'node:test';
@@ -39,7 +39,7 @@ before(() => {
   put('roles/linus/guides/linus-only.md');
   // 第三腿夹具：圈码锚恒指 `PROTOCOL.md` ⇒ 给它一个 `### ⑥.1` 带 11 条顶层有序项。
   put('team/PROTOCOL.md',
-    `## ⑥ S\n### ⑥.1 Q\n${Array.from({ length: 11 }, (_, i) => `${i + 1}. item ${i + 1}`).join('\n')}\n`);
+    `## 6. S\n### 6.1 Q\n${Array.from({ length: 11 }, (_, i) => `${i + 1}. item ${i + 1}`).join('\n')}\n`);
   put('team/guides/shared.md');
   // 第二腿夹具：一份**有编号标题**的目标（`## 3` / `## 6` + `### 6.3`），用以证 §N 的解析语义。
   put('team/guides/numbered.md', '## 3. Steps\n1. one\n## 6. Invariants\n### 6.3 Sub\ntext\n');
@@ -72,8 +72,8 @@ before(() => {
     'skip-secref-self: see §3.3',            // 无文件名 ⇒ 文件内一类，本腿**有意**不判
     'ok-itemref-file: `guides/items.md` §6 clause 3',
     'ok-itemref-file-step: `guides/items.md` §6 step 2',
-    'ok-itemref-circ: PROTOCOL §⑥.1 clause 11',
-    'ok-itemref-circ-hash: PROTOCOL §⑥.1 #8',
+    'ok-itemref-named: PROTOCOL §6.1 clause 11',
+    'ok-itemref-named-hash: PROTOCOL §6.1 #8',
     // **不识别**的三类：裸阿拉伯 #K（本仓表示表格行）、无文件锚的 step、U+2011 连字符节号
     'skip-itemref-bare-hash: the contract §4 #9',
     'skip-itemref-no-file: see §4.1 step 3',
@@ -158,7 +158,7 @@ test('提取：只取 `§` **紧邻**文件名的跨文件锚；文件内与圈�
   assert.deepEqual(extractSectionRefs('see `guides/a.md`; also §3.3'), []);
   assert.deepEqual(extractSectionRefs('see §3.3'), []);
   // 圈码引用是 `lint-refs.mjs` 的领域（且只对 PROTOCOL.md），本腿不碰
-  assert.deepEqual(extractSectionRefs('see `team/PROTOCOL.md` §⑥.4'), []);
+  assert.deepEqual(extractSectionRefs('see `team/PROTOCOL.md` PROTOCOL §6.4'), []);
 });
 
 test('基线（含第二腿）：路径锚与章节锚一起零断引用', () => {
@@ -206,15 +206,16 @@ test('提取：只收目标可判定的三类；裸阿拉伯 #K 等三类一概�
     [{ file: 'guides/a.md', sec: '6', kind: 'clause', item: 3 }]);
   assert.deepEqual(extractItemRefs('x `guides/a.md` §3 step 2'),
     [{ file: 'guides/a.md', sec: '3', kind: 'step', item: 2 }]);
-  assert.deepEqual(extractItemRefs('x PROTOCOL §⑥.1 clause 11'),
-    [{ file: null, sec: '⑥.1', kind: 'clause', item: 11 }]);
-  assert.deepEqual(extractItemRefs('x `§⑥.1` clause 11'),        // 反引号拆写
-    [{ file: null, sec: '⑥.1', kind: 'clause', item: 11 }]);
-  assert.deepEqual(extractItemRefs('x §⑥.1 hard gate #1'),
-    [{ file: null, sec: '⑥.1', kind: '#', item: 1 }]);
+  assert.deepEqual(extractItemRefs('x PROTOCOL §6.1 clause 11'),
+    [{ file: null, sec: '6.1', kind: 'clause', item: 11 }]);
+  assert.deepEqual(extractItemRefs('x `PROTOCOL §6.1` clause 11'),   // 反引号拆写
+    [{ file: null, sec: '6.1', kind: 'clause', item: 11 }]);
+  assert.deepEqual(extractItemRefs('x PROTOCOL §9.1 hard gate #1'),
+    [{ file: null, sec: '9.1', kind: '#', item: 1 }]);
   // 不识别：裸阿拉伯 #K（本仓 = 表格行）、无文件锚的 step、非识别标记词、U+2011
   assert.deepEqual(extractItemRefs('the contract §4 #9'), []);
-  assert.deepEqual(extractItemRefs('see §4.1 step 3'), []);
+  assert.deepEqual(extractItemRefs('see §4.1 step 3'),
+    [{ file: '@self', sec: '4.1', kind: 'step', item: 3 }]);   // 裸 ⇒ 自引用
   assert.deepEqual(extractItemRefs('see §8.3 rule 5'), []);
   assert.deepEqual(extractItemRefs('§6.3‑A step 3'), []);
 });
@@ -237,14 +238,14 @@ test('突变：条目锚断了必红 —— K 超过该节顶层条目数', () =
   assert.deepEqual(lint().bad, [], '恢复后须回绿');
 });
 
-test('突变：圈码锚自动解析到 PROTOCOL（文档不写文件名也判）', () => {
+test('突变：点名 `PROTOCOL` 的引用解析到 L1', () => {
   const f = path.join(ROOT, 'team/guides/refs.md');
   const saved = fs.readFileSync(f, 'utf8');
-  fs.writeFileSync(f, saved + '\nbad-circ: PROTOCOL §⑥.1 clause 12\n');
+  fs.writeFileSync(f, saved + '\nbad-named: PROTOCOL §6.1 clause 12\n');
   try {
     const { bad } = lint();
     assert.equal(bad.length, 1, `应恰好一条：${JSON.stringify(bad)}`);
-    assert.equal(bad[0].token, 'PROTOCOL §⑥.1 clause 12');
+    assert.equal(bad[0].token, 'PROTOCOL §6.1 clause 12');
   } finally { fs.writeFileSync(f, saved); }
 });
 
