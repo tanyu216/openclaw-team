@@ -151,7 +151,7 @@ Each role file holds that role's **standing orders (SOP)**. Cross-role rules are
   parallelism and chases stale cards. `team/PROTOCOL.md` **§⑥.3 Worker Parallelism-First**.
 
 The scheduler that wakes workers (`poll-<agent>`, `task-patrol`, `sla-scan`,
-`team-check-all`, `skills-update`) is described in
+`team-check-all`, `skills-update`, `tmp-gc`) is described in
 [Scheduling & team automations](#scheduling--team-automations).
 
 ## AI-Agent Collaboration Guide (for non-programmers)
@@ -251,7 +251,7 @@ What the installer does (every stage is idempotent; existing items are skipped):
    ACL).
 7. **Team automations (scheduling)** — registers the team-level scheduled jobs
    (`poll-<agent>` every 5m, `task-patrol` every 15m, `sla-scan` every 15m,
-   `team-check-all` hourly, `skills-update` weekly),
+   `team-check-all` hourly, `skills-update` weekly, `tmp-gc` daily 02:20),
    **declaratively** (by `declarationKey`; `config/reconcile.mjs` emits add/edit/skip
    so re-runs self-heal drift) and **provider-agnostically**: each trigger calls the
    framework dispatcher `team/automations/dispatch.mjs`, never a provider literal.
@@ -364,9 +364,10 @@ delegated to the task provider. `install.sh` registers the jobs below
 | `sla-scan` | every 15m (`OPENCLAW_TEAM_SLA_INTERVAL`) | board SLA inspection of the `PROTOCOL §⑮` waits `task-patrol` does not cover; fires only on a tier crossing (`team/guides/sla-inspection-contract.md`, `team/AUTOMATIONS.md §3.8`) |
 | `team-check-all` | hourly (`0 * * * *` @ Asia/Shanghai) | gate patrol; fires only on failure |
 | `skills-update` | Sundays 05:00 (Asia/Shanghai) | upstream skill-ref drift detect; fires only on drift/failure |
+| `tmp-gc` | daily 02:20 (Asia/Shanghai) | scratch GC (`PROTOCOL §⑬.9`): deletes files >14 days old under `workspace-*/.tmp/`, `~/.openclaw/tmp/` and `~/.openclaw/team/tmp/`; fires only when the sweep could not be confirmed (`team/AUTOMATIONS.md §3.9`) |
 
 Each trigger calls the framework dispatcher
-`team/automations/dispatch.mjs <poll|patrol|check-all|skills-update|sla-scan> [agent]`, which resolves the
+`team/automations/dispatch.mjs <poll|patrol|check-all|skills-update|sla-scan|tmp-gc> [agent]`, which resolves the
 provider's entry command (`team/automations/providers.json`; provider =
 `OPENCLAW_TEAM_TASK_PROVIDER`, default `meerkat-taskpanel`) and returns `{"fire":…}`. **The
 entry scripts themselves ship with this repository** — `poll.mjs`, `patrol-scan.mjs`,

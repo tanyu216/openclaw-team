@@ -3,7 +3,7 @@
  * install-reconcile.test.mjs — B5/B6/B7: reconcile emits add / edit / skip from the
  * declared jobs + the runtime `automations list --json`, with the drift rules pinned:
  *   - poll/patrol (interval) drift ⇒ --light-context (+ --every when the interval drifted)
- *   - team-check-all (cron) ⇒ --light-context only, NEVER --every
+ *   - team-check-all / tmp-gc (cron) ⇒ --light-context only, NEVER --every
  *
  * Run: node --test test/install/install-reconcile.test.mjs
  */
@@ -90,6 +90,25 @@ test("check-all (cron) missing lightContext ⇒ edit --light-context, NEVER --ev
   const ca = actions.find((a) => a.key === "openclaw-team:team-check-all");
   assert.equal(ca.action, "edit");
   assert.deepEqual(ca.editArgs, ["--light-context"], "cron job must not get --every");
+});
+
+test("tmp-gc (cron) ⇒ --light-context only, and a matching one ⇒ skip (its expression is never touched)", () => {
+  const declared = [...DECLARED, { key: "openclaw-team:tmp-gc", name: "tmp-gc", agent: "main", job: "tmp-gc", kind: "cron", lightContext: true }];
+  const live = (payload) => ({
+    id: "job-tg",
+    declarationKey: "openclaw-team:tmp-gc",
+    name: "tmp-gc",
+    schedule: "cron 20 2 * * * @ Asia/Shanghai",
+    payload,
+  });
+
+  const drifted = reconcileAutomations({ jobs: [live({ lightContext: false })] }, declared);
+  const tg = drifted.find((a) => a.key === "openclaw-team:tmp-gc");
+  assert.equal(tg.action, "edit");
+  assert.deepEqual(tg.editArgs, ["--light-context"], "a cron job must not get --every");
+
+  const matching = reconcileAutomations({ jobs: [live({ lightContext: true })] }, declared);
+  assert.equal(matching.find((a) => a.key === "openclaw-team:tmp-gc").action, "skip");
 });
 
 test("patrol interval drift (live 5m vs declared 15m) ⇒ --every 15m", () => {

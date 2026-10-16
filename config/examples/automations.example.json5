@@ -17,7 +17,10 @@
 //
 //   poll-<agent>     every 5m   per built-in worker (jobs / linus / turing / assistant)
 //   task-patrol      every 15m  stale in_progress heartbeat scan
+//   sla-scan         every 15m  board SLA inspection (OPENCLAW_TEAM_SLA_INTERVAL)
 //   team-check-all   hourly     cron "0 * * * *" @ Asia/Shanghai (gate patrol)
+//   skills-update    weekly     cron "0 5 * * 0" @ Asia/Shanghai (upstream drift detect)
+//   tmp-gc           daily      cron "20 2 * * *" @ Asia/Shanghai (scratch GC, PROTOCOL §⑬.9)
 //
 // Poll interval is configurable: OPENCLAW_TEAM_POLL_INTERVAL (default 5m, cron-slimmed
 // from the former 2m/1m). Every job carries --light-context so the scheduler polls are cheap.
