@@ -44,17 +44,16 @@ than re-declaring a set. It has **no imports of its own** — that is what lets 
 any context (a checkout without the provider included); consistency with the provider's own
 vocabulary is asserted by `tests/status.test.mjs`.
 
-## Vendoring contract
+## Distribution contract
 
-These files are **byte-identical copies of the deployed runtime**
-(`~/.openclaw/team/scripts/**`, including the executable bit); the repository is
-their distribution channel. They carry no local edits — if a runtime fix is needed,
-fix it in the runtime and re-copy the whole flat set, so the two never diverge.
+These files **are the source**: `install.sh` copies this directory, executable
+bits included, into `{team}/scripts/` on the host. Edit them here and re-install —
+never the other way round, and never hand-copy between a host and the repository.
 
-`tests/` is the exception: it holds the framework tests written **for this
-repository** (`node --test team/scripts/tests/*.test.mjs`, green with no
-prerequisites). They are deployed alongside the scripts, which is also what
-`check-all.sh` re-runs in a deployed install.
+`tests/` holds the framework tests written **for this repository**
+(`node --test team/scripts/tests/*.test.mjs`; green bare — suites that need the
+task-ops provider skip themselves). They ship alongside the scripts, which is also
+what `check-all.sh` re-runs in a deployed install.
 
 ## Codex plugin lane (`harness=plugin`)
 
