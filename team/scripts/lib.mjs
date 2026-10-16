@@ -55,6 +55,19 @@ export const CLAIM_STALE_SAME_MS = 30 * 60 * 1000;    // 陈旧 claim：> 30min 
 export const CLAIM_STALE_ANY_MS = 6 * 60 * 60 * 1000; // > 6h 任意 assignee 可领并升级上报
 
 export const AGENTS = ['elon', 'jobs', 'linus', 'turing', 'assistant'];
+
+// ── 集成分支名（`PROTOCOL §⑥.4`）───────────────────────────────────────────────
+// 单一出处：`check-merge.mjs`（门禁）与 `spawn-lane.mjs`（车道提示语）**都必须**拿到同一个名字，
+// 否则门禁查的分支和车道建的分支会各说各话——那是静默失效，不是配置自由。
+//
+// 为什么可配而非常量：分支名**随仓而异**（`dev` / `develop` / `trunk` …）。框架只提供缺省值，
+// 不假定用户仓里一定是 `dev`——找不到集成分支时 `check-merge` 会 skip + 告警，绝不误判。
+export const INTEGRATION_BRANCH_ENV = 'OPENCLAW_TEAM_INTEGRATION_BRANCH';
+export const INTEGRATION_BRANCH_DEFAULT = 'dev';
+/** 集成分支：`OPENCLAW_TEAM_INTEGRATION_BRANCH` > 缺省 `dev`。空串 / 纯空白 ⇒ 回退缺省。 */
+export function integrationBranch(env = process.env) {
+  return String(env[INTEGRATION_BRANCH_ENV] || '').trim() || INTEGRATION_BRANCH_DEFAULT;
+}
 // `CARD_ID_RE` 已删除：卡 id 的**形状**（`T-YYYYMMDD-HHMMSS` 是当前基座的实现细节）属于 task provider，
 // 不属于本仓。team 侧需要的两件事分别由 `card-ids.mjs`（结构性识别 + 看板派生命名空间）与
 // `cardPathOf`（显式路径安全）承担。

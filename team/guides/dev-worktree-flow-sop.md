@@ -8,6 +8,9 @@
 > does not copy their text (`PROTOCOL §⑥.1` clause 11).
 > **Applies to**: every development card whose work lands in a git checkout this framework manages.
 > **Replaces**: `worktree-isolation-sop.md` (deleted 2026-10-16 with the mechanism it documented).
+> **Branch names are resolved, not assumed**: the release branch may be `main`/`master`/`trunk` and is
+> determined per repo by `branch-guard.mjs`; the integration branch is `OPENCLAW_TEAM_INTEGRATION_BRANCH`
+> (default `dev`). Where this guide says "the integration branch", read "whatever your repo's is".
 
 ---
 
@@ -48,13 +51,13 @@ an owner for the terminal write.
 |---|---|---|---|
 | 1 | card dispatched (`todo`/`ready` → claimed) | Elon / poll | **machine** — claim is atomic (`lib.mjs#claimCard`) |
 | 2 | `spawn-lane.sh <card> <owner> [seg] [backend]` — claim → handoff → settings → spawn → `session-set` → arm reaper | spawner | **machine** — any failure refuses the spawn (zero side effects) |
-| 3 | lane reads its prompt: authorised to isolate · branch `<card>-<seg>` · base `dev` | spawner → lane | **machine** — the prompt is generated (`buildPrompt`) |
+| 3 | lane reads its prompt: authorised to isolate · branch `<card>-<seg>` · base = the integration branch | spawner → lane | **machine** — the prompt is generated (`buildPrompt`) |
 | 4 | lane creates/enters `.worktrees/<branch>` | **lane** (`using-git-worktrees`) | **prose** — the skill instructs it; nothing verifies it happened |
 | 5 | work; commits use **explicit paths** | lane | **prose** + `commit-guard.mjs` (SOP-invoked, not a git hook) |
 | 6 | Report written: conclusion · branch · commit sha · **merged sha** | lane | **machine (partial)** — `check-report.mjs` checks slot *presence* only; the merged sha is not a checked slot |
-| 7 | owner merges the card branch into `dev` | lane owner | **prose** |
+| 7 | owner merges the card branch into the integration branch | lane owner | **prose** |
 | 8 | Elon accepts: confirms the merge landed, records the merged sha, sets `done` | Elon | **prose** — the `done` write is *git-blind* (ACL requires only actor + non-terminal) |
-| 9 | gate re-checks: a `done` card's worktree must be an ancestor of `dev` | gate | **machine** — `check-merge.mjs` (`PROTOCOL §⑳.1`) |
+| 9 | gate re-checks: a `done` card's worktree must be an ancestor of the integration branch | gate | **machine** — `check-merge.mjs` (`PROTOCOL §⑳.1`) |
 | 10 | worktree removed | owner | **prose** — and only **after** the merge |
 
 **The order in steps 7–10 is the load-bearing part.** "Merge, *then* remove" is not tidiness: a
@@ -63,11 +66,12 @@ check into a no-op (`PROTOCOL §⑳.2`).
 
 ### Continuation and rework
 
-Because the base is the skill's implicit `HEAD` and the main checkout holds `dev` (`PROTOCOL §⑥.4`),
-`HEAD` **is** `dev`. Two rules follow, and both replace machinery that used to exist:
+Because the base is the skill's implicit `HEAD` and the main checkout holds the **integration branch**
+(`dev` by default — `OPENCLAW_TEAM_INTEGRATION_BRANCH`; `PROTOCOL §⑥.4`), `HEAD` **is** that branch.
+Two rules follow, and both replace machinery that used to exist:
 
-- **A continuation segment may only start once the previous segment's branch is merged into `dev`.**
-  Otherwise its tree is built on a `dev` that lacks the earlier segment.
+- **A continuation segment may only start once the previous segment's branch is merged in.** Otherwise
+  its tree is built on an integration branch that lacks the earlier segment.
 - **Rework of an unmerged branch stays in the same worktree.** Sending a card back for changes is not
   a reason to build a second tree on a base that lacks the first one's commits.
 
@@ -103,10 +107,10 @@ This table is the point of the guide. Read it before trusting any claim that a s
 | the Report carries its core slots | **machine** | `check-report.mjs` — **slot presence only**, not semantics |
 | the Report names the branch / merged sha | **prose** | slot A2 carries them as free text; no check reads them |
 | the lane actually created a worktree | **prose** | the skill instructs it; nothing verifies |
-| the branch was based on `dev` | **prose** | follows from the main checkout's branch; unverified per lane |
-| the branch is merged into `dev` before `done` | **machine (partial)** | `check-merge.mjs` — see the gaps below |
+| the branch was based on the integration branch | **prose** | follows from the main checkout's branch; unverified per lane |
+| the branch is merged into the integration branch before `done` | **machine (partial)** | `check-merge.mjs` — see the gaps below |
 | same-file write conflict ⇒ serialized | **machine (warn only)** | `samefile-guard.mjs` reports; nothing blocks a start |
-| no direct commit on `main` | **prose** | `branch-guard.mjs` is SOP-invoked, not a git hook |
+| no direct commit on the release branch | **prose** | `branch-guard.mjs` is SOP-invoked, not a git hook; it resolves the protected set per repo (default branch ∪ `main` ∪ `master`) |
 
 **`check-merge.mjs` is a net, not a wall.** Its four structural gaps (`PROTOCOL §⑳.2`): a removed
 worktree is invisible; a branch name that does not carry the card id escapes attribution; it covers
