@@ -1,7 +1,7 @@
 # Codex 插件 lane 机制契约（A1）
 
-> 卡：`T-20261013-012318-3`（父 epic `T-20261013-012318`）· 责任：Jobs（设计/契约）·
-> 下游：A2 `T-20261013-012318-4`（linus 实现）→ A3 `T-20261013-012319`（turing 独立验证）。
+> 卡：（父 epic ）· 责任：Jobs（设计/契约）·
+> 下游：A2 （linus 实现）→ A3 （turing 独立验证）。
 > 规格来源：`workspace/T-20261013-012318-3/design-spec.md`（骨架 / 硬约束 / 已核事实 / 设计裁定 R-1…R-6）。
 > 评估依据：`workspace/T-20261013-005900/consolidation.md`（裁定 = **仅 Codex 腿 opt-in 试点**，其余不动）。
 > 引用约定：本文只写「文档名 §章节名」，**不使用行号锚**（`PROTOCOL §6.1` 第 11 条）。
@@ -36,14 +36,14 @@
 
 ### 1.4 已核事实（直接引用 `design-spec.md` §1，执行核实）
 
-- 现状：`BACKENDS = ['claude','codex']`；`buildCommand()` 对 codex 产出 `codex exec <prompt>`（一行 prompt），claude 走 `claude -p … --session-id <uuid>`（`scripts/spawn-lane.mjs`）。
+- 现状：`BACKENDS = ['claude','codex']`；`buildCommand` 对 codex 产出 `codex exec <prompt>`（一行 prompt），claude 走 `claude -p … --session-id <uuid>`（`scripts/spawn-lane.mjs`）。
 - 官方插件：`@openclaw/codex` **v2026.10.2**（`~/.openclaw/extensions/codex/`，已安装且 enabled）；`dist/harness.js` 导出 `createCodexAppServerAgentHarness(options)` —— 即**由 OpenClaw Gateway 加载的 embedded harness 工厂**，非独立 CLI 入口；runtime extension = `./dist/index.js`。
 - codex CLI **0.161.0**（宿主 PATH）；插件默认自带并管理 `@openai/codex` **0.160.0**；app-server 版本门 **≥0.149.0**（`plugins/codex-harness.md` Requirements）。
 - 卡 `## Sessions` 行格式（唯一写入点 = ACL `task.session-set`，`skills/task-ops/lib/task.mjs`）：
   `- seg:… · owner:… · backend:… · id:… · phase:… · status:running|closed|failed · pid:… · <ISO8601Z>`；upsert 键 = `seg:<seg> ·`。
 - registry 唯一事实源 = `~/.openclaw/team/claude-sessions.json`；写点 = `scripts/registry.mjs` `upsertSessionEntry` / `setSessionStatus`；**现行条目去重键 = `task_id|owner|phase|session_id`**，字段 `task_id/owner/phase/pid/startedAt/log/status/session_id`（终态加 `endedAt`）。
 - 单入口纪律：新 lane 只能经 `scripts/spawn-lane.sh`（`guides/spawn-lane-sop.md`）；直跑 `claude -p` / `codex exec` 不登记 = 违规（复现 `registry_only` / `card_only` 两类 `check-sessions` 红）。
-- 三宿主能力矩阵（`T-20261011-231103`）：claude 2.1.292 / codex 0.161.0 / pi 1.0.4；resume 形态 claude `--resume <id>`、codex `codex exec resume <id>`、pi `pi --print --session <id>`。
+- 三宿主能力矩阵（）：claude 2.1.292 / codex 0.161.0 / pi 1.0.4；resume 形态 claude `--resume <id>`、codex `codex exec resume <id>`、pi `pi --print --session <id>`。
 
 ---
 
@@ -51,7 +51,7 @@
 
 ### 2.1 归属模型（R-1）
 
-**1 张卡 : N 个 lane（seg）: 每 lane = 1 个 codex 插件 native thread。**
+**1 张卡: N 个 lane（seg）: 每 lane = 1 个 codex 插件 native thread。**
 
 执行归属在插件路径下改为**双坐标**：
 
@@ -122,7 +122,7 @@
 
 | 字段 | 现值 | 增量 | 说明 |
 |---|---|---|---|
-| `backend` | 无 | 增 `backend ∈ {claude,codex,pi}` | 让 registry 能独立辨别宿主（现由卡 `## Sessions` 行推断，见 `T-20261013-005900-4` 报告 §1.2）。 |
+| `backend` | 无 | 增 `backend ∈ {claude,codex,pi}` | 让 registry 能独立辨别宿主（现由卡 `## Sessions` 行推断，见  报告 §1.2）。 |
 | `harness` | 无 | 增 `harness ∈ {plugin,cli}` | 仅 codex lane 有意义。 |
 | `thread_id` | 无 | 增（codex 插件 lane 的 native thread id） | 绑定后写入；未绑定为空。 |
 | `id_state` | 无 | 增 `id_state ∈ {pending,bound}` | 两步回填的状态位。 |
@@ -160,7 +160,7 @@
 ## 5. G1–G12 证据门表
 
 > 逐门：定义 · 证据位置 · 机读命令（可直接复跑）· 期望 exit/断言 · 责任人。
-> 门集来源：`workspace/T-20261013-005900/consolidation.md` §2 + 父卡 `T-20261013-012318`「必过门」+ `workspace/T-20261013-005900-4/report.md` §4。
+> 门集来源：`workspace/T-20261013-005900/consolidation.md` §2 + 父卡 「必过门」+ `workspace/T-20261013-005900-4/report.md` §4。
 > 路径约定：`<team>` = `~/.openclaw/team`；`<card>` = 卡 id；`<ws>` = `<team>/workspace/<card>`。
 
 ### G1 并发不回归
@@ -175,7 +175,7 @@
 
 - **定义**：cwd 仍由 `project`+`target` 解析；插件侧沙箱参数与 CLI 路径**等价**并写清映射。
 - **证据位置**：`spawn-lane` JSON 的 `cwd`；插件配置 `plugins.entries.codex.config.appServer.{sandbox,defaultWorkspaceDir}`；**写仓负例**后目标仓 `git status --porcelain`。
-- **机读命令**：`bash <team>/scripts/spawn-lane.sh <card> <owner> backend=codex harness=plugin --dry-run | tail -1 | jq -r .cwd`；`jq -r '.plugins.entries.codex.config.appServer.sandbox' ~/.openclaw/openclaw.json`；写仓负例后 `git -C <repo> status --porcelain`。
+- **机读命令**：`bash <team>/scripts/spawn-lane.sh <card> <owner> backend=codex harness=plugin --dry-run | tail -1 | jq -r.cwd`；`jq -r '.plugins.entries.codex.config.appServer.sandbox' ~/.openclaw/openclaw.json`；写仓负例后 `git -C <repo> status --porcelain`。
 - **期望 exit/断言**：`cwd` == `resolveCwd(project,target)`（绝对路径，`spawn-lane.mjs` `resolveCwd`）；sandbox 映射见 §8；负例后 `git status --porcelain` 空输出（exit 0）。
 - **责任人**：linus / turing。
 
@@ -192,14 +192,14 @@
 - **定义**：codex 无 `--session-id` ⇒ 契约 = **记录 native thread id + resume 断言**（同 thread 续接、transcript 连续）。
 - **证据位置**：registry `thread_id` + `id_state:bound`；卡 `## Sessions` 行 `id`（= thread id）；resume 回读日志。
 - **机读命令**：`openclaw codex continue <thread_id> --json`（resume）；标记回读：`openclaw codex sessions --search <marker> --json`。
-- **期望 exit/断言**：resume exit 0；续接后 transcript 含前次写入 marker；**非空跑对照**：新会话答不出 marker（证明非提示词重放，照 `T-20261011-231103` 口径）。
+- **期望 exit/断言**：resume exit 0；续接后 transcript 含前次写入 marker；**非空跑对照**：新会话答不出 marker（证明非提示词重放，照  口径）。
 - **责任人**：linus / turing。
 
 ### G5 机读命令 + exit 证据
 
 - **定义**：lane 起/终都产出机读证据；命令面 = `--dry-run` 末行 JSON；产物面 = lane `*.out.jsonl` 末行 `type=result` + exit code。
 - **证据位置**：`spawn-lane` 末行 JSON `{ok,backend,harness,session_id|thread_id,cmd,…}`；`<ws>/<owner>-<n>.out.jsonl`（NDJSON）。
-- **机读命令**：`bash <team>/scripts/spawn-lane.sh <card> <owner> backend=codex harness=plugin --dry-run | tail -1 | jq -e '.ok==true and .backend=="codex"'`；`tail -1 <ws>/<owner>-<n>.out.jsonl | jq -e '.type=="result"'`。
+- **机读命令**：`bash <team>/scripts/spawn-lane.sh <card> <owner> backend=codex harness=plugin --dry-run | tail -1 | jq -e '.ok==true and.backend=="codex"'`；`tail -1 <ws>/<owner>-<n>.out.jsonl | jq -e '.type=="result"'`。
 - **期望 exit/断言**：两命令 exit 0；`out.jsonl` 存在且非空、末行 `type=result`、含 `exit_code` 字段（对照 `PROTOCOL §6` 子会话「先落文件」纪律）。
 - **责任人**：linus。
 
@@ -312,7 +312,7 @@ bash scripts/spawn-lane.sh <card> <owner> seg=<seg> backend=codex harness=plugin
 - `--dry-run` 仍**只做校验链 + 打印计划命令行，零副作用**（不起进程、不写 registry/卡/handoff/settings）。
 - 未识别 harness 值 ⇒ **usage 错（exit 2）**，理由码 `unknown_harness:<v>`。
 
-### 8.2 后端分派（`buildCommand()`）
+### 8.2 后端分派（`buildCommand`）
 
 - **plugin 分支**：`buildCommand({backend:'codex', harness:'plugin', …})` 返回**网关中介的 codex harness turn** 调度形态（`bin`=`openclaw`（或等价 Gateway dispatch），args 绑定：model ref（如 `openai/gpt-6-astra`）+ resolved cwd + 沙箱参数 + 任务 prompt）。返回句柄 = **native thread id**（非 pid）。
 - **cli 分支（旧，保留可回退）**：`{ bin:<codex>, args:['exec', prompt] }` —— 保持现状，作为回退路径。

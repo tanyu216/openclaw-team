@@ -1,6 +1,6 @@
 # Jobs HTML 原型「自持 sub-agent 独立 session」机制契约
 
-> 卡：`T-20261013-012319-2`（父 epic `T-20261013-012318-2`）· 责任：Jobs（设计/契约）。
+> 卡：（父 epic ）· 责任：Jobs（设计/契约）。
 > 规格来源：`workspace/T-20261013-012319-2/design-spec.md`（骨架 / HARD 约束 / 已核事实 F1–F8 / 设计裁定 R-1…R-9）。
 > 同族对齐对象（只读）：`workspace/T-20261013-012318-3/codex-plugin-lane-contract.md`（Epic A / A1 契约）。**统一的是证据模型，不是引擎。**
 > 引用约定：本文只写「文档名 §章节名」，**不使用行号锚**（`PROTOCOL §6.1` 第 11 条）。
@@ -25,7 +25,7 @@
 ### 1.2 Non-goal
 
 - **不改 claude 腿**：Claude Code sub-session（`claude -p` + 确定性 UUIDv5）仍是团队通用 lane 形态；本契约只把 **Jobs HTML path** 这一条支路切到原生 sub-agent，不覆盖、不改动 claude lane 语义。
-- **不改 codex 插件 leg**：codex 插件 harness 的落地属 Epic A（`T-20261013-012318-3` → A2 实现 → A3 验证）；本契约只声明**证据模型同族对齐**，不接管其实现。
+- **不改 codex 插件 leg**：codex 插件 harness 的落地属 Epic A（ → A2 实现 → A3 验证）；本契约只声明**证据模型同族对齐**，不接管其实现。
 - **不做实现**：`scripts/**`、`skills/task-ops/**`、`~/.openclaw/**` 的改动不属本卡；本契约只锁定接口与不变量。
 - **不改 `PROTOCOL.md`**：与 `PROTOCOL §6` 现行纪律的矛盾处**只标注「需 Elon 裁决」**，不擅自改 L1。
 - **不改团队级红线段**：`team/guides/redlines.core.md` 是生成源（owner=Elon）；E11 只标注、不落改。
@@ -98,7 +98,7 @@
 
 ### 3.1 归属模型（R-3）
 
-**1 张卡 : N 个 seg : 每 seg = 1 个 Jobs 自持 sub-agent session。**
+**1 张卡: N 个 seg: 每 seg = 1 个 Jobs 自持 sub-agent session。**
 
 执行归属改为**双坐标**（同 Epic A §2.1 同族）：
 
@@ -263,7 +263,7 @@ schema 增量同族定义见 `codex-plugin-lane-contract.md` §4.2。**native �
 
 - **定义**：lane 起/终都产出机读证据；命令面 = `sessions_spawn` 的 receipt（`ok` + 子会话 id/handle）；产物面 = 子会话输出落 `*.out.jsonl`（NDJSON，末行 `type=result`）。
 - **证据位置**：`<ws>/evidence/spawn-<ts>.json`（receipt）；`<ws>/<owner>-<n>.out.jsonl`（NDJSON）。
-- **机读命令**：`jq -e '.ok==true and .backend=="subagent"' <ws>/evidence/spawn-<ts>.json`；`tail -1 <ws>/<owner>-<n>.out.jsonl | jq -e '.type=="result"'`。
+- **机读命令**：`jq -e '.ok==true and.backend=="subagent"' <ws>/evidence/spawn-<ts>.json`；`tail -1 <ws>/<owner>-<n>.out.jsonl | jq -e '.type=="result"'`。
 - **期望 exit/断言**：两命令 exit 0；`out.jsonl` 存在且非空、末行 `type=result`、含 `exit_code` 字段（对照 `PROTOCOL §6` 子会话「先落文件」纪律）。
 - **责任人**：linus。
 
@@ -396,7 +396,7 @@ schema 增量同族定义见 `codex-plugin-lane-contract.md` §4.2。**native �
 | # | 职责 | 状态 | 证据锚 |
 |---|---|---|---|
 | ① | **产品文档 SOP**（item 7） | **不变**：仍 Claude Code sub-session 产出，Elon 双签后方可作下游输入 | `roles/jobs/AGENTS.md` §Role Duties item 7（①–④）；`PROTOCOL §6` 红线段「Product design documents」；`PROTOCOL §14` Confirmation Gate |
-| ② | **图像设计 SOP**（item 8） | **不变**：仍 Claude Code sub-session 加载 `canvas-design` skill（设计哲学 .md → .png/.pdf） | `roles/jobs/AGENTS.md` §Role Duties item 8（①–③）；`PROTOCOL §6` 红线段「Image-design path」 |
+| ② | **图像设计 SOP**（item 8） | **不变**：仍 Claude Code sub-session 加载 `canvas-design` skill（设计哲学.md →.png/.pdf） | `roles/jobs/AGENTS.md` §Role Duties item 8（①–③）；`PROTOCOL §6` 红线段「Image-design path」 |
 | ③ | **MCP carriers**（figma/google-stitch/pixso） | **不变**：直连 MCP + 本 workspace 配套 skill，**不 spawn** Claude Code/Codex（更不 spawn sub-agent） | `roles/jobs/AGENTS.md` §Role Duties item 1（figma/google-stitch/pixso 三段）；`PROTOCOL §6` 红线段「MCP design-tool path」；`guides/task-interface.md` §2（project 解析） |
 | ④ | **Review round**（item 2） | **不变**：ux-review 清单 + 浏览器认证 + issue list 落 `workspace/<task-id>/review/`；item 1 各 carrier 一致 | `roles/jobs/AGENTS.md` §Role Duties item 2；`PROTOCOL §9.1`（三线防御：before=Jobs / during=Linus / after=Turing+Jobs 视觉） |
 | ⑤ | **Prototype Tech-Stack Spec**（封闭栈） | **不变**：`Tailwind CSS` + `daisyUI` + `jQuery`（3D 例外 `three.js`）；`data-*` 语义钩子；禁其它框架/UI 库 | `roles/jobs/AGENTS.md` §Prototype Tech-Stack Spec 第 0–5 条；`PROTOCOL §6` 红线段封闭栈小节 + `PROTOCOL §6.1` clause 14（Linus 工程栈与原型栈分层、互不冲突） |

@@ -26,7 +26,7 @@
 - Task **content** (Goal/Acceptance/Background/Report) → task cards (managed by the task provider; reference implementation `meerkat-taskpanel`, swappable via ACL)
 - Task **dispatch/status/communication** → OpenClaw native (sessions_send/spawn, background tasks, automations)
 - Project metadata (paths/git boundaries/rules) → project **identity codes resolved via the `task-interface` ACL** (the backend — currently meerkat-taskpanel — is swappable)
-- Session registry (claude/codex subprocesses) → **`claude-sessions.json`** (canonical, the **single source of truth** for lane registration **and** concurrency counting, for every owner incl. turing); `turing-runs.json` is a legacy runtime log of codex runs and is **not** a counting/registration surface (T-20261014-011235, `guides/spawn-lane-sop.md` §3 step 3)
+- Session registry (claude/codex subprocesses) → **`claude-sessions.json`** (canonical, the **single source of truth** for lane registration **and** concurrency counting, for every owner incl. turing); `turing-runs.json` is a legacy runtime log of codex runs and is **not** a counting/registration surface (`guides/spawn-lane-sop.md` §3 step 3)
 
 ## 2. Directory Overview
 
@@ -136,7 +136,7 @@ Finding codes: `legacy_only` (new missing, old present) · `legacy_data_dir_miss
 - **ACP** (external harness channel, not built into the agent team) → not introduced.
 - **Do not put anyone on the claude-cli runtime**: the claude CLI is a backend depending on the local login state; Jobs/Linus = coordinator + exec-driven claude subprocess, unchanged.
 - **Single "board scan" dispatch (merging per-worker poll) → not adopted**: per-worker `*-poll` (every 5m + trigger, zero-cost when idle) is an **independent fallback** — each worker atomically claims when woken, so cards already created can still be claimed even when Elon (main) is stalled. Merging into "main scans → dispatch" would converge the wake chain to a single Elon point and change the `PROTOCOL §1` "claim timing belongs to poll" semantics. The only gain is a few zero-cost config lines, **so the status quo is kept**.
-- **Cron slimming (`T-20261010-040000-configoptim-cronslim`) → adopted**: per-worker poll thinned **1m → 2m → 5m** (`OPENCLAW_TEAM_POLL_INTERVAL`, default `5m`) and `task-patrol` widened to **15m**, and every framework job now runs with `--light-context`; the poll/patrol/check-all decision is unchanged (atomic claim check), so the fallback semantics survive at the wider scheduler cadence.
+- **Cron slimming  → adopted**: per-worker poll thinned **1m → 2m → 5m** (`OPENCLAW_TEAM_POLL_INTERVAL`, default `5m`) and `task-patrol` widened to **15m**, and every framework job now runs with `--light-context`; the poll/patrol/check-all decision is unchanged (atomic claim check), so the fallback semantics survive at the wider scheduler cadence.
 
 ## 8. Phase Status
 
