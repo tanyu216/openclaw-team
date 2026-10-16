@@ -4,26 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-`openclaw-team` is a **distribution channel, not a running system**. It ships an
-idempotent installer (`install.sh`) that deploys an AI agent dev team — one
-coordinator (Elon) plus four specialists (Jobs/Linus/Turing/Assistant) — onto an
-OpenClaw host. The live system lives at `~/.openclaw/team/`; this repo is the
-source it is deployed from and the place the framework's own gate script and
-tests are written.
+`openclaw-team` is an **installable team-building guide, not a running system**.
+It ships an idempotent installer (`install.sh`) that stands up an AI agent dev
+team — one coordinator (Elon) plus four specialists (Jobs/Linus/Turing/Assistant)
+— on an OpenClaw host, by default under `~/.openclaw/team/`. This repository is
+the source it is installed from, and the place the framework's own gate script
+and tests are written.
 
-**This split drives almost every rule below.** There is no build step, no
+**That split drives almost every rule below.** There is no build step, no
 package.json, and no dependency tree to install — the artifacts are shell
 scripts, Node ESM (`.mjs`), Markdown docs, and JSON5 config fragments.
 
-### Repo ↔ deployed instance (two modes, one gate)
+### The gate: two modes, no host required
 
 [team/scripts/check-all.sh](team/scripts/check-all.sh) runs in one of **two modes**,
-decided by whether an instance is resolvable (`$TEAM/scripts` exists ⇒ **live**,
-else **repo**; `--repo <R>` / `--live` / `OPENCLAW_TEAM_MODE` override):
+decided by whether an installed instance is resolvable (`$TEAM/scripts` exists ⇒
+**live**, else **repo**; `--repo <R>` / `--live` / `OPENCLAW_TEAM_MODE` override):
 
-- **live** — audits the **installed instance**: board checks over `tasks/`, the
+- **live** — audits an **installed instance**: board checks over `tasks/`, the
   provider ACL suites, the archive preview, and the three linters against
-  `~/.openclaw/workspace-<role>/AGENTS.md`.
+  `$OPENCLAW_HOME/workspace-<role>/AGENTS.md`.
 - **repo** — **self-verification of this checkout**, needing no instance and no
   host path: syntax (`bash -n` / `node --check`), the three linters in repo mode
   (they check the **seeds** `roles/<role>/AGENTS.md` + `team/**`), and the
@@ -32,24 +32,18 @@ else **repo**; `--repo <R>` / `--live` / `OPENCLAW_TEAM_MODE` override):
 
 The envelope carries `"mode":"live"|"repo"`. `docker/verify-in-container.sh`
 pins the acceptance criterion: a machine with **no** `~/.openclaw` must return
-`{"ok":true,"mode":"repo"}`. Consequences:
+`{"ok":true,"mode":"repo"}`.
 
-- **Never hand-copy files between the repo and `~/.openclaw/team/`.** `install.sh`
-  is the sanctioned deploy path, and the repo↔instance mirror is by
-  **substitution of matching paths**, never a wholesale copy (runtime dirs
-  `tasks/`, `workspace/`, `memory/` and host-local additions like
-  `tools/openssl3` exist on the instance only and must not be clobbered).
-- Editing a deployed script in place makes the repo stale; fixing it in the repo
-  without deploying makes the instance stale **at the next install run**. That
-  lag is **no longer machine-checked in the repo** — the former `diff -rq`
-  drift patrol was removed on 2026-10-15 (it was the one step whose whole purpose
-  was to bind the repository to a single machine, which an open-source
-  distribution cannot require). Keep the mirror honest by discipline.
+**Deploying is `install.sh`'s job, and it is the only sanctioned way** to put
+these artifacts on a host — never hand-copy files into `~/.openclaw/team/`. The
+mirror is by **substitution of matching paths**, never a wholesale copy: runtime
+directories (`tasks/`, `workspace/`, `memory/`) and host-local additions exist on
+the instance only and must not be clobbered. Editing a deployed copy in place
+makes the repo stale; re-running `install.sh` is what brings a host up to date.
 
-`team/scripts/**` is described as **byte-identical to the deployed runtime**:
-these files carry no local edits — fix in the runtime and re-copy the whole flat
-set, so the two never diverge. `team/scripts/tests/` is the documented exception
-(tests written for the repo).
+`team/scripts/**` is the artifact set `install.sh` deploys verbatim, and
+`team/scripts/tests/` ships with it — those tests are written for this
+repository, so treat them as source, not as host configuration.
 
 ## Common commands
 
@@ -60,7 +54,8 @@ set, so the two never diverge. `team/scripts/tests/` is the documented exception
 ./install.sh --keep-existing       # never overwrite (skip instead of upgrade)
 ./install.sh --force               # overwrite managed content
 
-# Framework tests — green with no prerequisites, run bare
+# Framework tests — green bare; suites that need the task-ops provider skip themselves.
+# To run them for real, point OPENCLAW_TASK_OPS_DIR at a checkout containing lib/.
 node --test team/scripts/tests/*.test.mjs
 node --test team/scripts/tests/claim-guard.test.mjs        # a single suite
 
@@ -153,8 +148,8 @@ The single source of checks. It is **read-only**: no step may write `tasks/`
 (archival runs `--dry-run` only). It prints a final-line envelope
 `{"ok":true|false,"mode":…, ...}`, carrying `message` and `failed[]` on red.
 It **runs with or without an installed instance** — see
-[Repo ↔ deployed instance](#repo--deployed-instance-two-modes-one-gate) for the
-`live` / `repo` modes and the `--repo <R>` / `--live` switches.
+[The gate: two modes](#the-gate-two-modes-no-host-required) for the `live` /
+`repo` modes and the `--repo <R>` / `--live` switches.
 
 It is **segmented** because the full run (~15–20 s) exceeds the scheduler's
 trigger-evaluation budget (`OPENCLAW_TEAM_EVAL_TIMEOUT_MS`, default 8000 ms), and
@@ -256,11 +251,9 @@ is closed. `dev → main` is the explicit integration/release step.
   An unmerged lane branch is **not** delivery — `dev` does not contain it, so the
   next task bases on a tree without it. Remove the worktree only **after** the
   merge.
-- **Keep the main checkout on `main`.** The gate's drift patrol
-  ([check-all.sh](team/scripts/check-all.sh)) diffs this repo's *working tree*
-  against the deployed `~/.openclaw/team/`, so unreleased `team/scripts/**`
-  content sitting in the main checkout reads as drift and reds the live gate. Do
-  the work in a lane worktree, then put the main checkout back on `main`.
+- **Keep the main checkout on `main`, and do the work in a lane worktree.** The
+  main checkout is the release tip; unreleased branch work belongs in its lane
+  tree, where it is isolated from every other lane.
 - **Bootstrapping:** a repo with no `dev` refuses lane isolation — create it once
   (`git branch dev <base>`) before the first isolated lane.
 
@@ -285,6 +278,5 @@ Normative source: [team/PROTOCOL.md](team/PROTOCOL.md) §⑥.4. Mechanics:
 - **Config writes are always merge/patch** — `~/.openclaw/openclaw.json` is never
   whole-file replaced.
 - Commit messages in this repo are conventional-commit style with a `(scope)`
-  and a trailing card id, e.g.
-  `fix(check-all): 防漂移巡检… (T-20261014-214625)`. Work is tracked by cards
-  whose id is the filename (`T-YYYYMMDD-HHMMSS.md`).
+  and a trailing card id, e.g. `fix(lib): 反膨胀守卫改口径… (T-20261015-025543-3)`.
+  Work is tracked by cards whose id is the filename (`T-YYYYMMDD-HHMMSS.md`).
