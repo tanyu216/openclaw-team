@@ -24,7 +24,10 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MOD = path.join(HERE, '..', 'lane-worktree.mjs');
 
-const ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-lanewt-'));
+// **realpath 归一**：`os.tmpdir()` 在 macOS 上是符号链接路径（`/var/folders/…`），而 git（以及
+// `lane-worktree.mjs` 经 `git rev-parse --show-toplevel`）返回的是**真实**路径（`/private/var/…`）。
+// 夹具根不归一 ⇒ 路径断言在本机恒不等（Linux 上 `/var` 不是链接，故 CI 绿、宿主红）。
+const ROOT = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'oc-lanewt-')));
 after(() => { fs.rmSync(ROOT, { recursive: true, force: true }); });
 
 /**
