@@ -33,7 +33,7 @@
 - Messages tagged `[Inter-session message]` = worker reports/clarifications — the acceptance path (duty 3), or handled per PROTOCOL §7⑨⑪.
 
 ## Card Reference Convention (always use titles toward the operator)
-1. **In operator-facing messages/reports, always refer to cards by their frontmatter `title`** (human-readable); **never** emit machine IDs such as `T-20260930-184300-sppausetoggle-j`.
+1. **In operator-facing messages/reports, always refer to cards by their frontmatter `title`** (human-readable); **never** emit machine IDs such as.
 2. When a precise reference is needed, use "**Title** (optional: ID footnote)"; IDs are only for inter-worker communication and card-file operations.
 3. **When dispatching to a worker**: lead the message body with the title; the absolute path comes second.
 
@@ -47,7 +47,7 @@
 
 **Special-token constraint**: unless the system/task explicitly requires it, do not emit placeholders like `REPLY_SKIP`/`ANNOUNCE_SKIP`; when an internal message needs silence, produce no outbound text rather than a string of SKIP markers.
 
-**Channel back-off iron rule**: when the human channel reports `session paused ... errcode -14`, **never retry** — retrying exponentially extends the pause. During a pause: ① log to `memory/` "pending operator report (content highlights)"; ② wait ≥30min or until the operator messages me, then **send exactly once**; if still paused, keep waiting and stop retrying back-to-back.
+**Channel back-off iron rule**: when the human channel reports `session paused... errcode -14`, **never retry** — retrying exponentially extends the pause. During a pause: ① log to `memory/` "pending operator report (content highlights)"; ② wait ≥30min or until the operator messages me, then **send exactly once**; if still paused, keep waiting and stop retrying back-to-back.
 
 ## Task Report Template (Elon → Terry)
 - Operator-facing task reports use the template `team/guides/elon-report-template.md` (task-card status / open issues / decisions needed from the operator / next steps). **Reference, do not copy.**

@@ -3,7 +3,7 @@
 Scope: **the terminal half of a lane's life** — from "a lane was registered `running`" to "that
 registration is closed on **both** surfaces (the card's `## Sessions` row *and* the canonical
 registry)". Companion to `guides/spawn-lane-sop.md` (the spawn half). Owner: framework
-(`team/scripts/**`); motivated by `T-20261015-045724`.
+(`team/scripts/**`); motivated by.
 
 ## 1. The invariant (and why it needed a mechanism, not a rule)
 
@@ -17,7 +17,7 @@ call). Termination had **no** counterpart. The only terminal writer is the ACL
 it appears in `roles/<role>/AGENTS.md` as SOP discipline for the *parent* turn, i.e. exactly the
 party that gets interrupted, times out, or is replaced.
 
-Field failure mode (2026-10-14, `T-20261015-025543-2` closing observation):
+Field failure mode (2026-10-14 closing observation):
 
 1. a lane ends (any reason) without a `session-close`;
 2. the card stays `in_progress` with a `## Sessions` row `status:running · pid:<dead>`, and the
@@ -46,7 +46,7 @@ spawn ✓ → session-set (running, card + registry) ✓ → lane-reaper (detach
                                                                     + workspace/<card>/lane-lifecycle.log
 ```
 
-* **Liveness, not cooperation.** `laneProcessAlive()` = `kill(pid,0)` **and** `ps -o stat=` is not
+* **Liveness, not cooperation.** `laneProcessAlive` = `kill(pid,0)` **and** `ps -o stat=` is not
   `Z`. The zombie clause matters: a killed child stays a zombie (and `kill(pid,0)` *succeeds*) until
   its parent reaps it, so a naive liveness check would wait forever.
 * **One write, both surfaces.** The close goes through the ACL `task.session-close` — the single
@@ -84,7 +84,7 @@ Deliberately **still claimable** (the real recovery path must not be eaten):
 The blocked cards are reported in the poll envelope (`state.inconsistent[]`, plus the message) so
 the drift is visible rather than silently dropped.
 
-Field replay (`T-20261015-045724`, three real pre-state cards replayed into a sandbox, registry
+Field replay (three real pre-state cards replayed into a sandbox, registry
 untouched): the two `registry=done` rows — including the incident card, `pid:12159`, dead — come
 back `kind:registry_done` and are **not** claimed; the `registry=closed` row is still claimed, i.e.
 recovery is preserved.

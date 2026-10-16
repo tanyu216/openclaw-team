@@ -1,6 +1,6 @@
 # SLA Inspection Contract (sla-inspection-contract.md)
 
-> **Status**: L2.5 method library · **design contract** (design-only — no implementation in this file). Produced by **jobs** (C1 `T-20261014-022254-2`); it is the **common input** of C2 (`sla-scan`, openclaw side) / C3 (`blocked_reason` card field, TaskPanel) / C4 (loop patrol extension, TaskPanel).
+> **Status**: L2.5 method library · **design contract** (design-only — no implementation in this file). Produced by **jobs**; it is the **common input** of C2 (`sla-scan`, openclaw side) / C3 (`blocked_reason` card field, TaskPanel) / C4 (loop patrol extension, TaskPanel).
 > **Normative text**: `PROTOCOL §15` (SLA / timeout table — **the single source of truth of every threshold**), `PROTOCOL §1` (board schema / state machine / heartbeat / stale recovery), `PROTOCOL §7` (ambiguity handling), `PROTOCOL §9` (defect loop), `PROTOCOL §9.1` (acceptance card), `PROTOCOL §10.5` (flow A/B/C), `PROTOCOL §14` (confirmation gate), `PROTOCOL §15.1` (worker→operator exception channel), `PROTOCOL §17` (doc layering / reference-not-copy), `PROTOCOL §22` clause 4 (an alert must be executable), `PROTOCOL §20.1` (machine-checkable gates).
 > **Maintainer**: the contract's *mechanism* is owned by the two implementations; **Elon is the sole writer of L1** and adjudicates every value that lands in `PROTOCOL §15`. **Integrator / dual-sign**: Elon (`PROTOCOL §14`).
 > **Depends on**: `PROTOCOL §15 · §1 · §9 / §9.1 · §10.5 · §14 · §17 · §20.1`; `guides/task-interface.md` (ACL — §2 data model, §4 `task.setStatus`, §11 serialization invariants, §15 label taxonomy); `guides/performance-sla-sop.md` and `guides/runtime-observability-sop.md` (**different objects**, see §0).
@@ -34,7 +34,7 @@ It is **not**: the product's runtime alerting stack (`PROTOCOL §22` / `runtime-
 |---|---|
 | **Does** | ① fix the **alert tuple** shared by both mechanisms (§4); ② map the six `PROTOCOL §15` rows to measurement origin / trigger / threshold source / tier ladder / action / target (§5, §6); ③ define the structural card field `blocked_reason` (§7); ④ define cross-mechanism semantic equivalence, de-duplication and mutual liveness (§8); ⑤ define the safe-operation envelope — read-only, notify-only, fail-safe, zero-cost idle, working hours (§9); ⑥ define the machine envelope and the wiring duties of C2/C4 (§10); ⑦ list the verification hooks the independent verification must check (§11) |
 | **Does not** | **No implementation** — no code, no edit of the inspectors, no trigger registration (that is C2/C4's cards); **no threshold value** — every number belongs to `PROTOCOL §15` (§2); **no card-state action** — the inspectors hold no write capability onto card state (§9); **no provider schema change by itself** — `blocked_reason` is *specified* here and *landed* by C3 in the provider; **no L1 edit** — changes proposed to `PROTOCOL §15` are backfill items for Elon (§12) |
-| **Handoff** | Contract → **C2** (openclaw `sla-scan` + trigger wiring) / **C3** (`blocked_reason` provider field) / **C4** (loop patrol extension); verification → **C5** / **C6** / `T-20261014-022326-2`; design confirmation → `T-20261014-022327`; L1 backfill (if any) → Elon per `PROTOCOL §12` |
+| **Handoff** | Contract → **C2** (openclaw `sla-scan` + trigger wiring) / **C3** (`blocked_reason` provider field) / **C4** (loop patrol extension); verification → **C5** / **C6** / design confirmation → L1 backfill (if any) → Elon per `PROTOCOL §12` |
 
 ---
 
@@ -145,7 +145,7 @@ One alert = one **(card, `PROTOCOL §15` row)** pair at its highest newly-crosse
 }
 ```
 
-**Ledger-entry skeleton (`record()`, §8.3 — where #23/#24 live)**
+**Ledger-entry skeleton (`record`, §8.3 — where #23/#24 live)**
 
 ```json
 {
@@ -169,7 +169,7 @@ One alert = one **(card, `PROTOCOL §15` row)** pair at its highest newly-crosse
 
 ### 4.1 #23/#24 are ledger metadata — not fields of the emitted tuple
 
-**Adopted 2026-10-15 (`T-20261014-044112-2`; closure of defect F1 of the independent verification `T-20261014-022254-5`).** Rows #23/#24 are declared `ledger`: `first_seen` / `last_seen` / `observed_by` are maintained by the de-duplication ledger (§8.3) and are **never published inside `alerts[]`**. The emitted tuple carries rows **#1–#22 and #25** (the landing adds its three card-draft aliases `kind`/`id`/`ageMin`, which are not §4 rows).
+**Adopted 2026-10-15 (closure of defect F1 of the independent verification).** Rows #23/#24 are declared `ledger`: `first_seen` / `last_seen` / `observed_by` are maintained by the de-duplication ledger (§8.3) and are **never published inside `alerts[]`**. The emitted tuple carries rows **#1–#22 and #25** (the landing adds its three card-draft aliases `kind`/`id`/`ageMin`, which are not §4 rows).
 
 The declaration follows the implementation — and it *must*: a row marked `Req. ✅` invites an
 implementation to "satisfy" #23/#24 by bolting the three fields onto the tuple, but the emitted
@@ -182,7 +182,7 @@ and unfillable on the emit path that re-derives alerts without ledger participat
 in the ledger, since a suppressed duplicate is by definition the alert that is **not** emitted
 (§8.3 rule 4: `observed_by` grows, nothing is notified).
 
-**Consequence — what the contract now obliges.** Not silence, but two provable halves: the emitted tuple must **not** carry #23/#24, and the ledger entry `record()` writes for that `dedup_key` **must** carry them. Both halves are machine-checked (§11 hook **H10**; the assertion lands in `team/scripts/tests/sla-scan.test.mjs`). If a shared ledger is ever landed (§12 G-10 ⑧ — owned by C4/Elon), promoting these rows back into the emitted tuple is a **contract change** and must be made for **both** mechanisms in the same step; a one-sided addition would break the shared shape while looking like a local fix.
+**Consequence — what the contract now obliges.** Not silence, but two provable halves: the emitted tuple must **not** carry #23/#24, and the ledger entry `record` writes for that `dedup_key` **must** carry them. Both halves are machine-checked (§11 hook **H10**; the assertion lands in `team/scripts/tests/sla-scan.test.mjs`). If a shared ledger is ever landed (§12 G-10 ⑧ — owned by C4/Elon), promoting these rows back into the emitted tuple is a **contract change** and must be made for **both** mechanisms in the same step; a one-sided addition would break the shared shape while looking like a local fix.
 
 ---
 
@@ -214,7 +214,7 @@ Rows are identified by **name, never by index or position** — `PROTOCOL §15`'
 5. **The `leader_stalled` row is exempt from rule 1's `−P` lead**: its published bound is already a *"no action for"* bound, and a `warn` one period earlier would fire on a normally busy leader whose board simply happened to be quiet for one period. It therefore has exactly two states: `warn` (at `L`) and `escalate` (at the `PROTOCOL §15.1` stall bound, `F`).
 6. **The ladder is a formula over `L`, `F` and `P` only.** `P` is a *mechanism parameter* pinned by the operator's ruling ③, **not** a new SLA number; `L` and `F` come from `PROTOCOL §15` and nowhere else — the contract stays free of self-invented thresholds.
 
-> **Decision fork DF-1 — decided.** Elon's `PROTOCOL §14` dual-sign **adopted option A** (`warn = L − P`) on 2026-10-13T18:47Z (card `T-20261014-022254-2`); option B is rejected. `PROTOCOL §15` publishes **two** points per row while the epic asks for a **three**-tier ladder, so the `warn` boundary must come from somewhere. **Option A (adopted)**: `warn` = one *own period* before `L` (rule 1) — invents no SLA number, testable with a fixed clock, makes "到点提醒" literal. **Option B (rejected)**: `warn = L`, `overdue = F`, `escalate` = the leader-stalled row only — needs no lead, but `overdue`/`escalate` are then not comparable across rows (`heartbeat_stale` and `leader_stalled` publish different kinds of "further" point) and the two mechanisms would label a card by their *cadence*, not the card. Under option A the tier is a pure function of `(card state, own period)`, so the shared ledger (§8.3) makes the *emitted* label identical too.
+> **Decision fork DF-1 — decided.** Elon's `PROTOCOL §14` dual-sign **adopted option A** (`warn = L − P`) on 2026-10-13T18:47Z (card); option B is rejected. `PROTOCOL §15` publishes **two** points per row while the epic asks for a **three**-tier ladder, so the `warn` boundary must come from somewhere. **Option A (adopted)**: `warn` = one *own period* before `L` (rule 1) — invents no SLA number, testable with a fixed clock, makes "到点提醒" literal. **Option B (rejected)**: `warn = L`, `overdue = F`, `escalate` = the leader-stalled row only — needs no lead, but `overdue`/`escalate` are then not comparable across rows (`heartbeat_stale` and `leader_stalled` publish different kinds of "further" point) and the two mechanisms would label a card by their *cadence*, not the card. Under option A the tier is a pure function of `(card state, own period)`, so the shared ledger (§8.3) makes the *emitted* label identical too.
 >
 > **As of v1.1 this contract is a downstream basis** — the dual-sign it was waiting for has landed (§12 G‑9).
 
@@ -450,7 +450,7 @@ The existing heartbeat behaviour (`in_progress` + stale heartbeat ⇒ alert, wit
 
 ---
 
-## 11. Verification Hooks (what C5 / C6 / `T-20261014-022326-2` must be able to check)
+## 11. Verification Hooks (what C5 / C6 /  must be able to check)
 
 | Hook | Assertion | Why it can fail |
 |---|---|---|
@@ -463,7 +463,7 @@ The existing heartbeat behaviour (`in_progress` + stale heartbeat ⇒ alert, wit
 | **H7** | An absent `blocked_reason` behaves as `clarify`; an unknown enum value round-trips unmodified; a card without the field is byte-identical after a read/write cycle | C3/C6's byte-stability items |
 | **H8** | An idle board produces `fire:false` and writes no trail entry | zero-cost idle is a hard requirement, not a nicety |
 | **H9** | Degrades produce `fire:true` (§10.2) | the failure mode this repo has already been bitten by |
-| **H10** | `first_seen` / `last_seen` / `observed_by` are **absent from every emitted `alerts[]` entry** and **present in the ledger entry** `record()` writes for that `dedup_key` (§4.1) | a row marked `Req. ✅` invites an implementation to satisfy it by bolting the three fields onto the tuple, which would assert the cross-mechanism invariant of §4 #23 that the backendless fallback (§8.3 rule 5) cannot provide |
+| **H10** | `first_seen` / `last_seen` / `observed_by` are **absent from every emitted `alerts[]` entry** and **present in the ledger entry** `record` writes for that `dedup_key` (§4.1) | a row marked `Req. ✅` invites an implementation to satisfy it by bolting the three fields onto the tuple, which would assert the cross-mechanism invariant of §4 #23 that the backendless fallback (§8.3 rule 5) cannot provide |
 
 ---
 
@@ -481,16 +481,16 @@ The existing heartbeat behaviour (`in_progress` + stale heartbeat ⇒ alert, wit
 | **G-6** | **Cadence mismatch.** The operator's ruling ③ says the openclaw side keeps "cron ~30 min", but the framework's declared cadence for its existing patrol job is *not* 30 min (the repo declaration and the live store also differ from each other — see `team/AUTOMATIONS.md` §"Job Overview", the cadence caveat). | the contract is written **cadence-agnostic** (all formulas use the mechanism's own `P`), so no implementation depends on the number; the ruling's "~30 min" should be reconciled with the declared/live values on the card that wires the trigger (**C2**), and the reconciliation recorded |
 | **G-7** | **Trail writes for de-duplication** (§8.3 backend (a)) — a purist reading of "巡检不写" may object. | default backend is the card-trail marker with a bounded budget; the backendless fallback and its residual duplicate are documented, so the choice is explicit rather than accidental (Elon may pick backend (b) if both mechanisms are ever co-resident) |
 | **G-8** | **`blocked_reason` as a provider known key** (C3) vs. a team-side convention field. | specified as a **provider known key** (ruling ④ "一步到位立结构字段"); the enum lives here, the serialization/round-trip rules live in the provider contract (`guides/task-interface.md`) |
-| **G-9** | **Who signs the tier ladder (DF-1).** | **signed** — Elon's `PROTOCOL §14` dual-sign adopted **option A** (`warn = L − P`) on 2026-10-13T18:47Z (card `T-20261014-022254-2`); the contract **is** a downstream basis as of v1.1 |
-| **G-10** | **Recorded cross-mechanism deviations pending sync** (from design confirmation `T-20261014-022327`; **no threshold affected**), each with an owner. | ① `leader_stalled` attribution set — C4 (§6.3‑D); ② `heartbeat_stale` channel asymmetry — C4 (§4 tuple / §10.4); ③ `confidence` for `defect_card_creation` / `leader_stalled` — C4 (§6.2 / §6.3‑B/D); ④ `releasable_basis: assignee_changed` channel — C4 (§7.4); ⑤ C2 wrote a *kind* value into `measure_start_source` — C2 (§4 #9); ⑥ C2 dropped the pre-lookback `leader_stalled` origin — C2 (§6.3‑D); ⑦ C2 emitted `blocked_reason: null` on non-`blocked_clarification` rows — C2 (§4 #19); ⑧ §8.3 backend (a) is implemented by **neither** mechanism ⇒ both use the rule‑5 **backendless** fallback (residual ≤ 1 duplicate per key). Until ①–⑦ land, the two mechanisms are **not** yet at `§8.1` E1–E7 equivalence. ⑨ **§4 #23/#24** were declared `Req. ✅` while neither mechanism could fill them (defect F1 of `T-20261014-022254-5`) — **closed 2026-10-15** by declaring them **ledger metadata** (§4.1) and pinning both halves with hook H10 (card `T-20261014-044112-2`); no threshold and no emitted field changed. |
+| **G-9** | **Who signs the tier ladder (DF-1).** | **signed** — Elon's `PROTOCOL §14` dual-sign adopted **option A** (`warn = L − P`) on 2026-10-13T18:47Z (card); the contract **is** a downstream basis as of v1.1 |
+| **G-10** | **Recorded cross-mechanism deviations pending sync** (from design confirmation **no threshold affected**), each with an owner. | ① `leader_stalled` attribution set — C4 (§6.3‑D); ② `heartbeat_stale` channel asymmetry — C4 (§4 tuple / §10.4); ③ `confidence` for `defect_card_creation` / `leader_stalled` — C4 (§6.2 / §6.3‑B/D); ④ `releasable_basis: assignee_changed` channel — C4 (§7.4); ⑤ C2 wrote a *kind* value into `measure_start_source` — C2 (§4 #9); ⑥ C2 dropped the pre-lookback `leader_stalled` origin — C2 (§6.3‑D); ⑦ C2 emitted `blocked_reason: null` on non-`blocked_clarification` rows — C2 (§4 #19); ⑧ §8.3 backend (a) is implemented by **neither** mechanism ⇒ both use the rule‑5 **backendless** fallback (residual ≤ 1 duplicate per key). Until ①–⑦ land, the two mechanisms are **not** yet at `§8.1` E1–E7 equivalence. ⑨ **§4 #23/#24** were declared `Req. ✅` while neither mechanism could fill them (defect F1 of) — **closed 2026-10-15** by declaring them **ledger metadata** (§4.1) and pinning both halves with hook H10 (card); no threshold and no emitted field changed. |
 
 ---
 
 ## 13. Change Log
 
-- **v1** (`T-20261014-022254-2`, jobs, design-only) — initial contract (object declaration · alert tuple · six-row `PROTOCOL §15` mapping + tier ladder (DF-1) · measurement origins incl. `gate_at` · `blocked_reason` structural field · cross-mechanism equivalence + AlertLedger de-duplication + mutual liveness · safe-operation envelope · envelope + fail-closed degrade duty · verification hooks · open items).
-- **v1.1** (`T-20261014-082826`, jobs) — post-design-confirmation write-back (`T-20261014-022327` findings F1–F12): DF-1 / G‑9 dual-sign recorded (option A) · `measure_start_kind` gains `created_at`; `measure_start_source` re-affirmed as **read-location only** · §6.2 / §6.3‑B/D confidence pinned + `leader_stalled` attribution set (**`author=leader` filter**, F2) · §7.4 `assignee_changed` evidence channel (F7) · §10.4 heartbeat SLA-channel note (F4) · §12 **G‑10** added. **No threshold changed** (single source remains `PROTOCOL §15`).
-- **v1.2** (`T-20261014-044112-2`, linus, declaration + test) — §4 declaration fix (defect F1 of `T-20261014-022254-5`): `first_seen` / `last_seen` / `observed_by` are **ledger metadata, never fields of the emitted tuple** — §4.1 added, the `Req.` column gains the `ledger` value, the skeleton split into **emitted tuple** vs **ledger entry**, §8.3 rule 4 cross-references §4.1, hook **H10** added, §12 G‑10 ⑨ registers the closure. **No emitted field changed, no threshold changed**; only the tuple's *description* now matches its shape. *(append change rows over time.)*
+- **v1** (jobs, design-only) — initial contract (object declaration · alert tuple · six-row `PROTOCOL §15` mapping + tier ladder (DF-1) · measurement origins incl. `gate_at` · `blocked_reason` structural field · cross-mechanism equivalence + AlertLedger de-duplication + mutual liveness · safe-operation envelope · envelope + fail-closed degrade duty · verification hooks · open items).
+- **v1.1** (jobs) — post-design-confirmation write-back ( findings F1–F12): DF-1 / G‑9 dual-sign recorded (option A) · `measure_start_kind` gains `created_at`; `measure_start_source` re-affirmed as **read-location only** · §6.2 / §6.3‑B/D confidence pinned + `leader_stalled` attribution set (**`author=leader` filter**, F2) · §7.4 `assignee_changed` evidence channel (F7) · §10.4 heartbeat SLA-channel note (F4) · §12 **G‑10** added. **No threshold changed** (single source remains `PROTOCOL §15`).
+- **v1.2** (linus, declaration + test) — §4 declaration fix (defect F1 of): `first_seen` / `last_seen` / `observed_by` are **ledger metadata, never fields of the emitted tuple** — §4.1 added, the `Req.` column gains the `ledger` value, the skeleton split into **emitted tuple** vs **ledger entry**, §8.3 rule 4 cross-references §4.1, hook **H10** added, §12 G‑10 ⑨ registers the closure. **No emitted field changed, no threshold changed**; only the tuple's *description* now matches its shape. *(append change rows over time.)*
 
 ---
 

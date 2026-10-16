@@ -287,7 +287,7 @@ un-acceptable as delivery evidence until the deliverer's own Report exists.
 > **Relative conclusions only — absolute numbers are not evidence.** This section names
 > **which families leak and where**, not how often. The census that once stood here (a
 > published `n = 487` hit-rate table) was **withdrawn**: no script, no **as-of**, no stated
-> criterion (defect **D6**; evidence `T-20261015-010749-3` §T6) — the population is live and
+> criterion (defect **D6**; evidence  §T6) — the population is live and
 > mostly terminal (the surface `check-report.mjs` **never inspects**), and the criterion is a
 > parameter that flips one family's conclusion (under `--card-path=path` the card path is
 > among the weakest on every role; under `--card-path=id` among the strongest). **Quote a rate
@@ -368,7 +368,7 @@ contract; `PROTOCOL §20.1` carries the registry row):
 - **Known limit of the origin rule**: the gate reads what the card **declares**. A proxy
   Report that simply omits `A0` is indistinguishable from a delivered one; closing that needs
   the provider ACL to stamp `origin` at write time (`skills/task-ops/lib/task.mjs#writeReport`)
-  — a base-side change, tracked as a residual on T-20261015-010749-2, not enforced here.
+  — a base-side change, tracked as a residual on not enforced here.
 - Full trigger surface, cutoff and exemption switches: `team/scripts/check-report.mjs` header
   (`PROTOCOL §20.1` machine-checkable gate row).
 
@@ -379,7 +379,7 @@ contract; `PROTOCOL §20.1` carries the registry row):
 The provider bounds every Report payload it stores: **at most 64 items per list**, **at
 most 64 KiB per payload**, with anything over the bound marked **`truncated`** rather than
 silently dropped. Those are the provider's numbers (`boundEvidence` in the TaskPanel report
-layer; taken here from defect ticket `T-20261015-010749-3` §T6 **D4** — that layer is not
+layer; taken here from defect ticket  §T6 **D4** — that layer is not
 read first-hand from this side of the boundary, so treat the exact constants as the
 provider's, not this guide's). This standard **inherits** them, because a Report that
 exceeds the bound reaches the auditor already cut.
@@ -399,4 +399,4 @@ artifact (a size check here cannot fire on a well-formed card); `check-report.mj
 rule would blur which layer owns the bound — worse, a size limit at this layer would red on
 exactly what the bound exists to protect, **legitimately long Reports** (the framework has
 already refused one such Report for size, the report-volume guard misfiring on a 9.7×
-legitimate write, `T-20261015-010749-3` §T6 **D8**).
+legitimate write §T6 **D8**).
