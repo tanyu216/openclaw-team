@@ -24,7 +24,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
 import { TEAM_ROOT } from './lib.mjs';
 
 export const REGISTRY_PATH = path.join(TEAM_ROOT, 'claude-sessions.json');
@@ -400,6 +399,10 @@ function main() {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main();
-}
+// main-guard：经 realpath 归一后比较（与 lib.mjs / build-guard 等同口径）。朴素比较在**符号链接调用**
+// 下不成立（`import.meta.url` 已解析为真实路径，`argv[1]` 是调用时路径）⇒ 脚本会静默 no-op、exit 0。
+try {
+  const self = fs.realpathSync(new URL(import.meta.url));
+  const arg = fs.realpathSync(path.resolve(process.argv[1]));
+  if (arg === self) main();
+} catch { /* realpath 失败 ⇒ 不执行 main */ }
