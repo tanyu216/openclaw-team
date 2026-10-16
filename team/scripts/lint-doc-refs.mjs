@@ -289,12 +289,23 @@ export function basesFor(file, M) {
 
 // ── 扫描 ────────────────────────────────────────────────────────────────────
 
+// 运行时 / 宿主本地目录，**不是文档面**：install.sh 从不部署它们（CLAUDE.md「runtime
+// directories」：tasks/ workspace/ memory/），tmp/·.tmp/ 是 PROTOCOL §13.9 的草稿区，
+// .backups/ 是安装器自己的备份副本（扫它还会把同一份文档重复计入）。它们只存在于实例上，
+// 内容是卡的工作区证据与沙箱夹具 —— 例如 team/workspace/<卡>/ 里那些临时 mock。
+// 历史实证（2026-10-17）：live 模式走进这类沙箱，撞上一条**断链的** .md 符号链接 ⇒
+// readFileSync 抛 ENOENT ⇒ 整腿崩掉。崩掉的门禁给不出判词（同「超时信封没有判词」的理），
+// 且红的是宿主运行时的残留、与被测的文档毫无关系。默认的 node_modules / .git 一并并入。
+const RUNTIME_DIRS = new Set([
+  'node_modules', '.git', 'tasks', 'workspace', 'memory', 'tmp', '.tmp', '.backups',
+]);
+
 function walkMarkdown(dir, out = [], depth = 0) {
   if (depth > 8) return out;
   let ents;
   try { ents = fs.readdirSync(dir, { withFileTypes: true }); } catch { return out; }
   for (const e of ents) {
-    if (e.name === 'node_modules' || e.name === '.git') continue;
+    if (RUNTIME_DIRS.has(e.name)) continue;
     const p = path.join(dir, e.name);
     if (e.isDirectory()) walkMarkdown(p, out, depth + 1);
     else if (e.name.endsWith('.md')) out.push(p);
@@ -320,7 +331,12 @@ export function lintDocRefs(M) {
     const key = path.relative(M.mode === 'repo' ? M.repo : M.home, f);
     const keyPosix = key.split(path.sep).join('/');
     const bases = basesFor(f, M);
-    const lines = fs.readFileSync(f, 'utf8').split('\n');
+    // 读不到就跳过、不崩：断链符号链接、权限不足、扫描途中被删除 —— 这些都不是「断引用」，
+    // 而崩溃会让整条腿没有判词。与「宁可漏报，绝不误报」同一取向，计入 skipped 可见。
+    let raw;
+    try { raw = fs.readFileSync(f, 'utf8'); }
+    catch { skipped.unreadable = (skipped.unreadable || 0) + 1; continue; }
+    const lines = raw.split('\n');
     let fence = false;
     lines.forEach((line, i) => {
       if (/^\s*```/.test(line)) { fence = !fence; return; }
