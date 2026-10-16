@@ -37,7 +37,7 @@ dispatcher normalizes it generically:
 Anything else (missing/invalid `providers.json`, unknown provider, unrunnable or
 failing entry, unparseable output) **degrades and exits 0** — a broken provider
 must never burn a model turn. What a degrade *says* depends on what the job is
-for (T-20261010-190039):
+for:
 
 - **action jobs** (`poll` / `patrol`) → `{"fire":false, "state":{…}}` — a failed
   evaluation should simply not wake anyone;
@@ -104,8 +104,7 @@ is reached through the ACL. Known gaps:
    own test suite — now **ship in this repository** under `team/scripts/**` and are
    deployed by `install.sh` into `{team}/scripts/**`. A fresh install no longer has
    a dangling entry path.
-   **Residual (provider-side, not a framework entry-path gap) — now EXPLICIT
-   (T-20261009-211234-providerdecouple):** those scripts import the provider's ACL
+   **Residual (provider-side, not a framework entry-path gap) — now EXPLICIT:** those scripts import the provider's ACL
    library from `{team}/skills/task-ops/lib/`, which is owned by the task provider
    and **intentionally not vendored here** (`skills/PROVENANCE.md`). Without a
    provider install the entries **hard-fail** — a clear `provider 未安装：…` error

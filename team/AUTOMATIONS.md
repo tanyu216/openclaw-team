@@ -1,7 +1,6 @@
 # AUTOMATIONS.md — Scheduled Jobs / Patrol List
 
 > Overview and decision record of all scheduled jobs (cron / every / trigger) on the team Gateway. Maintainer: Elon.
-> Last updated: 2026-10-16 (added `tmp-gc` — daily scratch GC enforcing `PROTOCOL §13.9`, §3.9; added `check-report` — card-face Report completeness — to the fast segment, T-20261015-010749-2; + the SLA alert-tuple clarification `#23/#24`-are-ledger-metadata, T-20261014-044112-2; + `check-epic-completeness`, T-20261012-171026-2; + `sla-scan`, T-20261014-022254-3; + the contract-v1.1 conformance fixes F1/F5/F8, T-20261014-084606). View live: `automations list` (or Control UI → Automations).
 > Related: `PROTOCOL §20` (gates and archiving), `PROTOCOL §6.4` (poll to terminal state), `README §3` (operations commands), `guides/task-interface.md` (task-provider ACL).
 
 ## 0. Boundary — framework owns scheduling; provider is only a callee (ACL)
@@ -68,7 +67,7 @@ template substitution) and calls the framework dispatcher:
 `fire:true`**; a missing entry, a failure, a timeout, or unparseable output degrades
 (exit 0), and what a degrade says depends on the job: **`poll`/`patrol` ⇒ `fire:false`
 (zero cost)**, but the **`check-all` gate ⇒ `fire:true`** — an unconfirmed gate must
-alarm, never report green (T-20261010-190039). **`skills-update` ⇒ `fire:true`** for the
+alarm, never report green. **`skills-update` ⇒ `fire:true`** for the
 same reason: a weekly detector that degrades to `fire:false` is indistinguishable from
 "nothing moved", so an evaluation it could not complete must be surfaced. **`sla-scan`
 ⇒ `fire:true`** for the SLA-inspector version of the same rule: an unconfirmed inspection
@@ -89,14 +88,13 @@ than substituting an empty path.
 
 So `task-patrol` → `dispatch.mjs patrol` → `providers.json` **`patrol` =
 `node {team}/scripts/patrol.mjs`** — a **scan + re-check before emit**: `patrol.mjs`
-runs `scanStale()` and, when candidates exist, re-checks them **in-process** against
+runs `scanStale` and, when candidates exist, re-checks them **in-process** against
 each card's *current* on-disk state before emitting, so a candidate whose card has
 since reached `done`/`in_review`/`blocked` moves into `dropped` instead of firing.
 `patrol-scan.mjs` stays the single-source decision module (both `scanStale` and
 `recheckStale` go through its `liveVerdict`). **Call `patrol.mjs`, not
 `patrol-scan.mjs` directly**: the scanner alone has no pre-emit re-check, and the
-re-check is what stops a stale snapshot from being fired verbatim
-(`T-20261010-061248`, `T-20261010-071808`, `T-20261010-090407`).
+re-check is what stops a stale snapshot from being fired verbatim.
 The re-check is **fail-safe**: if it throws or returns a malformed envelope, the
 original candidates are kept (emit the alert rather than silently swallow it) and the
 envelope is marked `recheck:"failed"`. Exit is non-zero **only** on a real scanner
@@ -111,8 +109,7 @@ scripts still link the provider's ACL library at `{team}/skills/task-ops/lib/`
 (provider-owned, intentionally not vendored), so a provider install is still
 required for them to execute. That requirement is now **explicit (startup
 hard-fail)**: absent a provider install the entries print a clear
-`provider 未安装：…` error and exit non-zero (no silent no-op) — see
-`T-20261009-211234-providerdecouple`.
+`provider 未安装：…` error and exit non-zero (no silent no-op).
 
 ## 3.5 Run lock: what the framework bounds, and what it cannot (③)
 
@@ -120,10 +117,10 @@ Two different clocks are involved; only the first is framework-owned.
 
 | Concern | Owner | Framework behaviour |
 |---|---|---|
-| **Trigger evaluation** (the poll/patrol/check-all/skills-update/sla-scan/tmp-gc *decision*: run the entry, read `{fire}`) | framework | **Bounded.** `dispatch.mjs` runs the entry under `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default **8000 ms**; invalid/absent ⇒ default) **minus `EVAL_EMIT_RESERVE_MS`** (500 ms of emission headroom — `install.sh` sizes the trigger's `timeoutSeconds` at `ceil(budget/1000)`, i.e. only ever *equal* to the inner bound, so without the reserve the outer `exec` would kill the dispatcher before it could print), and `install.sh` generates each trigger with `exec({ command, timeoutSeconds })`. Both stay under the Gateway's own **30 s** per-evaluation wall-clock budget — and the trigger's `timeoutSeconds` is additionally capped in practice by the exec helper's **10 s default `yieldMs`**, above which the call backgrounds and the trigger would read partial output; the bound therefore cannot simply be widened for a slow job. A degrade exits 0 and **fails safe**: `poll`/`patrol` → `{"fire":false,"state":{"reason":"eval-timeout"}}`, but the `check-all` **gate** → `{"fire":true,"message":…,…}` (an unconfirmed gate must alarm, never report green — T-20261010-190039), and so do `skills-update` (an unconfirmed drift check must not read as "nothing moved"), `sla-scan` and `tmp-gc` (§3.9). **The `check-all` gate is 15-20 s** — longer than this whole budget — so it does not run whole inside it; **§3.5.1** covers how the gate stays a real verdict inside the bound without dropping coverage. `tmp-gc` is the second job that does not fit inside this budget at all — its walk costs the *tree size* (~320k files ≈ 10–12 s on the reference host), so it splits: the **entry** only reads the previous sweep's verdict and spawns the next sweep **detached**, returning in ~40 ms; the traversal runs out of band and its verdict carries over to the next evaluation (§3.9). |
-| **Run lock** (`already-running`: a run already holds the job lock, so the next trigger is skipped; releasing **stale** runs) | **Gateway scheduler (platform)** | **Lock itself: not addressed here** — the framework neither bounds nor reaps runs *holding* the lock; that needs owner/OpenClaw platform capability and is **out of scope**. **What the framework DOES own is the run's LIFETIME** (below), and since the lock is only ever held for as long as a run lives, a short run is the framework-side lever on the same failure mode (T-20261013-041718). |
+| **Trigger evaluation** (the poll/patrol/check-all/skills-update/sla-scan/tmp-gc *decision*: run the entry, read `{fire}`) | framework | **Bounded.** `dispatch.mjs` runs the entry under `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default **8000 ms**; invalid/absent ⇒ default) **minus `EVAL_EMIT_RESERVE_MS`** (500 ms of emission headroom — `install.sh` sizes the trigger's `timeoutSeconds` at `ceil(budget/1000)`, i.e. only ever *equal* to the inner bound, so without the reserve the outer `exec` would kill the dispatcher before it could print), and `install.sh` generates each trigger with `exec({ command, timeoutSeconds })`. Both stay under the Gateway's own **30 s** per-evaluation wall-clock budget — and the trigger's `timeoutSeconds` is additionally capped in practice by the exec helper's **10 s default `yieldMs`**, above which the call backgrounds and the trigger would read partial output; the bound therefore cannot simply be widened for a slow job. A degrade exits 0 and **fails safe**: `poll`/`patrol` → `{"fire":false,"state":{"reason":"eval-timeout"}}`, but the `check-all` **gate** → `{"fire":true,"message":…,…}` (an unconfirmed gate must alarm, never report green), and so do `skills-update` (an unconfirmed drift check must not read as "nothing moved"), `sla-scan` and `tmp-gc` (§3.9). **The `check-all` gate is 15-20 s** — longer than this whole budget — so it does not run whole inside it; **§3.5.1** covers how the gate stays a real verdict inside the bound without dropping coverage. `tmp-gc` is the second job that does not fit inside this budget at all — its walk costs the *tree size* (~320k files ≈ 10–12 s on the reference host), so it splits: the **entry** only reads the previous sweep's verdict and spawns the next sweep **detached**, returning in ~40 ms; the traversal runs out of band and its verdict carries over to the next evaluation (§3.9). |
+| **Run lock** (`already-running`: a run already holds the job lock, so the next trigger is skipped; releasing **stale** runs) | **Gateway scheduler (platform)** | **Lock itself: not addressed here** — the framework neither bounds nor reaps runs *holding* the lock; that needs owner/OpenClaw platform capability and is **out of scope**. **What the framework DOES own is the run's LIFETIME** (below), and since the lock is only ever held for as long as a run lives, a short run is the framework-side lever on the same failure mode. |
 
-**Poll run = short hand-off turn (T-20261013-041718, P1).** The lock row above is not
+**Poll run = short hand-off turn (P1).** The lock row above is not
 academic: with `*-poll` on a 2–5 m cadence, a single poll run that stays resident
 **silently disables the fallback for its whole lifetime** — every intervening trigger
 is skipped, so a card dropped mid-run waits until the run ends. Measured (E2E-C-4):
@@ -168,14 +165,14 @@ silent "no drift".
 
 Poll jobs additionally carry a **run upper bound**: `install.sh` registers them with
 `--timeout-seconds "$OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S"`, whose default is now **one poll
-interval** (T-20261013-041718 — see the "Poll run = short hand-off turn" block above;
+interval** (see the "Poll run = short hand-off turn" block above;
 the pre-fix default was 3600 s; `0` disables). The poll run is a claim-and-hand-off turn
 (`team/scripts/poll-run.mjs`), so the bound no longer has to cover a card's execution
 time — it only has to ensure a runaway run cannot outlive the fallback cadence it is
 there to guarantee. This bounds one run's lifetime; it does **not** release a lock held
 by a run that the scheduler never reaps.
 
-### 3.5.1 The `check-all` gate inside the budget: segmented verdict + cached slow suite (T-20261013-031036)
+### 3.5.1 The `check-all` gate inside the budget: segmented verdict + cached slow suite
 
 The `check-all` gate grew past the evaluation budget: measured **15-20 s** against an entry
 bound of 7500 ms, of which the `node --test team/scripts/tests/*.test.mjs` suite is ~17 s and
@@ -195,9 +192,9 @@ therefore **segmented** — this is a routing change, not a coverage change:
 |---|---|---|
 | **fast segment** — every check except the test suites (`check-all.sh --segment fast`) | **in-band**, inside the evaluation | yes (fast bound 6000 ms) |
 | **slow segment** — the framework test suite **and the full provider ACL suite** (`check-all.sh --segment slow`) | **detached**, launched by the gate and run to completion *after* the evaluation returns | no (it is ~17 s by nature) |
-| the slow verdict | **cached** at `<team>/.check-all-slow.json` and **folded into the next evaluation** | freshness-bounded (TTL default 150 min = 2.5 cron periods: one missed refresh tolerated, the second alarms — T-20261015-005519) |
+| the slow verdict | **cached** at `<team>/.check-all-slow.json` and **folded into the next evaluation** | freshness-bounded (TTL default 150 min = 2.5 cron periods: one missed refresh tolerated, the second alarms) |
 
-**Provider ACL coverage — `skills/task-ops/tests/*.test.mjs` (T-20261014-034118).** The provider
+**Provider ACL coverage — `skills/task-ops/tests/*.test.mjs`.** The provider
 suites used to be enumerated **file by file** in the fast segment, so any suite not on that list
 was simply **outside the gate**: `spawn-body`, `idem`, `relations`, `actor-gate` and `status-guard`
 rode in that blind spot, and the next new suite would have joined them. The blind spot is now closed
@@ -214,7 +211,7 @@ segment's in-band bound is 6000 ms and the fast segment itself already measures 
 to remove. A provider red therefore lands in `failed[]` / `slowFailedFiles` and reaches the operator
 through `message` (directly under `--segment all`, and via the cached verdict under the scheduled gate).
 
-**Epic completeness in the fast segment (T-20261012-171026-2).** `check-all.sh` also runs
+**Epic completeness in the fast segment.** `check-all.sh` also runs
 `scripts/check-epic-completeness.mjs` in the **fast** segment (~0.2 s on a live-shaped board,
 485+ cards, so it stays well inside the 6000 ms bound): it reconciles an epic's **roadmap ledger**
 against the board (`PROTOCOL §10.2/§10.3`, `AUTOMATIONS §6`). It fires **hard** only where the
@@ -226,7 +223,7 @@ gate. The second half is the **dangling-roadmap sweep** (mechanism ⑤ of the pa
 `workspace/<task>/plan.md`, `workspace/<task>/design/…` and epic cards and reports "phase without a
 card", **soft and exit-code-neutral** by contract.
 
-**Report completeness in the fast segment (T-20261015-010749-2).** `check-all.sh` also runs
+**Report completeness in the fast segment.** `check-all.sh` also runs
 `scripts/check-report.mjs` in the **fast** segment (~0.05 s on a live-shaped board, 580+ cards):
 it checks that a card's `## Report` section carries the **common core** slots `A1…A8` defined by
 `team/guides/worker-report-template.md`. Its trigger surface is deliberately narrow so that landing
@@ -277,11 +274,11 @@ does not read `providers.json`. It carries its **own** inline trigger script.
   `scripts/triggers/patrol-main.js` — which *does* carry `--recheck` — was referenced by
   **no** live automation. A fix that only lands in the repo/instance files therefore
   does **not** take effect until the live trigger is re-pointed.
-- **Reconcile now covers the trigger body (T-20261010-092547).** `config/reconcile.mjs`
+- **Reconcile now covers the trigger body.** `config/reconcile.mjs`
   reconciles `payload.lightContext`, the (interval) **schedule**, **and** the live
   `trigger.script` **content**. The declaration source (`install.sh` §6) writes each job's
   byte-exact expected trigger body — from the single template
-  `team/automations/trigger-template.mjs` via `write_trigger()` — to a `triggerScriptPath`,
+  `team/automations/trigger-template.mjs` via `write_trigger` — to a `triggerScriptPath`,
   and reconcile emits `--trigger-script <path>` whenever the live body drifts (trailing
   newline tolerated). So re-running `install.sh` **self-heals** a drifted/stale trigger body
   instead of leaving it to a manual `automations edit`. If the declared path is
@@ -303,7 +300,7 @@ does not read `providers.json`. It carries its **own** inline trigger script.
 ## 3.7 Inter-session delivery latency (item 2 — a correct verdict can still arrive stale)
 
 Patrol's verdict can be **correct at generation time** and still be useless on arrival.
-Supplemental review R41 (`T-20261010-071808`, 2026-10-10) established the mechanism:
+Supplemental review R41 (2026-10-10) established the mechanism:
 the 18 nudge messages had **genuinely** matched a stale card when generated; the
 staleness in the consumer's experience came from **delivery latency, not a patrol
 cache**. Measured **generate → deliver ≈ 12–130 min**, and the control group was
@@ -401,15 +398,15 @@ this section references the guide, it does not restate it (`PROTOCOL §17`).
 4. **The three ledger-metadata fields are not alert fields** (`first_seen` / `last_seen` /
    `observed_by`). The emitted `alerts[]` carries contract §4 rows **#1–#22 and #25** (the landing
    adds the card-draft aliases `kind`/`id`/`ageMin`); the three fields live **only in the
-   de-duplication ledger entry** (`<team>/.sla-scan-ledger.json`, §8.3 `record()`) — declared as
+   de-duplication ledger entry** (`<team>/.sla-scan-ledger.json`, §8.3 `record`) — declared as
    `Req. = ledger` rows #23/#24 with the rationale in the contract (§4.1) and pinned by hook **H10**
    (`scripts/tests/sla-scan.test.mjs`). A backfill at emit time could only ever write
    `first_seen = last_seen = <emit instant>` and `observed_by = [<this mechanism>]`, i.e. it would
    label a mechanism-local number as the "identical for both mechanisms" figure of a shared ledger
    that the backendless fallback (deviation 1) does not have. Not a shape change — a declaration fix.
 
-**Contract-v1.1 conformance fixes (F1 / F5 / F8, `T-20261014-084606`).** Three deviations the design
-confirmation `T-20261014-022327` found in this landing (registered as §12 **G-10 ⑤⑥⑦**) are fixed;
+**Contract-v1.1 conformance fixes (F1 / F5 / F8).** Three deviations the design
+confirmation  found in this landing (registered as §12 **G-10 ⑤⑥⑦**) are fixed;
 `PROTOCOL §15` thresholds, the tier ladder and the coverage set are untouched:
 
 - **F1 — `measure_start_source` is the read location only.** The field had been fed the
@@ -489,12 +486,12 @@ day-based mechanism was card archiving, `PROTOCOL §20.3`).
 ## 4. Decision Record
 - **Keep per-worker poll; do not do a "single board scan → dispatch"**: per-worker `*-poll` is an **independent fallback** (each worker atomically claims, so cards already created can still be claimed when Elon/main is stalled). Merging into "main scans → dispatch" would converge to a single Elon point and change the `PROTOCOL §1` "claim timing belongs to poll" semantics; the only gain is a few zero-cost config lines ⇒ not adopted.
 - **Patrol frequency**: the gate patrol `team-check-all` is set to **hourly**; because it triggers the model only on failure, a higher frequency adds no cost.
-- **Cron slimming (`T-20261010-040000-configoptim-cronslim`)**: per-worker poll was thinned **1m → 2m → 5m** (override `OPENCLAW_TEAM_POLL_INTERVAL`, default `5m`) and `task-patrol` widened to **15m**, and every framework job now runs with **`--light-context`** so scheduler triggers stay cheap. The trigger decision is still an atomic claim check — 5m keeps the "claim timing belongs to poll" fallback (PROTOCOL §1) while cutting scheduler wake-ups (worst-case claim latency ≤5m; worker crash recovery window ≈ patrol 15m + poll 5m).
-- **Fallback cadence widened (`T-20261010-224144`)**: per-worker poll **2m → 5m** (`OPENCLAW_TEAM_POLL_INTERVAL`) and `task-patrol` **5m → 15m**. The dispatch mainline is Elon assigning via `sessions_send` (push); poll only fires when that push did not land, so the accepted worst-case claim latency is now ≤5m and the accepted worker crash recovery window ≈ patrol 15m + poll 5m. Nothing else moves: the trigger decision stays an atomic claim check (PROTOCOL §1), `task-patrol` stays **light-context only**, and its stale threshold (>30min) is unchanged. **The ≤5m figure is a claim about the CADENCE, not about any single run**: it holds only while a poll run is not resident across the boundary, which is why `T-20261013-041718` pins the run contract to a short hand-off turn and the run bound to one interval (§3.5).
+- **Cron slimming **: per-worker poll was thinned **1m → 2m → 5m** (override `OPENCLAW_TEAM_POLL_INTERVAL`, default `5m`) and `task-patrol` widened to **15m**, and every framework job now runs with **`--light-context`** so scheduler triggers stay cheap. The trigger decision is still an atomic claim check — 5m keeps the "claim timing belongs to poll" fallback (PROTOCOL §1) while cutting scheduler wake-ups (worst-case claim latency ≤5m; worker crash recovery window ≈ patrol 15m + poll 5m).
+- **Fallback cadence widened**: per-worker poll **2m → 5m** (`OPENCLAW_TEAM_POLL_INTERVAL`) and `task-patrol` **5m → 15m**. The dispatch mainline is Elon assigning via `sessions_send` (push); poll only fires when that push did not land, so the accepted worst-case claim latency is now ≤5m and the accepted worker crash recovery window ≈ patrol 15m + poll 5m. Nothing else moves: the trigger decision stays an atomic claim check (PROTOCOL §1), `task-patrol` stays **light-context only**, and its stale threshold (>30min) is unchanged. **The ≤5m figure is a claim about the CADENCE, not about any single run**: it holds only while a poll run is not resident across the boundary, which is why  pins the run contract to a short hand-off turn and the run bound to one interval (§3.5).
 
 ## 5. Management
 - **Install-time registration (declarative reconcile)**: `./install.sh` is the declaration source; `config/reconcile.mjs` aligns the runtime to it by `declarationKey` (`openclaw-team:poll:<agent>` / `openclaw-team:task-patrol` / `openclaw-team:team-check-all` / `openclaw-team:skills-update` / `openclaw-team:sla-scan` / `openclaw-team:tmp-gc`); `--skip-automations` disables it. Re-running is safe and **self-healing**: a missing key ⇒ `add`; a present key that drifts ⇒ `edit`; a present key that already matches ⇒ `skip`. **Drift** = `payload.lightContext !== true`; (interval jobs only) a schedule mismatch with the declared interval; or a live `trigger.script` body that differs from the declared `triggerScriptPath` file (⇒ `--trigger-script <path>`, §3.6). **Cron jobs (`team-check-all`, `skills-update`, `tmp-gc`) are never given `--every`** — only `lightContext`/trigger are reconciled, so the cron expression is left untouched. The registration is **provider-agnostic** — no `meerkat-taskpanel`/`taskctl` literal appears in any trigger script. The expected trigger body comes from the single template `team/automations/trigger-template.mjs`.
-- **Scheduling bounds** (set at registration; see §3.5): poll jobs get `--timeout-seconds` (run upper bound, `OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S`, default = one `OPENCLAW_TEAM_POLL_INTERVAL` — T-20261013-041718; was 3600 s); every generated trigger passes `exec({ …, timeoutSeconds })` and the dispatcher applies `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default 8000 ms). Both are install-time overridable env vars.
+- **Scheduling bounds** (set at registration; see §3.5): poll jobs get `--timeout-seconds` (run upper bound, `OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S`, default = one `OPENCLAW_TEAM_POLL_INTERVAL` — was 3600 s); every generated trigger passes `exec({ …, timeoutSeconds })` and the dispatcher applies `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default 8000 ms). Both are install-time overridable env vars.
 - View: `automations list` | Details: `automations get <jobId>` | History: `automations runs <jobId>`
 - Test run: `automations run <jobId> runMode=force`
 - Add/remove/modify: prefer the `automations` tool; **but that tool is read-only in agent/cron turns** (only status/list/get/remove/runs/next_check, no add/update/run) ⇒ to actually change scheduling, use the official CLI: `openclaw automations edit <jobId> --trigger-script <file>` (Gateway WS managed path, not a manual DB edit). Hand-editing sqlite/store is forbidden.
@@ -504,6 +501,6 @@ day-based mechanism was card archiving, `PROTOCOL §20.3`).
 ## 6. Patrol Metrics (attached to check-all)
 - **Trigger-script placeholder incident fix (historical)**: the trigger inline JS **does not do brace template substitution**, so a placeholder literal passed to shell fails (`bash: {{HOME}}/...: No such file or directory`) ⇒ the gate patrol falsely reports failure and burns a model turn (poll-type jobs silently fail instead). **Fix**: switch trigger scripts to **absolute paths** and write back each job via `openclaw automations edit <id> --trigger-script <file>`; verify `automations list` has no placeholders and the gate is all green ⇒ trigger evaluation is `fire:false`. **Convention**: trigger script paths are always absolute; placeholders are forbidden.
 - Redline-block drift = 0 | terminology-abstraction violations = 0 | §reference broken links = 0 | card-schema violations = 0 | contract tests all green.
-- **Epic completeness / roadmap × card reconciliation = 0 hard violations** (`scripts/check-epic-completeness.mjs`, T-20261012-171026-2, `PROTOCOL §10.2/§10.3/§20.1`): every card named in an epic's roadmap ledger must exist **and** be a child of that epic, and every phase with no card must state a reason (hard domain = non-terminal epics — terminal ones are grandfathered and reported as warnings). The **dangling-roadmap sweep** (`workspace/<task>/plan.md`, `design/`, epic cards → "phase without a card") is **soft**: it reports, never sets the exit code.
+- **Epic completeness / roadmap × card reconciliation = 0 hard violations** (`scripts/check-epic-completeness.mjs`, `PROTOCOL §10.2/§10.3/§20.1`): every card named in an epic's roadmap ledger must exist **and** be a child of that epic, and every phase with no card must state a reason (hard domain = non-terminal epics — terminal ones are grandfathered and reported as warnings). The **dangling-roadmap sweep** (`workspace/<task>/plan.md`, `design/`, epic cards → "phase without a card") is **soft**: it reports, never sets the exit code.
 - **New-seg background-pack rate**: the gate verifies that "all running/closed segs in the card have `workspace/<task-id>/handoff.md` containing the four anchors" — target 100%; gaps are handled (generated/carded).
-- **Card-face Report completeness = 0 hard violations** (`scripts/check-report.mjs`, T-20261015-010749-2, `PROTOCOL §20.1`; standard = `team/guides/worker-report-template.md`): an `in_review` card must have a non-blank `## Report` carrying the common-core slots `A1…A8`. Hard domain = **`in_review` created at/after the gate's effective cutoff**; terminal cards are never checked, earlier cards are grandfathered to warnings (12 at landing — no retro-reddening), and the register (`scripts/report-baseline.json` ∪ `<tasks>/.report-baseline.json`) can exempt a benign case when its gap set matches exactly. Measured motivation: the historical board drops the **card path** slot hardest on every role (criterion-bound — see guide §4, whose absolute numbers were **withdrawn** as unreproducible on 2026-10-15, defect `T-20261015-010749-3` §T6 D6; current readings: `scripts/report-census.mjs`), Jobs is the weakest role on "command + exit code" by a wide margin, and four cards reached `in_review` with a blank Report on the night of 2026-10-14. Beyond slot presence the script declares two semantics, tracked here one-to-one with the script header and the guide: **(v) A0 report origin** (header (v); guide §1 A0) — the optional `A0` line reads `delivery` (the deliverer's own Report, the default when absent) or `import` (proxy-collected: a migration, or a pick-up for a dead session); an `import` Report is **not** delivery evidence and can never clear an `in_review` card on its own, and an unreadable `A0` token fails closed; and the **A4 → A6 coupling** (guide §5 row `A4 → A6 coupling`, script Δ1) — a `partial`/`not_met` Acceptance row must reappear in A6 with an owner, so a `partial` row beside an A6 that says "none" is flagged. That coupling, like the sent-back-round hint of header step (vi), is a **non-blocking hint**, never a violation.
+- **Card-face Report completeness = 0 hard violations** (`scripts/check-report.mjs`, `PROTOCOL §20.1`; standard = `team/guides/worker-report-template.md`): an `in_review` card must have a non-blank `## Report` carrying the common-core slots `A1…A8`. Hard domain = **`in_review` created at/after the gate's effective cutoff**; terminal cards are never checked, earlier cards are grandfathered to warnings (12 at landing — no retro-reddening), and the register (`scripts/report-baseline.json` ∪ `<tasks>/.report-baseline.json`) can exempt a benign case when its gap set matches exactly. Measured motivation: the historical board drops the **card path** slot hardest on every role (criterion-bound — see guide §4, whose absolute numbers were **withdrawn** as unreproducible on 2026-10-15, defect  §T6 D6; current readings: `scripts/report-census.mjs`), Jobs is the weakest role on "command + exit code" by a wide margin, and four cards reached `in_review` with a blank Report on the night of 2026-10-14. Beyond slot presence the script declares two semantics, tracked here one-to-one with the script header and the guide: **(v) A0 report origin** (header (v); guide §1 A0) — the optional `A0` line reads `delivery` (the deliverer's own Report, the default when absent) or `import` (proxy-collected: a migration, or a pick-up for a dead session); an `import` Report is **not** delivery evidence and can never clear an `in_review` card on its own, and an unreadable `A0` token fails closed; and the **A4 → A6 coupling** (guide §5 row `A4 → A6 coupling`, script Δ1) — a `partial`/`not_met` Acceptance row must reappear in A6 with an owner, so a `partial` row beside an A6 that says "none" is flagged. That coupling, like the sent-back-round hint of header step (vi), is a **non-blocking hint**, never a violation.
