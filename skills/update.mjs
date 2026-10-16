@@ -27,7 +27,7 @@
 // Exit codes: 0 = no failure (whether or not drift was found); 1 = at least one entry
 // failed to resolve or install. `kind:"unknown"` entries keep the existing
 // `needs_source` semantics: skipped, counted as `unresolved`, never a failure.
-import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, cpSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, cpSync, readdirSync, realpathSync } from "node:fs";
 import { execFileSync, execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { promisify } from "node:util";
@@ -331,8 +331,17 @@ async function main() {
 
 function emit(obj) { process.stdout.write(JSON.stringify(obj) + "\n"); }
 
-// Run only when invoked as a CLI — importing this module (unit tests) stays side-effect free.
-if (process.argv[1] && import.meta.url === `file://${resolve(process.argv[1])}`) {
+// main-guard：经 realpath 归一后比较，符号链接调用亦能命中（import.meta.url 为真实路径，
+// argv[1] 可能是链接路径）。未归一前守卫恒假 ⇒ main() 从不执行、stdout 恒空、exit 0 ——
+// 表现成「检测不到漂移」的假绿（本机 macOS 的 /var → /private/var，或把本文件复制进符号
+// 链接目录的测试夹具）。与 team/scripts/{lib,patrol-scan}.mjs 同口径，回归见 main-guard.test.mjs。
+let IS_MAIN = false;
+try {
+  IS_MAIN = realpathSync(new URL(import.meta.url)) === realpathSync(resolve(process.argv[1]));
+} catch {
+  IS_MAIN = false; // realpath 失败 / argv[1] 缺席 ⇒ 不执行 main
+}
+if (IS_MAIN) {
   main().catch((e) => {
     console.log(`  ✗ skills-update: ${(e && e.message) || e}`);
     process.exit(1);
