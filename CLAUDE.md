@@ -228,6 +228,13 @@ refreshes that cache out of band.
 - **[skills/](skills/)** — skill bodies are **not stored here**. `manifest.json`
   declares upstream sources, `lock.json` pins refs and tree hashes; the installer
   fetches them. Entries with `needs_source: true` are skipped until resolved.
+  Skills that shell out to an external CLI declare it in
+  [config/skill-clis.json](config/skill-clis.json) instead of vendoring it; each entry
+  carries a `mode` — `install` (best-effort global npm) or `check-only` (probe and
+  report, never install, for CLIs whose upstream installer an unattended run must not
+  execute). Skipped on `--dry-run` / `--vendor` / `--offline`, disabled by
+  `--skip-skill-clis`. MCP **server** registration is *not* covered — connectors are
+  user-supplied, and `gitnexus` ships only its CLI.
 - **[tools/](tools/)** — `ui-fidelity/` (L1 structural · L2 pixel regression ·
   L3 prototype-as-oracle) and `ui-align/`.
 

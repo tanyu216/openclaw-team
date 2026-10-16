@@ -541,7 +541,8 @@
     {
       "name": "open-code-review",
       "targets": [
-        "openclaw"
+        "openclaw",
+        "claude"
       ],
       "ref": "fabbdb296b0d97e2140ada8d54ca7d6d6d1d7ad4",
       "repo": "https://github.com/alibaba/open-code-review",
@@ -551,7 +552,8 @@
     {
       "name": "open-code-review-delegate",
       "targets": [
-        "openclaw"
+        "openclaw",
+        "claude"
       ],
       "ref": "fabbdb296b0d97e2140ada8d54ca7d6d6d1d7ad4",
       "repo": "https://github.com/alibaba/open-code-review",

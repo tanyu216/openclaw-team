@@ -68,6 +68,9 @@
 #   --skip-skills          Skip all skill installation
 #   --skip-claude-skills   Skip Claude Code skills
 #   --skip-codex-skills    Skip Codex skills
+#   --skip-skill-clis      Do not install/probe the external CLIs the declared
+#                          skills shell out to (declared in config/skill-clis.json:
+#                          ocr, gitnexus). Alias: --skip-ocr-cli.
 #   --skip-agents          Skip agent registration / role deployment
 #   --skip-config          Skip config fragment patch
 #   --skip-team            Skip team docs deployment
@@ -104,6 +107,7 @@ OFFLINE=0
 NOREG=0           # --no-register: deploy role workspaces but skip `openclaw agents add`
 PROTOTYPE=""      # --prototype: static-html|figma|google-stitch|pixso (recorded in team.config.json)
 SKIP_KEYS=""      # --skip-keys: never prompt; --keys: force prompt (default: prompt only on a TTY)
+SKIP_CLIS=0       # --skip-skill-clis: do not install/probe the skill CLIs in config/skill-clis.json
 
 WARNINGS=0
 STEPS=0
@@ -179,6 +183,7 @@ while [ "$#" -gt 0 ]; do
     --no-task-panel) dep_flag --no-task-panel --no-meerkat-taskpanel; WITH_MEERKAT_TASKPANEL=0 ;;       # legacy-name-compat
     --skip-automations) DO_AUTOMATIONS=0 ;;
     --skip-skills) DO_SKILLS=0 ;;
+    --skip-ocr-cli|--skip-skill-clis) SKIP_CLIS=1 ;;
     --vendor) VENDOR=1 ;;
     --offline) OFFLINE=1 ;;
     --keep-existing) KEEP=1 ;;
@@ -522,6 +527,40 @@ if [ "$DO_SKILLS" = 1 ]; then
       install_skills "agent:$a" "$REPO/skills/agents/$a" "$OPENCLAW_HOME/workspace-$a/skills"
     done
   fi
+
+  # External CLIs the declared skills shell out to (declared in config/skill-clis.json).
+  # mode=install -> probe and install best-effort; mode=check-only -> probe and REPORT only
+  # (its upstream installer is not something an unattended run may execute). Installing
+  # mutates the machine (global npm) and needs network, so the step is skipped on
+  # --dry-run/--vendor/--offline and disabled outright by --skip-skill-clis. A failed
+  # install WARNS — the run still completes.
+  if [ -f "$REPO/config/skill-clis.json" ] && [ "$SKIP_CLIS" != 1 ]; then
+    clirows="$(node -e '
+      const m=require(process.argv[1]);
+      for(const [name,c] of Object.entries(m.clis||{})){
+        const mode=c.mode||"install";
+        const pkg=c.manager==="npm"?(c.package||""):"";
+        const disp=c.install||(pkg?"npm i -g "+pkg:"");
+        console.log([name,mode,(c.probe||name),pkg,(c.requiredBy||[]).join(","),disp].join("|"));
+      }
+    ' "$REPO/config/skill-clis.json" 2>/dev/null || true)"
+    while IFS='|' read -r cname cmode cprobe cpkg creq cdisp; do
+      [ -n "$cname" ] || continue
+      if have_cmd "$cprobe"; then info "$cname CLI: present"
+      elif [ "$cmode" != "install" ]; then
+        info "$cname CLI: missing (declared check-only — this installer never installs it)"
+        info "    → needed by: $creq"
+        info "      install it yourself:  $cdisp"
+      elif [ "$DRY_RUN" = 1 ]; then info "[dry-run] $cname CLI missing — would install: $cdisp"
+      elif [ "$VENDOR" = 1 ] || [ "$OFFLINE" = 1 ]; then info "$cname CLI: missing (vendor/offline — not installed; run: $cdisp)"
+      elif ! have_cmd npm; then warn "$cname CLI missing (needed by $creq) and npm is unavailable — install it: $cdisp"
+      else
+        info "$cname CLI: missing — installing ($cdisp)"
+        if run npm i -g "$cpkg" && have_cmd "$cprobe"; then info "$cname CLI: installed"
+        else warn "$cname CLI could not be installed (needed by $creq) — install it: $cdisp"; fi
+      fi
+    done <<< "$clirows"
+  fi
 fi
 
 # ---- 3. agents + roles ------------------------------------------------------
@@ -808,6 +847,29 @@ if [ -f "$REPO/config/api-keys.json" ]; then
     if [ "$state" = "NOT SET" ]; then info "    → $kpurpose"; info "      set it:  $kconf"; fi
   done <<< "$krows"
   info "Stored keys: $KEYS_FILE (0600; never committed). Re-run with --keys to (re)enter them."
+fi
+# ---- closing summary: skill CLIs (config/skill-clis.json) -------------------
+if [ -f "$REPO/config/skill-clis.json" ] && [ "$SKIP_CLIS" != 1 ]; then
+  say ""
+  say "Skill CLIs (closing summary)"
+  clirows="$(node -e '
+    const m=require(process.argv[1]);
+    for(const [name,c] of Object.entries(m.clis||{})){
+      const mode=c.mode||"install";
+      const pkg=c.manager==="npm"?(c.package||""):"";
+      const disp=c.install||(pkg?"npm i -g "+pkg:"");
+      console.log([name,mode,(c.probe||name),pkg,(c.requiredBy||[]).join(","),disp].join("|"));
+    }
+  ' "$REPO/config/skill-clis.json" 2>/dev/null || true)"
+  while IFS='|' read -r cname cmode cprobe cpkg creq cdisp; do
+    [ -n "$cname" ] || continue
+    if have_cmd "$cprobe"; then printf '  %-26s %s\n' "$cname" "present"
+    else
+      printf '  %-26s %s\n' "$cname" "MISSING ($cmode)"
+      info "    → needed by: $creq"
+      info "      install:  $cdisp"
+    fi
+  done <<< "$clirows"
 fi
 
 say ""

@@ -11,6 +11,15 @@ Skill **bodies are not stored in this repository** (option A). This directory ho
 | `update.mjs` | **Detect a drifted upstream ref, and (opt-in) advance to it.** See below. |
 | `PROVENANCE.md` | Per-skill provenance of the transitional vendored copies. |
 
+A skill that shells out to an external CLI is only half-installed without that CLI.
+Those CLIs are declared in [`../config/skill-clis.json`](../config/skill-clis.json)
+(probe + mode + the skills that require them) rather than vendored, and `install.sh`
+probes each: `mode:install` entries are installed best-effort (`ocr`, `gitnexus`),
+`mode:check-only` entries are only reported — `tvly`'s upstream installer is a
+`curl | bash` pipe, and `tvly init` would overwrite the ref-pinned bodies this
+directory installs. Note that `fetch.mjs`/`update.mjs` do **not** touch any of them:
+fetching a skill body and provisioning its CLI are separate steps.
+
 ## `update.mjs`
 
 ```bash

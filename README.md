@@ -221,6 +221,7 @@ Options:
 | `--keys` / `--skip-keys` | Force / skip the interactive API-key prompt (default: prompt only on a TTY) |
 | `--keep-existing` | Never overwrite existing files (skip instead of upgrade) |
 | `--skip-skills` `--skip-agents` `--skip-config` `--skip-team` | Skip a stage |
+| `--skip-skill-clis` | Do not install/probe the external CLIs the declared skills need (alias `--skip-ocr-cli`) |
 | `--vendor` | Snapshot skills from their sources into `skills/vendor/` |
 | `--offline` | Install skills from `skills/vendor/` (no network) |
 
@@ -316,6 +317,26 @@ Targets:
 | `claude` | `~/.claude/skills/` |
 | `codex` | `~/.codex/skills/` |
 | `agent:<id>` | `~/.openclaw/workspace-<id>/skills/` |
+
+Some skills shell out to an external CLI instead of shipping one. Those CLIs are
+declared in [`config/skill-clis.json`](config/skill-clis.json) with an explicit mode,
+and the installer probes each one:
+
+- **`mode: install`** — installed best-effort when missing: `ocr` for the
+  `open-code-review*` skills, `gitnexus` for the `gitnexus-*` suite.
+- **`mode: check-only`** — probed and reported, **never installed**: `tvly` for the
+  `tavily-*` skills. Its upstream installer is a `curl | bash` pipe, and `tvly init`
+  would overwrite the ref-pinned skill bodies `fetch.mjs` installs (use
+  `tvly init --skip-skills` to authenticate without clobbering them).
+
+Installing needs network and a global npm prefix, so the step is skipped on
+`--dry-run` / `--vendor` / `--offline` and disabled by `--skip-skill-clis`; an install
+that fails only warns. The closing summary reports every CLI's status and the exact
+install command. Registering an **MCP server** is a separate, host-local step —
+connectors are user-supplied (see
+[`config/examples/mcp.example.json5`](config/examples/mcp.example.json5)): `gitnexus`'s
+CLI is installed here, its MCP server entry is not, and without it the roles fall back
+to grep.
 
 Entries marked `needs_source: true` have no verified upstream yet and are skipped
 until resolved. Provenance notes: [`skills/PROVENANCE.md`](skills/PROVENANCE.md).
