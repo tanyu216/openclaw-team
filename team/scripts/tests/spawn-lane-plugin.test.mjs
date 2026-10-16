@@ -82,7 +82,7 @@ if (LAYOUT) {
   TASKS = path.join(LAYOUT, 'tasks');
   REGISTRY_PATH = path.join(LAYOUT, 'claude-sessions.json');
   process.env.OPENCLAW_TEAM_ROOT = LAYOUT;
-  process.env.OPENCLAW_LANE_ISOLATION = '0'; // 本档与隔离特性无关，关掉以稳定 cwd
+  // （原 `OPENCLAW_LANE_ISOLATION=0` 已随隔离机制移除：cwd 恒为仓根，本档无需再钉定。）
 
   const staged = (rel) => import(pathToFileURL(path.join(LAYOUT, rel)).href);
   sp = await staged('scripts/spawn-lane.mjs');

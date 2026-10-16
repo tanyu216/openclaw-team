@@ -180,7 +180,7 @@ ptest('9. 对拍 provider：规范值 / 别名 / 接受词表 / 终态集 **逐�
 
 ptest('10. 对拍差异：provider `NON_TERMINAL` 陈旧（用旧词 ready、缺 canonical todo）—— 已知且有意', () => {
   // 本模块**故意**不取 provider 的 `NON_TERMINAL`：它用旧词 `ready` 顶替 canonical `todo`，
-  // 与其自身 `CANONICAL_STATUSES` 自相矛盾。仓内读侧（samefile-guard / lane-isolation /
+  // 与其自身 `CANONICAL_STATUSES` 自相矛盾。仓内读侧（samefile-guard /
   // check-idem）一律取本模块的集合。此例把差异**固化成断言**：provider 侧修好后本例会红，
   // 提示把本条连同 status.mjs 文件头那段落注一起删掉 —— 而不是让差异静默漂移。
   const ours = new Set(S.NON_TERMINAL);

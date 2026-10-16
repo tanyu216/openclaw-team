@@ -10,7 +10,7 @@
  * 设计取向（沿用 `team/scripts/lint-doc-refs.mjs` 的先例）：**宁可漏报，绝不误报** ——
  * 一个满屏假红的门会被立刻关掉，等于没有。故只取四类**高信噪比**原子：
  *   · `codes`   snake_case 机器码 / 字段名 / 拒绝码（`base_unresolved`、`review_of`、`not_met` …）
- *   · `tokens`  反引号内的标识符（`task.claim`、`OPENCLAW_LANE_BASE`、`lane-worktree.mjs` …）
+ *   · `tokens`  反引号内的标识符（`task.claim`、`OPENCLAW_TEAM_ROOT`、`spawn-lane.mjs` …）
  *   · `refs`    `§` 编号引用（`§⑮`、`§6.3` …）
  *   · `numbers` 带单位的阈值 / 量级（`64 KiB`、`14 days`、`6000 ms`、`×1.5` …）
  * 标题另作 `headings` 一轴**只报告不判红**（去重改名是预期行为，不是丢条款）。
