@@ -154,11 +154,19 @@ export const FAMILIES = [
 // 能用恒等断言钉住「标了 single 就真的是 single」。
 for (const f of FAMILIES) if (f.levels === 'single') f.shape = f.topic;
 
-/** 卡路径三档（`--card-path`）。§4 v1 #1 的结论完全落在这条轴上。 */
+/**
+ * 卡路径三档（`--card-path`）。§4 v1 #1 的结论完全落在这条轴上。
+ *
+ * ⚠️ **provider 作用域（有意保留，非疏漏）**：这是一条**测量轴**，量的是历史 Report 文本里
+ * **当前基座**的引用写法，不是有效性判据、不置红。`id` 一档跟着基座的 id 形态走；
+ * `path`/`abs` 两档额外依赖**文件基座**的存储约定（`tasks/` 平铺 + `.md`）—— 换成 Jira/Linear
+ * 那类基座后这两档的含义会变，届时按新基座重定义，而不是假装它还成立。
+ * 精确解是 provider 侧声明 id 形态（另开卡），届时 `id` 一档改为消费该声明。
+ */
 export const CARD_PATH_RULES = {
-  id: (b) => /T-\d{8}-\d{6}/.test(b),
-  path: (b) => /(tasks\/T-\d{8}-\d{6}|T-\d{8}-\d{6}\.md)/.test(b),
-  abs: (b) => /\/tasks\/T-\d{8}-\d{6}/.test(b),
+  id: (b) => /[A-Za-z]+-\d{8}-\d{6}/.test(b),
+  path: (b) => /(tasks\/[A-Za-z]+-\d{8}-\d{6}|[A-Za-z]+-\d{8}-\d{6}\.md)/.test(b),
+  abs: (b) => /\/tasks\/[A-Za-z]+-\d{8}-\d{6}/.test(b),
 };
 
 /** §4 v1 公布值（**已撤回**，此处仅作 `--compare` 的对照常量，不是任何主张的依据）。

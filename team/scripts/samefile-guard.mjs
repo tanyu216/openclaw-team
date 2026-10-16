@@ -15,7 +15,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { TASKS_DIR, CARD_ID_RE, parseFrontmatter, splitWrites } from './lib.mjs';
+import { TASKS_DIR, parseFrontmatter, splitWrites } from './lib.mjs';
 import { isNonTerminal } from './status.mjs';
 
 // 非终态判据（= 同文件/同仓并发判定的口径）现由 `scripts/status.mjs#isNonTerminal` 单点持有
@@ -39,7 +39,7 @@ function scanBoard() {
   const cards = [];
   if (!fs.existsSync(TASKS_DIR)) return cards;
   for (const f of fs.readdirSync(TASKS_DIR)) {
-    if (!f.endsWith('.md') || !CARD_ID_RE.test(f.slice(0, -3))) continue;
+    if (!f.endsWith('.md') || f.startsWith('.')) continue;   // 结构性识别；下方 fm.id 才是判据
     const p = path.join(TASKS_DIR, f);
     let fm;
     try {
