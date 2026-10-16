@@ -294,6 +294,8 @@ docker compose -f docker/docker-compose.yml up --build --abort-on-container-exit
 
 `docker/verify-in-container.sh` 是唯一健康事实源（CI 跑同一脚本），「本地绿 = CI 绿」。覆盖：shell/node 语法 · manifest+lock 完整性 · 安装器与 fetcher 干跑 · 真实文件部署（隔离 HOME）· 安装→升级→备份路径。
 
+**不含**：框架测试套件（`team/scripts/tests/*.test.mjs`）在 `check-all.sh` 的 **slow 段**，本脚本——因而 CI——从不调用它。CI 绿对该套件**不构成任何证据**。
+
 ## License
 
 MIT — 见 [LICENSE](LICENSE)。

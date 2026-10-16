@@ -105,9 +105,22 @@ bits included, into `{team}/scripts/` on the host. Edit them here and re-install
 never the other way round, and never hand-copy between a host and the repository.
 
 `tests/` holds the framework tests written **for this repository**
-(`node --test team/scripts/tests/*.test.mjs`; green bare — suites that need the
-task-ops provider skip themselves). They ship alongside the scripts, which is also
-what `check-all.sh` re-runs in a deployed install.
+(`node --test team/scripts/tests/*.test.mjs`). They ship alongside the scripts, which is
+also what `check-all.sh` re-runs in a deployed install.
+
+**Green, but read the skip count.** Suites that need the task-ops provider skip themselves
+(they do not fail), and that is most of the suite:
+
+| run | tests | pass | fail | skip |
+|---|---|---|---|---|
+| bare (no provider) | 781 | 199 | **0** | 582 |
+| `OPENCLAW_TASK_OPS_DIR` set | 781 | 777 | **0** | 4 |
+
+So "bare is green" means *0 failures over the 199 that ran*, not *the suite passed*. Point
+`OPENCLAW_TASK_OPS_DIR` at a checkout containing `lib/` to run the rest — that is the mode a
+deployed instance runs. **CI does not run this suite at all**: CI runs
+`docker/verify-in-container.sh`, which runs only `check-all.sh --segment fast`; these tests
+live in the **slow** segment.
 
 ## Codex plugin lane (`harness=plugin`)
 
