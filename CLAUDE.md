@@ -271,9 +271,13 @@ is closed. `dev → main` is the explicit integration/release step.
   An unmerged lane branch is **not** delivery — `dev` does not contain it, so the
   next task bases on a tree without it. Remove the worktree only **after** the
   merge.
-- **Keep the main checkout on `main`, and do the work in a lane worktree.** The
-  main checkout is the release tip; unreleased branch work belongs in its lane
-  tree, where it is isolated from every other lane.
+- **The main checkout holds `dev`.** Integration happens on `dev`, so that is what
+  the main checkout sits on — branch work still belongs in its own worktree, but
+  the tree you are standing in *is* the integration tree. Consequently `main` has
+  no long-lived checkout at all, and the `dev → main` step is done from a
+  **throwaway worktree** (`git worktree add <tmp> main` → merge → remove) rather
+  than by flipping the main checkout's branch, which would interrupt any work in
+  progress on `dev`.
 - **Bootstrapping:** a repo with no `dev` refuses lane isolation — create it once
   (`git branch dev <base>`) before the first isolated lane.
 
