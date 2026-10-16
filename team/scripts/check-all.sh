@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-all.sh — 日常巡检门禁聚合（PROTOCOL §⑳.1）
 # 用法：bash check-all.sh [--segment fast|slow|all] [--report <path>] [--repo <R> | --live]
-#   --segment fast  只跑「快门禁」（秒级）：红线一致 / 术语抽象 / §引用可解析 / 依赖 CVE 扫描 /
+#   --segment fast  只跑「快门禁」（秒级）：红线一致 / 术语抽象 / §引用可解析 / 文档路径引用 / 依赖 CVE 扫描 /
 #                   卡 schema / handoff / 关系不变量 / 幂等 / 会话一致性 /
 #                   建卡完备性（epic 子卡完整性 + 路线图×卡 对账）/ 卡面 Report 完备性 / 契约测试 /
 #                   ACL 终态守卫 / 项目解析 / 调度求值（provider ACL 4 套快测在此，in-band 即时信号）/ 归档预览
@@ -147,6 +147,10 @@ LINT_ARGS=()
 run "红线块一致性 check-redlines"        node "$S/check-redlines.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"}
 run "术语抽象 lint-impl-names"           node "$S/lint-impl-names.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"}
 run "§引用可解析 lint-refs"              node "$S/lint-refs.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"}
+# 文档**路径**引用可解析（与上一条互补：lint-refs 只管 `§①…§⑳` 编号，本步管文件/目录路径）。
+# 历史实证：角色 AGENTS.md 指向从未建立的方法库目录（`roles/turing/guides/`）—— 零成本复发、
+# 无门禁可见。误报控制见脚本头注（宁漏勿误：实测松散规则下 466 条“断引用”里真问题只有 5 条）。
+run "文档路径引用 lint-doc-refs"         node "$S/lint-doc-refs.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"}
 
 # repo 模式的仓内语法自证（实例面步骤在 repo 模式整体跳过，见下）。
 if [ "$MODE" = repo ]; then
