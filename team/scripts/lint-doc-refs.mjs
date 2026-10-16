@@ -44,17 +44,18 @@
  * 有意变动，风险高，留待记法约定落地后再谈。
  *
  * **第三腿 —— 节内条款号（`§N clause M` / `§N step M` / `§N.M #M`）**：引用还可能指向
- * **子节里的第 M 条**（有序列表项），而不是一个标题。`lint-refs.mjs` 只管 `§①…§⑳` 的**标题**
- * 是否存在，这类条目引用此前无人校验 ⇒ 重排条目编号会**静默断**，且断得很隐蔽（标题还在，
+ * **子节里的第 M 条**（有序列表项），而不是一个标题。`lint-refs.mjs` 只管节的**标题**是否存在，
+ * 这类条目引用此前无人校验 ⇒ 重排条目编号会**静默断**，且断得很隐蔽（标题还在，
  * 只是第 11 条变成了别的条）。
- * 识别集**刻意窄**：只收「目标可判定为有序列表」的三类 ——
- *   ① 圈码锚 + `clause|step` + K（`§⑥.1 clause 11`、`§⑥ clause 2,7`）⇒ 按本仓约定恒指 `PROTOCOL.md`；
- *   ② 圈码锚 + `#K`（`§⑥.1 #8`、`§⑨.1 hard gate #1`）⇒ 同上；
- *   ③ 显式 `<name>.md` 锚 + ASCII 节号 + `clause|step` + K。
- * **不识别（一律 skip 计数，绝不判红）**：**裸阿拉伯 `#K`** —— 本仓该形状表示**表格行**
- * （实测约 36 条，如 `sla-inspection-contract.md §4 #9`；误判会误红写对的引用）；无文件锚的
- * ASCII `§N step K`；`rule` / `invariant` 等标记词；把 `§N.M` 读成「§N 的第 M 条」（会与真
- * `### N.M` 标题撞车 —— 正是第二腿存在的理由）。
+ * 记法（2026-10-16 阿拉伯化后）：判别符是**点名与否** ——
+ *   ① `PROTOCOL §N` + `clause|step` + M ⇒ 指 L1；
+ *   ② `PROTOCOL §N` + 可选词限定 + `#M`（`PROTOCOL §9.1 hard gate #1`）⇒ 同上；
+ *   ③ `` `<file>.md` §N clause|step M `` ⇒ 指该文件；
+ *   ④ **裸** `§N clause|step M` ⇒ 指**本文件自己**。
+ * 节号与关键词之间允许夹反引号/括号（`` `PROTOCOL §6.1` clause 11 `` 是本仓常见写法）。
+ * **不识别（一律 skip 计数，绝不判红）**：**裸 `#K`** —— 本仓该形状表示**表格行**
+ * （如 "the contract §4 #9"；误判会误红写对的引用）；`rule` / `invariant` 等标记词；
+ * 把 `§N.M` 读成「§N 的第 M 条」（会与真 `### N.M` 标题撞车 —— 正是第二腿存在的理由）。
  * 解析：子节体 = **该标题 → 下一个任意级标题**（这样 `spawn-lane-sop §3` 的条目在 `### 3.1`
  * 处停止，不会把子节的 1..3 串上来）；只数**顶层**有序项；**围栏内跳过**；顶层序号必须恰为
  * `1..n`（重启/跳号/重复 ⇒ `ambiguous` ⇒ skip）；体内无有序列表 ⇒ `no-list` ⇒ skip。
@@ -145,31 +146,42 @@ function sectionOk(nums, n) {
  */
 const ITEM_ALLOW = {};
 
-const CIRC = '①-⑳';
-/** 节号与标记词之间允许的填充：空白、反引号收尾、右括号（`` `§⑥.1` clause 11 `` 这类拆写）。 */
-const GAP = '[\\s`)]*';
-
-/** ① 圈码锚 + `clause|step` + K。 */
-const RE_ITEM_CIRC_WORD = new RegExp(`§${GAP}([${CIRC}])(?:\\.([0-9]+))?${GAP}(clause|step)${GAP}([0-9]+)`, 'g');
-/** ② 圈码锚 + 可选词限定 + `#K`。 */
-const RE_ITEM_CIRC_HASH = new RegExp(
-  `§${GAP}([${CIRC}])(?:\\.([0-9]+))?${GAP}(?:[A-Za-z][A-Za-z-]*(?:${GAP}[A-Za-z][A-Za-z-]*)?${GAP})?#([0-9]+)`, 'g');
-/** ③ 显式 `.md` 锚 + ASCII 节号 + `clause|step` + K。 */
-const RE_ITEM_FILE_WORD = /`?([A-Za-z0-9][\w./-]*\.md)`?[ \t]*§[ \t]*(\d+(?:\.\d+)*)[ \t]*(clause|step)[ \t]*([0-9]+)/g;
-
 /**
  * 从一行取出节内条款号引用。
- * `file === null` ⇒ 按本仓约定指 `PROTOCOL.md`（圈码锚是 PROTOCOL 的命名空间）。
+ * 记法（2026-10-16 阿拉伯化后）：判别符是**点名与否** ——
+ *   · `PROTOCOL §N clause M` ⇒ 指 L1；
+ *   · `` `<file>.md` §N clause M `` ⇒ 指该文件；
+ *   · **裸** `§N clause M` ⇒ 指**本文件自己**（`file: SELF`，由调用方补上路径）。
+ * 只收「目标可判定为有序列表」的形态；**不识别**裸 `#K`（本仓该形状表示表格行）。
  */
+export const SELF = '@self';
+
+/** 节号与关键词之间允许的填充：空白、反引号、右括号。 */
+const GAP = '[\\s`)]*';
+
 export function extractItemRefs(line) {
   const out = [];
   const push = (file, sec, kind, item) => {
     const k = Number(item);
     if (Number.isInteger(k) && k >= 1) out.push({ file, sec, kind, item: k });
   };
-  for (const m of line.matchAll(RE_ITEM_CIRC_WORD)) push(null, m[2] ? `${m[1]}.${m[2]}` : m[1], m[3], m[4]);
-  for (const m of line.matchAll(RE_ITEM_CIRC_HASH)) push(null, m[2] ? `${m[1]}.${m[2]}` : m[1], '#', m[3]);
-  for (const m of line.matchAll(RE_ITEM_FILE_WORD)) push(m[1], m[2], m[3], m[4]);
+  const spans = [];
+  // ① `PROTOCOL §N clause|step M` ② `PROTOCOL §N [words] #M`
+  for (const m of line.matchAll(new RegExp(`PROTOCOL\\s*§\\s*(\\d+(?:\\.\\d+)?)${GAP}(clause|step)${GAP}(\\d+)`, 'g'))) {
+    push(null, m[1], m[2], m[3]); spans.push([m.index, m.index + m[0].length]);
+  }
+  for (const m of line.matchAll(new RegExp(`PROTOCOL\\s*§\\s*(\\d+(?:\\.\\d+)?)${GAP}(?:[A-Za-z][A-Za-z-]*${GAP}){0,2}#(\\d+)`, 'g'))) {
+    push(null, m[1], '#', m[2]); spans.push([m.index, m.index + m[0].length]);
+  }
+  // ③ `` `<file>.md` §N clause|step M ``
+  for (const m of line.matchAll(/`?([A-Za-z0-9][\w./-]*\.md)`?[ \t]*§[ \t]*(\d+(?:\.\d+)*)[ \t]*(clause|step)[ \t]*(\d+)/g)) {
+    push(m[1], m[2], m[3], m[4]); spans.push([m.index, m.index + m[0].length]);
+  }
+  // ④ 裸 `§N clause|step M` ⇒ 自引用；跳过已被 ①②③ 吃掉的位置
+  for (const m of line.matchAll(new RegExp(`§\\s*(\\d+(?:\\.\\d+)?)${GAP}(clause|step)${GAP}(\\d+)`, 'g'))) {
+    if (spans.some(([a, b]) => m.index >= a && m.index < b)) continue;
+    push(SELF, m[1], m[2], m[3]);
+  }
   return out;
 }
 
@@ -333,15 +345,16 @@ export function lintDocRefs(M) {
 
       // ── 第三腿：节内条款号 ──
       for (const { file: tgt, sec, kind, item } of extractItemRefs(line)) {
-        const abs = tgt
-          ? bases.map((b) => path.resolve(b, tgt)).find((p) => fs.existsSync(p))
-          : path.join(M.mode === 'repo' ? path.join(M.repo, 'team') : M.team, 'PROTOCOL.md');
+        const abs = tgt === null
+          ? path.join(M.mode === 'repo' ? path.join(M.repo, 'team') : M.team, 'PROTOCOL.md')
+          : tgt === SELF ? f
+          : bases.map((b) => path.resolve(b, tgt)).find((p) => fs.existsSync(p));
         if (!abs || !abs.endsWith('.md') || !fs.existsSync(abs)) {
           skipped['itemref-nofile'] = (skipped['itemref-nofile'] || 0) + 1; continue;
         }
         const r = itemIndex(abs, sec);
         if (!r.ok) { skipped[`itemref-${r.why}`] = (skipped[`itemref-${r.why}`] || 0) + 1; continue; }
-        const token = `${tgt || 'PROTOCOL'} §${sec} ${kind} ${item}`;
+        const token = `${tgt === null ? 'PROTOCOL' : tgt === SELF ? 'this file' : tgt} §${sec} ${kind} ${item}`;
         if (ITEM_ALLOW[`${keyPosix}:${token}`]) continue;
         itemChecked++;
         if (item <= r.count) continue;

@@ -47,7 +47,7 @@ One skill resolved to a verified GitHub upstream and installed to `claude`:
   `skills/update.mjs` — the same function `update.mjs --apply` writes with — so
   the value here and the value a later `--apply` recomputes cannot disagree.
 
-#### This skill is what `PROTOCOL §⑥.4` now delegates to
+#### This skill is what `PROTOCOL §6.4` now delegates to
 
 Since 2026-10-16 the framework's dev flow **is** this skill's flow, not a bespoke
 alternative to it. `scripts/spawn-lane.mjs` no longer decides or creates worktrees; the
@@ -66,9 +66,9 @@ Two things the framework supplies that the skill cannot infer, both in the lane 
   attribute the tree to a card at closeout.
 
 The base needs no machinery: the skill bases on implicit `HEAD`, and the main checkout holds
-`dev` (`PROTOCOL §⑥.4`), so `HEAD` *is* `dev`.
+`dev` (`PROTOCOL §6.4`), so `HEAD` *is* `dev`.
 
-Normative source: `PROTOCOL §⑥.4`; sequence and closure strength:
+Normative source: `PROTOCOL §6.4`; sequence and closure strength:
 `guides/dev-worktree-flow-sop.md`.
 
 The skill body is deliberately **not** edited to record any of this: bodies are third-party

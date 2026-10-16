@@ -595,7 +595,7 @@ test('GREEN-8. buildCommand：claude 分支 argv 逐字节不变（本卡只动 
 
 // ── ①b2 / L1③：同卡并发执行 lane 在 **spawn 前**拦下（T-20261013-233906） ────────────
 // 实证：turing 复核卡 `T-20261013-223243` 的 seg1 lane 以 `phase:seg1-verify` 登记，另一执行 turn
-// 7s 后又起了一条 segR1 lane（同卡并发执行 turn）⇒ 事后按 §⑥ 回滚（kill + sessionClose，0B 空产）。
+// 7s 后又起了一条 segR1 lane（同卡并发执行 turn）⇒ 事后按 PROTOCOL §6 回滚（kill + sessionClose，0B 空产）。
 
 test('REJECT. ①b2 同卡已有活跃执行 lane（异 seg）⇒ spawn 前拦下（card_busy），零副作用', { skip: SKIP }, () => {
   const id = 'T-20260101-100023-card-busy';

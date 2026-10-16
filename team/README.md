@@ -4,7 +4,7 @@
 
 > Architecture / protocol / operations / recovery / cost observation / known pitfalls / rejected-option decisions.
 > This directory `~/.openclaw/team/` is the only cross-agent shared area; the protocol source of truth is `PROTOCOL.md`.
-> Last updated: 2026-10-09 (lifecycle & engineering-gate clauses landed: PROTOCOL ①–㉘ incl. §⑤.1 public release approval, §⑥.3 worker parallelism + throughput patrol, and §㉑–§㉘ release/observability/incident/migration/API-compat/CVE/perf/cross-cutting, with the matching SOPs in `guides/`; architecture/protocol/operations/recovery below)
+> Last updated: 2026-10-09 (lifecycle & engineering-gate clauses landed: PROTOCOL §1–㉘ incl. PROTOCOL §5.1 public release approval, PROTOCOL §6.3 worker parallelism + throughput patrol, and PROTOCOL §21–PROTOCOL §28 release/observability/incident/migration/API-compat/CVE/perf/cross-cutting, with the matching SOPs in `guides/`; architecture/protocol/operations/recovery below)
 
 ## 1. Architecture
 
@@ -106,12 +106,12 @@ Finding codes: `legacy_only` (new missing, old present) · `legacy_data_dir_miss
 4. Verify: the doctor exits 0 and the pointer now exists under `MeerkatTaskPanel/` with a live pid and a reachable `/health`.
 5. Archive/remove the legacy `TaskPanel/` pointer dir (keep a copy if you want the audit trail) so nobody debugs the wrong file again.
 
-**Boundary**: steps 1–5 are live-instance operations — not performed by the framework or by a task card; they run only under operator authorization (`PROTOCOL §⑪` / card scope). The team-side deliverable is the naming decision above, the read-only doctor, and this runbook.
+**Boundary**: steps 1–5 are live-instance operations — not performed by the framework or by a task card; they run only under operator authorization (`PROTOCOL §11` / card scope). The team-side deliverable is the naming decision above, the read-only doctor, and this runbook.
 
 ## 5. Cost Observation Guide
 
 - The 5 poll crons evaluate every 2 minutes but **fire:false costs nothing** (no run produced, no model consumed); a turn is triggered only when a card is claimed.
-- Model strategy: **all agents (Elon/Jobs/Linus/Turing/Assistant) have `deepseek-flash` as the unified default tier**, with both primary and fallback set to it; `deepseek-v4-pro` is no longer any agent's default and is instead upgraded temporarily by task complexity; visual tasks use `deepseek-flash` (details in PROTOCOL ⑥.2).
+- Model strategy: **all agents (Elon/Jobs/Linus/Turing/Assistant) have `deepseek-flash` as the unified default tier**, with both primary and fallback set to it; `deepseek-v4-pro` is no longer any agent's default and is instead upgraded temporarily by task complexity; visual tasks use `deepseek-flash` (details in PROTOCOL §6.2).
 - Orchestrated subsessions (claude/codex) are the main cost source: watch `claude-sessions.json` concurrency and orphan reclamation (reconcile discipline).
 - Observation: `$OCL automations runs` counts only fired runs; spins are not counted — cost is directly tied to run count.
 
@@ -127,7 +127,7 @@ Finding codes: `legacy_only` (new missing, old present) · `legacy_data_dir_miss
 8. **Trigger-script evaluation phase and run turn are separate**: the claim happens during poll evaluation (fire:true ⇔ already claimed); the run turn finds `claimed_by=self`+fresh heartbeat → skip claiming and execute directly, and only runs `taskctl claim` if the card is still todo.
 9. **heartbeat exists only for main** (30m, defaults config); workers have no heartbeat and run idle; Dreaming (03:00) ingests only the main session.
 10. **Deep-troubleshooting experience**: gateway logs `/tmp/openclaw/openclaw-*.log` (JSON lines); model requests/fallbacks/reasoning overflow all have subsystem markers (`model-fallback/decision`, `agent/embedded` reasoning-only, etc.); grep runId first.
-11. **Task management is installed only on the OpenClaw team side**: task management (board/cards/ACL) is provided by the external `meerkat-taskpanel` and **faces OpenClaw team agents only** (`PROTOCOL §⑥` clause 7); **Claude Code / codex subsessions do not install or reference task management**, and the needed card info and constraints are transcribed by the agent into its prompt/`CLAUDE.md`.
+11. **Task management is installed only on the OpenClaw team side**: task management (board/cards/ACL) is provided by the external `meerkat-taskpanel` and **faces OpenClaw team agents only** (`PROTOCOL §6` clause 7); **Claude Code / codex subsessions do not install or reference task management**, and the needed card info and constraints are transcribed by the agent into its prompt/`CLAUDE.md`.
 
 ## 7. Rejected-Option Decision Record
 
@@ -135,7 +135,7 @@ Finding codes: `legacy_only` (new missing, old present) · `legacy_data_dir_miss
 - **managed TaskFlow** (requires a self-built plugin controller to drive) → do not build a bespoke message/scheduling system; task persistence uses a minimal patch (task cards + atomic claim), everything else goes native.
 - **ACP** (external harness channel, not built into the agent team) → not introduced.
 - **Do not put anyone on the claude-cli runtime**: the claude CLI is a backend depending on the local login state; Jobs/Linus = coordinator + exec-driven claude subprocess, unchanged.
-- **Single "board scan" dispatch (merging per-worker poll) → not adopted**: per-worker `*-poll` (every 5m + trigger, zero-cost when idle) is an **independent fallback** — each worker atomically claims when woken, so cards already created can still be claimed even when Elon (main) is stalled. Merging into "main scans → dispatch" would converge the wake chain to a single Elon point and change the `PROTOCOL §①` "claim timing belongs to poll" semantics. The only gain is a few zero-cost config lines, **so the status quo is kept**.
+- **Single "board scan" dispatch (merging per-worker poll) → not adopted**: per-worker `*-poll` (every 5m + trigger, zero-cost when idle) is an **independent fallback** — each worker atomically claims when woken, so cards already created can still be claimed even when Elon (main) is stalled. Merging into "main scans → dispatch" would converge the wake chain to a single Elon point and change the `PROTOCOL §1` "claim timing belongs to poll" semantics. The only gain is a few zero-cost config lines, **so the status quo is kept**.
 - **Cron slimming (`T-20261010-040000-configoptim-cronslim`) → adopted**: per-worker poll thinned **1m → 2m → 5m** (`OPENCLAW_TEAM_POLL_INTERVAL`, default `5m`) and `task-patrol` widened to **15m**, and every framework job now runs with `--light-context`; the poll/patrol/check-all decision is unchanged (atomic claim check), so the fallback semantics survive at the wider scheduler cadence.
 
 ## 8. Phase Status

@@ -1,6 +1,6 @@
 # Marketing / Promotion SOP (promo-ops-sop.md)
 
-> Ownership: **Assistant role SOP** (L2.5 method library). Normative text references `PROTOCOL §⑤.1` (public release channel & approval), `§⑤` (message discipline), `§⑩` (triage matrix), `§⑬.5` (decision fork first), `§⑭` (confirmation gate); this file is the execution detail and never copies L1 body.
+> Ownership: **Assistant role SOP** (L2.5 method library). Normative text references `PROTOCOL §5.1` (public release channel & approval), `PROTOCOL §5` (message discipline), `PROTOCOL §10` (triage matrix), `PROTOCOL §13.5` (decision fork first), `PROTOCOL §14` (confirmation gate); this file is the execution detail and never copies L1 body.
 > **Maintainer**: the **Assistant** role. **Integrator** (sole writer of L1 normative text): **Elon**.
 > **Effective**: on adoption (no fixed date).
 > **Scope**: promotion execution detail — channel list, asset standards, scheduling, outward-release approval chain, effectiveness metrics, and the asset boundary with Jobs.
@@ -36,7 +36,7 @@
 
 > **The channel list is a template — fill per instance**: register each channel's account ownership, publishing permission, and approver. The rows above are **examples of the shape**, not any specific instance's account state.
 
-- **Channel priority**: if undecided ⇒ recommend the operator/Elon decide by "target audience × operating cost × measurability" (via §⑬.5 decision fork first, producing `design-tree.md`).
+- **Channel priority**: if undecided ⇒ recommend the operator/Elon decide by "target audience × operating cost × measurability" (via PROTOCOL §13.5 decision fork first, producing `design-tree.md`).
 - **New channel**: any new channel must first be registered in this table (including account ownership, publishing permission, approver) before it can be scheduled.
 
 ---
@@ -74,17 +74,17 @@
 
 ## 5. Outward Publication Channel and Approval (★ explicit)
 
-> **Key distinction**: `Elon faces humans (PROTOCOL §⑤)` = the **internal / operator-facing reporting channel**; this is **not** the same as the "outward publication channel to the external public/customers". The two must not be conflated and are defined separately.
+> **Key distinction**: `Elon faces humans (PROTOCOL §5)` = the **internal / operator-facing reporting channel**; this is **not** the same as the "outward publication channel to the external public/customers". The two must not be conflated and are defined separately.
 
 **Definition**:
 - **Outward publication channel** = content distribution and account operation facing external audiences beyond the team and the operator (social media / website / EDM / etc.).
-- It is **two separate channels** from §⑤'s "facing humans": §⑤ governs "who reports to the operator"; this section governs "who publishes to the external public".
+- It is **two separate channels** from PROTOCOL §5's "facing humans": PROTOCOL §5 governs "who reports to the operator"; this section governs "who publishes to the external public".
 
 **Authorization chain**:
 ```
 Assistant (prepares assets + copy + schedule)
    → sends back to Elon via sessions_send: asset path + copy + target channel + planned date
-   → Elon reviews against Acceptance/compliance (§⑭ confirmation gate)
+   → Elon reviews against Acceptance/compliance (PROTOCOL §14 confirmation gate)
    → approved: the [authorized publishing account holder] executes the publication
          (when the account holder is undecided, Elon executes by default, or Elon names an authorized member)
    → Assistant returns the publish link/screenshot → writes the ledger → records task.comment kind=confirm (with approver/time/link)
@@ -111,7 +111,7 @@ Assistant (prepares assets + copy + schedule)
 > The "Gap / TBD" column shows the **shape of a gap**; fill the actual state per instance (the values above are examples).
 
 **Measurement cadence**: after each distribution, collect once at T+1 (first day) and once at T+7 (week); campaigns follow the campaign cycle.
-**Reporting format** (trimmed, §⑬.4): channel / metric actual values / period-over-period / conclusion and next step; details stay in the ledger — do not paste long tables into messages.
+**Reporting format** (trimmed, PROTOCOL §13.4): channel / metric actual values / period-over-period / conclusion and next step; details stay in the ledger — do not paste long tables into messages.
 **Gap summary** (example, fill per instance): account not opened, short-link service TBD, event attribution TBD, no cost ledger — to be completed after an operator/Elon decision.
 
 ---
@@ -126,13 +126,13 @@ Assistant (prepares assets + copy + schedule)
 | Asset compliance / size reuse | provides source files and spec | reuses and names per §3 |
 | Delivery path | art lands in the project design repo/area | orchestration artifacts land in `workspace/<task-id>/` |
 
-> Need new design assets ⇒ the Assistant sends back to Elon ⇒ Elon creates a card and dispatches Jobs (workers do not dispatch to each other, §⑩).
+> Need new design assets ⇒ the Assistant sends back to Elon ⇒ Elon creates a card and dispatches Jobs (workers do not dispatch to each other, PROTOCOL §10).
 
 ---
 
 ## 8. Open Items / Gaps (need operator/Elon decisions)
 
-1. Account ownership and opening priority for the "gap" channels (recommend §⑬.5).
+1. Account ownership and opening priority for the "gap" channels (recommend PROTOCOL §13.5).
 2. The **account holder** for outward publication and the automation boundary (whether/who may publish on their behalf).
 3. Short-link service, event attribution, conversion-value definition, ad-cost ledger.
 4. The effective point of this SOP and whether to create a separate promotion-metrics card.

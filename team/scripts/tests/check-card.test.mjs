@@ -80,7 +80,7 @@ test('PRIORITY 枚举 = low|medium|high|urgent', () => {
   assert.deepEqual(PRIORITY, ['low', 'medium', 'high', 'urgent']);
 });
 
-test('STATUS 白名单 = canonical 7 ∪ 旧词别名 {ready, failed}（对齐 PROTOCOL.md §①）', () => {
+test('STATUS 白名单 = canonical 7 ∪ 旧词别名 {ready, failed}（对齐 PROTOCOL.md PROTOCOL §1）', () => {
   assert.deepEqual(READ_STATUSES, ['backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done', 'canceled', 'ready', 'failed']);
 });
 
@@ -255,7 +255,7 @@ test('CLI 扫描全部模式：tasks 目录不存在 ⇒ 0 张通过', () => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
-// ── 项目内路径 containment：非 __team__ 卡的 target/writes 须项目内相对（PROTOCOL §②.1） ──
+// ── 项目内路径 containment：非 __team__ 卡的 target/writes 须项目内相对（PROTOCOL §2.1） ──
 const AFTER = '2026-12-01T00:00:00Z';  // 截止之后 ⇒ 规则生效
 const BEFORE = '2026-01-01T00:00:00Z'; // 截止之前 ⇒ grandfather
 
@@ -278,7 +278,7 @@ function mkProjCard({ id, project = 'example-app', target = '', writes = '', sta
 let pseq = 0;
 const pid = () => `T-20260101-4${String(pseq++).padStart(5, '0')}-pth`;
 
-test('§②.1 截止常量存在且可被 env 覆盖（非法值回退常量，绝不静默变严）', () => {
+test('PROTOCOL §2.1 截止常量存在且可被 env 覆盖（非法值回退常量，绝不静默变严）', () => {
   assert.match(PATH_EFFECTIVE_AT, /^\d{4}-\d{2}-\d{2}T/);
   const p = mkProjCard({ id: pid(), target: '/repo/other' });
   process.env.OPENCLAW_TEAM_PATH_EFFECTIVE_AT = '2099-01-01T00:00:00Z'; // 截止推到未来 ⇒ 全部 grandfather
@@ -288,7 +288,7 @@ test('§②.1 截止常量存在且可被 env 覆盖（非法值回退常量，�
   delete process.env.OPENCLAW_TEAM_PATH_EFFECTIVE_AT;
 });
 
-test('§②.1 非 __team__ 绝对 target（截止后）⇒ 报红 + 机读 [role]', () => {
+test('PROTOCOL §2.1 非 __team__ 绝对 target（截止后）⇒ 报红 + 机读 [role]', () => {
   const errs = checkOne(mkProjCard({ id: pid(), target: '/repo/other-project', createdBy: 'elon' }));
   assert.equal(errs.length, 1, JSON.stringify(errs));
   assert.match(errs[0], /越出项目边界/);
@@ -296,7 +296,7 @@ test('§②.1 非 __team__ 绝对 target（截止后）⇒ 报红 + 机读 [role
   assert.match(errs[0], /绝对路径/);
 });
 
-test('§②.1 逃逸形态逐一遍历：../ 开头 / 中段 ../ / ~ 本机锚 / 盘符 ⇒ 皆红', () => {
+test('PROTOCOL §2.1 逃逸形态逐一遍历：../ 开头 / 中段 ../ / ~ 本机锚 / 盘符 ⇒ 皆红', () => {
   const cases = [
     ['../other-project', /相对路径越界/],
     ['a/../../b', /相对路径越界/], // 关键：`..` 不在开头，只看前缀的正则会漏
@@ -310,53 +310,53 @@ test('§②.1 逃逸形态逐一遍历：../ 开头 / 中段 ../ / ~ 本机锚 /
   }
 });
 
-test('§②.1 项目内相对 target ⇒ 不报（含 ./ 与深层相对）', () => {
+test('PROTOCOL §2.1 项目内相对 target ⇒ 不报（含 ./ 与深层相对）', () => {
   for (const target of ['team/scripts/x.mjs', './x', 'a/b/c', '.', 'src/']) {
     assert.deepEqual(checkOne(mkProjCard({ id: pid(), target })), [], `${target} 应合法`);
   }
 });
 
-test('§②.1 created_at 早于截止 ⇒ grandfather；缺 created_at ⇒ 同按 grandfather（保守）', () => {
+test('PROTOCOL §2.1 created_at 早于截止 ⇒ grandfather；缺 created_at ⇒ 同按 grandfather（保守）', () => {
   assert.deepEqual(checkOne(mkProjCard({ id: pid(), target: '/abs/x', createdAt: BEFORE })), []);
   assert.deepEqual(checkOne(mkProjCard({ id: pid(), target: '/abs/x', createdAt: null })), []);
 });
 
-test('§②.1 终态卡（done/failed/canceled）⇒ 规则不适用（不追溯历史）', () => {
+test('PROTOCOL §2.1 终态卡（done/failed/canceled）⇒ 规则不适用（不追溯历史）', () => {
   for (const status of ['done', 'failed', 'canceled']) {
     assert.deepEqual(checkOne(mkProjCard({ id: pid(), target: '/abs/x', status })), [], `${status} 应 grandfathered`);
   }
 });
 
-test('§②.1 project: __team__ 排除（其绝对 target 由 §⑩.4 硬门管辖）⇒ 本条不报', () => {
+test('PROTOCOL §2.1 project: __team__ 排除（其绝对 target 由 PROTOCOL §10.4 硬门管辖）⇒ 本条不报', () => {
   const errs = checkOne(mkProjCard({ id: pid(), project: '__team__', target: '/repo/openclaw-team' }));
   assert.deepEqual(errs, []);
 });
 
-test('§②.1 writes 逐元素：只报越界那一项，合法项不连带', () => {
+test('PROTOCOL §2.1 writes 逐元素：只报越界那一项，合法项不连带', () => {
   const errs = checkOne(mkProjCard({ id: pid(), writes: '/abs/x, ./rel' }));
   assert.equal(errs.length, 1, JSON.stringify(errs));
   assert.match(errs[0], /writes 越出项目边界/);
   assert.match(errs[0], /\/abs\/x/);
 });
 
-test('§②.1 target 与 writes 各越界 ⇒ 各报一条（不合并、不吞）', () => {
+test('PROTOCOL §2.1 target 与 writes 各越界 ⇒ 各报一条（不合并、不吞）', () => {
   const errs = checkOne(mkProjCard({ id: pid(), target: '/abs/t', writes: '../w' }));
   assert.equal(errs.length, 2, JSON.stringify(errs));
   assert.match(errs[0], /target 越出项目边界/);
   assert.match(errs[1], /writes 越出项目边界/);
 });
 
-test('§②.1 pathViolations 可独立调用（缺 fm / 空值 ⇒ 空集，不抛）', () => {
+test('PROTOCOL §2.1 pathViolations 可独立调用（缺 fm / 空值 ⇒ 空集，不抛）', () => {
   assert.deepEqual(pathViolations(null), []);
   assert.deepEqual(pathViolations({}), []);
   assert.deepEqual(pathViolations({ project: 'example-app', created_at: AFTER, target: '' }), []);
 });
 
-test('§②.1 既有 schema 分支零回归：合法非 __team__ 卡（无 target）仍通过', () => {
+test('PROTOCOL §2.1 既有 schema 分支零回归：合法非 __team__ 卡（无 target）仍通过', () => {
   assert.deepEqual(checkOne(mkProjCard({ id: pid(), createdAt: null })), []);
 });
 
-test('§②.1 CLI 子进程：非 __team__ 绝对 target ⇒ 退出码 1 且 stdout 含机读 [role]', () => {
+test('PROTOCOL §2.1 CLI 子进程：非 __team__ 绝对 target ⇒ 退出码 1 且 stdout 含机读 [role]', () => {
   const r = runCli(mkProjCard({ id: pid(), target: '/repo/other', createdBy: 'linus' }));
   assert.equal(r.status, 1, `stdout=${r.stdout} stderr=${r.stderr}`);
   assert.match(r.stdout, /越出项目边界/);

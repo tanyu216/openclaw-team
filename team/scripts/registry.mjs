@@ -64,7 +64,7 @@ export function readRegistryFile(p) {
 /**
  * 去重键（= **lane 身份**）。
  *
- * `session_id` 是 `(task_id, owner, seg)` 的确定性投影（§⑥：claude 的 UUIDv5）⇒ 它才是「哪条 lane」，
+ * `session_id` 是 `(task_id, owner, seg)` 的确定性投影（PROTOCOL §6：claude 的 UUIDv5）⇒ 它才是「哪条 lane」，
  * 而 `phase` 是 caller 自由填的**展示标签**（实证有 `seg1-verify` / `seg2-browser`，也可能缺省）。旧键
  * 把 `phase` 计入身份，于是同一条 lane 以不同标签二次登记就落出**重复行** ⇒ `check-sessions` 看见
  * 同卡两条 running、卡内登记行被 pid-空的重复行覆盖（T-20261013-233906 实证：同 session_id d55e03c4

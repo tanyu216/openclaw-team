@@ -5,7 +5,7 @@
  *
  * Why this exists
  * ---------------
- * The full gate (`check-all.sh`, PROTOCOL §⑳.1) is ~15-20 s; the dispatcher bounds the
+ * The full gate (`check-all.sh`, PROTOCOL §20.1) is ~15-20 s; the dispatcher bounds the
  * trigger evaluation at OPENCLAW_TEAM_EVAL_TIMEOUT_MS (default 8000 ms, entry bound
  * 7500 ms). The evaluation therefore ended in `eval-timeout` EVERY hour, which under the
  * gate fail-safe (T-20261010-190039) meant `fire:true` every hour — and, worse, the timeout
@@ -151,7 +151,7 @@ export function computeVerdict(fast, slow) {
     parts.push(`slow suite UNCONFIRMED: cached verdict is ${fmtAge(slow.ageMs)} old (refresh did not land)`);
   }
   if (!parts.length) return { ok: true };
-  return { ok: false, message: `check-all gate RED — ${parts.join("; ")} — run \`bash scripts/check-all.sh\` and handle per PROTOCOL §⑳.` };
+  return { ok: false, message: `check-all gate RED — ${parts.join("; ")} — run \`bash scripts/check-all.sh\` and handle per PROTOCOL §20.` };
 }
 
 /** Parse the gate's {ok:…} envelope from the last non-empty stdout line. */

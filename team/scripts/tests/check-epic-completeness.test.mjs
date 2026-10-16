@@ -222,7 +222,7 @@ test('RED ④ledger_self_ref：台账把 epic 自己列为阶段卡 ⇒ 红', ()
   assert.ok(hasBad(r, 'ledger_self_ref'), `实际 ${JSON.stringify(r.bad)}`);
 });
 
-test('grandfather：**终态** epic 的同款违例 ⇒ 只告警、不判红（§⑩.4 同款口径）', () => {
+test('grandfather：**终态** epic 的同款违例 ⇒ 只告警、不判红（PROTOCOL §10.4 同款口径）', () => {
   const r = run(
     [epic(EPIC, { status: 'done' }), task(C1, { parent: EPIC, status: 'done' }), task(C2, { status: 'done' })], // C2 非子卡
     [{ id: EPIC, body: LEDGER() }],   // 台账引用非子卡 C2

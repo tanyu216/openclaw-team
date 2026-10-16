@@ -1,6 +1,6 @@
 # Customer Support Playbook (cs-playbook.md)
 
-> Ownership: **Assistant role SOP** (L2.5 method library). Normative text references `PROTOCOL §⑤` (message discipline / outward always via Elon), `§⑩` (triage matrix), `§⑨` (defect fix and regression loop), `§⑮` (SLA / timeout escalation), `§⑮.1` (operator exception channel); this file is the execution detail and never copies L1 body.
+> Ownership: **Assistant role SOP** (L2.5 method library). Normative text references `PROTOCOL §5` (message discipline / outward always via Elon), `PROTOCOL §10` (triage matrix), `PROTOCOL §9` (defect fix and regression loop), `PROTOCOL §15` (SLA / timeout escalation), `PROTOCOL §15.1` (operator exception channel); this file is the execution detail and never copies L1 body.
 > **Maintainer**: the **Assistant** role. **Integrator** (sole writer of L1 normative text): **Elon**.
 > **Effective**: on adoption (no fixed date).
 > **Scope**: L2.5 method library — customer-support FAQ + response flow + escalation path + knowledge-base maintenance.
@@ -51,7 +51,7 @@
 6. Digest: recurring problems are promoted to FAQ candidates (§6)
 ```
 
-**Response time (draft guidance)**: first-response target ≤ 4h (working hours, §⑮); if it cannot be answered immediately ⇒ reply "received, will follow up within X" and escalate.
+**Response time (draft guidance)**: first-response target ≤ 4h (working hours, PROTOCOL §15); if it cannot be answered immediately ⇒ reply "received, will follow up within X" and escalate.
 
 ---
 
@@ -67,21 +67,21 @@
 - Source: channel + time
 ```
 
-> After completing the capture, **send back to Elon** (Elon determines ownership and creates a card for Turing to reproduce / Linus to fix, §⑨).
+> After completing the capture, **send back to Elon** (Elon determines ownership and creates a card for Turing to reproduce / Linus to fix, PROTOCOL §9).
 
 ---
 
 ## 5. Escalation Path
 
-| Situation | Escalate to | Method | Time limit (§⑮) |
+| Situation | Escalate to | Method | Time limit (PROTOCOL §15) |
 |---|---|---|---|
 | General product question, no stance | Elon | `sessions_send` `agent:main:main` | immediately |
 | Suspected defect / outage | Elon (→ Turing/Linus) | capture template + send back | immediately |
 | Compliance / legal / privacy risk | Elon (operator if needed) | send back, mark "high risk" | immediately |
 | Pricing / promise (operator-decided) | Elon → operator | send back | immediately |
-| Team stalled (Elon > 6h no action) | operator (§⑮.1 exception channel) | `message` tool, prefix `[exception direct report]` | only when stalled |
+| Team stalled (Elon > 6h no action) | operator (PROTOCOL §15.1 exception channel) | `message` tool, prefix `[exception direct report]` | only when stalled |
 
-> **Forbidden**: the Assistant promising a user an unconfirmed item; bypassing Elon to send outward directly (except the §⑮.1 exception).
+> **Forbidden**: the Assistant promising a user an unconfirmed item; bypassing Elon to send outward directly (except the PROTOCOL §15.1 exception).
 
 ---
 
@@ -106,4 +106,4 @@
 1. Official contact channel not registered (F7).
 2. Product-fact FAQs depend on the PRD/engineering stance and are not yet available.
 3. Ownership and opening of the CS external entry (email / ticketing system).
-4. Whether the response-time SLA is formally added to the §⑮ table (currently draft guidance).
+4. Whether the response-time SLA is formally added to the PROTOCOL §15 table (currently draft guidance).

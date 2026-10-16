@@ -1,17 +1,17 @@
 #!/usr/bin/env node
-// sla-scan.mjs — SLA 巡检（openclaw-cron 机制）：覆盖 PROTOCOL §⑮ 六行 + 契约新增的 inspector_liveness。
+// sla-scan.mjs — SLA 巡检（openclaw-cron 机制）：覆盖 PROTOCOL §15 六行 + 契约新增的 inspector_liveness。
 //
 // 语义契约（本文件的**规范来源**，阈值一律引用不复制）：team/guides/sla-inspection-contract.md
-// （C1 `T-20261014-022254-2` design-only 契约）。阈值**单一事实源 = PROTOCOL §⑮**；本文件只携带
-// 「引用 + 运行期映射表」，`--check-thresholds` 对 §⑮ 做漂移核对（契约 §11 钩子 H6）。
+// （C1 `T-20261014-022254-2` design-only 契约）。阈值**单一事实源 = PROTOCOL §15**；本文件只携带
+// 「引用 + 运行期映射表」，`--check-thresholds` 对 §15 做漂移核对（契约 §11 钩子 H6）。
 //
 // 为什么存在（父 epic `T-20261014-022254`）：openclaw 侧与 loop 侧的巡检**都只扫 `in_progress`
 // 心跳 >30min**；blocked / in_review / 确认门 / 缺陷建卡 / 验收建卡 / 巡检失联**均零覆盖**，而二者
 // 驱动**同一** task-interface 看板 ⇒ 同一 SLA 语义须在两处实现（本文件 = openclaw 侧）。
 //
 // ── 落地要点（逐条对契约）────────────────────────────────────────────────────────
-// ① 六行 + 1：blocked_clarification / confirmation_gate / defect_card_creation /
-//    acceptance_card_creation / heartbeat_stale / leader_stalled（§⑮ 六行）+
+// 六行 + 1：blocked_clarification / confirmation_gate / defect_card_creation /
+//    acceptance_card_creation / heartbeat_stale / leader_stalled（PROTOCOL §15 六行）+
 //    inspector_liveness（契约 §5.3 新增行，threshold_min=null）。输出为契约 §4 的**发射元组**
 //    （#1–#22 + #25；另附建卡草图别名 kind/id/ageMin，见 toAlert）。契约 §10.1 信封：
 //    {fire, alerts, dropped, state}。
@@ -36,7 +36,7 @@
 //     **backendless 兜底**：机制内自去重成立，跨机制残余「每键至多 1 次重复」为**已记偏离**。
 //  D2 `acceptance_card_creation` 的触发状态取「交付态 = `in_review`」（契约 §6.3-C 原文的
 //     「its entry into the delivery/in_review state」）；`done` **不**纳入：终态卡的等待无法再按现态
-//     计龄，且会把全量历史 done 卡一次性点着（违 §9.4 零成本空转）。UI 范围判据（§⑨.1 条 1）
+//     计龄，且会把全量历史 done 卡一次性点着（违 §9.4 零成本空转）。UI 范围判据（PROTOCOL §9.1 条 1）
 //     不可机判 ⇒ **不**加过滤器（宁可多报，契约 §9.3）——首次运行对既有在途卡一次性告警，见 report。
 //  D3 `inspector_liveness`：对端（loop-patrol，C4）标记**缺失**时记 `peer:'absent'` 可见注记而**不**告警
 //     （否则在对端落地前形成「永不绿」的每周期唤醒，正是 §10.2 要避免的失败模式）；标记**存在但超界**
@@ -67,7 +67,7 @@ import { isOpen, isTerminal } from './status.mjs';
 export const MECHANISM = 'openclaw-cron';
 /** 对端机制标识（契约 §8.4；C4 落地前其标记缺失，见 D3）。 */
 export const PEER_MECHANISM = 'loop-patrol';
-/** 升档目标恒为 leader（契约 §9.1 / 钩子 H1）；具体指代经环境变量，默认当前协调者（PROTOCOL §⑯）。 */
+/** 升档目标恒为 leader（契约 §9.1 / 钩子 H1）；具体指代经环境变量，默认当前协调者（PROTOCOL §16）。 */
 export const LEADER = String(process.env.OPENCLAW_TEAM_LEADER || 'elon').trim().toLowerCase();
 /** `P` 解析：正整数分钟；非法/缺省 ⇒ `DEFAULT_PERIOD_MIN`（见下方 G-6 裁定）。 */
 export const DEFAULT_PERIOD_MIN = 15;
@@ -78,7 +78,7 @@ export function resolvePeriodMin(raw) {
 
 /**
  * 机制自身周期 `P`（分钟）：升档前导取本机制的巡检周期（契约 §5.2/§12 G-6）。
- * **G-6 口径对齐（本卡的接线裁定）**：`warn` 界 = `L − P` 且**钳 0**，而 §⑮ 最紧的一行是
+ * **G-6 口径对齐（本卡的接线裁定）**：`warn` 界 = `L − P` 且**钳 0**，而 PROTOCOL §15 最紧的一行是
  * heartbeat_stale `L=30min` ⇒ 若 `P ≥ 30`（即按运行期③「~30min」注册），该行的 warn 界塌到
  * `T ≥ 0`：**每张在途卡每个心跳周期都会告警且永不收敛**，正面违反契约 §9.4 零成本空转。
  * 故此处把注册 cadence 定为 **15m**（与框架既有 `task-patrol` 的声明周期一致，且与③同为同一量级），
@@ -110,59 +110,59 @@ const MIN_MS = 60 * 1000;
 // done/failed/canceled）。
 
 /**
- * 运行期阈值映射表 —— **每个值都带 §⑮ 引用**（契约 §2 规则 1 / 钩子 H6）。
- * `protoRow` = §⑮ 表首列的可匹配片段，供 `--check-thresholds` 定位该行；`furtherRef` 注明
- * further bound 的出处（leader_stalled 的 further bound 来自 §⑮.1 的失联界，不是 §⑮ 本行）。
+ * 运行期阈值映射表 —— **每个值都带 PROTOCOL §15 引用**（契约 §2 规则 1 / 钩子 H6）。
+ * `protoRow` = PROTOCOL §15 表首列的可匹配片段，供 `--check-thresholds` 定位该行；`furtherRef` 注明
+ * further bound 的出处（leader_stalled 的 further bound 来自 §15.1 的失联界，不是 §15 本行）。
  */
 export const SLA_ROWS = [
   {
     row: 'blocked_clarification',
     protoRow: 'blocked awaiting',
-    slaRef: 'PROTOCOL §⑮ · blocked awaiting clarification',
-    thresholdRef: 'PROTOCOL §⑮ · blocked awaiting clarification · Normal limit',
+    slaRef: 'PROTOCOL §15 · blocked awaiting clarification',
+    thresholdRef: 'PROTOCOL §15 · blocked awaiting clarification · Normal limit',
     normalMin: 120,
     furtherMin: 1440,
   },
   {
     row: 'confirmation_gate',
     protoRow: 'Confirmation gate awaiting review',
-    slaRef: 'PROTOCOL §⑮ · Confirmation gate awaiting review (§⑭)',
-    thresholdRef: 'PROTOCOL §⑮ · Confirmation gate awaiting review · Normal limit',
+    slaRef: 'PROTOCOL §15 · Confirmation gate awaiting review (§14)',
+    thresholdRef: 'PROTOCOL §15 · Confirmation gate awaiting review · Normal limit',
     normalMin: 240,
     furtherMin: 1440,
   },
   {
     row: 'defect_card_creation',
     protoRow: 'Defect fix card creation',
-    slaRef: 'PROTOCOL §⑮ · Defect fix card creation (§⑨)',
-    thresholdRef: 'PROTOCOL §⑮ · Defect fix card creation · Normal limit',
+    slaRef: 'PROTOCOL §15 · Defect fix card creation (§9)',
+    thresholdRef: 'PROTOCOL §15 · Defect fix card creation · Normal limit',
     normalMin: 1440,
     furtherMin: 2880,
   },
   {
     row: 'acceptance_card_creation',
     protoRow: 'Product/UX acceptance queued',
-    slaRef: 'PROTOCOL §⑮ · Product/UX acceptance queued (§⑨.1)',
-    thresholdRef: 'PROTOCOL §⑮ · Product/UX acceptance queued · Normal limit',
+    slaRef: 'PROTOCOL §15 · Product/UX acceptance queued (§9.1)',
+    thresholdRef: 'PROTOCOL §15 · Product/UX acceptance queued · Normal limit',
     normalMin: 1440,
     furtherMin: 2880,
   },
   {
     row: 'heartbeat_stale',
     protoRow: 'Worker heartbeat stale',
-    slaRef: 'PROTOCOL §⑮ · Worker heartbeat stale (§①)',
-    thresholdRef: 'PROTOCOL §⑮ · Worker heartbeat stale · Normal limit',
+    slaRef: 'PROTOCOL §15 · Worker heartbeat stale (§1)',
+    thresholdRef: 'PROTOCOL §15 · Worker heartbeat stale · Normal limit',
     normalMin: 30,
     furtherMin: 360,
   },
   {
     row: 'leader_stalled',
     protoRow: 'patrol stalled',
-    slaRef: 'PROTOCOL §⑮ · leader patrol stalled',
-    thresholdRef: 'PROTOCOL §⑮ · leader patrol stalled · Normal limit',
+    slaRef: 'PROTOCOL §15 · leader patrol stalled',
+    thresholdRef: 'PROTOCOL §15 · leader patrol stalled · Normal limit',
     normalMin: 60,
     furtherMin: 360,
-    furtherRef: 'PROTOCOL §⑮.1 · stalled bound',
+    furtherRef: 'PROTOCOL §15.1 · stalled bound',
     noWarnLead: true, // 契约 §5.2 规则 5：本行的界本身就是「无动作」界，warn 前导不适用
   },
 ];
@@ -180,10 +180,10 @@ function sourceOfSection(section) {
   return section === 'comments' ? 'comments' : 'progress';
 }
 
-/** 契约 §5.3 新增行（**非** §⑮ 行）：threshold_min = null，只有 warn。 */
+/** 契约 §5.3 新增行（**非** PROTOCOL §15 行）：threshold_min = null，只有 warn。 */
 export const LIVENESS_ROW = {
   row: 'inspector_liveness',
-  slaRef: 'guides/sla-inspection-contract.md §5.3 · inspector liveness (no PROTOCOL §⑮ row)',
+  slaRef: 'guides/sla-inspection-contract.md §5.3 · inspector liveness (no PROTOCOL §15 row)',
   thresholdRef: null,
   normalMin: null,
   furtherMin: null,
@@ -237,7 +237,7 @@ export function addWorkingMinutes(fromMs, minutes, w = WINDOW) {
   return t;
 }
 
-// ── 升档梯（契约 §5.2；纯函数：L/F 来自 §⑮，P 来自机制）────────────────────────────
+// ── 升档梯（契约 §5.2；纯函数：L/F 来自 PROTOCOL §15，P 来自机制）────────────────────────────
 /**
  * 最高「新跨档」= 契约 §5.2 规则 4（只发最高档）。
  * `warn` = `T ≥ L − P`（钳 0；`noWarnLead` 行不适用）；`overdue` = `T ≥ L`；`escalate` = `T ≥ F`。
@@ -369,7 +369,7 @@ function hasReviewCard(id, board) {
   return false;
 }
 
-/** 该卡是否已有缺陷修复卡（§⑨ 步骤 2）：`category:bug` 标签 + 卡面回指原卡（契约 §6.3-B）。 */
+/** 该卡是否已有缺陷修复卡（PROTOCOL §9 步骤 2）：`category:bug` 标签 + 卡面回指原卡（契约 §6.3-B）。 */
 function hasFixCard(id, board) {
   for (const c of board.list) {
     if (c.id === id) continue;
@@ -389,7 +389,7 @@ export function normalizeBlockedReason(v) {
     : 'unknown';
 }
 
-/** §⑮ 无对应行的 blocked_reason ⇒ 仅可见性告警（threshold_min=null，契约 §7.4 / §12 G-3）。 */
+/** PROTOCOL §15 无对应行的 blocked_reason ⇒ 仅可见性告警（threshold_min=null，契约 §7.4 / §12 G-3）。 */
 const NO_THRESHOLD_REASONS = new Set(['dependency', 'external', 'resource']);
 
 /**
@@ -422,7 +422,7 @@ export function evaluateCard(card, ctx) {
   // 契约 §4 #19：`blocked_reason` 在**每一行**取「卡当前值」（缺失 ⇒ null，绝不用行专属替身）
   const blockedReason = normalizeBlockedReason(fm.blocked_reason);
 
-  // 行 1 — blocked_clarification（§⑮ blocked awaiting clarification）
+  // 行 1 — blocked_clarification（PROTOCOL §15 blocked awaiting clarification）
   if (status === 'blocked') {
     const reason = blockedReason;
     const blockedMs = parseIso(fm.blocked_at);
@@ -463,7 +463,7 @@ export function evaluateCard(card, ctx) {
     }));
   }
 
-  // 行 2 — confirmation_gate（§⑮ Confirmation gate awaiting review §⑭）
+  // 行 2 — confirmation_gate（PROTOCOL §15 Confirmation gate awaiting review PROTOCOL §14）
   if (isOpen(status)) {
     const entries = trailEntries(body);
     const reqs = entries
@@ -506,7 +506,7 @@ export function evaluateCard(card, ctx) {
     }
   }
 
-  // 行 3 — defect_card_creation（§⑮ Defect fix card creation §⑨）
+  // 行 3 — defect_card_creation（PROTOCOL §15 Defect fix card creation PROTOCOL §9）
   if (status === 'blocked' || status === 'canceled') {
     const entries = trailEntries(body);
     const defects = entries.filter((e) => e.kind === 'defect' && Number.isFinite(e.tsMs));
@@ -547,7 +547,7 @@ export function evaluateCard(card, ctx) {
     }
   }
 
-  // 行 4 — acceptance_card_creation（§⑮ Product/UX acceptance queued §⑨.1；flow A）
+  // 行 4 — acceptance_card_creation（PROTOCOL §15 Product/UX acceptance queued PROTOCOL §9.1；flow A）
   if (status === 'in_review') {
     const flow = String(fm.flow || '').trim().toUpperCase();
     const flowEffective = flow || 'A'; // 契约 §6.3-C：缺省 ⇒ 视为 A（fail-safe）
@@ -580,7 +580,7 @@ export function evaluateCard(card, ctx) {
     }
   }
 
-  // 行 5 — heartbeat_stale（§⑮ Worker heartbeat stale §①；既有行为保持，契约 §10.4）
+  // 行 5 — heartbeat_stale（§15 Worker heartbeat stale §1；既有行为保持，契约 §10.4）
   if (status === 'in_progress') {
     const hbMs = parseIso(fm.heartbeat_at);
     const claimMs = parseIso(fm.claimed_at);
@@ -819,7 +819,7 @@ export function toAlert(cand, ctx) {
   });
 }
 
-/** 动作提醒（契约 §4 #14：**只给 leader 的提醒**，巡检绝不执行；不复述 §⑮ 正文，只引用）。 */
+/** 动作提醒（契约 §4 #14：**只给 leader 的提醒**，巡检绝不执行；不复述 PROTOCOL §15 正文，只引用）。 */
 function actionFor(rowName, cand, severity) {
   const hint = cand.releasable
     ? `；可释放性提示(${cand.releasable_basis})——仅提示，是否放行由 leader 决定（不自动改状态）`
@@ -827,20 +827,20 @@ function actionFor(rowName, cand, severity) {
   switch (rowName) {
     case 'blocked_clarification':
       return cand.thresholdMin === null
-        ? `leader：本卡阻塞原因无 §⑮ 对应行 ⇒ 仅可见性告警（无到点，不造阈值）；请裁定是否澄清/改派/放行${hint}`
-        : `leader：按 PROTOCOL §⑮ 阻塞待澄清行处置（澄清/修订/改派）${hint}`;
+        ? `leader：本卡阻塞原因无 PROTOCOL §15 对应行 ⇒ 仅可见性告警（无到点，不造阈值）；请裁定是否澄清/改派/放行${hint}`
+        : `leader：按 PROTOCOL §15 阻塞待澄清行处置（澄清/修订/改派）${hint}`;
     case 'confirmation_gate':
-      return 'leader：请复核本卡的 §⑭ 确认门请求（契约 §6.3-A 的起点为该请求）；确认后卡才可作下游依据';
+      return 'leader：请复核本卡的 PROTOCOL §14 确认门请求（契约 §6.3-A 的起点为该请求）；确认后卡才可作下游依据';
     case 'defect_card_creation':
-      return 'leader：按 PROTOCOL §⑨ 创缺陷修复卡并派发';
+      return 'leader：按 PROTOCOL §9 创缺陷修复卡并派发';
     case 'acceptance_card_creation':
-      return 'leader：按 PROTOCOL §⑨.1 创产品/UX 验收卡（review_of=本卡）并派发';
+      return 'leader：按 PROTOCOL §9.1 创产品/UX 验收卡（review_of=本卡）并派发';
     case 'heartbeat_stale':
       return severity === 'escalate'
-        ? 'leader：心跳已过进一步时限——按 PROTOCOL §⑮ 该行，任意 agent 可领取并上报（巡检只提醒，不代领）'
-        : 'leader：按 PROTOCOL §⑮ 心跳陈旧行提醒同 assignee 重领';
+        ? 'leader：心跳已过进一步时限——按 PROTOCOL §15 该行，任意 agent 可领取并上报（巡检只提醒，不代领）'
+        : 'leader：按 PROTOCOL §15 心跳陈旧行提醒同 assignee 重领';
     case 'leader_stalled':
-      return 'leader：看板存在待你处置的工作而近期无 leader 动作——请动作或转交；巡检不经 §⑮.1 通道';
+      return 'leader：看板存在待你处置的工作而近期无 leader 动作——请动作或转交；巡检不经 §15.1 通道';
     case 'inspector_liveness':
       return `leader：对端巡检（${PEER_MECHANISM}）未在派生界内完成成功运行 ⇒ 本契约有一半未被验证`;
     default:
@@ -901,7 +901,7 @@ export function scanSla(opts = {}) {
     if (alert) candidates.push({ alert, cand: stalledCand });
   }
 
-  // 行 7 — inspector_liveness（契约 §5.3；非 §⑮ 行）
+  // 行 7 — inspector_liveness（契约 §5.3；非 PROTOCOL §15 行）
   const peer = opts.peerState !== undefined ? opts.peerState : readPeerState();
   const liveness = livenessVerdict(peer, nowMs);
   if (liveness.alert) {
@@ -1190,9 +1190,9 @@ export function writeSelfState(envelope, nowMs, file = SELF_STATE_FILE) {
   }
 }
 
-// ── §⑮ 漂移核对（契约 §11 钩子 H6）───────────────────────────────────────────────
+// ── PROTOCOL §15 漂移核对（契约 §11 钩子 H6）───────────────────────────────────────────────
 /**
- * 解析 PROTOCOL §⑮ 的时间表，与运行期映射表逐行对账。
+ * 解析 PROTOCOL §15 的时间表，与运行期映射表逐行对账。
  * @returns {{ok:boolean, rows:Array<{row:string, want:{L:any,F:any}, got:{L:any,F:any}, note:string}>}}
  */
 export function checkThresholds(protocolPath = path.join(TEAM_ROOT, 'PROTOCOL.md'), rows = SLA_ROWS) {
@@ -1202,8 +1202,8 @@ export function checkThresholds(protocolPath = path.join(TEAM_ROOT, 'PROTOCOL.md
   } catch (e) {
     return { ok: false, rows: [], error: `PROTOCOL.md 不可读: ${path.basename(protocolPath)}` };
   }
-  // 只在 §⑮ 的节内找表：同名文本可能出现在别的小节（如 §① / §⑯ 的举例表）⇒ 先切节再匹配
-  const tableRows = sectionOf(text, '## ⑮')
+  // 只在 §15 的节内找表：同名文本可能出现在别的小节（如 §1 / §16 的举例表）⇒ 先切节再匹配
+  const tableRows = sectionOf(text, '## 15.')
     .split(/\r?\n/)
     .filter((l) => l.trim().startsWith('|'))
     .map((l) => l.split('|').slice(1, -1).map((c) => c.trim()));
@@ -1211,11 +1211,11 @@ export function checkThresholds(protocolPath = path.join(TEAM_ROOT, 'PROTOCOL.md
   for (const r of rows) {
     const cells = tableRows.find((c) => c[0] && c[0].includes(r.protoRow));
     if (!cells) {
-      out.push({ row: r.row, want: { L: r.normalMin, F: r.furtherMin }, got: null, note: `§⑮ 未找到行「${r.protoRow}」` });
+      out.push({ row: r.row, want: { L: r.normalMin, F: r.furtherMin }, got: null, note: `§15 未找到行「${r.protoRow}」` });
       continue;
     }
     const L = minutesOf(cells[1]);
-    const F = r.furtherRef ? minutesOfSection(text, '⑮.1') : minutesOf(cells[3]);
+    const F = r.furtherRef ? minutesOfSection(text, '15.1') : minutesOf(cells[3]);
     const okL = L === r.normalMin;
     const okF = F === r.furtherMin;
     out.push({
@@ -1239,7 +1239,7 @@ function sectionOf(text, heading) {
 }
 
 function minutesOf(cell) {
-  // §⑮ 的界限列写法不一：`≤ 2h` / `> 24h` / `30 min`（无比较符）⇒ 比较符可选
+  // §15 的界限列写法不一：`≤ 2h` / `> 24h` / `30 min`（无比较符）⇒ 比较符可选
   const m = /(?:[≤<>=]+\s*)?(\d+(?:\.\d+)?)\s*(min|m|h)\b/.exec(String(cell || ''));
   if (!m) return null;
   const n = Number(m[1]);
@@ -1295,7 +1295,7 @@ if (IS_MAIN) {
         '用法: node sla-scan.mjs [--now <ISO>] [--recheck <snapshot.json>] [--check-thresholds]',
         '  （无参数）  跑一次巡检，stdout 恰一行 {fire,alerts,dropped,state}；正常结局恒 exit 0',
         '  --recheck   对在手信封（{alerts:[…]} 或数组）按现态重核后再发',
-        '  --check-thresholds  运行期阈值表 vs PROTOCOL §⑮ 漂移核对（不符 exit 1）',
+        '  --check-thresholds  运行期阈值表 vs PROTOCOL §15 漂移核对（不符 exit 1）',
         '',
       ].join('\n'),
     );

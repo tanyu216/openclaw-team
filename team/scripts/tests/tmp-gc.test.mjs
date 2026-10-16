@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * tmp-gc.test.mjs — tmp-gc.mjs 回归测试（PROTOCOL §⑬.9 的回收作业）
+ * tmp-gc.test.mjs — tmp-gc.mjs 回归测试（PROTOCOL §13.9 的回收作业）
  *
  * 本套件覆盖四类**安全**性质（它们正是这个作业唯一会伤人/伤数据的地方）：
  *   ① 年龄：只删 mtime 早于 N 天的**普通文件**，新的留着；

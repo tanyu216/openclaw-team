@@ -24,7 +24,7 @@
  *      （实测有 `seg1-verify` / `seg2-browser`），拿它当身份会让同 seg 二次 spawn 漏放。
  *   ①b2 同卡并发**执行 lane** 防双跑（本卡 ①）：`role=exec` 且该卡**已有任意活跃 lane（任意 seg）**
  *      ⇒ 拒绝（`card_busy(...):second_exec_lane`）——「同卡并发执行 turn」的第二条 lane 必须在 spawn
- *      前拦下（而非事后按 §⑥ 回滚）。同一计划内**有意**并行多分段时显式声明 `parallel=1` 越过本层。
+ *      前拦下（而非事后按 PROTOCOL §6 回滚）。同一计划内**有意**并行多分段时显式声明 `parallel=1` 越过本层。
  *   ①c **隔离由车道自己按 skill 建立**（T-20261016-：新 dev 工作流）：
  *      本入口**不再**判定/创建 worktree。cwd 恒为 project 解析出的仓根；隔离改由子会话按
  *      `using-git-worktrees` skill 自建（落点 `.worktrees/<branch>`，分支名 = `laneNameFor(card, seg)`，
@@ -45,7 +45,7 @@
  *   ⑤ session id = ACL `task.session-id <card> <owner> <seg>`（确定性 UUIDv5）；
  *   ⑥ 起子会话：Node `child_process.spawn(..., { detached:true, stdio:[ignore,fd,fd] })` + `unref()`
  *      ——等价于 Python `subprocess.Popen(..., start_new_session=True)`（macOS 无 `setsid`；勿用 `nohup … &`）；
- *   ⑥b 后端分派（`buildCommand`）：claude 分支照 `PROTOCOL §⑥` 模板（含 `--add-dir wsDir/team`）；
+ *   ⑥b 后端分派（`buildCommand`）：claude 分支照 `PROTOCOL §6` 模板（含 `--add-dir wsDir/team`）；
  *      codex 分支（T-20261013-164816）显式 `--sandbox workspace-write` + `--add-dir <wsDir>` + `--add-dir <team>`
  *      ——否则 codex 沙箱的可写根只有 cwd（主 workspace），复核报告落点 `{team}/workspace/<id>/` 在 cwd 之外
  *      ⇒ lane 写 `report.md` 得 EPERM（须父回合手工回迁）。`--add-dir` 只在 workspace-write 下生效（实测）；
@@ -78,7 +78,7 @@ export function laneNameFor(taskId, seg) {
   return s ? `${taskId}-${s}` : String(taskId);
 }
 
-/** 并发额度（PROTOCOL §⑥ clause 2）：linus/jobs < 8；turing < 3；其余默认 8 */
+/** 并发额度（PROTOCOL §6 clause 2）：linus/jobs < 8；turing < 3；其余默认 8 */
 export const RUNNING_CAPS = { linus: 8, jobs: 8, turing: 3 };
 export const DEFAULT_CAP = 8;
 export function capFor(owner) {
@@ -239,7 +239,7 @@ export function liveLanes(taskId, cardBody = '', registry = null) {
  * 插件 lane 看 native thread 可达，见 `cardRowLive`）。分两层：
  *
  *  L1 同 lane 身份（精确，不可越过）。一个 lane 的身份 = `(task_id, owner, seg)`，其确定性投影
- *    `session_id = UUIDv5(card, owner, seg)`（§⑥ registry 字段）⇒ 三个登记源任一命中即拒绝：
+ *    `session_id = UUIDv5(card, owner, seg)`（PROTOCOL §6 registry 字段）⇒ 三个登记源任一命中即拒绝：
  *      ① 卡内 `## Sessions` 该 seg 行（seg 语义精确，含 id 供 resume）；
  *      ② registry 该卡 `phase===seg` 的条目（历史口径：`phase` 缺省即 `seg`）；
  *      ③ registry 该卡 `session_id===<本 seg 的确定性 id>` 的条目 —— **与 `phase` 标签无关**。
@@ -249,7 +249,7 @@ export function liveLanes(taskId, cardBody = '', registry = null) {
  *
  *  L2 同卡并发**执行 lane**（本卡 ①，`role=exec`）。该卡已有任意活跃 lane（**任意 seg**）⇒ 拒绝
  *    「第二条执行 lane」。理由：framework 在 spawn 期看不到 turn 边界，「同卡已有执行 lane 在跑」
- *    正是「同卡并发执行 turn」的可观测形态；事后按 §⑥ 回滚等于白起一条 lane（实证 turing segR1）。
+ *    正是「同卡并发执行 turn」的可观测形态；事后按 PROTOCOL §6 回滚等于白起一条 lane（实证 turing segR1）。
  *    同一计划内**有意**并行多分段时，调用方显式声明 `allowParallel`（CLI `parallel=1`）越过本层。
  *    只读角色（`role=review`）不加 L2：复核 lane 靠 pin commit、与执行 lane 并跑是既有契约
  *    （SOP §Review lanes）；L1 对复核 lane 照常生效（复核不得复用执行侧 seg）。
@@ -359,7 +359,7 @@ const backendBin = (backend) =>
     : process.env.OPENCLAW_CLAUDE_BIN || 'claude');
 
 /**
- * 子会话提示词：先读背景包（handoff），再执行卡。子会话不读牌面（PROTOCOL §⑥ clause 7）。
+ * 子会话提示词：先读背景包（handoff），再执行卡。子会话不读牌面（PROTOCOL §6 clause 7）。
  * 追加一段工作树纪律：本车道在**自己的 worktree** 上，提交落在**卡分支**，收尾须回报
  * branch + sha 供整合（否则隔离树的产物无人知道；收口口径见 `guides/dev-worktree-flow-sop.md`）。
  *
@@ -397,7 +397,7 @@ export function buildPrompt({ handoffPath, cardPath, reportPath, lane = '', inte
   ].join('\n');
 }
 
-/** 组装子进程命令（argv 数组；claude 参数照 PROTOCOL §⑥ 模板） */
+/** 组装子进程命令（argv 数组；claude 参数照 PROTOCOL §6 模板） */
 export function buildCommand({ backend, harness = 'cli', bin, prompt, wsDir, sid, name, cwd = '', team = TEAM_ROOT }) {
   // --- 插件分支（契约 §8.2）：网关中介的 codex app-server harness turn ---
   // 与 CLI 分支的关键差异：**句柄 = native thread id（非 pid）**；沙箱/审批经调度参数绑定
@@ -900,7 +900,7 @@ spawn 先写 id:pending（卡+registry 同写），读回 thread id 后覆盖同
 即经 ACL session-close 写完卡行 status + 清 active_session_id + registry 终态；起看守失败即拒绝起会话
 （fail-closed，且会先把已登记的行收口）。--no-reaper（或 OPENCLAW_TEAM_REAPER=0）关闭该自动化。
 禁「直跑 claude -p / codex exec 不登记」；见 guides/spawn-lane-sop.md、guides/lane-session-lifecycle-sop.md、
-guides/codex-plugin-lane-contract.md、guides/dev-worktree-flow-sop.md 与 PROTOCOL §⑥。
+guides/codex-plugin-lane-contract.md、guides/dev-worktree-flow-sop.md 与 PROTOCOL §6。
 
 示例:
   bash scripts/spawn-lane.sh T-20261010-052210 linus --dry-run
