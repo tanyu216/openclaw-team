@@ -120,7 +120,7 @@ Two different clocks are involved; only the first is framework-owned.
 
 | Concern | Owner | Framework behaviour |
 |---|---|---|
-| **Trigger evaluation** (the poll/patrol/check-all/skills-update/sla-scan/tmp-gc *decision*: run the entry, read `{fire}`) | framework | **Bounded.** `dispatch.mjs` runs the entry under `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default **8000 ms**; invalid/absent ⇒ default) **minus `EVAL_EMIT_RESERVE_MS`** (500 ms of emission headroom — `install.sh` sizes the trigger's `timeoutSeconds` at `ceil(budget/1000)`, i.e. only ever *equal* to the inner bound, so without the reserve the outer `exec` would kill the dispatcher before it could print), and `install.sh` generates each trigger with `exec({ command, timeoutSeconds })`. Both stay under the Gateway's own **30 s** per-evaluation wall-clock budget — and the trigger's `timeoutSeconds` is additionally capped in practice by the exec helper's **10 s default `yieldMs`**, above which the call backgrounds and the trigger would read partial output; the bound therefore cannot simply be widened for a slow job. A degrade exits 0 and **fails safe**: `poll`/`patrol` → `{"fire":false,"state":{"reason":"eval-timeout"}}`, but the `check-all` **gate** → `{"fire":true,"message":…,…}` (an unconfirmed gate must alarm, never report green — T-20261010-190039), and so do `skills-update` (an unconfirmed drift check must not read as "nothing moved"), `sla-scan` and `tmp-gc` (§3.9). **The `check-all` gate is 15-20 s** — longer than this whole budget — so it does not run whole inside it; **§3.5.1** covers how the gate stays a real verdict inside the bound without dropping coverage. `tmp-gc` carries its own **inner enumeration deadline** (`--deadline-ms`, default 6000 ms) for the same reason: an unbounded walk of a huge scratch tree must still emit inside the bound. |
+| **Trigger evaluation** (the poll/patrol/check-all/skills-update/sla-scan/tmp-gc *decision*: run the entry, read `{fire}`) | framework | **Bounded.** `dispatch.mjs` runs the entry under `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (default **8000 ms**; invalid/absent ⇒ default) **minus `EVAL_EMIT_RESERVE_MS`** (500 ms of emission headroom — `install.sh` sizes the trigger's `timeoutSeconds` at `ceil(budget/1000)`, i.e. only ever *equal* to the inner bound, so without the reserve the outer `exec` would kill the dispatcher before it could print), and `install.sh` generates each trigger with `exec({ command, timeoutSeconds })`. Both stay under the Gateway's own **30 s** per-evaluation wall-clock budget — and the trigger's `timeoutSeconds` is additionally capped in practice by the exec helper's **10 s default `yieldMs`**, above which the call backgrounds and the trigger would read partial output; the bound therefore cannot simply be widened for a slow job. A degrade exits 0 and **fails safe**: `poll`/`patrol` → `{"fire":false,"state":{"reason":"eval-timeout"}}`, but the `check-all` **gate** → `{"fire":true,"message":…,…}` (an unconfirmed gate must alarm, never report green — T-20261010-190039), and so do `skills-update` (an unconfirmed drift check must not read as "nothing moved"), `sla-scan` and `tmp-gc` (§3.9). **The `check-all` gate is 15-20 s** — longer than this whole budget — so it does not run whole inside it; **§3.5.1** covers how the gate stays a real verdict inside the bound without dropping coverage. `tmp-gc` is the second job that does not fit inside this budget at all — its walk costs the *tree size* (~320k files ≈ 10–12 s on the reference host), so it splits: the **entry** only reads the previous sweep's verdict and spawns the next sweep **detached**, returning in ~40 ms; the traversal runs out of band and its verdict carries over to the next evaluation (§3.9). |
 | **Run lock** (`already-running`: a run already holds the job lock, so the next trigger is skipped; releasing **stale** runs) | **Gateway scheduler (platform)** | **Lock itself: not addressed here** — the framework neither bounds nor reaps runs *holding* the lock; that needs owner/OpenClaw platform capability and is **out of scope**. **What the framework DOES own is the run's LIFETIME** (below), and since the lock is only ever held for as long as a run lives, a short run is the framework-side lever on the same failure mode (T-20261013-041718). |
 
 **Poll run = short hand-off turn (T-20261013-041718, P1).** The lock row above is not
@@ -437,7 +437,7 @@ confirmation `T-20261014-022327` found in this landing (registered as §12 **G-1
 **Why it exists.** `PROTOCOL §⑬.9` gives every role ONE place for the scratch files it produces
 (`$OPENCLAW_HOME/workspace-<role>/.tmp/`) and declares that placement **not durable**. A rule about
 where scratch goes is only credible if the other end of it — the collector — is real, and the host
-shows why: before this job the shared `~/.openclaw/tmp/` had accumulated **22k entries** and
+shows why: the shared `~/.openclaw/tmp/` had grown to **~320k files across ~103k directories**, and
 `<team>/tmp/` held loose agent scripts, with no retention policy anywhere in the framework (the only
 day-based mechanism was card archiving, `§⑳.3`).
 
@@ -458,12 +458,33 @@ day-based mechanism was card archiving, `§⑳.3`).
 - **Output / fail-safe**: `{fire,deleted,failed,bytes,roots,state}` — the counters are mirrored into
   `state` because the dispatcher forwards only `state`. A **completed** sweep is `fire:false`
   whatever it deleted; `fire:true` means the sweep **could not be confirmed** (a root or subdirectory
-  was unreadable, or an unlink failed) and carries the cause in `message`.
-- **First run / audit**: `node scripts/tmp-gc.mjs --days 14 --dry-run --json` reports what *would* go
-  without touching anything (`--dry-run` is truly read-only — no unlink, no rmdir, no mtime change).
-- **Bound**: an inner `--deadline-ms` (default 6000, env `OPENCLAW_TEAM_TMPGC_DEADLINE_MS`) caps the
-  enumeration so the job always emits inside `OPENCLAW_TEAM_EVAL_TIMEOUT_MS` (§3.5); hitting it sets
-  `state.deadlineHit` and stops the walk rather than overrunning the evaluation budget.
+  was unreadable, an unlink failed, or the walk was cut short) and carries the cause in `message`.
+- **Split entry / `--sweep`: the work outgrows the trigger budget.** The sweep walks every file's
+  mtime, so its cost is the *size of the tree*, not the amount of garbage. Measured on the reference
+  host: `$OPENCLAW_HOME/tmp` = **~320k files / ~103k directories / 14 levels deep**, and a complete
+  walk takes **~10–12 s** — against an entry budget of `8000 − 500 = 7500 ms` (§3.5), with the
+  trigger's `exec` yielding at ~10 s, so widening the budget is not available. (Sync traversal is
+  already the fastest form; a bounded-concurrency async walk measured *slower* — 24–40 s.) So the
+  job has two halves:
+  - the **entry** (what `providers.json` calls, `node tmp-gc.mjs --json`) does **no traversal at
+    all**: it reads the failure flag left by the previous sweep, spawns the next sweep **detached**
+    (`--sweep`, single-flight via a lock), and returns — measured **~40 ms**. This is the same shape
+    as the `check-all` slow leg (§3.5.1): the decision stays a real verdict inside the budget while
+    the long part runs out of band.
+  - the **sweep** (`--sweep`) is the part that actually walks and deletes. It runs unbounded
+    (`--deadline-ms`, default 600000, env `OPENCLAW_TEAM_TMPGC_DEADLINE_MS`); hitting that bound sets
+    `state.deadlineHit` and counts as **unconfirmed** ⇒ the flag below.
+  - **carry-over**: the entry reports the *previous* sweep's verdict, so an unconfirmed sweep alarms
+    on the next evaluation (≤24 h later) and keeps alarming daily until a sweep completes cleanly —
+    at which point the flag is cleared and the job goes quiet again. It fires **once per day, not
+    once per failure**.
+- **Runtime state** (`<team>/tmp/` — already excluded from the repo↔instance patrol by `-x tmp`):
+  `.tmp-gc.lock` (single-flight; a dead-pid or 15-min-stale lock is taken over, so one crashed sweep
+  cannot stall the job forever) and `.tmp-gc-failed` (the alarm payload). The sweep **never deletes
+  either file**, no matter how old.
+- **First run / audit**: `node scripts/tmp-gc.mjs --sweep --days 14 --dry-run --json` reports what
+  *would* go without touching anything (`--dry-run` is truly read-only — no unlink, no rmdir, no
+  mtime change, no flag written). The entry in `--dry-run` reads the flag and spawns nothing.
 
 ## 4. Decision Record
 - **Keep per-worker poll; do not do a "single board scan → dispatch"**: per-worker `*-poll` is an **independent fallback** (each worker atomically claims, so cards already created can still be claimed when Elon/main is stalled). Merging into "main scans → dispatch" would converge to a single Elon point and change the `PROTOCOL §①` "claim timing belongs to poll" semantics; the only gain is a few zero-cost config lines ⇒ not adopted.
