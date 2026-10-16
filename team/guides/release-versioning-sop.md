@@ -3,6 +3,7 @@
 > **Ownership / Maintainer**: **Linus** (engineering) maintains this file. **Elon** is the sole writer of the normative L1 clause (`PROTOCOL §㉑`); this file references it and never copies its body.
 > **Depends on**: `PROTOCOL §⑤.1` (public release channel & approval), `§⑥` (git discipline), `§⑥.1` (engineering quality standards), `§⑨.3` (container-form acceptance), `§⑫` (two-way doc sync), `§⑭` (confirmation gate), `§⑮` (SLA/timeout escalation), `§⑮.1` (team-stalled exception channel), `§⑰` (doc layering / no verbatim copying), `§⑳.1` (machine-checkable gates), `§㉑` (release & versioning — the L1 clause this SOP details).
 > **Scope**: this file = the **L2.5 method library** (release/version execution detail). Cross-role mechanisms reference L1 (`PROTOCOL §㉑`) and are **not copied** here.
+> **Sibling guides**: `ci-release-sop.md` (CI gate / build / deploy) · `runtime-observability-sop.md` (log/metric/alert + observation window) · `incident-response-sop.md` (incident handling) · `data-migration-sop.md` (data migration / forward fix) · `api-compat-sop.md` (external contract compatibility).
 > **Reference convention**: always write `PROTOCOL §<n> <name>` or `guide-name §<section>` — **no line-number anchors, no card-number anchors** (`§⑥.1 clause 11`).
 
 ---
@@ -17,9 +18,8 @@
 
 > ⚠️ **Object distinction (avoid confusion)**:
 > - `PROTOCOL §⑨.3` = **container-form acceptance** (the test environment must cover the actual runtime form) — this SOP's "pre-release checks" **connect** to it (a release requires §⑨.3 evidence beforehand), but §⑨.3 is **not** the release/version SOP.
-> - `team/README.md §4 Recovery Handbook` = recovery of the **team's own gateway** (its object is the team's collaboration substrate), **not** a product-level release SOP.
-
-> **This file vs `ci-release-sop.md`**: that sibling guide owns the **CI gate, build and deploy** mechanics. This SOP owns **version numbers, tags, changelog and release channels**; where an item belongs to CI/build/deploy, it is referenced, not duplicated.
+> - `team/README.md §4 Recovery Handbook` = recovery of the **team's own gateway**, **not** a product-level release SOP.
+> - `ci-release-sop.md` owns the **CI gate, build and deploy** mechanics; this SOP owns **version numbers, tags, changelog and release channels** — where an item belongs to CI/build/deploy, it is referenced, not duplicated.
 
 ---
 
@@ -43,7 +43,7 @@
 - **Shape**: `<semver>+<build>`, e.g. `0.0.0+sha.a1b2c3d`, `0.0.0+ci.20261009.7`.
 - **Semantics**: build metadata **does not participate** in semver precedence comparison (everything after `+` is for traceability only) and **must not** be used to express compatibility semantics.
 - **Source**: injected automatically by CI or the local build script (git short sha / CI run number); **hand-writing is forbidden**.
-- **Zero-dependency / offline projects**: when there is no runtime build pipeline, the build id may degrade to "the commit sha at local packaging time", recorded in the changelog or the release notes. The concrete injection method is **to be decided** where no unified builder exists.
+- **Zero-dependency / offline projects**: when there is no runtime build pipeline, the build id may degrade to "the commit sha at local packaging time", recorded in the changelog or the release notes. Concrete injection method: **to be decided** (§8).
 
 ### 2.3 Pre-release channels (`-alpha` / `-rc`)
 
@@ -70,8 +70,8 @@
 | Repo/delivery shape | Version source (single source of truth) | Notes |
 |---|---|---|
 | **Single-package repo** | the package/build manifest's `version` field | Packaging/release reads this field |
-| **Multi-subproject repo** | **to be decided** (candidate: each subproject's manifest) | First define the "release unit"; a repo holding multiple subprojects must pick the unit before a version source can exist |
-| **Document-as-source project** | **to be decided** (suggested: a `VERSION` file or the source document's frontmatter) | When the source of truth is a document, carry the version there |
+| **Multi-subproject repo** | **to be decided** (§8) | First define the "release unit"; a repo holding multiple subprojects must pick the unit before a version source can exist |
+| **Document-as-source project** | **to be decided** (§8) | When the source of truth is a document, carry the version there |
 
 - **Hard rule**: anywhere "the version number appears" (README, changelog, build script, artifact name) **must not** each hand-write it; always read from, or reference, the source of truth (the same principle as `PROTOCOL §⑰` single source of truth, applied to the version dimension).
 - **Responsibility**: the source of truth is maintained by the implementer (Linus); consistency is checked by the release checklist (§4.1), by machine or by hand.
@@ -114,7 +114,7 @@
 ### 4.1 Pre-release
 
 - [ ] **Unit tests all green** (the project's test command; the CI-gate mechanics are `ci-release-sop.md`)
-- [ ] **Coverage threshold met** (`PROTOCOL §⑥.1`; a project sets its own floor — e.g. lines/branches/functions ≥ 80%; where a repo has no threshold defined it is **to be decided**)
+- [ ] **Coverage threshold met** (`PROTOCOL §⑥.1`; a project sets its own floor — e.g. lines/branches/functions ≥ 80%; **to be decided** (§8))
 - [ ] **Integration / E2E**: critical paths pass (interfaces / data flow)
 - [ ] **lint / static checks**: the project's static-check command passes
 - [ ] **Container-form acceptance (`§⑨.3`)**: the critical path is **actually run** in the artifact's real runtime form with evidence (command + output); host-form green does not count
@@ -133,14 +133,14 @@
 - [ ] **tag ↔ changelog ↔ artifact**: all three carry the same version number (§3.3)
 - [ ] **(if applicable) Release notes**: release notes = a changelog excerpt
 
-> **Note**: "release" here is defined as **tagging + passing the release pipeline + producing a traceable artifact**. Actual distribution (publish / upload) is a separate concern; where it is not yet enabled it stays **to be decided** (distribution channel).
+> **Note**: "release" here is defined as **tagging + passing the release pipeline + producing a traceable artifact**. Actual distribution (publish / upload) is a separate concern; where not yet enabled: **to be decided** (§8).
 
 ### 4.3 Post-release
 
 - [ ] **Smoke test**: run one real main path in the target form (aligned with `§⑨.3`)
 - [ ] **Backfill changes**: `PROTOCOL §⑫` reverse backfill — design docs / README catch up with the code; changelog completed
 - [ ] **Trail**: a confirmation record (approver / time / tag / artifact link)
-- [ ] **Observation window**: enter the post-release observation period (duration and metrics per `runtime-observability-sop.md`; where no window is defined it is **to be decided**)
+- [ ] **Observation window**: enter the post-release observation period (duration and metrics per `runtime-observability-sop.md`; **to be decided** (§8))
 - [ ] **Anomaly handling**: an anomaly within the window ⇒ hand to `incident-response-sop.md`, and roll back per §5 if necessary
 
 ---
@@ -158,7 +158,7 @@
 | **Code** | "If you changed it wrong, change it back": restore the previous logic with a **new forward-edit commit** (equivalent to re-applying the previous diff); the commit message notes the forward restoration; stage explicitly with `git commit -- <explicit path>` |
 | **Artifact / distribution** | Re-release the artifact of "the previous verified version" (new tag); do **not** delete an already-released version; if the registry supports it, mark it deprecated (a forward declaration), **do not** force-unpublish |
 | **Config** | Forward-edit back to the previous config values; where environment variables / version numbers are involved, record a `Changed` entry in the changelog afterwards |
-| **Data / migration** | **must satisfy one of**: ① **backward-compatible** (both old and new code can read the schema/data) ⇒ switch back directly; ② **not backward-compatible** ⇒ **direct data rollback is forbidden**; go through a **forward fix** (write a new migration moving the data to a safe state). **Forbidden**: destructive actions like dropping a DB/table or reverse-engineering a schema (migration mechanics are `data-migration-sop.md`) |
+| **Data / migration** | Follow `data-migration-sop.md §4` (the home for the forward-fix rule): backward-compatible ⇒ switch back directly; not backward-compatible ⇒ **direct data rollback is forbidden**, go through a **forward fix**; **forbidden**: dropping a DB/table or reverse-engineering a schema |
 
 ### 5.2 Rollback decision criterion: when to roll back vs forward-fix
 
@@ -189,7 +189,7 @@
 
 ### 6.2 Approvers
 
-- **Default (until a different ruling)**: **public release / production (prod)** is approved by **Elon**; **major upgrades** (MAJOR / breaking change / involving data migration) **escalate to Terry**; **dev/staging / internal validation** is self-approved by the implementer with a trail, with Elon reviewing where necessary. The exact approver set per repo is **to be decided**.
+- **Default (until a different ruling)**: **public release / production (prod)** is approved by **Elon**; **major upgrades** (MAJOR / breaking change / involving data migration) **escalate to Terry**; **dev/staging / internal validation** is self-approved by the implementer with a trail, with Elon reviewing where necessary. The exact approver set per repo is **to be decided** (§8).
 - **Relation to `§⑤.1`**: the **public release action itself** (delivery/distribution to an external audience) still follows `PROTOCOL §⑤.1` (always through Elon); this file only adds the "version/tag production" side of the stance.
 
 ### 6.3 Trail
@@ -202,27 +202,26 @@
 
 ## 7. Landing Points by Repo Shape
 
-> "Landing point" = who actually executes the action / which machine gate carries it: **CI / script gate / hook / human**.
-> "Version / change carrier" = the file or directory where the version number and the change record **actually live**.
+> "Landing point" = who executes the action / which machine gate carries it: **CI / script gate / hook / human**; "version / change carrier" = the file or directory where the version number and the change record **actually live**.
 
 | Repo shape | Version / change carrier (actual) | Landing point (CI / script gate / hook / human) | Notes |
 |---|---|---|---|
 | **Single-package public repo, offline / zero-dependency** | Version = the manifest's `version` field; changes = the changelog file (create if absent); tag = `vX.Y.Z` | **CI**: a push/PR check workflow + a tag-`v*`-triggered release workflow (re-run checks + build + packaging dry-run; distribution not necessarily enabled). **Human**: tagging, changelog freeze/review, approval | Single version source (the manifest); changelog follows the project's default doc language |
-| **Multi-subproject repo (code + design docs in separate repos)** | Changes = the design-doc repo + each subproject's source; version = **to be decided** (the version-source file) | **CI + human**; branch/environment naming **to be decided** | Release described as a **dev→release branch** flow; each repo leaves its own trail; a directory excluded from git **must not** be used as a version/tag carrier |
-| **Document-as-source project (not a git repo)** | Changes = the source document; version = **to be decided** (no version file yet); generated-artifact directories are **not** versioned | **Human + a script gate**: redlines / terminology / `§`-references / card schema / contract tests; **no CI** ⇒ "release checklist + human trail" dominates | No version control ⇒ substitute "source-document version/date + manual changelog"; generated output must not be treated as a version artifact |
+| **Multi-subproject repo (code + design docs in separate repos)** | Changes = the design-doc repo + each subproject's source; version = **to be decided** (§8) | **CI + human**; branch/environment naming **to be decided** (§8) | Release is a **dev→release branch** flow; each repo leaves its own trail; a directory excluded from git **must not** be a version/tag carrier |
+| **Document-as-source project (not a git repo)** | Changes = the source document; version = **to be decided** (§8); generated-artifact directories are **not** versioned | **Human + a script gate**: redlines / terminology / `§`-references / card schema / contract tests; **no CI** ⇒ "release checklist + human trail" dominates | No version control ⇒ substitute "source-document version/date + manual changelog"; generated output is not a version artifact |
 
-**Generic landing-point summary**:
-- **CI carries it**: single-package repos with a check workflow + a tag-triggered release workflow (mechanics in `ci-release-sop.md`).
-- **A team-level check script carries it**: team-level gates (`PROTOCOL §⑳.1`) — used to check this file's references / redlines / card-schema consistency, and **not** a substitute for the project's own build/test gate.
-- **Hook**: project-side commit / release hooks are **to be decided** (a pre-tag check is a candidate).
-- **Human**: approval, tagging, changelog freeze, rollback decision — all human landing points (responsibilities in §3 / §5 / §6).
+**Generic landing-point summary**: **CI** carries single-package repos with a check workflow + a tag-triggered release workflow (mechanics in `ci-release-sop.md`); a **team-level check script** carries team-level gates (`PROTOCOL §⑳.1`) — used to check this file's references / redlines / card-schema consistency, and **not** a substitute for the project's own build/test gate; **hook** (project-side commit/release hooks) is **to be decided** (a pre-tag check is a candidate, §8); the **human** landing points are approval, tagging, changelog freeze and rollback decision (responsibilities in §3 / §5 / §6).
 
 ---
 
-## 8. Related Clauses
+## 8. Open Items (undecided; defaults in force until decided)
 
-- Version/tag/changelog/channel mechanisms → `PROTOCOL §㉑` (the L1 clause this SOP details); public release approval → `PROTOCOL §⑤.1`.
-- Git discipline (no destructive commands; forward-edit rollback) → `PROTOCOL §⑥`; engineering quality standards → `PROTOCOL §⑥.1`.
-- Container-form acceptance → `PROTOCOL §⑨.3`; two-way doc sync → `PROTOCOL §⑫`; confirmation gate → `PROTOCOL §⑭`; SLA / timeout escalation → `PROTOCOL §⑮` / `§⑮.1`; doc layering / no verbatim copying → `PROTOCOL §⑰`; machine-checkable gates → `PROTOCOL §⑳.1`.
-- Sibling guides: `ci-release-sop.md` (CI gate / build / deploy), `runtime-observability-sop.md` (log/metric/alert + observation window), `incident-response-sop.md` (incident handling), `data-migration-sop.md` (data migration / forward fix), `api-compat-sop.md` (external contract compatibility).
-- Team-gateway (not a product) recovery → `team/README.md §4 Recovery Handbook`.
+1. **Build-metadata injection** — the concrete injection method where no unified builder exists (§2.2).
+2. **Version source, multi-subproject repo** — **to be decided**; candidate: each subproject's manifest (§2.5).
+3. **Version source, document-as-source project** — **to be decided**; suggested: a `VERSION` file or the source document's frontmatter (§2.5).
+4. **Coverage threshold** — where a repo defines no floor (e.g. lines/branches/functions ≥ 80% is one example) (§4.1).
+5. **Distribution channel** — actual distribution (publish/upload) where not yet enabled (§4.2).
+6. **Observation window** — duration and metrics where none defined (§4.3).
+7. **Approver set per repo** (§6.2).
+8. **Branch / environment naming** for a multi-subproject repo, and the version-source file (§7).
+9. **Hook cadence** — project-side commit/release hooks; a pre-tag check is a candidate (§7).
