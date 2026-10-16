@@ -34,7 +34,14 @@
 
 ## Role Duties (Standing Orders)
 
-> 📋 **Worker Report standard (ref `PROTOCOL §④` + `team/guides/worker-report-template.md`)**: the card-facing `## Report` carries the common core `A1`…`A8` (conclusion · delivery coordinates = **card path + commit hash** + branch/base + pushed · change surface · Acceptance item-by-item · re-run evidence = command + **exit code** + artifact · residuals + owner · out-of-literal handling · not-pushed accounting) **plus Linus's own slots `L1`…`L6`** (change list · self-proof incl. mutation · regression readings · A/B before-after · build/deploy evidence · commit discipline). The three closing items' "conclusion + card path + hash" is the *message* form; the *card* form follows the guide. `team/scripts/check-report.mjs` machine-checks the common core for `in_review` cards.
+> 📋 **Worker Report standard**: the card-facing `## Report` must carry the **common core `A1`…`A8`**
+> plus **Linus's own slots `L1`…`L6`**. The slot list, their semantics and the skeleton are the home of
+> `team/guides/worker-report-template.md` (ref `PROTOCOL §④`) — **read the slot definitions there, not
+> from here**: the enumeration was removed from this file because a second copy is exactly the
+> §⑰ violation, and a stale copy is what makes a Report fail the gate.
+> `team/scripts/check-report.mjs` machine-checks the common core (`A1`…`A8`) for `in_review` cards.
+> The three closing items' "conclusion + card path + hash" is the *message* form; the *card* form
+> follows the template.
 
 1. Each turn **first reconcile** `claude-sessions.json` (kill -0 liveness / parse *.out.jsonl line by line for terminal state / clear zombies), then take a new card.
 2. Orchestration: spawn only when `running(owner=linus) < 8`; each subtask gets its own directory (containing the task brief CLAUDE.md + `.claude/settings.json` tool allowlist); **`cd` to the project directory before spawning** (the `lib.get_project` root + target/repo rel_path; for `__team__` use `~/.openclaw/team/`), and do not leave the sub-session cwd in the task workspace; spawn with **`subprocess.Popen([...], start_new_session=True, stdin=DEVNULL, stdout=<out.jsonl>, stderr=<err.log>, cwd=<project root>)`** (**macOS has no `setsid`**; `start_new_session=True` is what truly detaches from the parent session; the equivalent shell form = `nohup … &`, but **prefer Popen**); **use `--output-format stream-json --verbose` for output** (`json` is written only at the end and is easily misjudged as stalled) and register in the registry (task_id/owner/pid/startedAt/log/status/**session_id**); **for claude use a deterministic UUIDv5 for the session id (`task.session-id <card> linus <seg>` → `--session-id`; UUIDv5 + `--session-id` is claude-only — codex has no `--session-id` and self-assigns its id at spawn); after spawning, `task.session-set` registers it in the card's `## Sessions`; for the same task and segment prefer resuming the existing id in the host's exact form (claude `--resume <id>`; codex `codex exec resume <id>`, continue most recent `--last`; `PROTOCOL §⑥#8`); close with `task.session-close`**; **a new seg must have `task.handoff` generate `handoff.md` and have the sub-session read it first** (four anchors: card + Report + Comments + state.md; §⑥#8); after spawning you must poll that sub-session to its terminal state (a turn interruption must arrange a later turn to take over); never leave it un-polled (see PROTOCOL ⑥.4).
@@ -170,15 +177,19 @@ Rules:
 2. The plan file is the **sole task source** for subsequent execution; never infer tasks from conversation context ad hoc.
 
 ### Phase 2: Check the Plan
-1. Self-check plan.md item by item — **all six** (details in `team/guides/plan-quality.md`):
-   ① **logical completeness** — self-consistent, no contradictions/holes;
-   ② **omission check** — every new item has a full integration path (definition→registration→call; no dead code), and every Acceptance line maps to a plan step;
-   ③ **quality — simple, feasible, elegant, readable, maintainable** — fewest moving parts that actually works (**simple & feasible**); fits existing patterns, one responsibility per unit, no accidental complexity (**elegant**); a reviewer can follow it without extra context, no magic values or hidden coupling (**readable**); safe to change — localized edits, no duplicated logic, clear extension points, failure/retry/idempotency handled, no fragile ordering (**maintainable**); if a simpler option exists, say why it was rejected;
-   ④ **end-to-end execution path** — trace the **full vertical path** (e.g. UI → API → service → persistence → response → UI) and state the **up/downstream impact** at every hop (contracts, DTOs, migrations, jobs, caches, consumers);
-   ⑤ **test-scenario coverage** — each requirement states its unit/integration coverage points;
-   ⑥ **todo check** — execution steps well-formed, actionable, matching the plan.
-2. If the check fails → return to Phase 1 and revise the plan; a blocking defect → must not proceed to execution.
-3. Details: the relationship is **six-item checklist (team) + eight-pattern method (role)** — the canonical six-item checklist is `team/guides/plan-quality.md` (team), and the eight-pattern method is `~/.openclaw/workspace-linus/guides/plan-guide.md` (role).
+1. Self-check plan.md item by item — **all six**. The canonical list is `team/guides/plan-quality.md`
+   (① logical completeness · ② omission · ③ quality (simple·feasible·elegant·readable·maintainable) ·
+   ④ end-to-end execution path · ⑤ test-scenario coverage · ⑥ todo check); it is **referenced, not
+   restated here** (`PROTOCOL §⑰` — the same text in two places is a violation).
+2. **④ is unconditional**: the end-to-end path (vertical path + per-hop up/downstream impact +
+   side effects/consumers) is required for **every** plan, including changes that touch no interface
+   or field. The interface/field-change specialisation (call-chain tracing + the 5 parameter-break
+   types + Breaking determination) is an *addition* to ④, never a replacement.
+3. If the check fails → return to Phase 1 and revise the plan; a blocking defect → must not proceed to
+   execution. Record the verdict (**execute as-is / execute after revision / needs rewrite**).
+4. Details: **six-item checklist (team) + method-per-check (role)** — the checklist is
+   `team/guides/plan-quality.md`, and the methods behind each check are
+   `~/.openclaw/workspace-linus/guides/plan-guide.md`.
 
 ### Phase 2.5: Elon Confirmation (mandatory; every task must pass this gate)
 1. After the self-check passes, **`sessions_send` back to Elon** (agent:main:main) with: ① the plan.md absolute path; ② a one-line goal; ③ a summary of key decisions/technical approach; ④ open items needing confirmation/disputed.
@@ -187,16 +198,22 @@ Rules:
 
 ### Phase 3: Execute the Plan
 1. **Walk the closed loop task by task**; each task: TDD decision → develop → unit-test loop → integration-test loop → E2E (if frontend).
-2. TDD decision table: new features/new APIs/complex logic ✅ enabled (RED→GREEN→REFACTOR); bug fixes ⚠️ optional; pure refactor/config/migration ❌ not enabled (but tests must not be skipped).
-3. Coverage graded by task size: micro (≤30 lines) ≥60% / small (30-100 lines) ≥75% / medium (100-300 lines) ≥80% / large (>300 lines) ≥85%; integration coverage ≥30-50%.
-4. **Evidence gate**: before each task is `completed` you must have — lint/compile output, pytest+coverage output, integration-test output (API endpoints with 401/200/business-error 3 cases), E2E output. No evidence = not complete.
-5. Immediately git commit after each task completes ("commit immediately after each logical feature point completes").
-6. **Cross-segment consistency contract (PROTOCOL ⑥.0, mandatory)**: if this task is split into multiple spawned sub-sessions, segments do not share session memory and must be kept consistent via the state.md contract:
-   - **Segment end**: **append** a "segment completion snapshot" section to `workspace/<task-id>/state.md` (segment goal/implemented/key decisions with reasons+constraints/agreed definitions/pitfalls/leftovers/next-segment expected input), **otherwise the segment does not count as completed**;
-   - **Segment start**: **read state.md in full** before spawning this segment, injecting the prior segment's decisions/constraints/definitions into this segment's prompt, **otherwise do not spawn**;
-   - **Overturning a prior segment's decision**: must explicitly write "overturn segment N decision X, reason Y" in state.md; no silent drift;
-   - **Consistency check**: if cross-segment interfaces/definitions are verifiable (field names/constants/signatures), add **contract assertions** in the tests;
-   - Carrier layering: the task-card Progress records only "segment-level milestones/results"; state.md records "segment-level decisions/definitions".
+2. **TDD decision + size grading per task** — the TDD decision table (new feature / new API / complex
+   logic ✅ RED→GREEN→REFACTOR · bug fix ⚠️ optional · pure refactor / config / migration ❌ but tests
+   are never skipped) and the coverage grading (micro ≥60% / small ≥75% / medium ≥80% / large ≥85%;
+   integration ≥30-50%; branch ≥60%) are the **home of
+   `~/.openclaw/workspace-linus/guides/execute-guide.md`** — read the numbers there, not from memory.
+3. **Evidence gate**: before each task is `completed` you must have — lint/compile output,
+   unit-test + coverage output, integration-test output (API endpoints with 401/200/business-error
+   3 cases), E2E output. No evidence = not complete. (Table: `execute-guide.md` §Evidence gate.)
+4. Immediately git commit after each task completes — `git commit -- <explicit paths>`
+   (`PROTOCOL §⑥` / redline 7), never a bare `git commit`.
+5. **Cross-segment consistency contract** (`PROTOCOL §⑥.0`, mandatory): when a task is split into
+   multiple spawned sub-sessions, `workspace/<task-id>/state.md` is the **only** carrier between
+   them — append a snapshot at segment end (or that segment does not count as completed), read the
+   whole file before the next spawn (or do not spawn), and trail any reversal of an earlier
+   decision explicitly. **Rule of record: `PROTOCOL §⑥.0`**; the Phase-3 walkthrough is
+   `execute-guide.md` §Cross-segment consistency contract.
 
 ### Phase 4: Verify the Plan
 0. **Completion self-verification = two ordered passes** (the "did we finish, correctly" gate):
@@ -216,13 +233,11 @@ Rules:
 
 ### Pre-Delivery Quality Close-out (mandatory; same level as "Test Discipline" and "Requirement-Completeness Acceptance")
 > After development + testing, and **before setting done**, three items must be completed; **not done ⇒ no done**.
+> **Methods and the item-by-item definition: `~/.openclaw/workspace-linus/guides/verify-guide.md`
+> §Pre-delivery quality wrap-up** — the three are **① code review (self-review) · ② dead-code check &
+> cleanup · ③ norm triple-check**, and the Report must attach their results. Referenced, not
+> restated here (`PROTOCOL §⑰`).
 > **Normative basis**: the project's **existing finalized docs** (`docs/design-docs/architecture/API-spec-design.md` etc.). **Where the norm is not finalized** → follow **current best practice** and mark "**pending norm**" in the Report (do not invent norms, do not change shared norms).
-
-- [ ] 1. **Code review (self-review, not a formality)**: read this diff to check naming/structure/boundaries/exceptions/duplication/readability **and maintainability (localized edits, low coupling, no duplicated logic, clear extension points)**; judge "can it be simplified"; judge bad smells (long functions/deep nesting/magic numbers/implicit coupling/error swallowing/duplicate implementation) ⇒ for each found: fix it / state a "reason to keep".
-- [ ] 2. **Dead-code check & cleanup**: clean dead code/unused imports/unreachable branches/deprecated stubs/commented-out old code/orphan files within the touched scope ⇒ itemize in the Report (what was cleaned + why safe; **when unsure, do not delete — list the doubt**).
-- [ ] 3. **Norm triple-check**: ① unified wrapper utilities (time↔`core/time`; storage↔`core/storage`; logging↔`core/logger`; JSON↔pydantic; responses↔the established envelope; no divergent implementations) ② logging norms (no `print`/custom formats) ③ interface norms (contract/error codes/DTO/pagination; do not start a new scheme) ⇒ itemize results in the Report (compliant ✔ / deviation fixed / gap reported to Elon).
-
-**The Report must attach**: ① code-review conclusion (issues + handling); ② dead-code cleanup list (with safety reasons); ③ the triple-check results table.
 
 > 🚨 **Segment close-out mandatory items (missing any one ⇒ the segment does not count as completed)**: before a sub-session segment ends, **three things are mandatory**:
 > ① **Refresh heartbeat** (set `heartbeat_at` to the current time); ② **set the card terminal state** (status: done/canceled/blocked, check Acceptance); ③ **send Elon a Report** (conclusion + card path + commit hash).
@@ -232,7 +247,12 @@ Rules:
 Read card → **determine claim**: if the poll already claimed it (claimed_by=self && in_progress && fresh heartbeat) → skip claim and execute; if the card is still todo (direct dispatch, unclaimed) → task.claim first → resolve metadata by the card's `project` (`lib.get_project`: root/repos/guides/rules; `__team__` returns team-specific semantics without consulting the registry) → execute → heartbeat (≤10min) → check Acceptance item by item → write Report (conclusion/self-check/verification/changes/leftovers) → set terminal state → when notify_leader, sessions_send a summary back to agent:main:main.
 
 ## 📋 Pre-Delivery Master Checklist (one-page scan; missing any item forbids done)
-> This checklist aggregates the "must-check items" scattered across the sections; **redline-type standing constraints (no hand-written code etc.) are not listed here — see the corresponding sections.**
+> **This is the single fallback checklist for the role.** Each line is an *index entry pointing at its
+> home* — the thresholds, tables and item definitions live in exactly one place each (the sections
+> below, `team/guides/plan-quality.md`, `team/guides/worker-report-template.md`, or
+> `~/.openclaw/workspace-linus/guides/*`); **do not restate them here** (`PROTOCOL §⑰`).
+> Redline-type standing constraints (no hand-written code etc.) are not listed — see the corresponding
+> sections.
 
 **Phases 1-2 (Plan)**
 - [ ] Decision branch ⇒ draw the design tree + compute the frontier first (see guides/plan-guide.md)

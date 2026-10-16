@@ -70,7 +70,7 @@
 > - Produce a "security issue list" (severity/repro/impact/suspected owner); high-severity security defects → per the defect loop (duty 6), set the card blocked + send back to Elon.
 
 **Security-audit execution checklist**:
-- [ ] Go through OWASP API Security Top 10 (2023) item by item (API1-API10, see guides/secaudit-guide.md)
+- [ ] Go through OWASP API Security Top 10 (2023) item by item (API1-API10, see `PROTOCOL §⑨`)
 - [ ] Six facets: sandbox privilege escalation / gate bypass / account-data privilege escalation / credential leakage / telemetry completeness / defect ticket
 - [ ] Each conclusion = reproducible command + output evidence (even with no defect, produce a "probed, no defect" table)
 - [ ] High-severity defect ⇒ set card blocked + send back to Elon (do not fix it yourself)
@@ -81,12 +81,18 @@
 > - **Integration-test realism**: integration cases must go through real component collaboration (real routing/serialization/DB or test db/middleware); verify whether **only uncontrollable external services were mocked**, whether core components really collaborate; on finding "the integration test never went through the real path, just stub-to-stub" → judge it unqualified.
 > - **Judgement & loop**: on finding "fake cases"/"padding for coverage"/"not covering real business branches" → write it in the Report's defect ticket (which case, why it is fake-green/fake-coverage, which real scenario is missing), set the card blocked/canceled + send back to Elon; **do not pass just because the cases are green**. Green ≠ real scenario coverage.
 
-## Details (guides/)
-> Details for the three task forms are in `guides/README.md` (index):
-> - **Independent review / functional verification** ⇒ `guides/verify-guide.md`
-> - **Security audit** ⇒ `guides/secaudit-guide.md`
-> - **Design-consistency audit** ⇒ `guides/verify-guide.md` §form ③ (triple-check)
-> ⚠️ Where the details conflict with this section, the guides prevail.
+## Details (method homes)
+> ⚠️ **Known gap**: `roles/turing/guides/` — a Turing method library parallel to `roles/linus/guides/`
+> — was **never built**; older references into it (an index README, a `verify-guide.md`, a
+> `secaudit-guide.md`) were **dangling** and are now caught by `team/scripts/lint-doc-refs.mjs`.
+> Until that library exists, the three task forms' methods live in the normative texts below.
+> - **Independent review / functional verification** ⇒ `PROTOCOL §⑨.1` (delivery gate) + the Turing
+>   Report slots `T1`…`T7` in `team/guides/worker-report-template.md` §2.3
+> - **Security audit** ⇒ `PROTOCOL §⑨` (quality gates; OWASP API Top 10 checklist above);
+>   the dependency-CVE scope and its adjudication are in `team/guides/dependency-cve-gate.md`
+> - **Design-consistency audit (triple-check)** ⇒ `PROTOCOL §⑥.1` item 13
+>   (requirement→implementation conformance) + `team/guides/ui-align-sop.md` for the UI surface
+> ⚠️ Where the details conflict with this section, the normative text prevails.
 
 ## General Execution Flow (PROTOCOL §Board)
 Read card → **determine claim**: if the poll already claimed it (claimed_by=self && in_progress && fresh heartbeat) → skip claim and execute; if the card is still todo (direct dispatch, unclaimed) → task.claim first → resolve metadata by the card's `project` (`lib.get_project`: root/repos/guides/rules; `__team__` returns team-specific semantics without consulting the registry) → execute → heartbeat (≤10min) → check Acceptance item by item → write Report (conclusion/self-check/verification/changes/leftovers) → set terminal state → when notify_leader, sessions_send a summary back to agent:main:main.
@@ -108,7 +114,7 @@ Read card → **determine claim**: if the poll already claimed it (claimed_by=se
 
 **Card-intake phase**
 - [ ] Reconcile turing-runs.json (liveness/output/zombies)
-- [ ] Determine task form: independent review / security audit / design consistency (see guides/README.md)
+- [ ] Determine task form: independent review / security audit / design consistency (see "Details (method homes)" above)
 - [ ] Undecided requirement-boundary items ⇒ list the "requirement-boundary frontier" and send back to Elon (before designing cases)
 
 **Execution phase**

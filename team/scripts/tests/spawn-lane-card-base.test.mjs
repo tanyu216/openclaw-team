@@ -226,7 +226,7 @@ const fmOf = (id) => {
 
 // ── ① 纯函数：依赖链 / 分支名字空间 ─────────────────────────────────────────
 
-test('契约. dependencyChain：广度优先、去重、深度上界；读不到的卡只少一层（不抛、不猜）', { skip: SKIP }, () => {
+test('契约. dependencyChain：广度优先、去重、深度上界；读不到的卡不进链（不抛、不猜）', { skip: SKIP }, () => {
   const A = 'T-20260102-200000-a', B = 'T-20260102-200001-b', C = 'T-20260102-200002-c',
         D = 'T-20260102-200003-d', E = 'T-20260102-200004-e', X = 'T-20260102-200005-x';
   const graph = { [A]: { depends_on: `[${B}, ${C}]` }, [B]: { depends_on: `[${D}, ${A}]` }, [C]: { depends_on: '[]' }, [D]: { depends_on: `[${E}]` }, [E]: { depends_on: `[${X}]` }, [X]: { depends_on: '[]' } };
@@ -234,8 +234,10 @@ test('契约. dependencyChain：广度优先、去重、深度上界；读不到
   assert.deepEqual(dependencyChain(A, read), [B, C, D, E, X], 'BFS 序 + 去重（B 回指 A 被剔除）+ 传递闭包');
   assert.deepEqual(dependencyChain(A, () => null), [], '一张卡都读不到 ⇒ 空链（绝不臆造依赖）');
   assert.deepEqual(dependencyChain(A, read, 1), [B, C], '深度上界 = 1 ⇒ 只看直接依赖（护栏可注入）');
-  assert.deepEqual(dependencyChain(A, (id) => (id === B ? null : read(id))), [B, C], '中间卡读不到 ⇒ 该层断层，但**直接依赖仍在**（B 仍按 id 进候选）');
-  assert.deepEqual(dependencyChain(A, (id) => (id === A ? { fm: { depends_on: '[not-a-card, T-20260102-200002-c]' }, body: '' } : read(id))), [C], '非法卡 id 形状剔除（不把 `not-a-card` 当成卡）');
+  // 判据从「id **形状**合法才跟随」改为「**解析得到**才跟随」（卡命名形状归 provider，见 card-ids.mjs）。
+  // 语义随之收紧：一个读不到的依赖不提供任何基座信息，因此**不进链**（它只是断掉的那一层）。
+  assert.deepEqual(dependencyChain(A, (id) => (id === B ? null : read(id))), [C], '中间卡读不到 ⇒ 该依赖不进链（无卡可依，不臆造）');
+  assert.deepEqual(dependencyChain(A, (id) => (id === A ? { fm: { depends_on: '[not-a-card, T-20260102-200002-c]' }, body: '' } : read(id))), [C], '读不到的 token 剔除（`not-a-card` 与「形状合法但不存在的卡」同等对待）');
 });
 
 test('契约. depLaneBranches：只认该卡**自己登记过的 seg**，不串到 id 互为前缀的兄弟卡', { skip: SKIP }, () => {

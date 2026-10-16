@@ -180,7 +180,7 @@ refreshes that cache out of band.
   `OPENCLAW_HOME` (default `~/.openclaw`, used for `workspace-<role>/`) and
   `OPENCLAW_TEAM_MODE=live|repo`. [team/scripts/host-paths.mjs](team/scripts/host-paths.mjs)
   is the single resolver for the lint group (`check-redlines.mjs`,
-  `lint-refs.mjs`, `lint-impl-names.mjs`, `sync-redlines.mjs`); `lib.mjs` (and the
+  `lint-refs.mjs`, `lint-doc-refs.mjs`, `lint-impl-names.mjs`, `sync-redlines.mjs`); `lib.mjs` (and the
   provider's `team-paths.mjs` behind it), `check-all.sh` and `scan-deps.mjs`
   resolve the same roots themselves — deliberately not merged, see the module
   header. With `OPENCLAW_TEAM_ROOT=<sandbox>/team` the workspace root becomes
@@ -279,4 +279,7 @@ Normative source: [team/PROTOCOL.md](team/PROTOCOL.md) §⑥.4. Mechanics:
   whole-file replaced.
 - Commit messages in this repo are conventional-commit style with a `(scope)`
   and a trailing card id, e.g. `fix(lib): 反膨胀守卫改口径… (T-20261015-025543-3)`.
-  Work is tracked by cards whose id is the filename (`T-YYYYMMDD-HHMMSS.md`).
+  Work is tracked by cards; **the card id and the form a card is stored in belong
+  to the task provider** (`guides/task-interface.md` + the ACL), not to this repo —
+  under the current reference implementation a card is a markdown file whose name
+  is its id, but nothing here may assume that shape.

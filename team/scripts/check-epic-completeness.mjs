@@ -42,7 +42,8 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseFrontmatter, TASKS_DIR, TEAM_ROOT, CARD_ID_RE } from './lib.mjs';
+import { parseFrontmatter, TASKS_DIR, TEAM_ROOT } from './lib.mjs';
+import { boardNamespaces, extractCardIdRefs } from './card-ids.mjs';
 import { isTerminal } from './status.mjs';
 
 // 终态判据来自 `scripts/status.mjs`（与 check-card / provider TERMINAL_STATUSES 同口径）：
@@ -52,8 +53,7 @@ export const REASON_MIN_CHARS = 4;
 /** 阶段列表头判据 / 卡列表头判据（归一后匹配）。 */
 const PHASE_HEADER_RE = /阶段|里程碑|phase|milestone/i;
 const CARD_HEADER_RE = /^(卡|卡片|card|cards)$/i;
-/** 卡 id 扫描（宽松）：容许出现在散文/多个 id 中，命中后再用 CARD_ID_RE 收口。 */
-const CARD_ID_SCAN_RE = /T-\d{8}-\d{6}(?:-[A-Za-z0-9]+)*/g;
+/** 卡 id 扫描：**判据不再是命名形状**，而是「像某个**看板派生**命名空间下的 id」。见下方与 card-ids.mjs。 */
 
 /** 工作表：`phase_no_card` / `roadmap_no_card_column` 的软告警标签（单测与文档按此核对）。 */
 export const SOFT_TAGS = Object.freeze({
@@ -69,14 +69,15 @@ function normHeader(cell) {
   return String(cell || '').replace(/[\s*`_（）()【】[\]]/g, '').toLowerCase();
 }
 
-/** 从任意文本里抽出全部合法卡 id（去重、保持出现序）。 */
-export function extractCardIds(text) {
-  const out = [];
-  const s = String(text || '');
-  for (const m of s.match(CARD_ID_SCAN_RE) || []) {
-    if (CARD_ID_RE.test(m) && !out.includes(m)) out.push(m);
-  }
-  return out;
+/**
+ * 从任意文本里抽出卡引用（去重、保持出现序）。
+ * 判据 = 「像某个**看板派生**命名空间下的 id」（`card-ids.mjs`），**不是**命名形状 —
+ * 否则「引用了看板上并不存在的卡」这一类永远抓不到（它按定义不在成员集里）。
+ * @param {string} text
+ * @param {{namespaces?:Set<string>}} [opts] 命名空间集合；缺省取本进程看板派生的那套
+ */
+export function extractCardIds(text, opts = {}) {
+  return extractCardIdRefs(text, opts);
 }
 
 /** 「卡列」单元是否写了**显式理由**（非空且词字符 ≥ REASON_MIN_CHARS）；空/占位符 ⇒ false。 */
@@ -141,6 +142,9 @@ function loadCards(tasksDir) {
 export function checkEpicCompleteness({ tasksDir = TASKS_DIR, workspaceDir, root = TEAM_ROOT } = {}) {
   const wsDir = workspaceDir || path.join(root, 'workspace');
   const cards = loadCards(tasksDir);
+  // 卡 id 的**命名空间**由看板派生（不是仓内自撰的规则）：台账里的引用要能识别**不存在**的卡，
+  // 否则「引用了不存在的卡」这一类永远抓不到（按定义它不在成员集里）。见 card-ids.mjs。
+  const boardNs = boardNamespaces({ ids: new Set(cards.keys()) });
   const bad = [];
   const warn = [];
   const notes = [];
@@ -176,7 +180,7 @@ export function checkEpicCompleteness({ tasksDir = TASKS_DIR, workspaceDir, root
     for (const t of tables) {
       for (let r = 0; r < t.rows.length; r++) {
         const row = t.rows[r];
-        const ids = extractCardIds(row.card);
+        const ids = extractCardIds(row.card, { namespaces: boardNs });
         const where = `@L${t.line + 2 + r}`;
         const phaseText = row.phase.replace(/\s+/g, ' ').slice(0, 40) || '(空阶段)';
         if (ids.length === 0) {
@@ -217,7 +221,7 @@ export function checkEpicCompleteness({ tasksDir = TASKS_DIR, workspaceDir, root
       }
       for (let r = 0; r < t.rows.length; r++) {
         const row = t.rows[r];
-        if (extractCardIds(row.card).length === 0 && !hasExplicitReason(row.card)) {
+        if (extractCardIds(row.card, { namespaces: boardNs }).length === 0 && !hasExplicitReason(row.card)) {
           patrol.phaseNoCard++;
           notes.push({ tag: SOFT_TAGS.PHASE_NO_CARD, source: file, phase: row.phase.replace(/\s+/g, ' ').slice(0, 40) || '(空阶段)', where: `@L${t.line + 2 + r}` });
         }

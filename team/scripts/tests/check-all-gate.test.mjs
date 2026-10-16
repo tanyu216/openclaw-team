@@ -203,6 +203,7 @@ test('resolveTeamDir: env override wins, else the deployed layout (this file\'s 
 const OK_STUB = 'process.exit(0);\n';
 const FAST_STEPS = [
   'scripts/check-redlines.mjs', 'scripts/lint-impl-names.mjs', 'scripts/lint-refs.mjs',
+  'scripts/lint-doc-refs.mjs',
   'scripts/scan-deps.mjs', 'scripts/check-handoff.mjs', 'scripts/check-relations.mjs',
   'scripts/check-idem.mjs', 'scripts/check-sessions.mjs', 'scripts/archive.mjs',
   'skills/task-ops/tests/contract.test.mjs', 'skills/task-ops/tests/terminal-guard.test.mjs',

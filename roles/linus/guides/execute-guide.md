@@ -2,6 +2,13 @@
 
 > **This guide = the detailed method for development process Phase 3** (TDD/coverage/evidence gate/cross-segment contract).
 > Usage: first follow the "Execution Checklist" item by item; "Details" is the concrete reference for each step, consult as needed.
+>
+> **Layer**: L2.5 role method library (`PROTOCOL §⑰`). **Owner**: Linus. **Effective**: 2026-10-16.
+> **On conflict**: `PROTOCOL` governs, then `roles/<role>/AGENTS.md`, then this guide.
+> **Single-home boundary**: this guide is the home for the TDD decision table, the coverage grading
+> and the evidence gate. The Report slots belong to `team/guides/worker-report-template.md`; the
+> commit-path rule belongs to `PROTOCOL §⑥` + redline 7; the segment/`state.md` contract belongs to
+> `PROTOCOL §⑥.0` — all three are **referenced** below, never restated.
 
 ---
 
@@ -16,6 +23,24 @@
 - [ ] 5. **Commit immediately after each task's loop** (`feat(scope): desc` + coverage info)
 - [ ] 6. **Multi-segment spawn => obey the cross-segment contract**: at segment end append a state.md snapshot; at the next segment's start read state.md first
 - [ ] 7. **Do not skip failures**: test failure / coverage below target / dependency has a bug => fix, do not skip, do not lower requirements (see §Mandatory constraints)
+- [ ] 8. **Keep the heartbeat fresh while executing** — refresh `heartbeat_at` at ≤10 min intervals
+  (redline 2). Phase 3 is where a card runs longest, and a card whose heartbeat has gone stale reads
+  to Elon as a dead lane.
+- [ ] 9. **Segment close-out (all three, or the segment did not complete)**: refresh the heartbeat →
+  set the card's terminal state → send Elon a Report (conclusion + card path + hash). "Finish then
+  quit" distorts card state and makes Elon wait idly.
+- [ ] 10. **Before `in_review`: every machine-gated item has a home and is satisfied** — the card's
+  `## Report` carries the required slots of `team/guides/worker-report-template.md` (common core
+  `A1`…`A8` plus Linus's `L1`…`L6`; `team/scripts/check-report.mjs` machine-checks the common core on
+  `in_review` cards), and every delivery task is committed with **explicit paths**
+  (`git commit -- <paths>`, `PROTOCOL §⑥` / redline 7 — a bare `git commit` sweeps another lane's
+  unstaged hunks out of the shared index).
+
+### N/A policy (same principle as `verify-guide.md` §N/A conditions)
+
+A step may be marked N/A **only after you have searched and confirmed the thing it checks does not
+exist**. "It looks unrelated" is not N/A; "grep + read showed there is no such call path" is. Record
+the N/A and the search that justified it — an unexamined N/A is indistinguishable from a skipped step.
 
 ---
 
@@ -93,16 +118,32 @@ Existing fixture > factory function (factory-boy) > test SQL script > mock (last
 
 Before a fix loop: snapshot backup of the code → run related regressions → confirm pass before fixing → full regression after the fix. Key constraint: a fix must not break existing functionality.
 
-### Cross-segment consistency contract (PROTOCOL ⑥.0)
+### Cross-segment consistency contract (`PROTOCOL §⑥.0`)
 
-- **Segment end**: **append** a "segment completion snapshot" to `workspace/<task-id>/state.md` (segment goal/implemented/key decisions with reasons+constraints/conventions/pitfalls/leftovers/expected input for the next segment), otherwise that segment does not count as completed.
-- **Segment start**: before spawn, **first read the full state.md**, inject it into the next segment's prompt, otherwise do not spawn.
-- **Overturning a previous segment's decision**: write explicitly in state.md "overturn segment N decision X, reason Y", no silent drift.
-- **Consistency verification**: for cross-segment interfaces/conventions that are verifiable, add contract assertions in tests.
+Full rule of record: `PROTOCOL §⑥.0`. What matters when you are the one walking Phase 3:
+
+- **Segment end** — **append** a completion snapshot to `workspace/<task-id>/state.md` (goal /
+  implemented / key decisions with reasons+constraints / conventions / pitfalls / leftovers /
+  expected input for the next segment). **Missing ⇒ the segment does not count as completed.**
+- **Segment start** — read the whole `state.md` before spawning, and inject it into the next
+  segment's prompt. Missing ⇒ **do not spawn**. (`spawn-lane` also requires the `handoff.md`
+  four anchors — `guides/spawn-lane-sop.md`.)
+- **Overturning a prior decision** — say so explicitly in `state.md` ("overturn segment N decision
+  X, reason Y"); silent drift is a defect.
+- **Verifiable cross-segment interfaces** (field names / constants / signatures) — pin them with
+  contract assertions in the tests rather than trusting the prose.
+- **Carrier layering** — the card's `## Progress` carries segment-level *milestones*; `state.md`
+  carries segment-level *decisions and definitions*.
 
 ### Git commit
 
-Commit immediately after each task's loop ("commit immediately after each logical feature point is done"). Single task format: `feat(scope): desc` + coverage info. After all tasks, if there are cross-task common changes, do one summary commit.
+Commit immediately after each task's loop ("commit immediately after each logical feature point is
+done"). Single task format: `feat(scope): desc` + coverage info. After all tasks, if there are
+cross-task common changes, do one summary commit.
+
+> **Rule of record: `PROTOCOL §⑥` + redline 7** — always `git commit -- <explicit paths>`; a bare
+> `git commit` / `git commit -a` is forbidden, because the shared index gets swept up by another
+> lane's concurrent commits. Not restated here on purpose (`PROTOCOL §⑰`).
 
 ---
 
