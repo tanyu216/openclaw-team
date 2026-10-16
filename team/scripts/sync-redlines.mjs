@@ -28,7 +28,7 @@ if (!m) { console.error('canonical 缺 REDLINES:v1 标记块'); process.exit(2);
 const BLOCK = m[0];
 // 硬前置句：AGENTS.md 已英文化（context 优化）⇒ canonical 用英文句（与 roles/<role>/AGENTS.md 一致）。
 // 旧中文「开工硬前置」行会被就地规范化成该英文句。
-const HARD = '> 🚦 **Hard prerequisite for starting**: the **first step of this turn is to read `team/PROTOCOL.md` (at minimum §① Board / §⑬ Hard Discipline + the sections relevant to this role); do not execute or claim any task card until it is read**. After reading, log one line "read PROTOCOL §…" in the card\'s Progress.';
+const HARD = '> 🚦 **Hard prerequisite for starting**: the **first step of this turn is to read `team/PROTOCOL.md` (at minimum PROTOCOL §1 Board / PROTOCOL §13 Hard Discipline + the sections relevant to this role); do not execute or claim any task card until it is read**. After reading, log one line "read PROTOCOL §…" in the card\'s Progress.';
 const HARD_RE = /开工硬前置|Hard prerequisite for starting/;
 
 let n = 0;

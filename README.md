@@ -109,9 +109,9 @@ reconciliation lives in `team/ROLES.md`.
 Each role file holds that role's **standing orders (SOP)**. Cross-role rules are
 **referenced, not copied**:
 
-- **Routing / who gets what** — `team/PROTOCOL.md` **§⑩ Task Triage Matrix**.
+- **Routing / who gets what** — `team/PROTOCOL.md` **PROTOCOL §10 Task Triage Matrix**.
 - **Boundaries & handoffs (reconciliation)** — `team/ROLES.md`.
-- **Universal hard discipline (all roles)** — `team/PROTOCOL.md` **§⑬ Universal Hard Discipline**.
+- **Universal hard discipline (all roles)** — `team/PROTOCOL.md` **PROTOCOL §13 Universal Hard Discipline**.
 
 ## How the team collaborates
 
@@ -119,36 +119,36 @@ Each role file holds that role's **standing orders (SOP)**. Cross-role rules are
   carries Goal / Acceptance / Background and a state machine
   `backlog | todo → in_progress → in_review → done` (`blocked` / `canceled` are side
   and terminal states). The card is the single carrier of persisted content.
-  `team/PROTOCOL.md` **§① Board Protocol**.
+  `team/PROTOCOL.md` **PROTOCOL §1 Board Protocol**.
 - **Claim · heartbeat · the three end-of-segment items.** A worker takes a card with
   an **atomic claim** (`task.claim`) and refreshes a **heartbeat every ≤10 min** while
   working. Every segment ends with **three closing items**: ① refresh the heartbeat →
   ② set the terminal state (`in_review` / `done` / `canceled` / `blocked`) → ③ send
   Elon a Report (conclusion + card path + commit hash). A fresh heartbeat on an
   `in_progress` card means "someone is already on it — do not re-run".
-  `team/PROTOCOL.md` **§①** and **§⑬.2 The Three End-of-Segment Closing Items**.
+  `team/PROTOCOL.md` **PROTOCOL §1** and **PROTOCOL §13.2 The Three End-of-Segment Closing Items**.
 - **Dependencies & parent/child (DAG).** A large job is one **`kind: epic`** parent —
   a container, **not claimable** — with **child cards** (`parent=<epic>`). Ordering
   uses **`depends_on`** (a child with unmet deps is not claimed). The epic reaches
   `done` only when **all its children are done and integration acceptance passes**
-  (epic rollup). `team/PROTOCOL.md` **§⑩.2 Composite Task = Subtask Cards + Dependency Graph (DAG)**.
+  (epic rollup). `team/PROTOCOL.md` **PROTOCOL §10.2 Composite Task = Subtask Cards + Dependency Graph (DAG)**.
 - **One dispatcher: Elon.** **Elon alone creates cards and dispatches**; Jobs /
   Linus / Turing / Assistant **do not hand work to each other — they only request a
   card from Elon** (stating the need or the gap found). One owner per decision, one
-  intake path. `team/PROTOCOL.md` **§⑩** and **§⑩.3 Carding Granularity**.
+  intake path. `team/PROTOCOL.md` **PROTOCOL §10** and **PROTOCOL §10.3 Carding Granularity**.
 - **Defect loop.** A defect found in QA is written up as a defect ticket → **Elon
   creates a fix card** for Linus → the fix returns to Elon for acceptance → Turing
   runs a **regression retest**; the original card reaches `done` only when regression
-  fully passes. `team/PROTOCOL.md` **§⑨ Defect Fix and Regression Loop**.
+  fully passes. `team/PROTOCOL.md` **PROTOCOL §9 Defect Fix and Regression Loop**.
 - **Delivery gates.** Nothing is marked `done` before it passes its gates:
   engineering quality (TDD, coverage ≥80 %, integration tests, self-proof), UI
   fidelity (the prototype is the contract), documentation sync, and the
   **machine-checkable gates** run by CI / `check-all`. `team/PROTOCOL.md`
-  **§⑥.1 Engineering Quality Standards** and **§⑳ Gates and Archiving**.
+  **PROTOCOL §6.1 Engineering Quality Standards** and **PROTOCOL §20 Gates and Archiving**.
 - **Parallelism first.** Workers run **in parallel by default**; only a
   **write-resource conflict** (same file, non-isolatable resource), an unmet
   `depends_on`, or an explicit "must serialize" serialises them. Elon's patrol pushes
-  parallelism and chases stale cards. `team/PROTOCOL.md` **§⑥.3 Worker Parallelism-First**.
+  parallelism and chases stale cards. `team/PROTOCOL.md` **PROTOCOL §6.3 Worker Parallelism-First**.
 
 The scheduler that wakes workers (`poll-<agent>`, `task-patrol`, `sla-scan`,
 `team-check-all`, `skills-update`, `tmp-gc`) is described in
@@ -348,7 +348,7 @@ does not restate it.
   cards, backed by a mechanical key `idem = <kind>|<assignee>|<source>|<target>`;
   a same-key non-terminal card ⇒ **reject/reuse** (the repo bundles no create path,
   so the convention is **guaranteed by the connected provider** + the creator
-  carrying the `idem` key). See `team/PROTOCOL.md §㉙` and
+  carrying the `idem` key). See `team/PROTOCOL.md PROTOCOL §29` and
   `team/guides/task-interface.md §14`.
 
 ### Scheduling & team automations
@@ -361,10 +361,10 @@ delegated to the task provider. `install.sh` registers the jobs below
 |---|---|---|
 | `poll-<agent>` | every 5m | per-worker board poll (jobs/linus/turing/assistant); fires only when a card is claimed |
 | `task-patrol` | every 15m | stale `in_progress` heartbeat scan |
-| `sla-scan` | every 15m (`OPENCLAW_TEAM_SLA_INTERVAL`) | board SLA inspection of the `PROTOCOL §⑮` waits `task-patrol` does not cover; fires only on a tier crossing (`team/guides/sla-inspection-contract.md`, `team/AUTOMATIONS.md §3.8`) |
+| `sla-scan` | every 15m (`OPENCLAW_TEAM_SLA_INTERVAL`) | board SLA inspection of the `PROTOCOL §15` waits `task-patrol` does not cover; fires only on a tier crossing (`team/guides/sla-inspection-contract.md`, `team/AUTOMATIONS.md §3.8`) |
 | `team-check-all` | hourly (`0 * * * *` @ Asia/Shanghai) | gate patrol; fires only on failure |
 | `skills-update` | Sundays 05:00 (Asia/Shanghai) | upstream skill-ref drift detect; fires only on drift/failure |
-| `tmp-gc` | daily 02:20 (Asia/Shanghai) | scratch GC (`PROTOCOL §⑬.9`): deletes files >14 days old under `workspace-*/.tmp/`, `~/.openclaw/tmp/` and `~/.openclaw/team/tmp/`; fires only when the sweep could not be confirmed (`team/AUTOMATIONS.md §3.9`) |
+| `tmp-gc` | daily 02:20 (Asia/Shanghai) | scratch GC (`PROTOCOL §13.9`): deletes files >14 days old under `workspace-*/.tmp/`, `~/.openclaw/tmp/` and `~/.openclaw/team/tmp/`; fires only when the sweep could not be confirmed (`team/AUTOMATIONS.md §3.9`) |
 
 Each trigger calls the framework dispatcher
 `team/automations/dispatch.mjs <poll|patrol|check-all|skills-update|sla-scan|tmp-gc> [agent]`, which resolves the

@@ -19,7 +19,7 @@
  * - **不一致态不重领**（T-20261015-045724）：陈旧候选若「卡 Sessions=running」与「registry 终态/缺失」
  *   互相矛盾（登记漂移，lane 终结没写终态）⇒ 不进候选面、本轮不领，交 `session-reconcile.mjs` 对账
  *   （判据唯一源 `session-lifecycle.mjs#classifyClaimBlock`，读写两面同源）
- * - 写冲突粗判（§⑥.3 单写者）：同 project+target 视为同资源 ⇒ 冲突组每轮只领 1 张（串行）
+ * - 写冲突粗判（PROTOCOL §6.3 单写者）：同 project+target 视为同资源 ⇒ 冲突组每轮只领 1 张（串行）
  * - **自动候选面排除部署类卡**（`kind:deploy`）：部署/线上执行类卡由 Elon 显式派发推进，poll 不自动领取
  *   （显式领取路径不拒，与 `kind:epic` 的「彻底不可领」分层不同；T-20261014-013629-2）
  */
@@ -42,7 +42,7 @@ import { pollRunMessage } from './poll-run.mjs';
 import { parseSessionRows, laneRow, classifyClaimBlock } from './session-lifecycle.mjs';
 import { isNew } from './status.mjs';
 
-/** 并发额度（PROTOCOL §⑥ 第 2 条 / §⑥.3）：Linus/Jobs=8、Turing=3；其余 agent 未定义 */
+/** 并发额度（PROTOCOL §6 第 2 条 / PROTOCOL §6.3）：Linus/Jobs=8、Turing=3；其余 agent 未定义 */
 export const CONCURRENCY_QUOTA = { linus: 8, jobs: 8, turing: 3 };
 
 export function resolveAssignee() {
@@ -193,7 +193,7 @@ export function concurrencyQuota(assignee) {
 }
 
 /**
- * 写面粗判冲突键（§⑥.3 单写者）：同 project+target ⇒ 同资源写冲突 ⇒ 冲突组只领 1 张。
+ * 写面粗判冲突键（PROTOCOL §6.3 单写者）：同 project+target ⇒ 同资源写冲突 ⇒ 冲突组只领 1 张。
  * 两者皆无 ⇒ 空串（保守：所有「未知写面」卡归入同一组，串行）。
  */
 export function conflictKey(fm) {

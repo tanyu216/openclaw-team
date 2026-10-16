@@ -3,7 +3,7 @@
 > 卡：`T-20261013-012319-2`（父 epic `T-20261013-012318-2`）· 责任：Jobs（设计/契约）。
 > 规格来源：`workspace/T-20261013-012319-2/design-spec.md`（骨架 / HARD 约束 / 已核事实 F1–F8 / 设计裁定 R-1…R-9）。
 > 同族对齐对象（只读）：`workspace/T-20261013-012318-3/codex-plugin-lane-contract.md`（Epic A / A1 契约）。**统一的是证据模型，不是引擎。**
-> 引用约定：本文只写「文档名 §章节名」，**不使用行号锚**（`PROTOCOL §⑥.1` 第 11 条）。
+> 引用约定：本文只写「文档名 §章节名」，**不使用行号锚**（`PROTOCOL §6.1` 第 11 条）。
 > 状态：**设计交付**。不改运行时代码/配置、不改产品仓、不改框架仓。事实与规格不符处见 `report.md §2`（以实测为准）。
 
 ---
@@ -20,14 +20,14 @@
 
 > Jobs 产 `design-spec.md` → **Jobs 用 OpenClaw `sessions_spawn` 启动一个 Jobs 自持的独立 sub-agent session** 写 HTML/CSS/JS → Jobs 复核
 
-并定义该机制的**契约面**：会话归属、卡↔sub-agent session 映射、registry 与卡 `## Sessions` 的 backend 表达、G1–G12 证据门、与 `PROTOCOL §⑥` 的逐条对照、`roles/jobs` 三份文件的 before/after 修改点、其它 Jobs 职责不变的证明、风险与回退、`§⑫` 文档同步判定。**其它 Jobs 职责不变。**
+并定义该机制的**契约面**：会话归属、卡↔sub-agent session 映射、registry 与卡 `## Sessions` 的 backend 表达、G1–G12 证据门、与 `PROTOCOL §6` 的逐条对照、`roles/jobs` 三份文件的 before/after 修改点、其它 Jobs 职责不变的证明、风险与回退、`PROTOCOL §12` 文档同步判定。**其它 Jobs 职责不变。**
 
 ### 1.2 Non-goal
 
 - **不改 claude 腿**：Claude Code sub-session（`claude -p` + 确定性 UUIDv5）仍是团队通用 lane 形态；本契约只把 **Jobs HTML path** 这一条支路切到原生 sub-agent，不覆盖、不改动 claude lane 语义。
 - **不改 codex 插件 leg**：codex 插件 harness 的落地属 Epic A（`T-20261013-012318-3` → A2 实现 → A3 验证）；本契约只声明**证据模型同族对齐**，不接管其实现。
 - **不做实现**：`scripts/**`、`skills/task-ops/**`、`~/.openclaw/**` 的改动不属本卡；本契约只锁定接口与不变量。
-- **不改 `PROTOCOL.md`**：与 `§⑥` 现行纪律的矛盾处**只标注「需 Elon 裁决」**，不擅自改 L1。
+- **不改 `PROTOCOL.md`**：与 `PROTOCOL §6` 现行纪律的矛盾处**只标注「需 Elon 裁决」**，不擅自改 L1。
 - **不改团队级红线段**：`team/guides/redlines.core.md` 是生成源（owner=Elon）；E11 只标注、不落改。
 
 ### 1.3 术语表
@@ -81,7 +81,7 @@
 
 ### 2.3 (c) 其它（ACP / 裸 CLI）—— **建议：不采为默认**
 
-**理由**：ACP 适配面窄、生命周期与登记面无团队级证据链；裸 `claude -p` / `codex exec` 正是「单入口」纪律要退休的胶水形态（`PROTOCOL §⑥` 单入口小节；`guides/spawn-lane-sop.md` §2 两类失效）。**风险**：绕过 ACL 登记 ⇒ 复现 `registry_only` / `card_only` 硬红；无可判版本门；无可观测会话目录。**不建议采纳**。
+**理由**：ACP 适配面窄、生命周期与登记面无团队级证据链；裸 `claude -p` / `codex exec` 正是「单入口」纪律要退休的胶水形态（`PROTOCOL §6` 单入口小节；`guides/spawn-lane-sop.md` §2 两类失效）。**风险**：绕过 ACL 登记 ⇒ 复现 `registry_only` / `card_only` 硬红；无可判版本门；无可观测会话目录。**不建议采纳**。
 
 ### 2.4 交 Elon 确认（**不预决**）
 
@@ -111,7 +111,7 @@
 
 ### 3.2 执行唯一权
 
-`PROTOCOL §⑥` 执行唯一性纪律（卡已 `in_progress` 的新回合只报状态、不重复执行；`heartbeat_at` 新鲜且 `in_progress` ⇒ poll 返回 `fire:false`）在 JHS path 下**保持不变，并加一条**：
+`PROTOCOL §6` 执行唯一性纪律（卡已 `in_progress` 的新回合只报状态、不重复执行；`heartbeat_at` 新鲜且 `in_progress` ⇒ poll 返回 `fire:false`）在 JHS path 下**保持不变，并加一条**：
 
 **同卡同段同时刻至多 1 个 JHS lane**，由**双条件**守住：
 1. **registry 活跃判定**：`claude-sessions.json` 中该 `(task_id, seg)` 存在 `status=running` 且**可达**（见 §5 判活口径）的条目 ⇒ **禁止二次 spawn**；
@@ -159,7 +159,7 @@
 
 ### 4.3 与 `handoff` 的衔接
 
-`sessionSet` 在登记 seg 后**自动确保** `workspace/<task-id>/handoff.md` 存在（缺失即生成、已存在不覆盖）。JHS 子会话的**背景包读取仍然适用**（`PROTOCOL §⑥` clause 8）：子会话先读 `handoff.md`（含四锚），再执行卡。子会话**不读牌面**、不引用任务管理（`§⑥` clause 7 保持不变）。
+`sessionSet` 在登记 seg 后**自动确保** `workspace/<task-id>/handoff.md` 存在（缺失即生成、已存在不覆盖）。JHS 子会话的**背景包读取仍然适用**（`PROTOCOL §6` clause 8）：子会话先读 `handoff.md`（含四锚），再执行卡。子会话**不读牌面**、不引用任务管理（`PROTOCOL §6` clause 7 保持不变）。
 
 > **注意**：`handoff.md` 现有锚点集（`F6`）为 claude/codex CLI lane 的口径；JHS 不改变锚点集，只沿用。若后续要为 native 增锚，属 `check-handoff` 的 ACL 增量，须另开卡。
 
@@ -199,7 +199,7 @@ schema 增量同族定义见 `codex-plugin-lane-contract.md` §4.2。**native �
 
 - `harness` 段插在 `backend:` 之后（**新增可选段**；claude/codex lane 不写该段，行解析需**向后兼容**）。
 - JHS lane **无独立 pid** ⇒ `pid:` 段**省略**或置 `-`；真正的 lane 句柄是 `id`（子会话 id）。
-- 只允许经 `task.session-set` 写卡（`PROTOCOL §⑬.3`）；**不在 ACL 外手改卡/JSON**。
+- 只允许经 `task.session-set` 写卡（`PROTOCOL §13.3`）；**不在 ACL 外手改卡/JSON**。
 
 ### 5.4 判活口径（**需 Elon 裁决**）
 
@@ -209,7 +209,7 @@ schema 增量同族定义见 `codex-plugin-lane-contract.md` §4.2。**native �
 
 **连锁影响（实测，F5）**：`check-sessions.mjs` 现按 `session_id` 对齐、按 `isPidAlive(pid)` 判活 ⇒ JHS 行因无 pid 会被判为 `stale_card_line`（软）/ `zombie_registry`（软），**污染门信号**。故该口径变更必须同步 `check-sessions` 的判活与对齐逻辑（见 §8、§12、§13 U-7）。
 
-**此项与 Epic A 的 G-2 同类 ⇒ 标「需 Elon 裁决」**（是否把「子会话可达性」正式纳入 `§⑥` reconcile 判活口径）。
+**此项与 Epic A 的 G-2 同类 ⇒ 标「需 Elon 裁决」**（是否把「子会话可达性」正式纳入 `PROTOCOL §6` reconcile 判活口径）。
 
 ### 5.5 终态同步
 
@@ -264,7 +264,7 @@ schema 增量同族定义见 `codex-plugin-lane-contract.md` §4.2。**native �
 - **定义**：lane 起/终都产出机读证据；命令面 = `sessions_spawn` 的 receipt（`ok` + 子会话 id/handle）；产物面 = 子会话输出落 `*.out.jsonl`（NDJSON，末行 `type=result`）。
 - **证据位置**：`<ws>/evidence/spawn-<ts>.json`（receipt）；`<ws>/<owner>-<n>.out.jsonl`（NDJSON）。
 - **机读命令**：`jq -e '.ok==true and .backend=="subagent"' <ws>/evidence/spawn-<ts>.json`；`tail -1 <ws>/<owner>-<n>.out.jsonl | jq -e '.type=="result"'`。
-- **期望 exit/断言**：两命令 exit 0；`out.jsonl` 存在且非空、末行 `type=result`、含 `exit_code` 字段（对照 `PROTOCOL §⑥` 子会话「先落文件」纪律）。
+- **期望 exit/断言**：两命令 exit 0；`out.jsonl` 存在且非空、末行 `type=result`、含 `exit_code` 字段（对照 `PROTOCOL §6` 子会话「先落文件」纪律）。
 - **责任人**：linus。
 
 ### G6 卡↔sub-agent session 映射
@@ -280,7 +280,7 @@ schema 增量同族定义见 `codex-plugin-lane-contract.md` §4.2。**native �
 - **定义**：网关重启后，registry `status=running` 但**子会话不可达** ⇒ 由 reconcile 置 `failed` 并**保留卡终态**（不丢终态；`terminal_immutable` 不被触发/不改写）。
 - **证据位置**：reconcile 台账 `<ws>/evidence/reconcile-<ts>.md`；卡 `## Sessions` 行 status；卡 frontmatter `status`。
 - **机读命令**：`node <team>/scripts/registry.mjs active <card>`（判活，需按 §5.4 扩展）；`grep 'seg:seg1 ·' <team>/tasks/<card>.md`。
-- **期望 exit/断言**：重启窗口后，不可达 `running` 条目被置 `failed`（registry `status=failed` + `endedAt`）；卡 `## Sessions` 行 `status` 更新为 `failed/closed`，而卡 **frontmatter `status` 保持其既有态**（终态不被会话关闭反写，`PROTOCOL §①` 终态不可逆）。
+- **期望 exit/断言**：重启窗口后，不可达 `running` 条目被置 `failed`（registry `status=failed` + `endedAt`）；卡 `## Sessions` 行 `status` 更新为 `failed/closed`，而卡 **frontmatter `status` 保持其既有态**（终态不被会话关闭反写，`PROTOCOL §1` 终态不可逆）。
 - **责任人**：linus。
 
 ### G8 日志/会话记录 24h 内导出到 workspace
@@ -348,22 +348,22 @@ schema 增量同族定义见 `codex-plugin-lane-contract.md` §4.2。**native �
 
 ---
 
-## 8. 与 PROTOCOL §⑥ 现行纪律对照（新增·变更点清单）
+## 8. 与 PROTOCOL §6 现行纪律对照（新增·变更点清单）
 
-> 逐条对照 `PROTOCOL §⑥`（会话编排纪律）：执行唯一性 / 并发额度 / cwd+沙箱 / 登记 / 终态 / reconcile / 单入口 / 会话关联与 resume。矛盾处**显式标注「需 Elon 裁决」**。
+> 逐条对照 `PROTOCOL §6`（会话编排纪律）：执行唯一性 / 并发额度 / cwd+沙箱 / 登记 / 终态 / reconcile / 单入口 / 会话关联与 resume。矛盾处**显式标注「需 Elon 裁决」**。
 
-| `§⑥` 纪律 | 现行口径 | JHS 新增·变更点 | 矛盾？ |
+| `PROTOCOL §6` 纪律 | 现行口径 | JHS 新增·变更点 | 矛盾？ |
 |---|---|---|---|
-| **红线段（`§⑥` 顶部强制红线）** | 「Jobs 产 design drafts/PRD/specs/DESIGN.md/runnable prototypes（HTML path）**must go through a Claude Code subsession**」 | **变更**：HTML path 改走 **Jobs 自持 sub-agent session**（`sessions_spawn`）；MCP design-tool path / image path / product-doc path **不变** | **需 Elon 裁决**：该红线是 L1 正文，E1–E10 只改 L2（`roles/jobs/*`）；L1 `§⑥` 红线段是否同步改写须 Elon 定 |
-| **执行唯一性**（`§⑥`「执行唯一性」小节） | 卡 `in_progress` 的新回合只报状态、不重复执行 | **不变 + 加一条**：同卡同段至多 1 个 running JHS lane（双条件，§3.2） | **无变更**（沿用 + 一条同族约束） |
-| **并发额度**（`§⑥` 第 2 条） | `running(owner)` 按 owner 计（linus/jobs<8、turing<3），判活 = pid 存活 | **新增**：JHS 与 CLI lane **合并计数**（同 registry）；registry 条目须带 `backend/harness` 以辨宿主 | **无变更**（沿用 `capFor`；仅要求 registry 能识别 native 条目） |
-| **cwd + 沙箱**（`§⑥` 第 3 条 / cwd 归一） | cwd 由 `project`+`target` 经 ACL 解析；子会话 cwd = 项目根 | **新增**：native 子会话**继承父 workspace**，故必须**在 spawn 时显式钉死原型仓 cwd**（否则越界写，§11 R4）；沙箱面继承调用方 tool-policy 上限 | **需 Elon 裁决**：现行 cwd 归一假设「spawn 的子进程 heredoc cwd」；native 子会话的 cwd 钉死形态（`cwd`/`worktree*` 参数 vs 提示词约束）须 A2 定稿并裁定是否写入 `§⑥` |
-| **登记**（`§⑥` 第 8 条 / registry 字段） | 一条 `task.session-set` 写卡 `## Sessions` + registry（含 pid），spawn 后**立即**登记 | **新增**：registry 增 `backend/harness/id_state/seg`（§5.2）；`## Sessions` 行增 `harness` 段、`pid` 省略/`-`（§5.3）；**两步回填**（pending→bound） | **需 Elon 裁决**：现行「spawn 后立即**完整**登记（含 pid）」假设存在子进程；JHS 无独立 pid ⇒ 登记改「pending 先写、bound 后覆盖」；是否放宽「立即完整登记」口径 |
-| **终态**（`§⑬.2` / `session-close`） | `task.session-close <card> <seg> done\|failed\|closed`；卡行 status + registry `setSessionStatus` + `endedAt` | **不变**；JHS 额外保留子会话 id（供 `sessions_send` 修订/审计），`id_state` 保持 `bound` | **无变更** |
-| **reconcile**（`§⑥` 第 1 条 / `kill -0`） | 判活 = `kill -0 <pid>`；僵尸清理/接管 | **变更**：JHS 无独立 pid ⇒ 判活扩为「`isPidAlive(pid)` **或** 子会话可达性」；并须同步 `check-sessions` 判活/对齐（§5.4） | **需 Elon 裁决**：是否把「子会话可达性」正式纳入 `§⑥` reconcile 口径（与 Epic A G-2 同类） |
-| **单入口 spawn-lane**（`§⑥` 单入口小节 / `guides/spawn-lane-sop.md` §1） | 新 lane 只能经 `scripts/spawn-lane.sh`（claim → handoff → spawn → session-set）；直跑 `claude -p`/`codex exec` 不登记 = 违规 | **变更**：JHS **不是 shell lane**（不经 `claude -p`/`codex exec`），由 `sessions_spawn` 直连网关起会话 ⇒ 单入口纪律需**扩展**（spawn-lane 增 native 分支）或**显式排除**并为 JHS 指定等价登记路径（`task.session-set` 两步回填） | **需 Elon 裁决**：单入口纪律是否要求 JHS 也经 `spawn-lane`（若否，须显式声明例外并保证 G3/G6 证据不降级）。**此为本节最关键矛盾点** |
-| **会话关联与 resume**（`§⑥` 第 3/8 条） | claude = 确定性 UUIDv5 + `--resume <id>`；codex = 自赋 id + `codex exec resume <id>` | **变更**：native 无 `--session-id`、无 UUIDv5 ⇒ resume = 对保留子会话 `sessions_send`；**不得**伪装成 claude/codex resume 形态 | **需 Elon 裁决**：`§⑥` clause 8 列举的 resume 形态需否补入 native（`sessions_send`）第四形态 |
-| **子会话不读牌面**（`§⑥` clause 7） | 子会话不引用任务管理，卡信息由 worker 转写进 prompt/CLAUDE.md | **不变**：JHS 子会话同样不读牌面；背景包经 `handoff.md` 注入（§4.3） | **无变更** |
+| **红线段（`PROTOCOL §6` 顶部强制红线）** | 「Jobs 产 design drafts/PRD/specs/DESIGN.md/runnable prototypes（HTML path）**must go through a Claude Code subsession**」 | **变更**：HTML path 改走 **Jobs 自持 sub-agent session**（`sessions_spawn`）；MCP design-tool path / image path / product-doc path **不变** | **需 Elon 裁决**：该红线是 L1 正文，E1–E10 只改 L2（`roles/jobs/*`）；L1 `PROTOCOL §6` 红线段是否同步改写须 Elon 定 |
+| **执行唯一性**（`PROTOCOL §6`「执行唯一性」小节） | 卡 `in_progress` 的新回合只报状态、不重复执行 | **不变 + 加一条**：同卡同段至多 1 个 running JHS lane（双条件，§3.2） | **无变更**（沿用 + 一条同族约束） |
+| **并发额度**（`PROTOCOL §6` 第 2 条） | `running(owner)` 按 owner 计（linus/jobs<8、turing<3），判活 = pid 存活 | **新增**：JHS 与 CLI lane **合并计数**（同 registry）；registry 条目须带 `backend/harness` 以辨宿主 | **无变更**（沿用 `capFor`；仅要求 registry 能识别 native 条目） |
+| **cwd + 沙箱**（`PROTOCOL §6` 第 3 条 / cwd 归一） | cwd 由 `project`+`target` 经 ACL 解析；子会话 cwd = 项目根 | **新增**：native 子会话**继承父 workspace**，故必须**在 spawn 时显式钉死原型仓 cwd**（否则越界写，§11 R4）；沙箱面继承调用方 tool-policy 上限 | **需 Elon 裁决**：现行 cwd 归一假设「spawn 的子进程 heredoc cwd」；native 子会话的 cwd 钉死形态（`cwd`/`worktree*` 参数 vs 提示词约束）须 A2 定稿并裁定是否写入 `PROTOCOL §6` |
+| **登记**（`PROTOCOL §6` 第 8 条 / registry 字段） | 一条 `task.session-set` 写卡 `## Sessions` + registry（含 pid），spawn 后**立即**登记 | **新增**：registry 增 `backend/harness/id_state/seg`（§5.2）；`## Sessions` 行增 `harness` 段、`pid` 省略/`-`（§5.3）；**两步回填**（pending→bound） | **需 Elon 裁决**：现行「spawn 后立即**完整**登记（含 pid）」假设存在子进程；JHS 无独立 pid ⇒ 登记改「pending 先写、bound 后覆盖」；是否放宽「立即完整登记」口径 |
+| **终态**（`PROTOCOL §13.2` / `session-close`） | `task.session-close <card> <seg> done\|failed\|closed`；卡行 status + registry `setSessionStatus` + `endedAt` | **不变**；JHS 额外保留子会话 id（供 `sessions_send` 修订/审计），`id_state` 保持 `bound` | **无变更** |
+| **reconcile**（`PROTOCOL §6` 第 1 条 / `kill -0`） | 判活 = `kill -0 <pid>`；僵尸清理/接管 | **变更**：JHS 无独立 pid ⇒ 判活扩为「`isPidAlive(pid)` **或** 子会话可达性」；并须同步 `check-sessions` 判活/对齐（§5.4） | **需 Elon 裁决**：是否把「子会话可达性」正式纳入 `PROTOCOL §6` reconcile 口径（与 Epic A G-2 同类） |
+| **单入口 spawn-lane**（`PROTOCOL §6` 单入口小节 / `guides/spawn-lane-sop.md` §1） | 新 lane 只能经 `scripts/spawn-lane.sh`（claim → handoff → spawn → session-set）；直跑 `claude -p`/`codex exec` 不登记 = 违规 | **变更**：JHS **不是 shell lane**（不经 `claude -p`/`codex exec`），由 `sessions_spawn` 直连网关起会话 ⇒ 单入口纪律需**扩展**（spawn-lane 增 native 分支）或**显式排除**并为 JHS 指定等价登记路径（`task.session-set` 两步回填） | **需 Elon 裁决**：单入口纪律是否要求 JHS 也经 `spawn-lane`（若否，须显式声明例外并保证 G3/G6 证据不降级）。**此为本节最关键矛盾点** |
+| **会话关联与 resume**（`PROTOCOL §6` 第 3/8 条） | claude = 确定性 UUIDv5 + `--resume <id>`；codex = 自赋 id + `codex exec resume <id>` | **变更**：native 无 `--session-id`、无 UUIDv5 ⇒ resume = 对保留子会话 `sessions_send`；**不得**伪装成 claude/codex resume 形态 | **需 Elon 裁决**：`PROTOCOL §6` clause 8 列举的 resume 形态需否补入 native（`sessions_send`）第四形态 |
+| **子会话不读牌面**（`PROTOCOL §6` clause 7） | 子会话不引用任务管理，卡信息由 worker 转写进 prompt/CLAUDE.md | **不变**：JHS 子会话同样不读牌面；背景包经 `handoff.md` 注入（§4.3） | **无变更** |
 
 > 结论：十条纪律中 **四条无变更**（执行唯一性 / 并发额度 / 终态 / 子会话不读牌面），**六条含变更且各有一处矛盾点，均标注「需 Elon 裁决」**（L1 红线段、cwd 钉死形态、两步登记、reconcile 判活、单入口归属、resume 第四形态）。矛盾点汇总见 §13。
 
@@ -395,14 +395,14 @@ schema 增量同族定义见 `codex-plugin-lane-contract.md` §4.2。**native �
 
 | # | 职责 | 状态 | 证据锚 |
 |---|---|---|---|
-| ① | **产品文档 SOP**（item 7） | **不变**：仍 Claude Code sub-session 产出，Elon 双签后方可作下游输入 | `roles/jobs/AGENTS.md` §Role Duties item 7（①–④）；`PROTOCOL §⑥` 红线段「Product design documents」；`PROTOCOL §⑭` Confirmation Gate |
-| ② | **图像设计 SOP**（item 8） | **不变**：仍 Claude Code sub-session 加载 `canvas-design` skill（设计哲学 .md → .png/.pdf） | `roles/jobs/AGENTS.md` §Role Duties item 8（①–③）；`PROTOCOL §⑥` 红线段「Image-design path」 |
-| ③ | **MCP carriers**（figma/google-stitch/pixso） | **不变**：直连 MCP + 本 workspace 配套 skill，**不 spawn** Claude Code/Codex（更不 spawn sub-agent） | `roles/jobs/AGENTS.md` §Role Duties item 1（figma/google-stitch/pixso 三段）；`PROTOCOL §⑥` 红线段「MCP design-tool path」；`guides/task-interface.md` §2（project 解析） |
-| ④ | **Review round**（item 2） | **不变**：ux-review 清单 + 浏览器认证 + issue list 落 `workspace/<task-id>/review/`；item 1 各 carrier 一致 | `roles/jobs/AGENTS.md` §Role Duties item 2；`PROTOCOL §⑨.1`（三线防御：before=Jobs / during=Linus / after=Turing+Jobs 视觉） |
-| ⑤ | **Prototype Tech-Stack Spec**（封闭栈） | **不变**：`Tailwind CSS` + `daisyUI` + `jQuery`（3D 例外 `three.js`）；`data-*` 语义钩子；禁其它框架/UI 库 | `roles/jobs/AGENTS.md` §Prototype Tech-Stack Spec 第 0–5 条；`PROTOCOL §⑥` 红线段封闭栈小节 + `§⑥.1` clause 14（Linus 工程栈与原型栈分层、互不冲突） |
-| ⑥ | **Requirement-alignment baseline 归属** | **不变**：Jobs owns「what to build」基线（PRD/`DESIGN.md`/原型结构契约 + block list），Turing 独立核对 | `roles/jobs/AGENTS.md` §Requirement–implementation alignment 段；`PROTOCOL §⑥.1` clause 13；`ROLES.md` Jobs 行 |
-| ⑦ | **并发/cap/复核/终态纪律** | **不变**：`running(jobs)<8`、iteration cap 4 轮、终态不可逆、§⑬.2 三件套 | `PROTOCOL §⑥` 第 2 条 + `§⑥.3`；`ROLES.md` 顶部；`PROTOCOL §①` 终态不可逆；`PROTOCOL §⑬.2` |
-| ⑧ | **保护红线** | **保留**：「**Jobs 不亲手写 HTML/CSS/JS**」改写为「**Jobs 不亲手写 HTML/CSS/JS —— 由 Jobs 自持的 sub-agent session 写，Jobs 复核**」；封闭技术栈不变；三段式（`design-spec.md` → 制作 → Jobs 复核）不变 | 本契约 §9 E1–E10（措辞改写）；`roles/jobs/AGENTS.md` §Tool Discipline；`PROTOCOL §⑥` 红线段 |
+| ① | **产品文档 SOP**（item 7） | **不变**：仍 Claude Code sub-session 产出，Elon 双签后方可作下游输入 | `roles/jobs/AGENTS.md` §Role Duties item 7（①–④）；`PROTOCOL §6` 红线段「Product design documents」；`PROTOCOL §14` Confirmation Gate |
+| ② | **图像设计 SOP**（item 8） | **不变**：仍 Claude Code sub-session 加载 `canvas-design` skill（设计哲学 .md → .png/.pdf） | `roles/jobs/AGENTS.md` §Role Duties item 8（①–③）；`PROTOCOL §6` 红线段「Image-design path」 |
+| ③ | **MCP carriers**（figma/google-stitch/pixso） | **不变**：直连 MCP + 本 workspace 配套 skill，**不 spawn** Claude Code/Codex（更不 spawn sub-agent） | `roles/jobs/AGENTS.md` §Role Duties item 1（figma/google-stitch/pixso 三段）；`PROTOCOL §6` 红线段「MCP design-tool path」；`guides/task-interface.md` §2（project 解析） |
+| ④ | **Review round**（item 2） | **不变**：ux-review 清单 + 浏览器认证 + issue list 落 `workspace/<task-id>/review/`；item 1 各 carrier 一致 | `roles/jobs/AGENTS.md` §Role Duties item 2；`PROTOCOL §9.1`（三线防御：before=Jobs / during=Linus / after=Turing+Jobs 视觉） |
+| ⑤ | **Prototype Tech-Stack Spec**（封闭栈） | **不变**：`Tailwind CSS` + `daisyUI` + `jQuery`（3D 例外 `three.js`）；`data-*` 语义钩子；禁其它框架/UI 库 | `roles/jobs/AGENTS.md` §Prototype Tech-Stack Spec 第 0–5 条；`PROTOCOL §6` 红线段封闭栈小节 + `PROTOCOL §6.1` clause 14（Linus 工程栈与原型栈分层、互不冲突） |
+| ⑥ | **Requirement-alignment baseline 归属** | **不变**：Jobs owns「what to build」基线（PRD/`DESIGN.md`/原型结构契约 + block list），Turing 独立核对 | `roles/jobs/AGENTS.md` §Requirement–implementation alignment 段；`PROTOCOL §6.1` clause 13；`ROLES.md` Jobs 行 |
+| ⑦ | **并发/cap/复核/终态纪律** | **不变**：`running(jobs)<8`、iteration cap 4 轮、终态不可逆、PROTOCOL §13.2 三件套 | `PROTOCOL §6` 第 2 条 + `PROTOCOL §6.3`；`ROLES.md` 顶部；`PROTOCOL §1` 终态不可逆；`PROTOCOL §13.2` |
+| ⑧ | **保护红线** | **保留**：「**Jobs 不亲手写 HTML/CSS/JS**」改写为「**Jobs 不亲手写 HTML/CSS/JS —— 由 Jobs 自持的 sub-agent session 写，Jobs 复核**」；封闭技术栈不变；三段式（`design-spec.md` → 制作 → Jobs 复核）不变 | 本契约 §9 E1–E10（措辞改写）；`roles/jobs/AGENTS.md` §Tool Discipline；`PROTOCOL §6` 红线段 |
 
 **结论**：本机制**只替换 HTML path 的制作执行体**（Claude Code sub-session → Jobs 自持 sub-agent session），其余 ①–⑦ 全部不动、⑧ 仅按 R-7 措辞改写。**其它 Jobs 职责不变。**
 
@@ -435,9 +435,9 @@ schema 增量同族定义见 `codex-plugin-lane-contract.md` §4.2。**native �
 
 ### R4 写面越界（子会话继承父 workspace）（严重度：中）
 
-- **依据**：F1「子会话继承父 workspace」⇒ 若 spawn 未钉死 cwd，sub-agent 可能写到父 workspace 或 `prototype/**` 之外（违反 `PROTOCOL §⑨.2` 原型纯净、污染 `§⑨.1` 单写者纪律）。
+- **依据**：F1「子会话继承父 workspace」⇒ 若 spawn 未钉死 cwd，sub-agent 可能写到父 workspace 或 `prototype/**` 之外（违反 `PROTOCOL §9.2` 原型纯净、污染 `PROTOCOL §9.1` 单写者纪律）。
 - **缓解**：§6 G2——spawn 时显式钉死原型仓 cwd（`cwd`/`worktree*`），写面仅限原型仓；落 `git status --porcelain` 前后证据；可选原生 `worktree` 隔离（`guides/dev-worktree-flow-sop.md`）。
-- **回退**：越界写 ⇒ 判该 lane evidence 无效 + 按 Git 纪律前向修正（**禁用** rebase/reset/stash/clean，`PROTOCOL §⑥` Git 纪律）。
+- **回退**：越界写 ⇒ 判该 lane evidence 无效 + 按 Git 纪律前向修正（**禁用** rebase/reset/stash/clean，`PROTOCOL §6` Git 纪律）。
 - **再评估触发**：native spawn 提供强制 cwd 沙箱（不可越界）能力。
 
 ### R5 合规/越权语义边界（严重度：中）
@@ -449,15 +449,15 @@ schema 增量同族定义见 `codex-plugin-lane-contract.md` §4.2。**native �
 
 ---
 
-## 12. §⑫ 文档同步判定
+## 12. PROTOCOL §12 文档同步判定
 
-**判定：有文档影响**（本卡触及接口 / 数据结构 / 约定变更：`## Sessions` 行 schema、registry 字段、resume 形态、判活口径、引擎约定）。需同步章节如下——**由下游实现卡落地时按 `§⑫` 反向回填同步**（本契约为设计交付，只定义、不改文档）：
+**判定：有文档影响**（本卡触及接口 / 数据结构 / 约定变更：`## Sessions` 行 schema、registry 字段、resume 形态、判活口径、引擎约定）。需同步章节如下——**由下游实现卡落地时按 `PROTOCOL §12` 反向回填同步**（本契约为设计交付，只定义、不改文档）：
 
 | 目标文档 | 需同步章节 | 变更要点（明细锚） |
 |---|---|---|
-| `PROTOCOL.md` | `§⑥` 顶部红线段（「HTML path must go through a Claude Code subsession」） | 改为「Jobs 自持 sub-agent session」；**需 Elon 裁决**（L1 正文，§8 对照） |
-| `PROTOCOL.md` | `§⑥` 第 2/3/8 条、单入口小节 | §8 对照表：合并计数 / native cwd 钉死 / resume = `sessions_send` / 单入口是否覆盖 JHS |
-| `PROTOCOL.md` | `§⑥` 第 1 条（reconcile/`kill -0`）、`§①` Board 的 `## Sessions` schema 注、`§⑬.2` | §5.3/§5.4：判活扩为 pid 或子会话可达性；`## Sessions` 行增 `harness` 段、`pid` 省略/`-` |
+| `PROTOCOL.md` | `PROTOCOL §6` 顶部红线段（「HTML path must go through a Claude Code subsession」） | 改为「Jobs 自持 sub-agent session」；**需 Elon 裁决**（L1 正文，§8 对照） |
+| `PROTOCOL.md` | `PROTOCOL §6` 第 2/3/8 条、单入口小节 | §8 对照表：合并计数 / native cwd 钉死 / resume = `sessions_send` / 单入口是否覆盖 JHS |
+| `PROTOCOL.md` | `PROTOCOL §6` 第 1 条（reconcile/`kill -0`）、`PROTOCOL §1` Board 的 `## Sessions` schema 注、`PROTOCOL §13.2` | §5.3/§5.4：判活扩为 pid 或子会话可达性；`## Sessions` 行增 `harness` 段、`pid` 省略/`-` |
 | `guides/spawn-lane-sop.md` | §1 Rule、§3 Sequence、§6 gates、§7 refusal | **范围声明**（E12）：扩展或显式排除 HTML sub-agent + 登记等价物；若扩展则增 native 分支与拒绝码 |
 | `guides/task-interface.md` | §2 = 仅 ACL 最小必需集（**不再含 AgentSession**；canonical schema 归产品 `skills/meerkat-taskpanel/references/card-schema.md`）；§9 Session Association and Resume；§8 Future-Swap Mapping | AgentSession 增 `harness/id_state/seg`（落产品 `## Sessions` schema）；`## Sessions` 行映射（§9）；native resume 形态（`sessions_send`） |
 | `scripts/README.md` | spawn-lane / registry 段 | 若单入口扩展：后端分派增 native 分支；registry 字段增量 |
@@ -465,7 +465,7 @@ schema 增量同族定义见 `codex-plugin-lane-contract.md` §4.2。**native �
 | `team/guides/redlines.core.md` | 第 7 条 | E11：是否划范围（**需 Elon 双签**，只标注不落改） |
 | `scripts/check-sessions.mjs`（判活/对齐口径） | 判活函数与卡↔registry 对齐键 | §5.4：无 pid ⇒ 判活扩为子会话可达性；否则 native 行被误报 `stale_card_line`/`zombie_registry` |
 
-> 无「无文档影响」声明。同步触发点 = 下游实现 PR（`§⑫` 反向回填）；本契约文档自身为 L5 证据，不改 L1/L2 正文。
+> 无「无文档影响」声明。同步触发点 = 下游实现 PR（`PROTOCOL §12` 反向回填）；本契约文档自身为 L5 证据，不改 L1/L2 正文。
 
 ---
 
@@ -480,12 +480,12 @@ schema 增量同族定义见 `codex-plugin-lane-contract.md` §4.2。**native �
 | **U-3** | **「不再依赖 claude」语义边界**：指「不再依赖 Claude Code CLI」还是「不再用 Claude 模型」 | 选项③合法性、E6 措辞 | **需 Elon 逐字明确** |
 | **U-4** | **registry upsert 键**：现行 `task_id\|owner\|phase\|session_id` 在大绑定后产生两行（§5.2、R3；同族 Epic A §11 G-1） | 两步回填的 registry 一致性 | **需 Elon 裁决**：将 `seg` 纳入去重键，或绑定步显式关闭 pending 行。契约默认 = 键纳入 `seg` |
 | **U-5** | **子 agent 主体**：JHS 子会话跑 self（jobs agent）还是专用 agent 条目（如 `prototyper`）？F2 显示 jobs 未配 `subagents.allowAgents` | spawn 参数 `agentId` 与放行面 | **需 Elon 裁决** |
-| **U-6** | **reconcile 判活口径**：是否把「子会话可达性」正式纳入 `§⑥`（§5.4、§8；同族 Epic A G-2） | 判活/对账（R2） | **需 Elon 裁决** |
+| **U-6** | **reconcile 判活口径**：是否把「子会话可达性」正式纳入 `PROTOCOL §6`（§5.4、§8；同族 Epic A G-2） | 判活/对账（R2） | **需 Elon 裁决** |
 | **U-7** | **`check-sessions` 判活/对齐扩展**：无 pid ⇒ native 行被误报 `stale_card_line`/`zombie_registry`（F5 实测） | 门信号洁净度 | **需 Elon 裁决** + linus 实现同步（§12） |
 | **U-8** | **单入口归属**：JHS 是否也须经 `spawn-lane.sh` 单入口？还是 `sessions_spawn` 直连 + `task.session-set` 两步回填即视为等价登记（§8） | 单入口纪律 + G3/G6 证据面 | **需 Elon 裁决**（**本节最关键**） |
 | **U-9** | **绑定超时阈值**：`id_state=pending` 超时建议 ≤120s（与 Epic A §3.2 同口径） | 断链判定（§3.3） | 契约默认 120s；A2 可配（建议命名 `SUBAGENT_BIND_TIMEOUT_MS`） |
 | **U-10** | **会话持久态默认**：`visible`（持久 sidebar session）vs ephemeral（`cleanup:"delete"`）默认取值；及 `cleanup:"keep"` 是否强制（R-4 修订语义） | 可观测性 + 可修订性 | 契约默认 `cleanup:"keep"`（保证 `sessions_send` 修订）；`visible` 仅用户要求独立 sidebar session 时用 |
-| **U-11** | **L1 红线段是否同步**：`§⑥` 顶部红线「HTML path must go through a Claude Code subsession」是否随 E1–E10 改写 | L1/L2 一致性 | **需 Elon 裁决**（L1 正文，owner=Elon） |
+| **U-11** | **L1 红线段是否同步**：`PROTOCOL §6` 顶部红线「HTML path must go through a Claude Code subsession」是否随 E1–E10 改写 | L1/L2 一致性 | **需 Elon 裁决**（L1 正文，owner=Elon） |
 | **U-12** | **codex 插件后端 opt-in 的触发条件**：何时把 JHS 切到 (b)（§2.2） | 引擎切换面 | **需 Elon 裁决**；契约建议仅在「需 codex 级编码 + 与 Epic A 统一」时 opt-in |
 
 ---

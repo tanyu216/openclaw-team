@@ -172,7 +172,7 @@ test('登记：allowInvalidRoot ⇒ 逐条显式告警并跳过，其余照常�
   assert.match(warns[0], /跳过 ghost/);
 });
 
-// ---- ①b rel_path containment：invalidRepoReason 判据（PROTOCOL §②.1） ---------
+// ---- ①b rel_path containment：invalidRepoReason 判据（PROTOCOL §2.1） ---------
 
 test('invalidRepoReason：空/缺省/项目内相对 ⇒ null（合法）', () => {
   for (const v of [undefined, null, '', '   ', '.', './', 'src', 'src/x', './x', 'a/b/']) {
@@ -190,7 +190,7 @@ test('invalidRepoReason：非字符串 ⇒ 明确报错（不静默）', () => {
   assert.match(String(invalidRepoReason(42)), /非字符串/);
 });
 
-test('登记：repos[].rel_path 逃逸 ⇒ 默认拒绝整轮，一条都不写（§②.1）', () => {
+test('登记：repos[].rel_path 逃逸 ⇒ 默认拒绝整轮，一条都不写（PROTOCOL §2.1）', () => {
   const good = mkScratch();
   const { board, calls } = fakeBoard();
   const registry = {

@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
  * lint-refs.mjs — §引用可解析（PROTOCOL 编号）：扫 AGENTS.md / ROLES.md / guides/redlines.core.md
- * 仅校验「圈号 §①…§⑳（可带 .N 子号）」，阿拉伯 §N 视为他文档小节、忽略。
+ * 记法（2026-10-16 阿拉伯化后）：节引用一律 `§` + **阿拉伯**数字（`§15` / `§6.1`）。
+ * 判别符是**点名与否**，不是字形：`PROTOCOL §N` 指 L1；**裸 `§N`** 指**本文件自己的**节 ——
+ * 而本腿扫的三个目标都没有编号标题（无「自己的节」可言），故裸引用按 PROTOCOL 解析。
  * 退出码：0 全解析；1 有断引用；2 用法错或模式不可判定。
  * 模式（判定见 host-paths.mjs）：实例在场 ⇒ **live**（行为与历史一致）；否则 ⇒ **repo**：
  *   扫仓内种子 `<repo>/roles/<role>/AGENTS.md` + `<repo>/team/**`，不读本机实例。
@@ -33,19 +35,28 @@ for (const g of ['ROLES.md', 'guides/redlines.core.md']) {
 }
 
 let bad = 0;
+let checked = 0;
 for (const p of targets) {
   const lines = fs.readFileSync(p, 'utf8').split('\n');
   let fence = false;
   lines.forEach((line, i) => {
     if (/^\s*```/.test(line)) { fence = !fence; return; }
     if (fence) return;
-    for (const mm of line.matchAll(/§([①-⑳])(?:\.([0-9]))?/g)) {
+    // `PROTOCOL §N` 与裸 `§N` 都收（本腿的三个目标无自己的编号节 ⇒ 裸引用即 PROTOCOL）。
+    for (const mm of line.matchAll(/(?:PROTOCOL\s*)?§\s*(\d+)(?:\.(\d+))?/g)) {
+      // 已点名的另一种写法：`` `<file>.md` §N `` —— § 落在反引号**外**。
+      // 那是 lint-doc-refs 第二腿（跨文件章节锚）的职责，本腿不重复判。
+      if (!/^PROTOCOL/.test(mm[0]) && /\.md`?\s*$/.test(line.slice(0, mm.index))) continue;
       const base = mm[1]; const sub = mm[2];
       const target = sub ? `${base}.${sub}` : base;
-      const ok = sub ? (P.includes(`### ${target}`) || P.includes(`## ${target}`)) : P.includes(`## ${base}`);
+      checked++;
+      // 有子号 ⇒ 必须有该子节标题；无子号 ⇒ 该节或其任一子节存在即可。
+      const ok = sub
+        ? (P.includes(`### ${target}`) || P.includes(`## ${target}`))
+        : (P.includes(`## ${base}.`) || P.includes(`### ${base}.`));
       if (!ok) { console.log(`✗ ${shrink(p)}:${i + 1} 断引用 §${target}`); bad++; }
     }
   });
 }
-console.log(bad ? `\n断引用：${bad}` : '§引用全部可解析 ✔');
+console.log(bad ? `\n断引用：${bad}（已检查 ${checked} 条）` : `§引用全部可解析 ✔（已检查 ${checked} 条）`);
 process.exit(bad ? 1 : 0);

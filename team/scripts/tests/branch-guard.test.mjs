@@ -3,7 +3,7 @@
  * branch-guard.test.mjs — 提交侧分支守卫（T-20261015-devbranch）
  *
  * 红（反证）：`scripts/branch-guard.mjs` 不存在 ⇒ import 失败（模块缺失即红）。
- * 绿：开发集成在 `dev` 上（`PROTOCOL §⑥.4`）——lane 提交落在 `lane/*`、`dev` 上放行；
+ * 绿：开发集成在 `dev` 上（`PROTOCOL §6.4`）——lane 提交落在 `lane/*`、`dev` 上放行；
  *   **直接提交受保护分支（缺省 `main`）被拒**；detached HEAD 被拒；`--allow-protected` 放行为
  *   告警 + `overridden:true`（`dev→main` 集成步骤的显式出口）；自定义受保护集；
  *   非 git 仓被拒；CLI 末行 JSON 契约与退出码 0/1/2。

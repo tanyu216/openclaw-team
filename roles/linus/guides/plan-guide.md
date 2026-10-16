@@ -3,9 +3,9 @@
 > **This guide = the detailed method for development process Phases 1-2** (the detailed tutorial referenced by AGENTS.md "Development Process SOP").
 > Usage: first follow the "Execution Checklist" item by item; "Details" is the concrete reference for each step, consult as needed.
 >
-> **Layer**: L2.5 role method library (`PROTOCOL §⑰`). **Owner**: Linus. **Effective**: 2026-10-16.
+> **Layer**: L2.5 role method library (`PROTOCOL §17`). **Owner**: Linus. **Effective**: 2026-10-16.
 > **On conflict**: `PROTOCOL` governs, then `roles/<role>/AGENTS.md`, then this guide.
-> **Single-home boundary** (the same text must not live in two places — `PROTOCOL §⑰`): the six plan
+> **Single-home boundary** (the same text must not live in two places — `PROTOCOL §17`): the six plan
 > checks are canonical in `team/guides/plan-quality.md` — this guide supplies the *method* behind each
 > check and does not restate them. Coverage thresholds / the TDD table / the evidence gate belong to
 > `execute-guide.md`; the Report slots belong to `team/guides/worker-report-template.md`.
