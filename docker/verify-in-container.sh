@@ -51,6 +51,12 @@ node --test 'test/install/'*.test.mjs
 step "skills update tests (node:test — ref drift detect / zero-write default / --apply + tree_sha256)"
 node --test 'test/skills/'*.test.mjs
 
+# 文档层「零条款丢失」比对器自身的回归（`test/docs/` 是仓侧工具，不随 install.sh 部署）。
+# 它是压缩 team/guides 时唯一能机检「条款没丢」的东西，坏了没有别的门看得见 —— 因为
+# 「什么都没报」正是它的正常输出。故须与其它仓侧套件同场跑。
+step "doc-clause-diff tests (node:test — 反证：注入删除必须被抓到)"
+node --test 'test/docs/'*.test.mjs
+
 step "manifest + lock integrity (0 unresolved required)"
 node -e '
 const fs = require("fs");
