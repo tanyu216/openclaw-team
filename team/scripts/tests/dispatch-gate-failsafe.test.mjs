@@ -81,6 +81,7 @@ function capture(argv, env) {
 test('firesOnDegrade: the health gate and the drift detector fail safe; action jobs do not', () => {
   assert.equal(firesOnDegrade('check-all'), true);
   assert.equal(firesOnDegrade('skills-update'), true, 'an unconfirmed drift check must alarm, not read as "nothing moved"');
+  assert.equal(firesOnDegrade('tmp-gc'), true, 'a janitor that silently stopped working looks exactly like a host with nothing to clean');
   assert.equal(firesOnDegrade('poll'), false);
   assert.equal(firesOnDegrade('patrol'), false);
   assert.equal(firesOnDegrade(''), false);

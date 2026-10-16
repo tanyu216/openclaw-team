@@ -9,7 +9,7 @@
 
 | File | Role |
 |---|---|
-| `dispatch.mjs` | Framework dispatcher: `node dispatch.mjs <poll\|patrol\|check-all> [agent]` → prints one line `{"fire":bool, "message"?, "state"?}`. Runs the provider entry **without a shell** and never throws. |
+| `dispatch.mjs` | Framework dispatcher: `node dispatch.mjs <poll\|patrol\|check-all\|skills-update\|sla-scan\|tmp-gc> [agent]` → prints one line `{"fire":bool, "message"?, "state"?}`. Runs the provider entry **without a shell** and never throws. |
 | `providers.json` | Per-provider entry command templates (`{team}` = the deployed team dir, `{agent}` = the agent arg). Ships `meerkat-taskpanel` as the default provider. |
 | `README.md` | This file. |
 
@@ -47,6 +47,12 @@ for (T-20261010-190039):
   A non-zero exit is not the gate's verdict on its own: an `{"ok":false}` envelope on
   stdout is recovered first (reason `gate-failed`), because `check-all.sh` prints
   exactly that envelope and then `exit $fail`. A confirmed `ok:true` stays `fire:false`.
+- **detectors / janitors** (`skills-update`, `sla-scan`, `tmp-gc`) → `{"fire":true, "message":…}`
+  for the same reason in different clothes: each is the *only* signal of the thing it observes
+  (upstream skill drift / a board wait crossing a `§⑮` tier / scratch that stopped being
+  collected), so an evaluation it could not complete must be surfaced rather than read as
+  "nothing changed". Their **normal** outcome is still `fire:false` — for `tmp-gc` even a sweep
+  that deleted a great deal is the job working, not an event.
 
 ## Selecting / swapping the provider
 
@@ -56,6 +62,7 @@ OPENCLAW_TEAM_TASK_PROVIDER=meerkat-taskpanel   # default
 OPENCLAW_TEAM_POLL_CMD="node /path/to/poll.mjs {agent}"
 OPENCLAW_TEAM_PATROL_CMD="node /path/to/patrol.mjs"
 OPENCLAW_TEAM_CHECKALL_CMD="bash /path/to/check-all.sh"
+OPENCLAW_TEAM_TMPGC_CMD="node /path/to/tmp-gc.mjs"
 ```
 
 > **Compatibility (`legacy-name-compat`)**: the pre-rebrand provider name/key `task-panel` still

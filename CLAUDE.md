@@ -128,15 +128,24 @@ line `{"fire": bool}`. **No trigger script contains a provider literal**, so
 swapping the task base (meerkat-taskpanel → Jira / Plane / Linear) changes zero
 jobs. Failure/timeout/unparseable output degrades differently by job kind:
 action jobs (`poll`, `patrol`) → `fire:false` (don't wake anyone); the health
-gate (`check-all`) → `fire:true` (an unconfirmed gate must alarm, not read as
-green).
+gate (`check-all`) and the detectors/janitors (`skills-update`, `sla-scan`,
+`tmp-gc`) → `fire:true` (an unconfirmed evaluation must alarm, not read as
+green — for `tmp-gc` that means an unreadable root or a failed delete, never
+"it deleted a lot").
 
 Jobs are registered declaratively by
 [config/reconcile.mjs](config/reconcile.mjs) — declared jobs are the single source
 of truth; each run aligns the runtime (missing ⇒ add, drifted ⇒ edit, matching ⇒
 skip). Overrides for local testing: `OPENCLAW_TEAM_POLL_CMD`,
-`OPENCLAW_TEAM_PATROL_CMD`, `OPENCLAW_TEAM_CHECKALL_CMD`, and
-`OPENCLAW_TEAM_TASK_PROVIDER=<name>`.
+`OPENCLAW_TEAM_PATROL_CMD`, `OPENCLAW_TEAM_CHECKALL_CMD`,
+`OPENCLAW_TEAM_TMPGC_CMD`, and `OPENCLAW_TEAM_TASK_PROVIDER=<name>`.
+
+`tmp-gc` (daily 02:20 Asia/Shanghai) is the enforcement arm of the scratch-file
+discipline `PROTOCOL §⑬.9`: every role keeps its temporary files in its own
+`workspace-<role>/.tmp/`, and the job deletes anything older than 14 days there,
+plus `~/.openclaw/tmp/` and `~/.openclaw/team/tmp/`. Roots come from a glob, so
+the repo never carries a second copy of the role roster. Audit with
+`node team/scripts/tmp-gc.mjs --days 14 --dry-run --json`.
 
 ### The gate — [team/scripts/check-all.sh](team/scripts/check-all.sh)
 
