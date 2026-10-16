@@ -2,6 +2,7 @@
 
 > Companion to `roles/linus/AGENTS.md` **Phase 2** and `PROTOCOL §6.1`. Used before
 > execution; a plan that fails any required item must not proceed.
+---
 
 ## The six checks
 
@@ -52,6 +53,7 @@ real branches/boundaries/error paths (not just the happy path).
 ### 6. Todo check
 Execution steps are well-formed, actionable, ordered, and match the plan; markers
 `[ADD]/[DELETE]/[MODIFY]/[integration]` are consistent with the file list.
+---
 
 ## Output
 - The check results are recorded in the plan (or the card's Progress); failures

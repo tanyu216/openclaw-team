@@ -14,6 +14,7 @@
 > (`delivery` | `import`) and the **A4 → A6 coupling** for unmet items. The role-specific
 > sections are audited by the role's own review, not mechanically. Payload bounds (§6) are
 > the provider's and are **not** re-checked here.
+---
 
 ## 0. How the slots work (the anchor grammar)
 
@@ -325,6 +326,7 @@ habit on every role), but these families leak systematically:
    card and satisfy every slot; there is no write-timestamp on a `## Report` section, so the
    only counter is A2's delivery time/round declaration for sent-back cards (a hint, not a
    block; §5).
+---
 
 ## 5. Effective date, grandfathering and the gate surface
 

@@ -19,6 +19,7 @@
   `harness=cli` (default) keeps the current `codex exec` child-process path; `harness=plugin` (`--plugin` is equivalent, **`backend=codex` only**) runs the Codex lane on the official app-server embedded harness — its handle is a **native thread id**, so registration is a **two-step backfill** (§3.1).
 - **Forbidden**: running `claude -p …` / `codex exec …` **directly** and registering (or not registering) by hand. A lane started that way bypasses the ACL and reproduces the two failure modes in §2.
 - A lane **must not** be started outside the entry even when it "seems simpler" — the entry only adds one command's worth of friction and removes two classes of board-wide breakage.
+---
 
 ## 2. Why (two field-verified failure modes)
 
@@ -28,6 +29,7 @@ Both were observed on 2026-10-10 (`check-all` red) on lanes started by a direct 
 2. **Non-canonical handoff** — `workspace/<task-id>/handoff.md` was **hand-written**, missing the four anchors (`HANDOFF:v1` / `## 任务卡` / `## 上段结论` / `## 讨论/决策` / `state.md`). Once a seg was registered, `check-handoff` failed; the file is what the next segment is supposed to read first, so a non-canonical one silently breaks cross-segment consistency (`PROTOCOL §6.0`).
 
 ⇒ The entry makes both **impossible by construction**, and the gates catch any lane that still bypasses it.
+---
 
 ## 3. Sequence (what the entry does, in order)
 
@@ -69,6 +71,7 @@ A plugin lane diverges from step 7–9 above in exactly one way: **there is no `
 Liveness for a plugin lane is **`pid` alive OR native thread reachable** — the registry `pid` is the long-lived **gateway** pid and must **never** be read as the lane's own liveness (§12). cwd, sandbox domain and the approval posture are the **same** as the CLI path, not relaxed: the sandbox maps onto the same `read-only | workspace-write | danger-full-access` values and an unattended lane keeps the CLI-equivalent, non-bypass approval posture (no auto-approve weakening; a blocking approval ⇒ `blocked` + report). Gateway logs (24 h prune) are exported to `workspace/<task-id>/evidence/` at lane start.
 
 Mechanism contract + per-gate evidence commands: `guides/codex-plugin-lane-contract.md`. Test surface: `scripts/tests/spawn-lane-plugin.test.mjs`.
+---
 
 ## 4. How to run
 
@@ -97,10 +100,12 @@ bash ~/.openclaw/team/scripts/spawn-lane.sh T-20261010-052210 turing backend=cod
 - Exit codes: **0** started (or dry-run OK) · **1** refused (validation/handoff/claim/cap) · **2** usage error.
 - Refusal reasons are stable and greppable, e.g. `claimed_by_mismatch(…)`, `concurrency_cap(owner=…,running=…,cap=…)`, `handoff_anchor_missing:…`, `status_not_spawnable(…)`, `card_busy(…)`, `session_running(…)` (`§7`).
 - After starting a lane you **still own polling it to terminal state** (`PROTOCOL §6` clause 4); the entry does not take over polling. You do **not** own the session's terminal *registration* any more: step 10's reaper writes it when the lane's process ends (`lane-session-lifecycle-sop.md`).
+---
 
 ## 5. Detach discipline (macOS)
 
 The entry starts the child as a **new session detached from the parent process group** — in Node that is `spawn(bin, args, { detached: true })` + `unref`, the portable equivalent of Python `subprocess.Popen(…, start_new_session=True)`. **Do not** use `nohup … &` (it gets reaped when the parent turn ends) and **there is no `setsid` on macOS** (`PROTOCOL §6` clause 3 note).
+---
 
 ## 6. How the gates back this up
 
@@ -110,6 +115,7 @@ The entry starts the child as a **new session detached from the parent process g
 Both gates are aggregated by `scripts/check-all.sh`; a bypass lane therefore cannot stay invisible on the board.
 
 `check-sessions` also judges **liveness** with the plugin lane in mind: a Codex plugin row/entry (`harness:plugin`) is alive when its **native thread is reachable**, not when a pid is — a row without a `harness:` segment is read as `cli` (backward compatible), so historical rows keep their old meaning.
+---
 
 ## 7. When the entry refuses
 
@@ -127,6 +133,7 @@ Both gates are aggregated by `scripts/check-all.sh`; a bypass lane therefore can
 - **`thread_bind_timeout(seg=…,ms=…):reconcile`** (exit 1) — a plugin lane never reported its native thread id within `THREAD_BIND_TIMEOUT_MS` (default 120 s). The lane is marked `failed` and its dispatcher terminated; **do not** start a replacement blindly — reconcile the registry entry first, then re-run the entry (§3.1).
 - **`lane_reaper_failed(…)`** — the session reaper (step 10) could not be started, so the entry refused to run the lane and already closed the row it had registered (fail-closed: no lane is left running without an owner for its terminal write). Re-run the entry; if it keeps failing, check that the reaper can be spawned at all (node executable, `TEAM_ROOT` writable) — and do **not** work around it with `--no-reaper` unless you are taking the close over yourself (`lane-session-lifecycle-sop.md` §4).
 - Any refusal that looks wrong ⇒ report to Elon with the JSON envelope; do not work around the entry by launching directly.
+---
 
 ## 8. Same-repo concurrent lanes ⇒ the lane isolates itself
 
@@ -145,6 +152,7 @@ The printed prompt's last line is the Report target; the workspace paragraph jus
 Same-file conflicts are no longer a spawn-time refusal: two lanes now work in separate trees and would collide at merge, so `scripts/samefile-guard.mjs` reports the overlap as a **warning** and the owner sequences the cards (`PROTOCOL §6.3` case ②). Serialize when the card says so or `depends_on` is unmet.
 
 **Sequence, naming, and cleanup**: `guides/dev-worktree-flow-sop.md`.
+---
 
 ## 9. Review lanes (`role=review`) — the single entry, not a side registry
 
@@ -163,6 +171,7 @@ bash ~/.openclaw/team/scripts/spawn-lane.sh <card> turing --review backend=codex
 - **Everything else is unchanged**: concurrency cap (turing < 3), cwd resolution, the four-anchor handoff self-check, the deterministic session id, the detached spawn, and the card+registry write in one step.
 - **`seg` defaults to `segR1`** and must differ from the execution lane's seg. The card's `## Sessions` upsert key is `seg:<seg> ·` (not owner-scoped), so a review lane reusing the execution lane's `seg1` would **overwrite the execution lane's row** and destroy the audit trail of who implemented it. If you pass a `seg=` already held by another owner, the entry refuses with `review_seg_taken(seg=…,owner=…):use_seg=segR1`. This matches the pre-existing convention for review segs (`segR1-replay`, `seg2-container`, …).
 - Output JSON carries `role: "review"` so a caller can tell the lanes apart.
+---
 
 ## 10. Workspace settings preset (`settings: exists | created | would_create`)
 
@@ -173,6 +182,7 @@ bash ~/.openclaw/team/scripts/spawn-lane.sh <card> turing --review backend=codex
 - missing and real run ⇒ the entry `mkdir -p`s `workspace/<task-id>/.claude/` and writes the default allow-list (read/write/edit + common `Bash(...)` entries) ⇒ `settings: "created"`.
 
 The preset is idempotent and side-effect-free under `--dry-run`, and it is done for every backend (for `codex`, which takes no `--settings`, the file is simply inert).
+---
 
 ## 11. Isolation is the lane's own act (`PROTOCOL §6.4`)
 
@@ -198,8 +208,6 @@ unmerged branch stays in the same worktree. `scripts/check-merge.mjs` enforces t
 its residual limits are in `PROTOCOL §20.2`.
 
 Sequence, naming, cleanup and the openclaw↔claude collaboration model: `guides/dev-worktree-flow-sop.md`.
-
----
 
 > **Implementation & deploy notes.** Everything above is **method-library level**: it *implements* existing clauses and **redefines nothing**, so no `PROTOCOL §6` edit is triggered — the one additive exception is the Codex plugin leg (§3.1), which touches `PROTOCOL §6` clauses 2/3/8, the board `## Sessions` schema comment and `PROTOCOL §13.2`. Sections touched: §1 (entry signature), §3 + §3.1 (double-run guard; plugin two-step backfill), §4, §6 (liveness in the gate), §7 (refusal codes), §8 + §11 (isolation / base). They implement `PROTOCOL §6` execution uniqueness, `PROTOCOL §6.3` (serialize vs isolate), `PROTOCOL §6.4` (base snapshot), `PROTOCOL §9.1` (single writer per file) and the registry single-source-of-truth.
 > - **Dispatch discipline**: every direct wake-up goes through `task.dispatch` — claim-first on the same lock/primitive as poll; a failed claim ⇒ `dispatched:false` ⇒ **no** `sessions_send`. The single enforcement point for "no second execution turn on a card" is **this entry** (a turn must not spawn a lane for a card another turn is already executing). This closes the "Elon direct dispatch vs poll claim" race; dispatch-side discipline (`task.dispatch`, never a bare `sessions_send` that bypasses the claim) is unchanged and remains the rule.
