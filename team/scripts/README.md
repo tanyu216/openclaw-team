@@ -58,7 +58,7 @@ and documented under `team/guides/` or `CLAUDE.md`; **(data)** = deployed litera
 | `check-redlines.mjs` | each role `AGENTS.md` redline block byte-equals `guides/redlines.core.md` | **(gate)** |
 | `sync-redlines.mjs` | the **writer** counterpart: pours the canonical block into each role file | **(cli)** `CLAUDE.md` |
 | `lint-refs.mjs` | `§①…§⑳` references resolve to `PROTOCOL.md` headings | **(gate)** |
-| `lint-doc-refs.mjs` | path references in backticks / markdown links resolve | **(gate)** |
+| `lint-doc-refs.mjs` | path references in backticks / markdown links resolve, **and** cross-file section anchors (`<name>.md §N` / `§N.M`) land on a real heading | **(gate)** |
 | `lint-impl-names.mjs` | implementation names must not leak into the upper docs | **(gate)** |
 | `check-card.mjs` | card frontmatter schema + state machine | **(gate)** |
 | `check-handoff.mjs` | the four `handoff.md` anchors | **(gate)**, `spawn-lane.mjs` |

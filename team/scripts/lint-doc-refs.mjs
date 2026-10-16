@@ -29,6 +29,18 @@
  *   · `skills/**` —— 技能正文**有意不随仓**（`skills/PROVENANCE.md`），provider 拥有
  *   · ALLOW 表逐条登记的例外
  *
+ * **第二腿 —— 跨文件章节锚（`<name>.md §N` / `§N.M`）**：同一类断引用还有一半藏在这里。
+ * `lint-refs.mjs` 只校验 `§①…§⑳` **编号**引用（且仅对 `PROTOCOL.md`），而**数字**形式
+ * 的跨文件锚（`guides/task-interface.md §6.3`）此前无人校验 —— 实测三簇（2026-10-16）：
+ * `PROTOCOL.md`→`task-interface.md §6.3`、`README.md` 两处→`spawn-lane-sop.md §3.3`，
+ * 三条都是把「§N 里的第 M 条/步」写成了「子标题」记法（`§6.3` 在别的文件里**真是**子标题，
+ * 例如 `sla-inspection-contract.md §6.3`），于是既断又不像断。
+ * 判定：token 先按**与路径腿相同的基座**解析到具体文件；命中才查该文件有无对应的
+ * `## N` / `### N.M` 标题（`§N` 视为「`N` 或任何 `N.*` 子标题」，即"这一节及其子节"）。
+ * 解析不到文件 ⇒ 不判（那是路径腿的职责，此处不重复报）；目标无编号标题 ⇒ 不判。
+ * **只做跨文件**：文件内 `§N`（如 `dependency-cve-gate.md` 里 "see §3.3" 指自己）编号可能
+ * 有意变动，风险高，留待记法约定落地后再谈。
+ *
  * 模式：`host-paths.mjs#resolveMode`（repo = 仓内自证，无需实例；live = 巡检安装实例）。
  * 退出码：0 全解析；1 有断引用；2 用法错或模式不可判定。
  * 用法：node lint-doc-refs.mjs [--repo <R> | --live]
@@ -56,6 +68,55 @@ const ALLOW = {
   'team/guides/worktree-isolation-sop.md:scripts/verify/contract.mjs':
     '事故证据行引用的是**容器内**另一个项目的路径（`T-20261010-061638` 的取证明细），非本仓路径',
 };
+
+/**
+ * 跨文件章节锚的逐条例外：键 = `<扫描根内相对路径>:<token>`，值 = 理由。
+ * 只登记「确实指得没错、但不写成标题」的引用；能改引用就别登记。
+ */
+const SECTION_ALLOW = {};
+
+/**
+ * 从一行取「`<name>.md` 后紧跟的 `§N` / `§N.M` / `§N/§M` 列表」。
+ * `§` 必须在文件名之后**紧邻**（只隔空白）—— 「见 `a.md`；另见 §3」这类句子里
+ * `§3` 指自己所在文件，不取（那正是本腿有意不做的文件内一类）。
+ */
+export function extractSectionRefs(line) {
+  const out = [];
+  const re = /`?([A-Za-z0-9][\w./-]*\.md)`?[ \t]*(§[ \t]*\d+(?:\.\d+)*(?:[ \t]*\/[ \t]*§?[ \t]*\d+(?:\.\d+)*)*)/g;
+  let m;
+  while ((m = re.exec(line))) {
+    const nums = m[2].split('/').map((s) => s.replace(/[§\s]/g, '')).filter(Boolean);
+    if (nums.length) out.push({ file: m[1], nums });
+  }
+  return out;
+}
+
+/**
+ * 一份 markdown 里出现的编号标题（`## 6.` / `### 6.3` / `#### 6.3.1` ⇒ `6` / `6.3` / `6.3.1`）。
+ * `§N` 的判定语义是「`N` 这一节**及其子节**」，见 `sectionOk`。
+ */
+const _sectionsCache = new Map();
+function sectionsOf(abs) {
+  if (_sectionsCache.has(abs)) return _sectionsCache.get(abs);
+  let txt = '';
+  try { txt = fs.readFileSync(abs, 'utf8'); } catch { /* 读不到 ⇒ 空集，调用方不判 */ }
+  const nums = new Set();
+  let fence = false;
+  for (const line of txt.split('\n')) {
+    if (/^\s*```/.test(line)) { fence = !fence; continue; }
+    if (fence) continue;
+    const h = line.match(/^#{2,6}\s*(?:§)?(\d+(?:\.\d+)*)/);
+    if (h) nums.add(h[1]);
+  }
+  _sectionsCache.set(abs, nums);
+  return nums;
+}
+
+/** `§N` 命中：存在编号 `N` 的标题，或任何 `N.*` 子标题（= 这一节及其子节）。 */
+function sectionOk(nums, n) {
+  for (const x of nums) if (x === n || x.startsWith(`${n}.`)) return true;
+  return false;
+}
 
 /**
  * 从一行文本取出「像仓内相对路径」的 token。
@@ -143,14 +204,33 @@ export function lintDocRefs(M) {
   const bad = [];
   const skipped = {};
   let checked = 0;
+  let sectionChecked = 0;
   for (const f of targets(M)) {
     const key = path.relative(M.mode === 'repo' ? M.repo : M.home, f);
+    const keyPosix = key.split(path.sep).join('/');
     const bases = basesFor(f, M);
     const lines = fs.readFileSync(f, 'utf8').split('\n');
     let fence = false;
     lines.forEach((line, i) => {
       if (/^\s*```/.test(line)) { fence = !fence; return; }
       if (fence) return;
+
+      // ── 第二腿：跨文件章节锚 ──
+      for (const { file: tgt, nums } of extractSectionRefs(line)) {
+        const refWhy = skipReason(tgt);
+        if (refWhy) { skipped[`secref-${refWhy}`] = (skipped[`secref-${refWhy}`] || 0) + 1; continue; }
+        const abs = bases.map((b) => path.resolve(b, tgt)).find((p) => fs.existsSync(p));
+        if (!abs || !abs.endsWith('.md')) continue;   // 解析不到 ⇒ 路径腿的职责，不重复报
+        const secs = sectionsOf(abs);
+        if (!secs.size) continue;                     // 目标无编号标题 ⇒ 不可判定，不判
+        for (const n of nums) {
+          if (SECTION_ALLOW[`${keyPosix}:${tgt} §${n}`]) continue;
+          sectionChecked++;
+          if (sectionOk(secs, n)) continue;
+          bad.push({ file: key, line: i + 1, token: `${tgt} §${n}` });
+        }
+      }
+
       for (const t of extractPathRefs(line)) {
         // `~/…` 宿主/实例路径：repo 模式不可判定（记 skip）；**live 模式对真实 home 判定** ——
         // 这是唯一能抓住「引用实例上并不存在的方法库」（历史上 `workspace-linus/skills/plan-toolkit`）的腿。
@@ -170,7 +250,7 @@ export function lintDocRefs(M) {
       }
     });
   }
-  return { bad, skipped, checked };
+  return { bad, skipped, checked, sectionChecked };
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
@@ -181,17 +261,18 @@ function main() {
     if (e instanceof UsageError) { console.error(`✗ ${e.message}`); process.exit(2); }
     throw e;
   }
-  const { bad, skipped, checked } = lintDocRefs(M);
+  const { bad, skipped, checked, sectionChecked } = lintDocRefs(M);
   const where = (p) => String(p).replace(M.home, '~').replace(M.repo || '\u0000', '<repo>');
   for (const { file, line, token } of bad) {
     console.log(`✗ ${where(file)}:${line} 断引用 ${token}`);
   }
   const skips = Object.entries(skipped).map(([k, v]) => `${k}:${v}`).join(' ');
+  const counts = `已检查 ${checked} 路径 + ${sectionChecked} 章节锚`;
   if (bad.length) {
-    console.log(`\n断引用：${bad.length}（已检查 ${checked} 条；未判 ${skips}）`);
+    console.log(`\n断引用：${bad.length}（${counts}；未判 ${skips}）`);
     process.exit(1);
   }
-  console.log(`文档路径引用全部可解析 ✔（已检查 ${checked} 条；未判 ${skips}）`);
+  console.log(`文档引用全部可解析 ✔（${counts}；未判 ${skips}）`);
   process.exit(0);
 }
 
