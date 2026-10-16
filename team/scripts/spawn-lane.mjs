@@ -380,22 +380,40 @@ const backendBin = (backend) =>
 /**
  * 子会话提示词：先读背景包（handoff），再执行卡。子会话不读牌面（PROTOCOL §⑥ clause 7）。
  * 隔离开启时追加一行工作树纪律：本 lane 在**自己的 worktree** 上，提交落在 lane 分支，
- * 收尾须回报 branch + sha 供整合（否则隔离树的产物无人知道，见 guides/worktree-isolation-sop.md §7）。
+ * 收尾须回报 branch + sha 供整合（否则隔离树的产物无人知道；收口口径见
+ * `guides/dev-worktree-flow-sop.md`）。
+ *
+ * 隔离段落**两态合一**（T-20261016-：新 dev 工作流）：
+ *   · 已被 spawner 隔离（`isolation.mode === 'worktree'`）⇒ 告知「你已在此树中，别再建一棵」；
+ *   · 未被隔离 ⇒ 明确授权并点名 skill 的 1b 回退（`.worktrees/<branch>`，基于 `dev`）。
+ *   两态合一而非二选一，是因为本改动分阶段落地：P3（本步）时旧机制仍在隔离一部分车道，
+ *   P4 才摘掉它 —— 同一段提示语必须在两个世界里都成立。
+ *
+ * **为什么要显式「授权、不必再问」**：`using-git-worktrees` skill 的 Step 0 在未隔离时会
+ * **向用户征求同意**（"Would you like me to set up an isolated worktree?"）。车道是**无头**
+ * `claude -p`，没有人能回答那个问题；skill 同时写着 "Honor any existing declared preference
+ * without asking" ⇒ 偏好必须由**本提示语**声明，否则该步结构性不可满足。
  */
-export function buildPrompt({ handoffPath, cardPath, reportPath, isolation = null }) {
-  const lines = [
+export function buildPrompt({ handoffPath, cardPath, reportPath, isolation = null, lane = '' }) {
+  const isolated = Boolean(isolation && isolation.mode === 'worktree');
+  const branch = (isolated && isolation.branch) ? isolation.branch : (lane || '');
+  const workspace = isolated
+    ? `Isolated workspace: you are already isolated in a lane worktree at ${isolation.path} (branch ${branch}) — work there and do NOT create another worktree. `
+    : `Isolated workspace: set one up before you start — you are authorised, do NOT ask for consent. `
+      + `Prefer a native worktree tool if the harness provides one; otherwise use the \`using-git-worktrees\` skill's git fallback `
+      + `(\`git worktree add\`), which places the tree at \`.worktrees/<branch>\` inside this repo. `
+      + (branch ? `Name the branch \`${branch}\` — the merge gate derives the card from the branch name — and base it on \`dev\`. ` : '');
+  return [
     `Read your background pack first: ${handoffPath}`,
     `Task card: ${cardPath}`,
+    // 隔离段落**排在 report 行之前**：报告行必须是本提示的**末句**。codex 后端要求提示词落在
+    // argv 末位，抽取端以「末句以 report.md 结尾」为判据（spawn-lane.test.mjs RED-9）——
+    // 把别的句子缀在报告行之后就同时破坏了这个判据。落在末位也更合提示词顺序：最后一句是行动项。
+    workspace
+      + `Commit with explicit paths, and report the branch + commit sha in your Report so the work can be integrated. `
+      + `Never commit on the protected branch (main) — integration happens on dev, which is what the main checkout sits on.`,
     `Execute the card's Acceptance and write your report to ${reportPath}.`,
-  ];
-  if (isolation && isolation.mode === 'worktree') {
-    lines.push(
-      `You are isolated in a lane worktree: ${isolation.path} (branch ${isolation.branch}) — another non-terminal lane is writing the same repo. ` +
-      `Commit there with explicit paths, and report the branch + commit sha in your Report so it can be integrated and the worktree removed. ` +
-      `Do not commit on the protected branch (main): integration happens on the dev branch (ref PROTOCOL §⑥.4, scripts/branch-guard.mjs).`,
-    );
-  }
-  return lines.join('\n');
+  ].join('\n');
 }
 
 /** 组装子进程命令（argv 数组；claude 参数照 PROTOCOL §⑥ 模板） */
@@ -920,7 +938,7 @@ export function spawnLane(opts = {}) {
   }
 
   // ---- ⑥ 组装命令 ----
-  const prompt = buildPrompt({ handoffPath, cardPath, reportPath, isolation });
+  const prompt = buildPrompt({ handoffPath, cardPath, reportPath, isolation, lane: laneNameFor(taskId, seg) });
   const bin = harness === 'plugin' ? pluginBin() : backendBin(backend);
   const built = buildCommand({ backend, harness, bin, prompt, wsDir, sid, name: `${owner}-${seg}`, cwd });
   const args = built.args;
