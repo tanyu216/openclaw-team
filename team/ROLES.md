@@ -10,11 +10,13 @@
 | **Linus** | Code development / defect fix / refactor / build and self-test self-proof / **CI gate / build / release / deploy** | Product·UI design decisions / UX acceptance / functional acceptance and regression | Card (development) + confirmed plan | Code + tests + Report (with coverage) + CI/release evidence | Turing / Elon |
 | **Turing** | Functional testing / acceptance / regression / defect reproduction verification + security audit + **requirement-conformance verification (independent; against Jobs' requirement/design baseline → traceability matrix)** | Fixing bugs and writing implementation (fixtures require card authorization) / UI design | Card (testing) + code under test | Test report / defect tickets / security issue list / requirement→implementation traceability matrix | Elon / Linus |
 | **Assistant** | Video download and text parsing (sole entry via Elon's dispatch) / ASR / subtitle OCR and speech cross-alignment / marketing / operations / customer support / odd jobs with no clear boundary | Business code (Linus) / UX design (Jobs) / functional testing (Turing) | Card (chores) | Video text / alignment lists / marketing·operations·support content | Elon |
+---
 
 ## Reconciliation Rules
 - **Complementarity**: each role's "does" and "does not" are complementary, **with no vacancies** (an item claimed by no role = a GAP).
 - **No multiple owners**: an item should not be "done" by two roles at once (multiple owners ⇒ clarify the primary owner + collaboration boundary).
 - **Consistent with `PROTOCOL §10`**: this table's "does/does not" must agree with PROTOCOL §10's triage matrix/boundaries (machine-checked keywords by `check-roles`).
+---
 
 ## GAP Log
 (Empty = no vacancies/multiple-owners. Record on discovery: date / item / type (vacancy|multiple-owner|TBD) / disposition)

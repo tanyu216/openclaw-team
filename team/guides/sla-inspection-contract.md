@@ -165,8 +165,6 @@ One alert = one **(card, `PROTOCOL §15` row)** pair at its highest newly-crosse
 
 > **Why flat and mechanism-tagged**: two independent implementations read one `PROTOCOL §15` table, and a shared *shape* is what makes "same field ⇒ same semantics" checkable (Acceptance item 2) — a nested, mechanism-specific shape would let the two sides drift field by field.
 
----
-
 ### 4.1 #23/#24 are ledger metadata — not fields of the emitted tuple
 
 **Adopted 2026-10-15 (closure of defect F1 of the independent verification).** Rows #23/#24 are declared `ledger`: `first_seen` / `last_seen` / `observed_by` are maintained by the de-duplication ledger (§8.3) and are **never published inside `alerts[]`**. The emitted tuple carries rows **#1–#22 and #25** (the landing adds its three card-draft aliases `kind`/`id`/`ageMin`, which are not §4 rows).
@@ -257,7 +255,8 @@ Rows are identified by **name, never by index or position** — `PROTOCOL §15`'
 
 **C — `acceptance_card_creation` (product/UX acceptance queued).** Applicable **only to flow A** (`PROTOCOL §10.5`; absent `flow` ⇒ A, fail-safe). Origin = `status_changed_at` of the delivered card (its entry into the delivery/`in_review` state per `PROTOCOL §1`). *Open* predicate: **no card with `review_of = <this card>`** exists yet, and Jobs is its assignee when one does (`PROTOCOL §9.1` clause 3: the leader creates it).
 
-**D — `leader_stalled`.** `PROTOCOL §15` measures "no action", observable only through the board, so the inspector takes the **latest board-side timestamp on a leader-attributed event**, where *leader-attributed* is **one** of: (a) a `kind ∈ {confirm, decision, change}` comment whose `author` is the leader; (b) a card **created** by the leader (`created_at`, §6.1); (c) a card whose `status_changed_at` moved through a leader-only transition (`done` is leader-only per `guides/task-interface.md` §4). **The filter is on `author`, not `kind`** — a `kind=change` entry by a *worker* does **not** reset the stall clock; one by the *leader* does. **This attribution set is the single set both mechanisms must use** (F2); no mechanism may add or drop a member. The *open* predicate is the conditioning rule of §5.1. With no leader event at all within the lookback window, the row is still emitted with `confidence: "low"` — an inspector that has never seen the leader act must say so rather than stay quiet. **Confidence**: an exact leader-event timestamp ⇒ `high`; a lookback window with **no** leader event ⇒ `low`.
+**D — `leader_stalled`.** `PROTOCOL §15` measures "no action", observable only through the board, so the inspector takes the **latest board-side timestamp on a leader-attributed event**, where *leader-attributed* is **one** of: (a) a `kind ∈ {confirm, decision, change}` comment whose `author` is the leader; (b) a card **created** by the leader (`created_at`, §6.1); (c) a card whose `status_changed_at` moved through a leader-only transition (`done` is leader-only per `guides/task-interface.md` §4). **The filter is on `author`, not `kind`** — a `kind=change` entry by a *worker* does **not** reset the stall clock; one by the *leader* does. **This attribution set is the single set both mechanisms must use** (F2); no mechanism may add or drop a member. The *open* predicate is the conditioning rule of §5.1.
+With no leader event at all within the lookback window, the row is still emitted with `confidence: "low"` — an inspector that has never seen the leader act must say so rather than stay quiet. **Confidence**: an exact leader-event timestamp ⇒ `high`; a lookback window with **no** leader event ⇒ `low`.
 
 ### 6.4 Measurement basis — working hours (the "到点" question, answered)
 

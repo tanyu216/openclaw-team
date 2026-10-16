@@ -4,6 +4,7 @@ Scope: **the terminal half of a lane's life** — from "a lane was registered `r
 registration is closed on **both** surfaces (the card's `## Sessions` row *and* the canonical
 registry)". Companion to `guides/spawn-lane-sop.md` (the spawn half). Owner: framework
 (`team/scripts/**`); motivated by.
+---
 
 ## 1. The invariant (and why it needed a mechanism, not a rule)
 
@@ -31,6 +32,7 @@ The framework cannot hook the lane's exit: the lane is a `detached` + `unref`'d 
 (`spawn-lane-sop.md` §5), so the parent has no child handle. Anything the lane does *itself* at the
 end (a closing tool call, an exit hook) is gone under SIGKILL / timeout / host crash. The only
 criterion that survives every abnormal path is **process liveness**, which is what the reaper uses.
+---
 
 ## 2. Lever 1 — the reaper (mechanism: the terminal write is guaranteed)
 
@@ -60,6 +62,7 @@ spawn ✓ → session-set (running, card + registry) ✓ → lane-reaper (detach
 * **Fail-closed wiring**: if the reaper cannot be started, `spawn-lane` refuses to run the lane
   **and closes the row it just registered** (`lane_reaper_failed(…)`). "Registered but nobody owns the
   close" is precisely the failure this card exists to kill, so it is not allowed to exist.
+---
 
 ## 3. Lever 2 — poll does not re-claim an inconsistent row (guard)
 
@@ -88,6 +91,7 @@ Field replay (three real pre-state cards replayed into a sandbox, registry
 untouched): the two `registry=done` rows — including the incident card, `pid:12159`, dead — come
 back `kind:registry_done` and are **not** claimed; the `registry=closed` row is still claimed, i.e.
 recovery is preserved.
+---
 
 ## 4. Rollback / opt-out (and what you then owe)
 
@@ -100,6 +104,7 @@ bash scripts/spawn-lane.sh <card> <owner> --no-reaper      # or OPENCLAW_TEAM_RE
 You then owe the close yourself, in the host's exact form, **before your turn ends**
 (`task.session-close <card> <seg> done|closed|failed`), and you own the drift if you are
 interrupted. `--dry-run` never arms anything (it prints `reaper: "would_arm"`).
+---
 
 ## 5. Where it sits in the spawn sequence
 
@@ -107,6 +112,7 @@ interrupted. `--dry-run` never arms anything (it prints `reaper: "would_arm"`).
 `reaper: {state:"armed", pid:<reaper pid>}` (or `"disabled"`). Nothing else in the spawn path
 changes: the watch is a separate detached process, the registered lane pid is still the **lane's**
 pid (not a wrapper's — that would break poll's liveness guard), and `--dry-run` stays zero-side-effect.
+---
 
 ## 6. Lever 3 — the reconciliation sweep (historical backlog)
 
@@ -134,6 +140,7 @@ line per card in `workspace/<card>/lane-lifecycle.log`).
 Live run of this card (2026-10-14): `62` items → `38 fixable` (all applied, 0 failed) / `24
 immutable` / `0 manual`; `check-sessions` went from **61 notes** (`36 status_mismatch` + `25
 duplicate_lane`) to **24 notes** (all `duplicate_lane`), hard failures `0` throughout.
+---
 
 ## 7. Residuals (honest limits)
 
@@ -149,6 +156,7 @@ duplicate_lane`) to **24 notes** (all `duplicate_lane`), hard failures `0` throu
   bring their own terminal hook; until they do, the guard + sweep is all they get.
 * The reaper is one idle process per live lane (one `ps` call every 2 s); it exits as soon as the
   row is terminal or its lane is gone.
+---
 
 ## 8. References
 
