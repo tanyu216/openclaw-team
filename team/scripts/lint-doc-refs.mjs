@@ -30,6 +30,8 @@
  *   · ALLOW 表逐条登记的例外
  *
  * **第二腿 —— 跨文件章节锚（`<name>.md §N` / `§N.M`）**：同一类断引用还有一半藏在这里。
+ * 规范来源：**`PROTOCOL §⑥.1` clause 11**（文档引用约定）—— 该条同时规定「章节内条目/步骤」
+ * 的记法（`§N clause M` / `§N step M`），即本腿守的那条；改口径先改它。
  * `lint-refs.mjs` 只校验 `§①…§⑳` **编号**引用（且仅对 `PROTOCOL.md`），而**数字**形式
  * 的跨文件锚（`guides/task-interface.md §6.3`）此前无人校验 —— 实测三簇（2026-10-16）：
  * `PROTOCOL.md`→`task-interface.md §6.3`、`README.md` 两处→`spawn-lane-sop.md §3.3`，
