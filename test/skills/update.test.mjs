@@ -17,7 +17,7 @@
  *
  * Run: node --test test/skills/update.test.mjs
  */
-import { test, after } from "node:test";
+import { test as nodeTest, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -26,6 +26,16 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { treeSha256 } from "../../skills/update.mjs";
+
+// git 是本套件的硬依赖：每个夹具都用**真实 git** 建本地上游仓库（file:// URL）。
+// 无 git 时整体 SKIP 而非硬红 —— 与其它套件缺 provider 时的自跳过同口径
+// （docker/Dockerfile 基于 node:*-slim，镜像里本来就没有 git；那是既有状态，不是本套件的问题，
+// 而且它会让 verify-in-container.sh 在 `set -e` 下**提前退出**，后续步骤一步都跑不到）。
+const HAS_GIT = (() => {
+  try { execFileSync("git", ["--version"], { stdio: "ignore" }); return true; } catch { return false; }
+})();
+const SKIP = HAS_GIT ? false : "git is not installed — this suite builds its fixtures with real git";
+const test = SKIP ? nodeTest.skip : nodeTest;
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // <repo>/test/skills
 const REPO = path.resolve(HERE, "..", "..");               // <repo>
