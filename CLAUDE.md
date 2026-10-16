@@ -63,6 +63,10 @@ node --test team/scripts/tests/claim-guard.test.mjs        # a single suite
 node --test test/install/*.test.mjs
 node --test test/skills/*.test.mjs
 
+# Doc rewriting: prove no clause was lost (repo-side tool, not deployed)
+# before/after diff over team/guides + roles; unregistered losses exit non-zero
+node test/docs/doc-clause-diff.mjs --base dev --path team/guides roles
+
 # The gate (single source of checks; also what the hourly job runs)
 bash team/scripts/check-all.sh                     # --segment all (default)
 bash team/scripts/check-all.sh --segment fast      # seconds; the in-band segment

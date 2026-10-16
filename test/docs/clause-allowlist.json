@@ -1,0 +1,5 @@
+{
+  "_comment": "doc-clause-diff.mjs 的登记表：登记**有意移除**的规范性原子。两种粒度 —— 精确 `atoms[\"<file>:<axis>:<atom>\"]`，或整轴 `files[\"<file>\"][\"<axis>\"]`。值一律写**理由**；无理由的登记等于关掉这道门。axis ∈ codes | tokens | refs | numbers。",
+  "files": {},
+  "atoms": {}
+}
