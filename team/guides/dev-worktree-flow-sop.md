@@ -65,9 +65,10 @@ an owner for the terminal write.
 removed worktree is invisible to `check-merge.mjs`, so removing first silently converts step 9 from a
 check into a no-op (`PROTOCOL §⑳.2`).
 
-**Step 11 — delete the branch — is the step everyone forgets, and the one the skill mandates.**
-`finishing-a-development-branch` (the companion to `using-git-worktrees`) says: once the merged result
-is green, clean up the worktree *and then* `git branch -d <feature-branch>`. The **old** mechanism
+**Step 11 — delete the branch.** The clause is `PROTOCOL §⑥.4` ("the closeout order is **merge →
+remove the worktree → delete the card branch**"); this section only records *why*, and how.
+`finishing-a-development-branch` (the companion to `using-git-worktrees`) says the same: once the
+merged result is green, clean up the worktree *and then* `git branch -d <feature-branch>`. The **old** mechanism
 deliberately never deleted branches — base derivation reconstructed a predecessor branch by name
 (`lane/<card>-<seg>`), so the branch was load-bearing after teardown. That machinery is gone
 (`PROTOCOL §⑥.4`), so the reason is gone with it, and keeping branches is now pure accumulation.
@@ -127,6 +128,7 @@ This table is the point of the guide. Read it before trusting any claim that a s
 | the branch is merged into the integration branch before `done` | **machine (partial)** | `check-merge.mjs` — see the gaps below |
 | same-file write conflict ⇒ serialized | **machine (warn only)** | `samefile-guard.mjs` reports; nothing blocks a start |
 | no direct commit on the release branch | **prose** | `branch-guard.mjs` is SOP-invoked, not a git hook; it resolves the protected set per repo (default branch ∪ `main` ∪ `master`) |
+| the card branch is deleted after the merge (`PROTOCOL §⑥.4`) | **prose, safe by construction** | nothing checks it — but `git branch -d` (never `-D`) refuses an unmerged branch, so the failure mode is "the branch lingers", not "work is lost" |
 
 **`check-merge.mjs` is a net, not a wall.** Its four structural gaps (`PROTOCOL §⑳.2`): a removed
 worktree is invisible; a branch name that does not carry the card id escapes attribution; it covers
