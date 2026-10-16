@@ -132,6 +132,13 @@ after(() => {
   if (LAYOUT) fs.rmSync(LAYOUT, { recursive: true, force: true });
 });
 beforeEach(() => {
+  // 无 provider ⇒ LAYOUT/TASKS 未定义，本回调**不得执行**（与上面的 `after` 同一条护栏）。
+  // 这个假设曾经自动成立（当时本文件每个 test 都带 `{ skip: SKIP }`），但 82adb81 加的 buildPrompt
+  // 五例没带 ⇒ 在无 provider 的检出（仓内模式 / 新鲜克隆 / 贡献者）里回调先炸，慢段整段读红
+  // （`fs.readdirSync(undefined)`，5 例）——正是「环境缺失被读成红」这一族。加了护栏 + 那五例补
+  // `{ skip: SKIP }`（它们**结构上**就需要 provider：spawn-lane.mjs 静态 import ACL）后，
+  // 无 provider 下本文件回到「全 SKIP、0 fail」。
+  if (!LAYOUT) return;
   for (const f of fs.readdirSync(TASKS)) if (f.endsWith('.md')) fs.rmSync(path.join(TASKS, f));
   fs.rmSync(WS, { recursive: true, force: true });
   fs.mkdirSync(WS, { recursive: true });
@@ -675,8 +682,12 @@ test('NEG-④ 并发两执行 turn ⇒ 仅一执行：首条真起 lane，第二
 // ---------------------------------------------------------------------------
 
 const PROMPT_ARGS = { handoffPath: '/ws/handoff.md', cardPath: '/tasks/T.md', reportPath: '/ws/report.md' };
+// 这五例**结构上**需要 provider：`buildPrompt` 由 `scripts/spawn-lane.mjs` 导出，而后者**静态**
+// import `skills/task-ops/lib/task.mjs`（ACL）。无 provider ⇒ 模块根本 import 不进 ⇒ `buildPrompt`
+// 恒 undefined。故与本文件其余各例同口径带 `{ skip: SKIP }`（82adb81 加这五例时漏了，
+// 于是无 provider 的检出里 beforeEach 先炸、慢段读红）。
 
-test('buildPrompt：未被隔离 ⇒ 明确授权、点名 skill 回退落点与分支名、以 dev 为基', () => {
+test('buildPrompt：未被隔离 ⇒ 明确授权、点名 skill 回退落点与分支名、以 dev 为基', { skip: SKIP }, () => {
   const p = buildPrompt({ ...PROMPT_ARGS, lane: 'T-20261016-111111' });
   assert.match(p, /do NOT ask for consent/, '必须显式授权，否则 skill Step 0 的征求意见在无头下无法满足');
   assert.match(p, /using-git-worktrees/, '点名 skill（车道是 claude 后端，该 skill 装在 claude 目标上）');
@@ -687,7 +698,7 @@ test('buildPrompt：未被隔离 ⇒ 明确授权、点名 skill 回退落点与
   assert.doesNotMatch(p, /already in a lane worktree/, '未隔离时不得出现「你已在隔离树中」');
 });
 
-test('buildPrompt：隔离已不再是入口的事 —— 本入口永不渲染「你已在隔离树中」，也不再接受 isolation 参数', () => {
+test('buildPrompt：隔离已不再是入口的事 —— 本入口永不渲染「你已在隔离树中」，也不再接受 isolation 参数', { skip: SKIP }, () => {
   // P4 之前本函数是两态的（spawner 隔离 / 未隔离）。隔离改由车道按 skill 自建后只剩一态：
   // 传给它的 `isolation` 一律被忽略（参数已从签名移除），提示语始终是「自建」那一支。
   const p = buildPrompt({ ...PROMPT_ARGS, lane: 'T-20261016-111111', isolation: { mode: 'worktree', path: '/repo/-wt-x' } });
@@ -696,13 +707,13 @@ test('buildPrompt：隔离已不再是入口的事 —— 本入口永不渲染�
   assert.match(p, /do NOT ask for consent/, '唯一一态 = 授权自建');
 });
 
-test('buildPrompt：lane 缺省时不写出空反引号的「分支名」', () => {
+test('buildPrompt：lane 缺省时不写出空反引号的「分支名」', { skip: SKIP }, () => {
   const p = buildPrompt({ ...PROMPT_ARGS });
   assert.doesNotMatch(p, /Name the branch ``/, '不得渲染出空的分支名');
   assert.match(p, /\.worktrees\//, '落点与授权不依赖 lane 是否已知');
 });
 
-test('buildPrompt：集成分支名可配（与门禁同源），受保护分支则**不点名**（它随仓而异）', () => {
+test('buildPrompt：集成分支名可配（与门禁同源），受保护分支则**不点名**（它随仓而异）', { skip: SKIP }, () => {
   // 集成分支名从 lib.mjs#integrationBranch() 来，与 check-merge 同一个出处；显式传入可覆盖。
   const p = buildPrompt({ ...PROMPT_ARGS, lane: 'T-1', integration: 'develop' });
   assert.match(p, /base it on `develop`/, '须用传入的集成分支名');
@@ -712,7 +723,7 @@ test('buildPrompt：集成分支名可配（与门禁同源），受保护分支
   assert.doesNotMatch(p, /\(main\)/, '不得写死 (main)');
 });
 
-test('buildPrompt：报告行必须是**末句** —— codex 后端要求提示词落在 argv 末位，抽取端以「末句以 report.md 结尾」为判据', () => {
+test('buildPrompt：报告行必须是**末句** —— codex 后端要求提示词落在 argv 末位，抽取端以「末句以 report.md 结尾」为判据', { skip: SKIP }, () => {
   const p = buildPrompt({ ...PROMPT_ARGS, lane: 'T-1' });
   assert.match(p, /report\.md\.?$/, `报告行须在末位：${p.slice(-120)}`);
 });

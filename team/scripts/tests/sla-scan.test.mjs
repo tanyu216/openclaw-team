@@ -838,10 +838,12 @@ test('⑦ --check-thresholds 的解析口径：PROTOCOL §15 六行全部定位�
 
 test('⑦ --check-thresholds 只在 PROTOCOL §15 节内取表：别处的同名行不得劫持判定', () => {
   const live = fs.readFileSync(path.join(TEAM_DIR, 'PROTOCOL.md'), 'utf8');
-  const i = live.indexOf('## ⑮');
+  // 节标题的写法是 `## 15.`：37e9087（记号阿拉伯化）把 `## ⑮` 换掉了、也换了 `sla-scan.mjs` 的取节
+  // 字面量，但漏了本行与本测试的诱饵标题 ⇒ `indexOf` 返回 -1，`sec` 退化成空串，断言只能红。
+  const i = live.indexOf('## 15.');
   const sec = live.slice(i, live.indexOf('\n## ', i + 4));
   const decoy =
-    '## ⑨ A decoy table with the same row name\n\n' +
+    '## 9. A decoy table with the same row name\n\n' +
     '| Wait scenario | Normal limit | Action on expiry | Further timeout |\n|---|---|---|---|\n' +
     '| Worker heartbeat stale (PROTOCOL §1) | ≤ 999h | nope | > 999h ⇒ nope |\n\n';
   const p = path.join(os.tmpdir(), `sla-proto-${process.pid}.md`);
