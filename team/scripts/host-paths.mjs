@@ -46,14 +46,28 @@ export function workspaceDir(role, env = process.env) {
 }
 
 /**
- * 从脚本位置推出「分发仓根」，判定用**分发根标记**（三者同时存在）而不是某个 `roles/<r>/AGENTS.md`：
- * 后者在 roles/ 正在迁移时会误判，也会把「roles/ 不存在」与「处于实例模式」混为一谈。
- * 部署副本（`<team>/scripts/*.mjs`）的 ../../ 是 `~/.openclaw`，不含这些标记 ⇒ 天然返回 null。
+ * 分发仓根的**标记文件集**（三者同时存在才算分发仓）。
+ * 判据用这一组标记而不是某个 `roles/<r>/AGENTS.md`：后者在 roles/ 正在迁移时会误判，
+ * 也会把「roles/ 不存在」与「处于实例模式」混为一谈。
+ * 这是「这个目录是不是分发仓」的**唯一判据**——`repoRootFromScript()` 与
+ * `team/scripts/tests/{check-all-repo-mode,no-maintainer-paths}.test.mjs` 的 live 守卫共用它，
+ * 免得同一个问题在两处各写一份、日后各自漂移。
+ */
+export const REPO_MARKS = ['roles', 'team/PROTOCOL.md', 'install.sh'];
+
+/** 该目录是否为一个分发仓根（标记齐全）。部署副本（`<team>/scripts/*.mjs`）的上一级是
+ *  `~/.openclaw`，含运行期件但不含这些标记 ⇒ false。 */
+export function isDistributionRepo(root) {
+  return REPO_MARKS.every((m) => fs.existsSync(path.join(root, m)));
+}
+
+/**
+ * 从脚本位置推出「分发仓根」（脚本须直接位于 `<repo>/team/scripts/`）。
+ * 部署副本（`<team>/scripts/*.mjs`）的 ../../ 是 `~/.openclaw`，不含标记 ⇒ 天然返回 null。
  */
 export function repoRootFromScript(scriptUrl = import.meta.url) {
   const root = path.resolve(path.dirname(fileURLToPath(scriptUrl)), '..', '..');
-  const marks = ['roles', 'team/PROTOCOL.md', 'install.sh'];
-  return marks.every((m) => fs.existsSync(path.join(root, m))) ? root : null;
+  return isDistributionRepo(root) ? root : null;
 }
 
 /** 用法错误（调用方自行决定退出码；本模块不 exit）。 */
@@ -119,7 +133,7 @@ export function resolveMode({ argv = process.argv.slice(2), env = process.env, s
   if (fs.existsSync(path.join(team, 'scripts'))) return live('instance-present');
   if (repo) return { mode: 'repo', repo, team, home };
   throw new UsageError(
-    `无法判定模式：既没有实例（${path.join(team, 'scripts')} 不存在），也没有分发仓根（${path.dirname(fileURLToPath(scriptUrl))}/../.. 缺 roles/ 或 team/PROTOCOL.md 或 install.sh）。\n` +
+    `无法判定模式：既没有实例（${path.join(team, 'scripts')} 不存在），也没有分发仓根（${path.dirname(fileURLToPath(scriptUrl))}/../.. 缺 ${REPO_MARKS.join(' 或 ')}）。\n` +
     '  实例巡检：设 OPENCLAW_TEAM_ROOT（或装好实例后直接跑）；仓内自证：--repo <repo> 或 OPENCLAW_TEAM_REPO=<repo>。',
   );
 }
