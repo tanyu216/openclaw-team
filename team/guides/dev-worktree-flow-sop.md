@@ -9,8 +9,9 @@
 > **Applies to**: every development card whose work lands in a git checkout this framework manages.
 > **Replaces**: `worktree-isolation-sop.md` (deleted 2026-10-16 with the mechanism it documented).
 > **Branch names are resolved, not assumed**: the release branch may be `main`/`master`/`trunk` and is
-> determined per repo by `branch-guard.mjs`; the integration branch is `OPENCLAW_TEAM_INTEGRATION_BRANCH`
-> (default `dev`). Where this guide says "the integration branch", read "whatever your repo's is".
+> determined per repo by `branch-guard.mjs`; the integration branch may be `dev`/`develop` and is
+> `OPENCLAW_TEAM_INTEGRATION_BRANCH` (default `dev`). Where this guide says "the integration branch",
+> read "whatever your repo's is".
 
 ---
 
@@ -94,6 +95,20 @@ Two rules follow, and both replace machinery that used to exist:
 
 Both are prose, and step 9 is what makes them bite: an unmerged branch cannot reach `done`.
 
+**Why the release step uses a throwaway worktree.** The main checkout holds the integration branch, so
+`main` has no long-lived checkout. The `dev → main` step is therefore done from a throwaway worktree
+rather than by flipping the main checkout's branch — flipping it would interrupt work in progress on
+the integration branch.
+
+**Why "merge before `done`" is a rule and not tidiness.** An unmerged branch's tree is invisible to
+the integration branch, so a later task bases on a tree that does not contain it. That is why an
+unmerged branch is not evidence of delivery and a card whose product was never merged must not reach
+`done`: send it back to the owner to merge first.
+
+**Bootstrapping a repo with no integration branch.** A repo with no integration branch has no
+integration target — create it once (`git branch dev <base>` and push), or point
+`OPENCLAW_TEAM_INTEGRATION_BRANCH` at the one it already has.
+
 ---
 
 ## 3. Worktree landing spots — three exist, only one is ours
@@ -129,6 +144,16 @@ This table is the point of the guide. Read it before trusting any claim that a s
 | same-file write conflict ⇒ serialized | **machine (warn only)** | `samefile-guard.mjs` reports; nothing blocks a start |
 | no direct commit on the release branch | **prose** | `branch-guard.mjs` is SOP-invoked, not a git hook; it resolves the protected set per repo (default branch ∪ `main` ∪ `master`) |
 | the card branch is deleted after the merge (`PROTOCOL §6.4`) | **prose, safe by construction** | nothing checks it — but `git branch -d` (never `-D`) refuses an unmerged branch, so the failure mode is "the branch lingers", not "work is lost" |
+
+**Why the protected set is `default ∪ main ∪ master`.** The rule is "not on the protected branch",
+**not** "only `dev`": commits legitimately land on a card branch, and on the integration branch for
+the merge step. A repo whose release branch is `master` must
+not silently lose protection merely because the framework's docs say `main`. A detection failure
+does **not** shrink the set — it only costs the extra name; an explicit `OPENCLAW_PROTECTED_BRANCHES`
+is taken **as written**, never unioned. The integration branch is resolved in **one** place and read
+by **both** the merge gate and the lane prompt: a gate watching a branch the lane never built on is a
+silent failure. A repo with no resolvable integration branch has its merge check **skipped with a
+note**, never reddened.
 
 **`check-merge.mjs` is a net, not a wall.** Its four structural gaps (`PROTOCOL §20.2`): a removed
 worktree is invisible; a branch name that does not carry the card id escapes attribution; it covers
