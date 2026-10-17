@@ -595,6 +595,22 @@
     "team/PROTOCOL.md:numbers:80%": {
       "to": "team/guides/engineering-standards-sop.md",
       "reason": "Track B 指针节：PROTOCOL §6.1 的正文整体移入 engineering-standards-sop.md 的同名 §6.1（`PROTOCOL §17` 规则 6），覆盖阈值 80% 随 clause 2 搬走，规则句仍在指南 §6.1。"
+    },
+    "team/PROTOCOL.md:tokens:HEAD": {
+      "to": "team/guides/dev-worktree-flow-sop.md",
+      "reason": "Track B 指针节：PROTOCOL §6.4 的六条正文移入 dev-worktree-flow-sop.md 的同名 §6.4，`HEAD` base 规则随 clause 4 搬走。"
+    },
+    "team/PROTOCOL.md:tokens:OPENCLAW_PROTECTED_BRANCHES": {
+      "to": "team/guides/dev-worktree-flow-sop.md",
+      "reason": "同上：受保护分支解析随 §6.4 clause 6 搬入指南（指南 §4 的理由段与 §6.4 正文均含该变量）。"
+    },
+    "team/PROTOCOL.md:tokens:OPENCLAW_TEAM_INTEGRATION_BRANCH": {
+      "to": "team/guides/dev-worktree-flow-sop.md",
+      "reason": "同上：集成分支可配置随 §6.4 clause 6 搬入指南（指南头部与 §6.4 正文均含该变量）。"
+    },
+    "team/PROTOCOL.md:tokens:using-git-worktrees": {
+      "to": "team/guides/dev-worktree-flow-sop.md",
+      "reason": "同上：lane 自建 worktree 的 skill 名随 §6.4 clause 3 搬入指南。"
     }
   }
 }

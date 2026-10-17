@@ -22,11 +22,14 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..', '..');
 const PROTOCOL = path.join(REPO, 'team', 'PROTOCOL.md');
 const ENGINEERING = path.join(REPO, 'team', 'guides', 'engineering-standards-sop.md');
+const WORKTREE = path.join(REPO, 'team', 'guides', 'dev-worktree-flow-sop.md');
 
 const text = fs.readFileSync(PROTOCOL, 'utf8');
 const lines = text.split('\n');
 const engineering = fs.readFileSync(ENGINEERING, 'utf8');
 const engineeringLines = engineering.split('\n');
+const worktree = fs.readFileSync(WORKTREE, 'utf8');
+const worktreeLines = worktree.split('\n');
 
 /**
  * 取一个节的正文：从匹配 `startRe` 的标题之后，到**下一个任意级标题**之前。
@@ -103,9 +106,12 @@ test('§6.1 是指针节，正文在 engineering-standards-sop.md，仍是 14 �
   });
 });
 
-test('§6.4 仍是 6 条 bullet，且主题顺序不变', () => {
-  const bullets = (sectionBody(/^### 6\.4/) || []).filter((l) => /^- \*\*/.test(l));
-  assert.equal(bullets.length, 6, `§6.4 应为 6 条 bullet，实测 ${bullets.length}`);
+test('§6.4 是指针节，正文在 dev-worktree-flow-sop.md，仍是 6 条 bullet', () => {
+  const pointer = (sectionBody(/^### 6\.4/) || []).join('\n');
+  assert.match(pointer, /Normative body\*\*: `guides\/dev-worktree-flow-sop\.md` §6\.4/,
+    '§6.4 必须指向 dev-worktree-flow-sop.md §6.4');
+  const bullets = (bodyOf(worktreeLines, /^## §6\.4/) || []).filter((l) => /^- \*\*/.test(l));
+  assert.equal(bullets.length, 6, `指南 §6.4 应为 6 条 bullet，实测 ${bullets.length}`);
   const expected = [
     /Development integrates/,
     /main checkout holds `dev`/,
