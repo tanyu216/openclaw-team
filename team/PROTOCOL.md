@@ -24,70 +24,37 @@
 
 ## 1. Board Protocol
 
-> **Task provider (ACL, swappable)**: the task layer of this protocol connects to any task system via the ACL in `guides/task-interface.md`; the **reference implementation** = `meerkat-taskpanel` (`taskctl`), **not a mandatory dependency** (swappable for Jira/Linear/Plane, etc.; connectors/skills/MCP for those systems are user-supplied). All commands below use the reference implementation as an example.
+> **Task provider (ACL, swappable)**: the task layer connects to any task system via the ACL in `guides/task-interface.md`; the reference implementation = `meerkat-taskpanel` (`taskctl`), not a mandatory dependency (Jira/Linear/Plane etc. are user-supplied). Provider schema, field names, commands and storage shapes are **owned by the provider**; this section states only the team-side rules that constrain how the team uses them.
 
-A task card is the sole carrier of persisted content (Goal/Acceptance/Background/Report), stored at `~/.openclaw/team/tasks/T-YYYYMMDD-HHMMSS.md` (flat directory).
+A task card is the sole carrier of persisted content (Goal / Acceptance / Background / Report). Its storage shape is provider-owned.
 
-**Card schema — owned by the product; this protocol only references it.**
+**Card schema / body / values — provider-owned.** The fact source is the task provider skill's `references/card-schema.md` (installed with meerkat-taskpanel; see `skills/PROVENANCE.md`; when the installed skill lacks that reference, `taskctl --help` is the fallback). Do **not** restate the field list, body-section order or value enums here. Team-side contract: `guides/task-interface.md` §2 (fields the team relies on) / §7 (comments) / §9 (sessions).
 
-> **Fact source**: the canonical card schema is `skills/meerkat-taskpanel/references/card-schema.md`
-> (the `meerkat-taskpanel` checkout; installed as the skill ⇒
-> `$OPENCLAW_HOME/skills/meerkat-taskpanel/references/card-schema.md`; code fact source `KNOWN_CARD_KEYS`
-> in `src/core/storage/md/import.mjs`). It defines every frontmatter key, the body-section shapes, the
-> status machine and the import→export round-trip rules. **Do not restate it here** — this section names
-> only the **ACL minimal required set**, the **team-side extension keys**, and the team-side rules that
-> constrain how the team uses the values. Card-face contract: `guides/task-interface.md §2`.
+**Team-side alignment rules** (how the team uses provider values; the values themselves are the provider's):
+- **Claimable status = `todo`** (the legacy word `ready` is accepted by the team's checker); `backlog` does not participate in claiming. `done` / `canceled` are terminal; `blocked` is a side state.
+- **kind**: `task | epic | deploy` is the provider vocabulary; the team **does not invent a `review` kind** — use `labels:[review]` + `review_of`. `epic` = container/aggregate (**not claimable**); `deploy` = deployment/on-line operation (**never auto-claimed**; explicit dispatch only).
+- **Labels**: the team's namespaced prefixes (`category:` / `area:` / `env:` / `sev:`) are a team convention — taxonomy: `guides/task-interface.md` §15.
+- **Time columns**: the team writes **ISO-8601 UTC with fixed milliseconds** (`2026-10-08T15:31:25.161Z`); the provider coerces other forms.
+- **Extension keys**: the provider preserves unknown keys verbatim; keep self-invented keys to the team's list in `guides/task-interface.md` §2 — adding one is a `kind:change` decision.
+- **`notify_leader`**: when set, the owner sends the closing summary back to the leader (`sessions_send`, §13.2); the field names the **role**, never a person (§16).
+- **Serialization invariants**: `guides/task-interface.md` §11.
 
-**ACL minimal required set** (card frontmatter) — **the product's own names; a subset, never an addition**:
-`id` `title` `status` `priority` `kind` `labels` `project` `assignee` `assignee_kind` `created_by` `created_at` `updated_at` `status_changed_at` `claimed_by` `claimed_at` `heartbeat_at` `blocked_at` `depends_on` `parent` `notify_leader` — the canonical order of the product's field table.
+**State machine (team-visible semantics)**: `backlog|todo → in_progress → in_review → done`; `canceled` is terminal; `blocked` can be entered from any executing state and reverted. `in_review` = delivered and awaiting Elon's acceptance. The full machine (including the provider's attention overlay and per-transition rules) is the provider's (`references/card-schema.md`).
+- **Terminal irreversibility (team rule, machine-enforced at the ACL)**: `done` / `canceled` are irreversible once entered; the ACL refuses a terminal-status write from any actor outside the acceptance path (`ok:false, reason:terminal_immutable`). Elon's explicit reopen is available and **trailed as a `kind:change` comment** (§13.7). Contract detail: `guides/task-interface.md` §3/§4/§6 clause 3.
+- **`in_review` details**: after delivery the worker sets `in_review` (no heartbeat refresh, no re-claim, poll does not fire, duplicate execution turns are not accepted); Elon's acceptance/regression closes within `in_review` — pass ⇒ `done`; fail ⇒ `blocked`/`canceled` or a fix card.
 
-**Team-side extension keys** (outside the ACL set; carried by the provider's unknown-key passthrough — the
-product document names `target` / `goal` / `review_of` / `git_rules` / `subsession_ids` /
-`active_session_id`, and the team adds `writes`): semantics are team-side — `guides/task-interface.md §2`
-(`target` / `writes` / `project`) and §10 (`review_of`). Among them **`goal` is required by the team's own
-card checker** (`scripts/check-card.mjs`), not by the provider.
+**Atomic claim (team rule; implementation is the provider's)**:
+- Claim only when `assignee == self` and the card is `todo`, or a stale-recovery condition is met (the provider defines the thresholds and the atomic occupancy; contract: `guides/task-interface.md` §7).
+- A fresh heartbeat (≤10min) on an `in_progress` card ⇒ **do not touch**; poll returns `fire:false`.
+- **Claim timing**: qualifying claims are completed during the provider's poll evaluation. A run turn therefore does not claim again when `claimed_by == self` + a fresh heartbeat; only a direct dispatch that finds the card still `todo` needs an explicit claim.
 
-**Card body sections** (canonical order): `## Background` · `## Acceptance` · `## Progress` · `## Comments` ·
-`## Sessions` · `## Report`. Their shapes and semantics are the product document's (*Body sections*);
-team-side handling: `guides/task-interface.md §7` / `§9` (session-id forms: §6 clause 8) / `§10`. An unknown
-`##` section is **not** carried onto the board — a team-only value belongs in frontmatter, where unknown
-keys round-trip.
+**Deploy cards (`kind:deploy`) are never auto-claimed**: a deploy card executes a deployment / on-line operation — high-impact and not executable by whoever happens to be idle — so it is entered only by **explicit dispatch** (Elon `assign` / `issue move`). The provider's candidate surface excludes it; the team's poll path carries the same exclusion (`team/scripts/poll.mjs`). The claim gate stays open for explicit dispatch.
 
-**Alignment rules (team-side; the values below are the product's — this file does not define them, it constrains how the team uses them)**:
-- **Status**: canonical `backlog | todo | in_progress | in_review | blocked | done | canceled`; the team's card checker additionally accepts the legacy words `ready` / `failed`. Compatible aliases (`cancelled`, `in-review`, `in-progress`) are **resolved only at the boundary and never persisted** ⇒ old cards stay byte-stable. The product document's status machine is the authority (it also carries the provider's attention overlay `awaiting`).
-- **Claimable status = `todo`** (= the old `ready`); **`backlog` does not participate in claiming**.
-- **Priority**: `low | medium | high | urgent` (default `medium`).
-- **kind**: `task | epic | deploy`; **do not invent a `review` kind** — use `labels:[review]` + `review_of`. `epic` = container/aggregate (**not claimable** by anyone); `deploy` = a card that executes a deployment/on-line operation (**never auto-claimed** — explicit dispatch only; see the deploy paragraph under Atomic claim below).
-- **Labels**: free-form plus namespaced prefix labels (`category:` / `area:` / `env:` / `sev:`) — taxonomy: `guides/task-interface.md §15`; array form: `guides/task-interface.md §11`.
-- **Time columns**: always **ISO-8601 UTC with fixed milliseconds** (`2026-10-08T15:31:25.161Z`) — the form the team writes; the provider coerces other forms on import.
-- **Extension keys**: the provider **preserves unknown keys verbatim and writes them back**; keep self-invented keys to the team's list above — adding one is a `kind:change` decision, not a per-card habit.
-- **`notify_leader`**: when set, the owner sends the closing summary back to the leader (`sessions_send`, §13.2); the field names the **role**, never a person (§16), and the provider only preserves it.
-- **Serialization invariants**: see `guides/task-interface.md §11`.
+**Execution uniqueness (anti-double-run)**: any newly woken turn that finds the target card already `in_progress` → **only report status or append a heartbeat, and do not execute again**; only a stale card (heartbeat expired beyond the provider's recovery threshold) may be re-claimed. The first executor holds execution rights; other turns must not re-spawn a subsession or repeat side-effecting operations.
 
-**State machine**: `backlog|todo → in_progress → in_review → done` (`canceled` is a terminal state; `blocked` can be entered from any executing state and reverted). `in_review` = delivered and awaiting Elon's acceptance. `claimed` is only a transient during the atomic write process; the externally visible state goes straight to in_progress.
-- **Terminal irreversibility (frozen, machine-enforced)**: `done` / `canceled` (= the legacy word `failed`) are **terminal and irreversible once entered**. The ACL write layer — `task.setStatus`, the single card-`status` write point — **refuses every write to a card already in a terminal state** for any actor outside `DONE_ACTORS` (Elon `elon`, plus the privileged internal/management path that passes no `actor` key ⇒ sentinel `lib`): `ok:false, reason:terminal_immutable` with `from`/`to`, **and no card write at all** (no `status`, no `status_changed_at`, no turn-lock release). This is the mechanical enforcement of that invariant: a concurrent closeout arriving **after** acceptance must not be able to reopen an accepted card. Elon's **explicit reopen** (terminal → another state) remains available and is **trailed as a `kind:change` comment** (§13.7). Contract detail: `guides/task-interface.md` §3 / §4 / §6 clause 3.
-- **`in_review` details**: after delivery, the worker sets `in_review` (thereafter no heartbeat refresh, no re-claim, poll does not fire, duplicate execution turns are not accepted); Elon's acceptance/regression (⑨, §9.1) closes within `in_review` — pass ⇒ `done`; fail ⇒ `blocked`/`canceled` or a fix card is opened.
+**Heartbeat**: while executing, refresh `heartbeat_at` every ≤10min (`taskctl heartbeat <card> <assignee>`); append a timestamped line to the Progress section, append-only.
 
-**Atomic claim (meerkat-taskpanel base)**:
-1. Read card frontmatter: only continue if `assignee==self && status==todo` (or a stale-recovery condition is met);
-2. Atomically occupy the card (the same card cannot be claimed twice; implementation detail is the base's responsibility);
-3. On successful occupation → atomically write `status: in_progress` + `claimed_by/claimed_at/heartbeat_at`.
-- Stale-occupation self-healing: if an occupation is not completed within 15min → retry claiming if the card is still `todo`; if the card is `in_progress` but the heartbeat has expired (>30min), hand it to the stale-recovery path.
-- Stale-claim recovery: `heartbeat_at` older than >30min → the same assignee may re-claim (the executor is considered dead); >6h → any assignee may claim and escalate (escalation = the re-claimer sends sessions_send back to agent:main:main to inform Elon).
-- Fresh heartbeat (≤10min) and `in_progress` → **do not touch**; poll returns fire:false.
-
-**Claim timing belongs to poll (key to preventing spin)**: qualifying claims are completed during meerkat-taskpanel's poll trigger evaluation (fire:true ⇔ the card has been moved to `in_progress` with claimed_by=self). Therefore a **run turn does not claim again**: when the card has `claimed_by==self` + a fresh heartbeat → skip claiming and execute directly; only when the turn finds the card still `todo` (e.g. a sessions_send direct dispatch bypassing poll) do you additionally run `taskctl claim`.
-
-**Deploy cards (`kind:deploy`) are never auto-claimed**: a deploy card executes a **deployment / on-line operation** (rebuild `dist`, restart `taskd`, a full `install.sh` run, …) — high-impact and generally not executable by whoever happens to be idle — so it is entered only by **explicit dispatch** (Elon `assign` / `issue move`). Concretely: **poll's candidate surface excludes it** — `team/scripts/poll.mjs#scanCandidates` skips any card whose `kind` is in `AUTO_CLAIM_EXCLUDED_KINDS` (`team/scripts/lib.mjs`), which is the **single** candidate read surface, so the exclusion covers every pool (ready + stale recovery) and the read-only ACL query `task.pollCandidates` inherits it.
-The rule **mirrors** the provider base's `isAutoClaimableKind`  but is **not inherited for free**: framework poll reads the card files directly and never calls the base's `issue candidates`, so the framework carries the rule again on its own path. The **claim gate stays open** for explicit dispatch — `claimCard` refuses only `epic` (`epic_container`), never `deploy` — this deliberate layering (auto-candidate read: excluded; explicit claim: allowed) differs from `epic`'s "not claimable by anyone". Regression: `team/scripts/tests/poll-deploy.test.mjs`.
-
-**Execution uniqueness (anti-double-run hardening; the claim lock only prevents double-claiming, not double-execution)**: any newly woken turn (cron isolated run / sessions_send direct dispatch to the main session / sessions_spawn turn) that finds the target card already `in_progress` (regardless of whether claimed_by is self and whether the heartbeat is fresh) → **only report status (IN_PROGRESS + claimed_by/heartbeat) or append heartbeat_at, and do not execute again**; only a stale card (heartbeat expired >30min) may be re-claimed and taken over per the recovery rules. The first executor holds execution rights; other turns must not re-spawn claude/codex or repeat side-effecting operations such as writing to the repo.
-
-**Heartbeat**: while executing, refresh `heartbeat_at` every ≤10min (`taskctl heartbeat <card> <assignee>`); append a line (timestamped) to the Progress section, append-only.
-
-**Reporting format (Report section)**: conclusion / Acceptance self-check (line-by-line checklist) / verification commands+output / change list / leftovers.
-
----
+**Reporting format (Report section)**: conclusion / Acceptance self-check (line-by-line) / verification commands+output / change list / leftovers.
 
 ## 2. Project Access Rules
 
@@ -589,7 +556,7 @@ Job inventory and cadence: `team/AUTOMATIONS.md §1`; the per-turn reminder is r
 - `agent:main:main` ≡ **Elon** (two spellings of the same subject).
 - **leader** = the team coordinator (currently = **Elon**); the card field is uniformly **`notify_leader`**, **never hard-coding a person's name** (renaming the leader does not affect the schema or cards).
 - **The role roster** in this file's "Team Roles" table is the **sole authority (5 people)**; each `SOUL.md` "positioning" no longer lists its own roster and instead references this table.
-- **State-machine vocabulary**: the canonical status set = **§1** (the provider's card schema is the fact source); `ready`/`failed` are legacy aliases. Worker text must not use terminal words outside that set.
+- **State-machine vocabulary**: the canonical status set is the **provider's card schema** (`references/card-schema.md`; see §1); `ready`/`failed` are legacy aliases. Worker text must not use terminal words outside that set.
 - **Model tier**: **§6.2 is the single source** (tier rules and model names); role files reference §6.2 and never write specific models (to prevent L2/L3 drifting from L1).
 - **Flow vocabulary**: **`flow: A|B|C`** (`§10.5`) = the **change-nature route** recorded on the card — **A** feature/design-bearing, **B** defect/behaviour fix, **C** UI micro-change inside the frozen design. It is a **team-side convention field** (the provider schema is not changed). The **combination** "flow + status/state" is written with the canonical 7 status words only (`§16` state-machine bullet); "flow" never replaces the participant set the card's nature demands (`§10.1`).
 ---

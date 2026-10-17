@@ -135,6 +135,24 @@
     "team/PROTOCOL.md:tokens:check-all": { "to": "roles/elon/guides/carding-sop.md", "reason": "§10.3 的巡逻告警细节下沉到 Elon 角色方法库；门禁名保留。" },
     "team/PROTOCOL.md:tokens:task-patrol": { "to": "roles/elon/guides/carding-sop.md", "reason": "§10.3 的巡逻告警细节下沉到 Elon 角色方法库；作业名保留。" },
     "team/PROTOCOL-gates.md:codes:in_progress": "去重：§29 clause 4 的状态枚举移除；状态集由 §1 / provider schema 定义，§29 不再重复。",
-    "team/PROTOCOL-gates.md:codes:in_review": "去重：§29 clause 4 的状态枚举移除；状态集由 §1 / provider schema 定义，§29 不再重复。"
+    "team/PROTOCOL-gates.md:codes:in_review": "去重：§29 clause 4 的状态枚举移除；状态集由 §1 / provider schema 定义，§29 不再重复。",
+    "team/PROTOCOL.md:codes:active_session_id": { "to": "team/guides/task-interface.md", "reason": "§1 provider 字段清单下沉；session 字段在 task-interface §9。" },
+    "team/PROTOCOL.md:codes:assignee_kind": { "to": "team/guides/task-interface.md", "reason": "§1 provider 字段清单下沉；字段定义在 task-interface §2。" },
+    "team/PROTOCOL.md:codes:claimed_at": { "to": "team/guides/task-interface.md", "reason": "§1 provider 字段清单下沉；字段定义在 task-interface §2。" },
+    "team/PROTOCOL.md:codes:created_at": { "to": "team/guides/task-interface.md", "reason": "§1 provider 字段清单下沉；字段定义在 task-interface §2。" },
+    "team/PROTOCOL.md:codes:created_by": { "to": "team/guides/task-interface.md", "reason": "§1 provider 字段清单下沉；字段定义在 task-interface §2。" },
+    "team/PROTOCOL.md:codes:epic_container": { "to": "team/guides/task-interface.md", "reason": "§1 claim 拒绝码下沉；epic 不可领取的契约在 task-interface §3。" },
+    "team/PROTOCOL.md:codes:subsession_ids": { "to": "team/guides/task-interface.md", "reason": "§1 session 字段下沉；session 关联在 task-interface §9。" },
+    "team/PROTOCOL.md:codes:updated_at": { "to": "team/guides/task-interface.md", "reason": "§1 provider 字段清单下沉；字段定义在 task-interface §2。" },
+    "team/PROTOCOL.md:tokens:AUTO_CLAIM_EXCLUDED_KINDS": { "to": "team/guides/task-interface.md", "reason": "§1 deploy 卡的实现细节下沉；团队规则（never auto-claimed）保留。" },
+    "team/PROTOCOL.md:tokens:DONE_ACTORS": { "to": "team/guides/task-interface.md", "reason": "§1 终态不可逆的实现细节下沉；团队规则与 ACL 契约保留。" },
+    "team/PROTOCOL.md:tokens:KNOWN_CARD_KEYS": { "to": "team/guides/task-interface.md", "reason": "§1 provider schema 实现细节下沉；字段清单由 provider 拥有。" },
+    "team/PROTOCOL.md:tokens:in-progress": { "to": "team/guides/task-interface.md", "reason": "§1 兼容别名细节下沉；状态词表由 provider schema 拥有。" },
+    "team/PROTOCOL.md:tokens:in-review": { "to": "team/guides/task-interface.md", "reason": "§1 兼容别名细节下沉；状态词表由 provider schema 拥有。" },
+    "team/PROTOCOL.md:tokens:install.sh": { "to": "team/guides/task-interface.md", "reason": "§1 deploy 卡的实现细节下沉；部署规则保留。" },
+    "team/PROTOCOL.md:tokens:task.pollCandidates": { "to": "team/guides/task-interface.md", "reason": "§1 poll 候选面的实现细节下沉；团队规则保留。" },
+    "team/PROTOCOL.md:tokens:task.setStatus": { "to": "team/guides/task-interface.md", "reason": "§1 终态不可逆的实现细节下沉；ACL 契约保留。" },
+    "team/PROTOCOL.md:codes:sessions_spawn": "移除：`sessions_spawn` 是宿主实现路径，不属团队规则；团队规则（新 lane 走单一入口）保留。",
+    "team/PROTOCOL.md:numbers:15min": "移除：provider 定义的 stale-occupation 阈值；L1 不再复述，契约见 `task-interface.md` §7。"
   }
 }

@@ -80,11 +80,14 @@ HOME="$KHOME" ./install.sh --openclaw-home "$KHOME/.openclaw" --claude-home "$KH
 
 step "installer real run (file deploy; isolated HOME; no network)"
 HOME="$KHOME" ./install.sh --openclaw-home "$KHOME/.openclaw" --claude-home "$KHOME/.claude" --codex-home "$KHOME/.codex" --no-meerkat-taskpanel --skip-skills --no-register --skip-config >/dev/null
-for f in .openclaw/team/PROTOCOL.md .openclaw/team/guides/ci-release-sop.md .openclaw/team/guides/task-interface.md .openclaw/team/.install-state.json; do
+for f in .openclaw/team/PROTOCOL.md .openclaw/team/PROTOCOL-gates.md .openclaw/team/guides/ci-release-sop.md .openclaw/team/guides/task-interface.md .openclaw/team/guides/seg-continuity-sop.md .openclaw/team/.install-state.json; do
   [ -f "$KHOME/$f" ] || { echo "missing after install: $f"; exit 1; }
 done
 for f in .openclaw/workspace-elon/AGENTS.md .openclaw/workspace-linus/AGENTS.md; do
   [ -f "$KHOME/$f" ] || { echo "missing role workspace: $f"; exit 1; }
+done
+for f in .openclaw/workspace-elon/guides/carding-sop.md .openclaw/workspace-elon/guides/project-registration-sop.md .openclaw/workspace-assistant/guides/research-and-data-repo-conventions.md; do
+  [ -f "$KHOME/$f" ] || { echo "missing role guide: $f"; exit 1; }
 done
 echo "deployed files ok"
 
