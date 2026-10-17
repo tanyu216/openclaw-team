@@ -165,7 +165,7 @@ test('体积预算（warning 级，不判红）', (t) => {
   // 阈值 = 2026-10 瘦身后的实测 + 少量余量：用于防反弹，不是"再压到此值"的目标。
   // 继续下降需要动共享规范（§6.1/§6.4/§9.1/§10.5），风险高于收益。
   const budgets = [
-    ['team/PROTOCOL.md', 100 * 1024],
+    ['team/PROTOCOL.md', 93 * 1024],
     ['team/PROTOCOL-gates.md', 20 * 1024],
     ['roles/elon/AGENTS.md', 15 * 1024],
     ['roles/jobs/AGENTS.md', 13 * 1024],
