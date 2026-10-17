@@ -631,6 +631,14 @@
     "team/PROTOCOL.md:refs:§4.1": {
       "to": "team/guides/ui-align-sop.md",
       "reason": "§9.1 reinforcement 的指针（「在 §4.1」）随正文移入 ui-align-sop.md §9.1；目标节就是该指南的 §4.1。"
+    },
+    "team/PROTOCOL.md:refs:§10.6": {
+      "to": "team/guides/flow-triage-sop.md",
+      "reason": "Track B 指针节：PROTOCOL §10.5 的正文整体移入 flow-triage-sop.md 的同名 §10.5；A 流路由行里的 `§10.6` 随表搬走。"
+    },
+    "team/PROTOCOL.md:refs:§7.2": {
+      "to": "team/guides/flow-triage-sop.md",
+      "reason": "同上：§10.5 正文里指向 carding-sop §7.2（抽样算术）的引用随正文搬入 flow-triage-sop.md §10.5。"
     }
   }
 }

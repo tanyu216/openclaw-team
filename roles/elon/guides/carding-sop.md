@@ -110,7 +110,7 @@ A flow's chain **does not remove** the review participants the card's nature dem
 
 ## 7.2 Flow sampling (`PROTOCOL §10.5`)
 
-> Method home for the flow-triage rationale, the three locks and the rolling-sample arithmetic. The routing table, the hard boundary and the five-item quality spine are in `§10.5`; this section references them and does not copy them (`§6.1` clause 11).
+> Method home for the flow-triage rationale, the three locks and the rolling-sample arithmetic. The routing table, the hard boundary and the five-item quality spine are in `guides/flow-triage-sop.md` §10.5 (the normative body delegated by `PROTOCOL §10.5`); this section references them and does not copy them (`PROTOCOL §6.1` clause 11).
 
 **Rationale.** Routing by the **nature of the change** is what lets a small change take the short chain **without** weakening the machine gate — the gate's weight follows the change, never whether a gate exists. The short chain never traps an A-class change: one that crosses the hard boundary is re-routed to A on discovery.
 

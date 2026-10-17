@@ -345,34 +345,8 @@ Sole dispatcher = Elon (**§5**); workers do not dispatch to each other (includi
 
 ### 10.5 Flow Triage A/B/C — Change-Nature Routing + Quality Spine
 
-> Elon judges the flow **at intake** and records it on the card — `flow: A|B|C` (a team-side convention field; the provider schema is unchanged, `§16`). A change that turns out to cross the hard boundary below ⇒ **re-route to A on discovery**. Rationale, the three locks and the sampling arithmetic: `roles/elon/guides/carding-sop.md` §7.2.
+> **Normative body**: `guides/flow-triage-sop.md` §10.5 (routing table, hard boundary, five-item spine, report set). This section is a pointer; the guide is the single source of truth for it (`§17` rule 6).
 
-| Flow | Trigger (criteria) | Chain | Quality gate |
-|---|---|---|---|
-| **A · feature / design-bearing** | new UI structure or block, new interaction, new or semantically changed copy, product-logic change, design-system / token **definition** change | **Jobs prerequisite contract (`§10.6`) → Linus development → Turing independent verification (functional + requirement→implementation conformance matrix) → Jobs design-dimension confirmation → Elon final acceptance audit** | full: block list + assertions + screenshot comparison |
-| **B · defect / behaviour fix** | fixing behaviour; restoring consistency with an **already-frozen** design; **produces no new design decision** | **Linus fix → Turing verification (reproduce → pass) + regression → Elon final acceptance audit** | reproduction test + (when UI is touched) the assertion subset |
-| **C · UI micro-change / detail** | parameter-level change **inside the frozen design**: spacing, token **value**, alignment, wording of already-decided copy, visual polish; **no new block, no new interaction, no product logic** | **Linus → Elon final acceptance audit** (2 steps) | **machine assertion subset must pass** + sampled independent re-check |
-
-**Hard boundary (any one ⇒ always A, never B/C)**: **new UI structure / adds a visible block / changes interaction behaviour / changes the semantics of product copy / product-logic change / changes a design-token definition** — the enumeration is the closed form of the **flow-A criteria row** of the routing table above, so a change that reads as A there can never be routed as B/C here. When in doubt the card goes A — a longer chain beats a missed design decision.
-
-**Quality spine (5 safeguards — the chain may shrink, the spine may not)**:
-1. **Frozen design contract** (Jobs, **once per surface**) — block list (name / id / `data-*` / selector) + assertions + design tokens, landing in `workspace/<task-id>/`; **a UI surface with no machine-checkable contract does not start**; B/C **reuse** the frozen contract and produce no new one.
-2. **Delivery gate** (Linus, **mandatory for A/B/C**) — the relevant assertion subset passes and the self-proof (build / exit code / `--json` artifact pointer) is in the Report **before** delivery; red ⇒ **not deliverable** (`§9.1` Addendum III).
-3. **Independent verification** (Turing) — A = functional **+ requirement-conformance matrix** (block/REQ → evidence); B = reproduce → pass **+ regression**; C = **sampled** (below).
-4. **Design-dimension confirmation** (Jobs, **A only**) — **evidence-based**: read Turing's matrix + assertions + screenshot comparison to judge "was it built to the design"; **no re-doing, no re-running**.
-5. **Elon report audit + rolling sampled patrol** — the statistical safety net that replaces "Elon re-does the verification himself" (`§9.1` reinforcement).
-
-**Report set audited by flow (Elon's final acceptance — a PASS on one report never substitutes for the others, `§9`)**:
-
-| Flow | Reports Elon must audit |
-|---|---|
-| **A** | Linus (implementation/self-proof) **+** Turing (independent verification + conformance matrix) **+** Jobs (design / design-dimension confirmation) |
-| **B** | Linus **+** Turing |
-| **C** | Linus (**+** the sampling verifier's report when this card was sampled) |
-
-**The chain may shrink; the spine may not.** What shrinks is the **Acceptance surface** — flow A carries 3+ items (block list + machine-check assertions + screenshot comparison), B/C carry 2 (the applicable gate + the evidence pointer) — never the evidence requirement.
-
-**Rolling sample (the statistical safety net)**: the sample rate, weekly unit and batch form are in `roles/elon/guides/carding-sop.md` §7.2. A drift found by the sample ⇒ defect ticket, and the finding tightens **the class**, not just the spot (never fix only the single occurrence). The sample is executed by Turing/Jobs; Elon **audits their reports** (he does not run it).
 
 ### 10.6 Jobs Prerequisite Task (design contract / PRD) — a hard dependency of the dev card
 

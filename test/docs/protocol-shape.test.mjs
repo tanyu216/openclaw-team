@@ -24,6 +24,7 @@ const PROTOCOL = path.join(REPO, 'team', 'PROTOCOL.md');
 const ENGINEERING = path.join(REPO, 'team', 'guides', 'engineering-standards-sop.md');
 const WORKTREE = path.join(REPO, 'team', 'guides', 'dev-worktree-flow-sop.md');
 const UIALIGN = path.join(REPO, 'team', 'guides', 'ui-align-sop.md');
+const FLOWTRIAGE = path.join(REPO, 'team', 'guides', 'flow-triage-sop.md');
 
 const text = fs.readFileSync(PROTOCOL, 'utf8');
 const lines = text.split('\n');
@@ -33,6 +34,8 @@ const worktree = fs.readFileSync(WORKTREE, 'utf8');
 const worktreeLines = worktree.split('\n');
 const uialign = fs.readFileSync(UIALIGN, 'utf8');
 const uialignLines = uialign.split('\n');
+const flowtriage = fs.readFileSync(FLOWTRIAGE, 'utf8');
+const flowtriageLines = flowtriage.split('\n');
 
 /**
  * 取一个节的正文：从匹配 `startRe` 的标题之后，到**下一个任意级标题**之前。
@@ -144,13 +147,16 @@ test('§9.1 三线防御表仍是 Before/During/After 三行', () => {
   }
 });
 
-test('§10.5 quality spine 仍是 5 条', () => {
-  const items = ordered(sectionBody(/^### 10\.5/));
-  assert.equal(items.length, 5, `§10.5 顶层有序条目应为 5，实测 ${items.length}`);
+test('§10.5 是指针节，正文在 flow-triage-sop.md，quality spine 仍是 5 条', () => {
+  const pointer = (sectionBody(/^### 10\.5/) || []).join('\n');
+  assert.match(pointer, /Normative body\*\*: `guides\/flow-triage-sop\.md` §10\.5/,
+    '§10.5 必须指向 flow-triage-sop.md §10.5');
+  const items = ordered(bodyOf(flowtriageLines, /^## §10\.5/));
+  assert.equal(items.length, 5, `指南 §10.5 顶层有序条目应为 5，实测 ${items.length}`);
 });
 
 test('§10.5 路由表、报告表与 hard boundary 原样存在', () => {
-  const body = (sectionBody(/^### 10\.5/) || []).join('\n');
+  const body = (bodyOf(flowtriageLines, /^## §10\.5/) || []).join('\n');
   for (const flow of ['A · feature / design-bearing', 'B · defect / behaviour fix', 'C · UI micro-change / detail']) {
     assert.ok(body.includes(`| **${flow}** |`), `§10.5 路由表缺少 ${flow} 行`);
   }
