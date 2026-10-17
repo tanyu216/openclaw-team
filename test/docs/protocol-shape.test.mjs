@@ -72,9 +72,44 @@ test('§6 正文仍是 8 条，且主题顺序不变', () => {
   });
 });
 
-test('§6.1 仍是 14 条', () => {
+test('§6.1 仍是 14 条，且主题顺序不变', () => {
   const items = ordered(sectionBody(/^### 6\.1/));
   assert.equal(items.length, 14, `§6.1 应为 14 条，实测 ${items.length}`);
+  const expected = [
+    /TDD first/,
+    /coverage ≥ 80%/,
+    /Mock boundary/,
+    /Integration tests required/,
+    /Self-proving loop/,
+    /Requirement-completeness acceptance/,
+    /Four-stage development loop/,
+    /Two mandatory checks for historically frequent defects/,
+    /Test resource leftover cleanup/,
+    /Test-case scenario authenticity check/,
+    /Document reference convention/,
+    /CI gate and release/,
+    /Requirement.{1,3}implementation conformance/,
+    /Linus frontend tech-stack default/,
+  ];
+  expected.forEach((re, i) => {
+    assert.match(items[i], re, `§6.1 第 ${i + 1} 条主题漂移`);
+  });
+});
+
+test('§6.4 仍是 6 条 bullet，且主题顺序不变', () => {
+  const bullets = (sectionBody(/^### 6\.4/) || []).filter((l) => /^- \*\*/.test(l));
+  assert.equal(bullets.length, 6, `§6.4 应为 6 条 bullet，实测 ${bullets.length}`);
+  const expected = [
+    /Development integrates/,
+    /main checkout holds `dev`/,
+    /Isolation is the lane's own act/,
+    /The branch is based on `dev`/,
+    /must be merged into `dev` before the card is closed/,
+    /Never commit on the protected branch/,
+  ];
+  expected.forEach((re, i) => {
+    assert.match(bullets[i], re, `§6.4 第 ${i + 1} 条主题漂移`);
+  });
 });
 
 test('§9.1 Acceptance hard gate 仍是 6 条（Addenda 的 `> 1.` 不计）', () => {
@@ -82,9 +117,29 @@ test('§9.1 Acceptance hard gate 仍是 6 条（Addenda 的 `> 1.` 不计）', (
   assert.equal(items.length, 6, `§9.1 顶层有序条目应为 6，实测 ${items.length}`);
 });
 
+test('§9.1 三线防御表仍是 Before/During/After 三行', () => {
+  const table = (sectionBody(/^### 9\.1/) || []).filter((l) => l.startsWith('|'));
+  assert.equal(table.length, 5, `§9.1 表格行应为 5（表头+分隔+3 数据），实测 ${table.length}`);
+  for (const line of ['Before', 'During', 'After']) {
+    assert.ok(table.some((l) => l.includes(`| **${line}** |`)), `§9.1 三线表缺少 ${line} 行`);
+  }
+});
+
 test('§10.5 quality spine 仍是 5 条', () => {
   const items = ordered(sectionBody(/^### 10\.5/));
   assert.equal(items.length, 5, `§10.5 顶层有序条目应为 5，实测 ${items.length}`);
+});
+
+test('§10.5 路由表、报告表与 hard boundary 原样存在', () => {
+  const body = (sectionBody(/^### 10\.5/) || []).join('\n');
+  for (const flow of ['A · feature / design-bearing', 'B · defect / behaviour fix', 'C · UI micro-change / detail']) {
+    assert.ok(body.includes(`| **${flow}** |`), `§10.5 路由表缺少 ${flow} 行`);
+  }
+  for (const flow of ['A', 'B', 'C']) {
+    assert.ok(body.includes(`| **${flow}** |`), `§10.5 报告表缺少 ${flow} 行`);
+  }
+  assert.ok(body.includes('**Hard boundary (any one ⇒ always A, never B/C)**'), '§10.5 缺少 hard boundary');
+  assert.ok(body.includes('The chain may shrink; the spine may not'), '§10.5 缺少「chain 可缩、spine 不可缩」');
 });
 
 test('§15 表仍是 6 个数据行（含表头/分隔共 8 行 `|`）', () => {
