@@ -398,8 +398,7 @@ Sole dispatcher = Elon (**§5**); workers do not dispatch to each other (includi
 
 ### 10.5 Flow Triage A/B/C — Change-Nature Routing + Quality Spine
 
-> **Rationale**: routing by the **nature of the change** is what lets a small change take the short chain **without** weakening the machine gate — the gate's weight follows the change, never whether a gate exists.
-> **Judgement**: Elon judges the flow **at intake** and records it on the card — `flow: A|B|C` (a team-side convention field; the provider schema is unchanged, `§16`). A change that turns out to cross the hard boundary below ⇒ **re-route to A on discovery**; the short chain never traps an A-class change.
+> Elon judges the flow **at intake** and records it on the card — `flow: A|B|C` (a team-side convention field; the provider schema is unchanged, `§16`). A change that turns out to cross the hard boundary below ⇒ **re-route to A on discovery**. Rationale, the three locks and the sampling arithmetic: `roles/elon/guides/carding-sop.md` §7.2.
 
 | Flow | Trigger (criteria) | Chain | Quality gate |
 |---|---|---|---|
@@ -424,13 +423,9 @@ Sole dispatcher = Elon (**§5**); workers do not dispatch to each other (includi
 | **B** | Linus **+** Turing |
 | **C** | Linus (**+** the sampling verifier's report when this card was sampled) |
 
-**Three locks against "not built to design + spec not enforced"**: ① **design = contract** — no machine-verifiable block list/assertions ⇒ the UI card is invalid; ② **delivery gate mandatory** — red assertions ⇒ not deliverable; ③ **drift = defect class** — missing blocks / self-invented structure / silent simplification ⇒ **defect ticket + card `blocked` + revert through the `§9` loop**, and a **missing conformance matrix ⇒ Elon sends the card back**.
+**The chain may shrink; the spine may not.** What shrinks is the **Acceptance surface** — flow A carries 3+ items (block list + machine-check assertions + screenshot comparison), B/C carry 2 (the applicable gate + the evidence pointer) — never the evidence requirement.
 
-**Card template scales with the flow**: **A** = 3+ Acceptance items (block list + machine-check assertions + screenshot comparison); **B/C** = 2 items (the applicable gate + the evidence pointer). What shrinks is the **Acceptance surface**, never the evidence requirement.
-
-**Rolling sample (the statistical safety net)**: Turing machine-samples **20% per week** of the B/C cards that were accepted, and Jobs visual spot-checks **the same batch**; a drift found by the sample ⇒ defect ticket, and the finding tightens **the class**, not just the spot (never fix only the single occurrence). The sample is executed by Turing/Jobs; Elon **audits their reports** (he does not run it).
-
-**Sampling rule**: the weekly unit is the **B/C cards accepted during that week**, counted **by card**; the sample size is **20% of that count, rounded to the nearest integer and never below 1** (`max(1, round(0.2 × N))` — so a week with a single accepted B/C card still samples that one). **Turing** draws the cards and re-runs the **machine assertions**; **Jobs** visual-spot-checks **the same batch**; both reports go to Elon as **one batch**, which is the report set he audits for the sampled cards (never card by card, and never a substitute for the per-card delivery evidence).
+**Rolling sample (the statistical safety net)**: the sample rate, weekly unit and batch form are in `roles/elon/guides/carding-sop.md` §7.2. A drift found by the sample ⇒ defect ticket, and the finding tightens **the class**, not just the spot (never fix only the single occurrence). The sample is executed by Turing/Jobs; Elon **audits their reports** (he does not run it).
 
 ### 10.6 Jobs Prerequisite Task (design contract / PRD) — a hard dependency of the dev card
 

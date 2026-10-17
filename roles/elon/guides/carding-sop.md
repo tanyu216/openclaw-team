@@ -107,3 +107,20 @@ A flow's chain **does not remove** the review participants the card's nature dem
   ② **phase / delivery-surface segmentation** ⇒ should be **epic child cards** (`§10.2`, each with its own Acceptance/claim/acceptance);
   ③ **fix–fix–fix retry segments** ⇒ should be a **defect/fix card** (`§9`);
   ④ "**the context is just too long**" is not a reason to open a seg — it is a reason to **split the card**.
+
+## 7.2 Flow sampling (`PROTOCOL §10.5`)
+
+> Method home for the flow-triage rationale, the three locks and the rolling-sample arithmetic. The routing table, the hard boundary and the five-item quality spine are in `§10.5`; this section references them and does not copy them (`§6.1` clause 11).
+
+**Rationale.** Routing by the **nature of the change** is what lets a small change take the short chain **without** weakening the machine gate — the gate's weight follows the change, never whether a gate exists. The short chain never traps an A-class change: one that crosses the hard boundary is re-routed to A on discovery.
+
+**Three locks against "not built to design + spec not enforced"**:
+① **design = contract** — no machine-verifiable block list/assertions ⇒ the UI card is invalid;
+② **delivery gate mandatory** — red assertions ⇒ not deliverable;
+③ **drift = defect class** — missing blocks / self-invented structure / silent simplification ⇒ **defect ticket + card `blocked` + revert through the `§9` loop**, and a **missing conformance matrix ⇒ Elon sends the card back**.
+
+**Card template scales with the flow**: **A** = 3+ Acceptance items (block list + machine-check assertions + screenshot comparison); **B/C** = 2 items (the applicable gate + the evidence pointer). What shrinks is the **Acceptance surface**, never the evidence requirement.
+
+**Rolling sample (the statistical safety net)**: Turing machine-samples **20% per week** of the B/C cards that were accepted, and Jobs visual spot-checks **the same batch**; a drift found by the sample ⇒ defect ticket, and the finding tightens **the class**, not just the spot (never fix only the single occurrence). The sample is executed by Turing/Jobs; Elon **audits their reports** (he does not run it).
+
+**Sampling rule**: the weekly unit is the **B/C cards accepted during that week**, counted **by card**; the sample size is **20% of that count, rounded to the nearest integer and never below 1** (`max(1, round(0.2 × N))` — so a week with a single accepted B/C card still samples that one). **Turing** draws the cards and re-runs the **machine assertions**; **Jobs** visual-spot-checks **the same batch**; both reports go to Elon as **one batch**, which is the report set he audits for the sampled cards (never card by card, and never a substitute for the per-card delivery evidence).
