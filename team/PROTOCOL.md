@@ -385,29 +385,9 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
     Elon does **not** personally re-run the comparison or open the page; if the Report **lacks** the independent evidence (or a key point is omitted) ⇒ **send back / open an independent-verification card** — never mark it done.
 > - **Backfill verification for existing stock**: for existing UI not yet covered by §9.1, run a page-by-page "prototype vs implementation" block comparison.
 
-> 🔴 **§9.1 Addendum: prototype text [ambiguity] discrimination (mandatory)**
-> **Rules**:
-> 1. **Discriminate**: when migrating prototype text into the implementation, **distinguish UI copy vs developer annotations**; annotations **must not enter the UI** (they may go into code comments).
-> 2. **Prototype-side labeling convention**: if the prototype needs to express "pending wiring", it should **use comments/data attributes** (e.g. `<!-- TODO: ... -->` / `data-pending`) rather than **visible copy**; if it has already been written as visible copy ⇒ the implementation **renders after removing the annotation wording**.
-> 3. **Acceptance check**: when comparing UI-card screenshots, **check whether the UI contains words like "placeholder/pending backend/TODO"** ⇒ if present, reject (a user-visible defect).
-> 4. **The real state of pending wiring**: if you genuinely need to tell the user "data not wired", use a **proper empty/loading state component** (§EmptyState), not a parenthetical annotation.
-> **Anti-patterns (reject on sight)**: rendering developer annotations like "(static placeholder)" to users | keeping visible annotations on the grounds that "the prototype wrote it that way".
-
-> 🔴 **§9.1 Addendum II: Linus-side UI/UX fidelity restriction — a Jobs prototype is reproduced, not reinterpreted **
-> **Rule (Linus, hard)** — the prototype is the operator-facing design contract (`§9.1`), and the implementer is **not** a second designer:
-> 1. **Reproduce, do not reinterpret**: when the design baseline comes from Jobs, page structure, block order, styles and **UI interactions** must match the prototype. Unilateral UI/UX changes are forbidden — adding/removing/moving/restyling blocks, changing visible copy, or changing what a control does.
-> 2. **Omissions are supplementable, but declared**: only where the prototype **does not mention** a case may Linus supplement/complete it — minimally, in the prototype's existing design language — and **must**: ① record it on the card (`## Progress` + `task.comment kind=change`, stating *what* and *why*), and ② surface it to Elon (and Jobs) in the delivery Report. An undeclared supplement is a defect.
-> 3. **Contradictions need Elon's approval**: if Linus believes the prototype is wrong or self-contradictory, do **not** silently "fix" it — set the card `blocked` and send back to Elon, who routes it to Jobs (design change) or authorizes a written deviation.
-> 4. **Deviation is written, never silent**: an approved deviation is recorded in the card with approver + reason (`kind=decision`).
-> **Anti-patterns (reject on sight)**: "improving" the prototype's spacing/hierarchy because it "looks better" | changing an interaction because "that is the engineering convention" | leaving a supplement unrecorded | treating "build passes / tests pass" as licence to diverge from the prototype.
-
-> 🔴 **§9.1 Addendum III: flow C (UI micro-change) — a reduced but non-empty form; the delivery gate is A/B/C-uniform **
-> **Rules**:
-> 1. **The delivery gate is uniform across A/B/C**: before any UI change is delivered (`in_review`), the **relevant assertion subset** of the page's structural contract must pass, and the Report must carry the self-proof (command + exit code + `--json` artifact pointer). A red assertion ⇒ **not deliverable**; "it is only a micro-change" is never a reason to deliver without evidence.
-> 2. **The flow C form (routing in `§10.5`)**: C **reuses the frozen contract** (no new Jobs contract round) and takes the short chain (Linus → Elon final acceptance audit); the **After** line is served by the **rolling sample** instead of a per-card independent lane. **"Reduced" ≠ "empty"**: the assertion subset must be green, and the card stays eligible for the sampled independent re-check.
-> 3. **Jobs's visual pass in C**: required only when the change is visually **non-trivial** (it affects layout / multiple viewports) ⇒ one **asynchronous** visual pass; otherwise the sample stands in.
-> 4. **Escalation out of C**: anything past the `§10.5` **hard boundary** is **flow A** and takes the full gate — never a widened C card.
-> **Anti-patterns (reject on sight)**: delivering a C card with no assertion evidence | calling a token-**definition** change a "detail" | dropping the sample because "the assertion passed". Operational walk: `ui-align-sop.md` §11.
+> 🔴 **§9.1 Addendum: prototype text [ambiguity] discrimination** — annotations **must not enter the UI**; the prototype expresses "pending wiring" via comments/`data-pending`, never visible copy; acceptance rejects visible "placeholder/pending backend/TODO". Full rules: `guides/ui-align-sop.md` §12.1.
+> 🔴 **§9.1 Addendum II: Linus-side UI/UX fidelity restriction — a Jobs prototype is reproduced, not reinterpreted** — no unilateral UI/UX change; omissions are supplementable but declared; contradictions go to Elon; deviations are recorded with approver + reason. Full rules: `guides/ui-align-sop.md` §12.2.
+> 🔴 **§9.1 Addendum III: flow C (UI micro-change) — reduced but non-empty** — the delivery gate is A/B/C-uniform; the relevant assertion subset must pass with self-proof before `in_review`; C reuses the frozen contract and stays sample-eligible; anything past the `§10.5` hard boundary is flow A. Full rules: `guides/ui-align-sop.md` §11 / §12.3.
 
 ### 9.2 Prototype Must Not Contain Implementation: Design Draft vs Engineering Implementation Separation
 
@@ -441,7 +421,7 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 
 > For any task card touching product/UI/UX (or containing UI deliverables), after Turing's functional test/regression passes, **Elon coordinates Jobs to do product acceptance**; only after passing may the original card reach terminal done. Pure-backend/no-UI tasks skip this step.
 >
-> **Flow scope (`§10.5`)**: this **per-card** Jobs product-acceptance card is the **flow-A** path. **Flow B** is closed by Turing's reproduce→pass + regression and Elon's audit; **flow C** is covered by the **rolling sample** (Turing machine sample + Jobs visual spot-check on the same batch), so neither B nor C opens a per-card Jobs review card unless the change turns out to be visually non-trivial (then one **asynchronous** Jobs visual pass — `§9.1` Addendum III).
+> **Flow scope**: this per-card Jobs acceptance is **flow A**; B closes at Turing + Elon, C is covered by the rolling sample — see **§10.5** (and `§9.1` Addendum III for the C exception).
 
 1. **Trigger condition**: the task card's `project` touches product/UI/UX (or the Acceptance/Background contains UI/UX deliverables such as interfaces, prototypes, design drafts, interaction flows).
 2. **Trigger timing**: after Turing's functional test/regression retest passes (the `status` could be set to done but the product side is not yet verified), Elon decides to trigger.

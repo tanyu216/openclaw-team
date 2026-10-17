@@ -217,3 +217,44 @@ node tools/ui-fidelity/check.mjs --config ./.ui-fidelity.json --style-strict
 **What C does skip**: the Jobs contract round, the screenshot comparison (unless the change is visually non-trivial), and the per-card Turing lane.
 
 **Anti-patterns (reject on sight)**: a flow-C card delivered with no assertion evidence | treating a token-**definition** change or a new block as "a detail" | "the assertion passed, so the sample can be skipped" | widening a C card in place instead of escalating it to A.
+
+---
+
+## 12. Normative Addenda Carried from `PROTOCOL §9.1`
+
+> These are the full rules behind the three one-line anchors in `PROTOCOL §9.1`. L1 keeps the normative floor; this section carries the operational detail. Role files reference this section and do not restate it.
+
+### 12.1 Prototype text discrimination (Addendum I)
+
+1. **Discriminate**: when migrating prototype text into the implementation, **distinguish UI copy vs developer annotations**; annotations **must not enter the UI** (they may go into code comments).
+2. **Prototype-side labeling convention**: if the prototype needs to express "pending wiring", it should **use comments/data attributes** (e.g. `<!-- TODO: ... -->` / `data-pending`) rather than **visible copy**; if it has already been written as visible copy ⇒ the implementation **renders after removing the annotation wording**.
+3. **Acceptance check**: when comparing UI-card screenshots, **check whether the UI contains words like "placeholder/pending backend/TODO"** ⇒ if present, reject (a user-visible defect).
+4. **The real state of pending wiring**: if you genuinely need to tell the user "data not wired", use a **proper empty/loading state component** (§EmptyState), not a parenthetical annotation.
+
+**Anti-patterns (reject on sight)**: rendering developer annotations like "(static placeholder)" to users | keeping visible annotations on the grounds that "the prototype wrote it that way".
+
+### 12.2 Reproduce, do not reinterpret (Addendum II)
+
+**Rule (Linus, hard)** — the prototype is the operator-facing design contract (`PROTOCOL §9.1`), and the implementer is **not** a second designer:
+
+1. **Reproduce, do not reinterpret**: when the design baseline comes from Jobs, page structure, block order, styles and **UI interactions** must match the prototype. Unilateral UI/UX changes are forbidden — adding/removing/moving/restyling blocks, changing visible copy, or changing what a control does.
+2. **Omissions are supplementable, but declared**: only where the prototype **does not mention** a case may Linus supplement/complete it — minimally, in the prototype's existing design language — and **must**: ① record it on the card (`## Progress` + `task.comment kind=change`, stating *what* and *why*), and ② surface it to Elon (and Jobs) in the delivery Report. An undeclared supplement is a defect.
+3. **Contradictions need Elon's approval**: if Linus believes the prototype is wrong or self-contradictory, do **not** silently "fix" it — set the card `blocked` and send back to Elon, who routes it to Jobs (design change) or authorizes a written deviation.
+4. **Deviation is written, never silent**: an approved deviation is recorded in the card with approver + reason (`kind=decision`).
+
+**Anti-patterns (reject on sight)**: "improving" the prototype's spacing/hierarchy because it "looks better" | changing an interaction because "that is the engineering convention" | leaving a supplement unrecorded | treating "build passes / tests pass" as licence to diverge from the prototype.
+
+### 12.3 Flow C floor (Addendum III)
+
+1. **The delivery gate is uniform across A/B/C**: before any UI change is delivered (`in_review`), the **relevant assertion subset** of the page's structural contract must pass, and the Report must carry the self-proof (command + exit code + `--json` artifact pointer). A red assertion ⇒ **not deliverable**; "it is only a micro-change" is never a reason to deliver without evidence.
+2. **The flow C form (routing in `PROTOCOL §10.5`)**: C **reuses the frozen contract** (no new Jobs contract round) and takes the short chain (Linus → Elon final acceptance audit); the **After** line is served by the **rolling sample** instead of a per-card independent lane. **"Reduced" ≠ "empty"**: the assertion subset must be green, and the card stays eligible for the sampled independent re-check.
+3. **Jobs's visual pass in C**: required only when the change is visually **non-trivial** (it affects layout / multiple viewports) ⇒ one **asynchronous** visual pass; otherwise the sample stands in.
+4. **Escalation out of C**: anything past the `PROTOCOL §10.5` **hard boundary** is **flow A** and takes the full gate — never a widened C card.
+
+**Anti-patterns (reject on sight)**: delivering a C card with no assertion evidence | calling a token-**definition** change a "detail" | dropping the sample because "the assertion passed".
+
+### 12.4 §9.2 / §9.3 rationale notes
+
+- §9.2 separates **design form** from **implementation**: `prototype/**` is the design-form baseline, and real implementation lands in the project's implementation root (`web-client/src/`, `server/src/`, etc.) — never in `prototype/**`.
+- §9.3 is **form fidelity**: acceptance runs the key path in the deliverable's actual runtime form (container / orchestration), not only in the host-process form.
+- The normative rules remain in `PROTOCOL §9.2` / `§9.3`; this section only records why they exist and what the full addenda require.
