@@ -30,6 +30,9 @@ function files() {
   const list = [];
   const proto = path.join(docRoot, 'PROTOCOL.md');
   if (fs.existsSync(proto)) list.push({ path: proto, skipSection: '## 1.' });
+  // L1 第二册（§21 起，产品/工程门禁）：同样是 L1，实现名一样不得出现。
+  const gates = path.join(docRoot, 'PROTOCOL-gates.md');
+  if (fs.existsSync(gates)) list.push({ path: gates });
   for (const a of ROLES) {
     const p = M.mode === 'repo' ? path.join(M.repo, 'roles', a, 'AGENTS.md') : path.join(M.home, `workspace-${a}`, 'AGENTS.md');
     if (fs.existsSync(p)) list.push({ path: p });

@@ -17,7 +17,7 @@ import { isTerminal } from './status.mjs';
 const MAX_CHAIN = 8, MAX_FANIN = 8, DEEP_CHAIN_WARN = 5;
 // PROTOCOL §10.2「登记一次到位、放行可分批」软护栏（T-20261013-010610）。
 // 占位态 = 已登记、尚未放行的子卡状态；阈值默认 48h，可由 OPENCLAW_TEAM_EPIC_TODO_WARN_MS 覆盖
-// （阈值裁定归人，PROTOCOL §24.7）。本项只告警、不改退出码——与 PROTOCOL §10.3 深链软护栏同款。
+// （阈值裁定归人，PROTOCOL §20.2）。本项只告警、不改退出码——与 PROTOCOL §10.3 深链软护栏同款。
 const PLACEHOLDER_STATUS = new Set(['todo', 'backlog']);
 // 终态判据来自 `scripts/status.mjs#isTerminal`。**行为变更**：修前本处写死 `{done, canceled}`，
 // 漏了旧词 `failed`（PROTOCOL §16：`failed` = `canceled` 的别名）⇒ 交付失败的 epic 仍会被按「第二批遗漏」

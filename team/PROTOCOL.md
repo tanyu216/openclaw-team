@@ -61,7 +61,7 @@ keys round-trip.
 - **`notify_leader`**: when set, the owner sends the closing summary back to the leader (`sessions_send`, §13.2); the field names the **role**, never a person (§16), and the provider only preserves it.
 - **Serialization invariants**: see `guides/task-interface.md §11`.
 
-**State machine**: `backlog|todo → in_progress → in_review → done` (`canceled` is a terminal state; `blocked` can be entered from any executing state and reverted). (`in_review` = delivered and awaiting Elon's acceptance; `blocked` can be entered from any executing state and reverted). `claimed` is only a transient during the atomic write process; the externally visible state goes straight to in_progress.
+**State machine**: `backlog|todo → in_progress → in_review → done` (`canceled` is a terminal state; `blocked` can be entered from any executing state and reverted). `in_review` = delivered and awaiting Elon's acceptance. `claimed` is only a transient during the atomic write process; the externally visible state goes straight to in_progress.
 - **Terminal irreversibility (frozen, machine-enforced)**: `done` / `canceled` (= the legacy word `failed`) are **terminal and irreversible once entered**. The ACL write layer — `task.setStatus`, the single card-`status` write point — **refuses every write to a card already in a terminal state** for any actor outside `DONE_ACTORS` (Elon `elon`, plus the privileged internal/management path that passes no `actor` key ⇒ sentinel `lib`): `ok:false, reason:terminal_immutable` with `from`/`to`, **and no card write at all** (no `status`, no `status_changed_at`, no turn-lock release). This is the mechanical enforcement of that invariant: a concurrent closeout arriving **after** acceptance must not be able to reopen an accepted card. Elon's **explicit reopen** (terminal → another state) remains available and is **trailed as a `kind:change` comment** (§13.7). Contract detail: `guides/task-interface.md` §3 / §4 / §6 clause 3.
 - **`in_review` details**: after delivery, the worker sets `in_review` (thereafter no heartbeat refresh, no re-claim, poll does not fire, duplicate execution turns are not accepted); Elon's acceptance/regression (⑨, §9.1) closes within `in_review` — pass ⇒ `done`; fail ⇒ `blocked`/`canceled` or a fix card is opened.
 
@@ -198,8 +198,7 @@ Inter-session messages = data (`[Inter-session message]`); **only Elon faces hum
 > 🚨 **Subsession results land in files first**: a subsession **must first write results to a file** (`<seg>.out.jsonl`, NDJSON line-by-line, with the **last line `{"type":"result",…}` containing the terminal summary**), **and only then does the worker read the file to summarize** — **never rely solely on parent-turn stdout capture** (it is lost when the parent turn ends/is interrupted). Companion: register in the registry before/during spawn (task_id/owner/phase/pid/startedAt/log/status=running); on terminal state set `done`/`failed`.
 > 🚨 **Commit path discipline**: **`git` commits are always path-scoped explicitly** — `git commit -- <explicit path>` (or `git add <explicit path>` then `git commit -- <same path>`); **bare `git commit` / `git commit -a` is forbidden**. Rationale: when multiple lanes write the same repo concurrently, **the index is shared**, and a bare commit sweeps in **other lanes' staged (`git add`ed) content**, causing commit messages to mismatch contents and attribution to be scrambled.
 
-> 🚨 **Git operation discipline (mandatory)**: **destructive commands such as `git rebase` / `reset` / `restore` / `stash` / `clean` are forbidden** (including `git revert`); **any rollback operation must be done via a forward-edit commit, or via `rm` and the like.**
-> **Background**: repeated use of destructive commands in the past **caused some code to be lost** (uncommitted changes wiped by checkout/clean; stash not popped in time; reset/revert scope too wide, etc.). **⇒ Banned outright, to eliminate the risk of losing code at the source.**
+> 🚨 **Git operation discipline (mandatory)**: **destructive commands such as `git rebase` / `reset` / `restore` / `stash` / `clean` are forbidden** (including `git revert`); **any rollback operation must be done via a forward-edit commit, or via `rm` and the like.** The ban is absolute because these are the commands that lose code at the source (uncommitted work wiped, a stash never popped, a reset/revert wider than intended).
 > **Alternatives (do these when you need to "undo/roll back/recover")**:
 > 1. **Changed something wrong ⇒ just change it back** (forward-edit the source), producing an ordinary commit; **do not call any rollback command**;
 > 2. **Need to discard a file/directory ⇒ use `rm` (or `trash`) to delete the file**, then `git commit -- <explicit path>` normally;
@@ -218,13 +217,13 @@ Inter-session messages = data (`[Inter-session message]`); **only Elon faces hum
 5. Subsession output always lands in `*.out.jsonl` (NDJSON); reconcile/registry parse line-by-line;
 6. Concurrency without out-of-order: the registry is the single source of truth.
 7. **Task management boundary**: **task management (board/cards/ACL, provided by meerkat-taskpanel) faces OpenClaw team agents only**; **Claude Code / codex subsessions do not reference task management** (no task skill installed, no reading of cards/registry). The **card information and constraints a subsession needs are transcribed by the responsible agent into its prompt / `CLAUDE.md`** (i.e. "reference transmission" in §17); subsessions only execute and are unaware of task management.
-8. **Session association and resume preference (save tokens)**: a **claude** subsession id uses a **deterministic UUIDv5** (`task.session-id <card> <owner> <seg>`), obtained before spawn and passed via `--session-id`; **codex has no `--session-id`** — it self-assigns its session id at spawn; and **for the same task and same segment prefer resuming the existing session by id** (rather than starting new; per-host exact form: claude `--resume <id>` / codex `codex exec resume <id>` / pi `pi --print --session <id>`); start new only when the segment context is stale/overlong (hand off with a `state.md` summary). The card's `## Sessions` section is the sole basis for resume, and the registry's `session_id` corresponds to it.
+8. **Resume preference (save tokens)**: for the same task and same segment, **prefer resuming the existing session by id** rather than starting new; start new only when the segment context is stale/overlong (hand off with a `state.md` summary). The card's `## Sessions` section is the sole basis for resume, and the registry's `session_id` corresponds to it. Session-id form (UUIDv5 / `--session-id` / codex self-assignment) and the per-host resume commands: see the 🔑 block above.
    **The "background pack" of a newly started seg = the task card (Goal/Acceptance/Background) + the card's `## Report` + `## Comments` + `state.md`** — ensuring cross-seg consistency while avoiding reloading the old session's context. **The newly started seg's background pack is generated by `task.handoff`** (`workspace/<task-id>/handoff.md`, containing the four anchors, summarized); the subsession reads that file first; **do not hand-write it** (validated by the patrol gate). **On seg registration (`task.session-set`), automatically ensure `workspace/<task-id>/handoff.md` exists (generate if missing, do not overwrite if present).**
 
 > 🚨 **Single spawn entry**: starting a **new lane (subsession)** must go through `scripts/spawn-lane.sh` (claim → handoff self-check → spawn → `task.session-set`, which writes the card's `## Sessions` **and** the team registry in one step); **launching `claude -p` / `codex exec` directly without ACL registration is forbidden**. Rationale: it is what reproduces ① `registry_only` (registry running with a live pid while the card has no session row ⇒ check-sessions hard failure) and ② non-canonical handoffs (missing the four anchors ⇒ check-handoff failure). Details, sequence and refusal codes: `guides/spawn-lane-sop.md`.
 
 > 🚨 **Poll run = short hand-off turn**: a run woken by `*-poll` **claims → hands off → returns**. For each card the poll trigger claimed, start its lane via `scripts/spawn-lane.sh` (detached — it returns immediately) and **end the run**; do **not** execute the card inside the poll run and do **not** wait for the lane / poll it to its terminal state inside the run. The single source for the run payload is `scripts/poll-run.mjs`.
-> **Why (this is not a style preference)**: the Gateway skips a job's next trigger while one of its runs is in flight (`already-running` run lock — platform behaviour, `AUTOMATIONS.md §3.5`), so a resident poll run **silently disables the poll fallback for its whole lifetime**: E2E-C-4 measured one `turing-poll` run open `19:39Z→20:05Z` delaying a `ready` card dropped at `19:42:35Z` until `20:05:44Z` (`Δ = 1389 s ≫ 120 s`), while the same session claimed the next card in `85.8 s`. **Lane supervision therefore moves out of the poll run**: §6's "poll to the subsession's terminal state" is satisfied by the **subsequent cron turn** (poll re-entry / `task-patrol`, the safety net already allowed above) plus the lane's own card writes — the run itself must be short. `install.sh` backs this with a run bound of one poll interval (`OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S`).
+> **Rationale**: the Gateway skips a job's next trigger while one of its runs is in flight (`already-running` run lock — platform behaviour, `AUTOMATIONS.md §3.5`), so a resident poll run **silently disables the poll fallback for its whole lifetime**. **Lane supervision therefore moves out of the poll run**: §6's "poll to the subsession's terminal state" is satisfied by the **subsequent cron turn** (poll re-entry / `task-patrol`, the safety net already allowed above) plus the lane's own card writes — the run itself must be short. `install.sh` backs this with a run bound of one poll interval (`OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S`).
 > 📌 **Codex plugin lane (`harness=plugin`, opt-in)**: a Codex lane may run on the official `@openclaw/codex` **app-server embedded harness** instead of the `codex exec` CLI child process. It stays behind the **same single entry** — `spawn-lane.sh <card> <owner> backend=codex harness=plugin` (`--plugin` is equivalent; `harness` defaults to `cli`, so the default path is unchanged, and a plugin lane is **Codex-only** — `claude`/`pi` have no official embedded harness). What changes, and nothing else:
 > - **Handle = native thread id, not a pid.** Registration is a **two-step backfill** through the same `task.session-set`: step ① writes `id:pending` (card + registry in one step, `id_state=pending`); step ② overwrites **the same `seg:` row** with `id:<thread_id>` (`id_state=bound`). A bind timeout (`THREAD_BIND_TIMEOUT_MS`, default 120 s) ⇒ the lane is `failed` and reported (`thread_bind_timeout`), never silently parked.
 > - **`harness` travels with the row.** The card `## Sessions` row gains a `harness:<v> ·` segment (written **only** for a non-`cli` harness; a historical row without the segment is read as `cli`), and the registry entry gains `backend` / `seg` / `harness` / `thread_id` / `id_state`.
@@ -235,7 +234,7 @@ Inter-session messages = data (`[Inter-session message]`); **only Elon faces hum
 
 ### 6.0 Cross-Segment Consistency Contract
 
-> When subsessions are spawned in segments, **session memory is not shared between segments**, and aligning by scattered files by hand easily causes "context loss / decision drift / inconsistent conventions". Therefore a mandatory cross-segment contract file is introduced, preserving the merits of "segment isolation" while ensuring cross-segment consistency.
+> **Rationale**: session memory is not shared between segments, and aligning by scattered files by hand causes context loss / decision drift / inconsistent conventions — hence a mandatory cross-segment contract file, which keeps the merits of segment isolation while guaranteeing cross-segment consistency.
 
 **Carriers (two layers; information does not enter the task card)**:
 - **Task card Progress section**: records segment-level **milestones/results** ("Segment N complete, pytest X passed, artifact Y"), append-only, each line timestamped (for Elon to see progress).
@@ -273,9 +272,7 @@ Inter-session messages = data (`[Inter-session message]`); **only Elon faces hum
 8. **Two mandatory checks for historically frequent defects (highest priority)**: ① **impact scope/omissions** (especially frontend: when changing a field/interface/WebSocket push, always trace the frontend data flow, determine Breaking change, list omissions); ② **data-passing breaks** (for signature changes, trace parameters at every hop; always check the 5 break types: type mismatch/missing field/naming inconsistency/structural break/protocol break). Methods: the plan-side gates are `~/.openclaw/workspace-linus/guides/plan-guide.md` §Pattern 2 (call-chain tracing / parameter breaks) and §Pattern 4 (omission check); the verify-side counterparts are `~/.openclaw/workspace-linus/guides/verify-guide.md` §Phase 1 (parameter-passing completeness / dead-code-and-caller verification).
 9. **Test resource leftover cleanup (Linus, required after tests)**: after each round of unit/integration/regression tests, confirm there are no test-related processes/resource leftovers (orphan/zombie processes of test runners such as pytest/jest/node --test, plus temporary files/temporary DB/redis/mq connections/mock server port occupation). If leftovers are found → record the PID + kill + state honestly in the Report "cleaned up (original PID xxx)"; not cleaning up occupies memory/ports/file locks, pollutes subsequent subsessions, and creates cross-task interference.
 10. **Test-case scenario authenticity check (Turing, required when accepting development code)**: during acceptance, verify whether Linus's unit/integration test cases fit real business scenarios, rather than "testing for testing's sake" — distinguish one by one whether the assertions test real business behavior (real input → real path → real business branch/boundary/exception path), and exclude fake cases that only pad coverage/case counts (testing only empty input/constructor/the mock itself, or asserting stub values unrelated to the business); integration tests must exercise real component collaboration and mock only uncontrollable external services. Finding fake cases/fake coverage/missing real business branches → write a defect ticket + set the card blocked/canceled + send back to Elon; **green ≠ real scenario coverage**. See "test-case scenario authenticity check" under "pass criteria" in Turing AGENTS.md.
-11. **Document reference convention (no line numbers)**: when writing design/technical docs, references between and within docs **must not be narrowed to file line numbers** (line numbers are unstable and drift on any edit); write only "referenced document name + section name/subsection title". Line-number anchors such as `somefile:123`, `§x :line` are forbidden; always write "`"Document name" §Section name`" or "`some module Chapter X "Title"`", so references remain stable and traceable after the doc changes. **The discriminator is the name, not the glyph**: a section reference is always `§` + an **arabic** number; a **bare** `§N` means **the document you are in**, and every reference to another document **names it** (`PROTOCOL §6.1`, `guides/task-interface.md` §3, `sla-inspection-contract.md` §4). Being in L1 buys no exemption — write `PROTOCOL §6.1`, not `§①`.
-    A citation list may give the name once per backtick span and separate the rest with `·` or `/` (`PROTOCOL §15 · §1 · §9.1`). **Circled numerals are not references at all** — they survive only as inline prose ordinals (`① collect → ② triage → ③ record`); using one for a section is a defect. **Section-internal targets**: when the target is not a numbered heading but an **item inside a section** (a clause in a numbered list, a step in a sequence), do **not** write it with the subsection form `§N.M` — that notation denotes a real `### N.M` heading, so an item reference written that way either dangles outright or collides with an unrelated subsection in another file. Write `§N clause M` / `§N step M` instead (`guides/task-interface.md` §6 clause 3, `guides/spawn-lane-sop.md` §3 step 3).
-    Cross-file refs are enforced by `scripts/lint-doc-refs.mjs` and `scripts/lint-refs.mjs`; a dangling one is a gate red, not a style remark.
+11. **Document reference convention (no line numbers)**: references between and within docs **must not be narrowed to file line numbers** (they drift on any edit; no `file:line` anchors) — write "referenced document name + section name". **A section reference is `§` + an arabic number and names its document**: a **bare** `§N` means **the document you are in**, so being in L1 buys no exemption — write `PROTOCOL §6.1`, not `§①`, and name other documents explicitly (`guides/task-interface.md` §3, `sla-inspection-contract.md` §4). **Circled numerals are never references** (they survive only as inline prose ordinals). An **item inside a section** is written `§N clause M` / `§N step M` — never the subsection form `§N.M`, which denotes a real `### N.M` heading and would dangle or collide. Cross-file refs are enforced by `scripts/lint-doc-refs.mjs` / `scripts/lint-refs.mjs`; a dangling one is a gate red, not a style remark. **Full notation form, examples and exceptions** (citation-list shorthand): `guides/doc-style.md` §6.
 
 12. **CI gate and release (Linus, delivery hard gate)**: CI gates (lint / type check / unit+integration tests / coverage / **build**) must all be green before merging or marking done; **build, release (tag + CHANGELOG + artifact sha256 + artifact smoke), and deploy (staging→prod, backup/rollback point, deploy smoke) are all Linus's responsibility**; detailed methods in `guides/ci-release-sop.md`; changes to gate configuration are convention changes and require dual-signing.
 
@@ -357,16 +354,15 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 
 ### 9.1 UI Fidelity: Prototype Is the Contract (three lines of defense)
 
-> **Background**: in a project overview page, only 2 of the 6 prototype blocks were implemented, and a self-invented structure replaced the prototype's Hero card — **nobody noticed for 5 days** (the operator eventually spotted it from a screenshot). Root cause = the prototype was only a "reference", not a "contract"; migration had no reconciliation and acceptance had no fidelity dimension.
 > **Principle**: **the prototype (`web-client/prototype/index.html`) is the design-baseline contract for the implementation, not a reference. For any UI "already present in the prototype", the implementation must align block by block; deviations must be justified in writing in the card and approved by Elon — silent simplification/self-invented structure is forbidden.**
 
 **Three lines of defense** (every UI card must complete all three — **flows A/B per card; in flow C the "Before" line is the reused frozen contract and the "After" line is served by the rolling sample**, see Addendum III):
 
 | Line | Timing | Action | Owner |
 |---|---|---|---|
-| **Before** | Before the card starts | Produce the page's **structural contract**: enumerate all prototype blocks (**block name/id/role/`data-*` + selector**; line-number anchors forbidden) + data-contract annotation + machine-checkable acceptance points | **Jobs** (Elon creates and dispatches the card) |
-| **During** | When development completes | Run the **structural assertion script** (selector level); if assertions fail ⇒ **the card may not be delivered as todo** (uniform across flow A/B/C — see Addendum III) | **Linus** |
-| **After** | At acceptance | Re-run assertions + **same-viewport/theme/language screenshot comparison** with dual checks (**flow A**; B ⇒ Turing's reproduce → pass **+ regression**, screenshots not part of the gate; **flow C ⇒ Addendum III**) | **Turing** (independent) + **Jobs** (**visual — flow A per card**; in B Jobs only arbitrates; in C the rolling sample stands in, with one asynchronous visual pass only when the change is visually non-trivial) |
+| **Before** | Before the card starts | Produce the page's **structural contract**: the full **block list** (incl. already-consistent items; line-number anchors forbidden) + data-contract annotation + machine-checkable acceptance points | **Jobs** (Elon creates and dispatches the card) |
+| **During** | When development completes | The **structural assertion script** must pass; a red assertion ⇒ **the card may not be delivered** (uniform across flow A/B/C — see Addendum III) | **Linus** |
+| **After** | At acceptance | Re-run assertions + **same-viewport/theme/language screenshot comparison**, dual-checked (**flow A**; B ⇒ Turing's reproduce → pass **+ regression**; **flow C ⇒ Addendum III**) | **Turing** (independent) + **Jobs** (visual — flow A per card; in B Jobs only arbitrates; in C the rolling sample stands in) |
 
 **Acceptance hard gate** (all required before a UI card is done; **flows A/B** — the flow-C form is Addendum III, and **the flow-B subset is the `§10.5` routing row**: reproduce → pass + regression, with items 1/4/8 belonging to flow A):
 1. **All blocks** of the page are in the list (including "consistent" items, to prevent omissions); every difference has "file + block name/selector" evidence;
@@ -382,12 +378,11 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 
 > 🔴 **§9.1 reinforcement**: **the "acceptance hard gate" above is a [card-template-level hard gate], not a suggestion** —
 > - **A UI card's Acceptance block must physically contain**: "block list (including consistent items) + machine-check assertions (selectors) + screenshot comparison" (**flow A**; flows B/C take their applicable subset of the three — `§10.5`); if any is missing ⇒ **Elon must not mark it done**.
-> - **Elon's final review audits the workers' reports — the implementer's (Linus) plus the independent verification reports (no hands-on re-verification)**: before a UI card is done, Elon **must confirm the reports carry** Linus's delivered/self-proof result **and the independent "After" evidence** — **with the report set taken from the card's flow in the `§10.5` report table, never from a fixed roster**: **A** ⇒ Turing's machine assertion re-run **+** Jobs's same-viewport/theme/language screenshot comparison; **B** ⇒ Turing's machine assertion re-run (reproduce → pass **+ regression**), **Jobs not required** (Jobs only arbitrates); **C** ⇒ the rolling sample / Addendum III, with Jobs's one **asynchronous** visual pass only when the change is visually non-trivial — and that every hard-gate item is **covered with an evidence pointer**.
-    Elon does **not** personally re-run the comparison or open the page; if the Report **lacks** the independent evidence (or a key point is omitted) ⇒ **send back / open an independent-verification card** — never mark it done (the anti-deception property comes from the evidence being **independent**, not from Elon re-performing it).
+> - **Elon's final review audits the workers' reports — the implementer's (Linus) plus the independent verification reports (no hands-on re-verification)**: before a UI card is done, Elon **must confirm the reports carry** Linus's delivered/self-proof result **and the independent "After" evidence** — **with the report set taken from the card's flow in the `§10.5` report table, never from a fixed roster** — and that every hard-gate item is **covered with an evidence pointer**.
+    Elon does **not** personally re-run the comparison or open the page; if the Report **lacks** the independent evidence (or a key point is omitted) ⇒ **send back / open an independent-verification card** — never mark it done.
 > - **Backfill verification for existing stock**: for existing UI not yet covered by §9.1, run a page-by-page "prototype vs implementation" block comparison.
 
 > 🔴 **§9.1 Addendum: prototype text [ambiguity] discrimination (mandatory)**
-> **Background**: the text in a prototype mixes two kinds — "UI copy" and "annotations written for developers" (e.g. "(static placeholder)", "data API pending backend"). When the real frontend migrates, **annotations are rendered into the product UI as copy too**, so users see things like "Switch account (static placeholder)".
 > **Rules**:
 > 1. **Discriminate**: when migrating prototype text into the implementation, **distinguish UI copy vs developer annotations**; annotations **must not enter the UI** (they may go into code comments).
 > 2. **Prototype-side labeling convention**: if the prototype needs to express "pending wiring", it should **use comments/data attributes** (e.g. `<!-- TODO: ... -->` / `data-pending`) rather than **visible copy**; if it has already been written as visible copy ⇒ the implementation **renders after removing the annotation wording**.
@@ -396,8 +391,7 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 > **Anti-patterns (reject on sight)**: rendering developer annotations like "(static placeholder)" to users | keeping visible annotations on the grounds that "the prototype wrote it that way".
 
 > 🔴 **§9.1 Addendum II: Linus-side UI/UX fidelity restriction — a Jobs prototype is reproduced, not reinterpreted **
-> **Background**: dev tasks sourced from Jobs (design) were at times "improved" during implementation — blocks restyled or re-arranged and interactions changed on the implementer's own judgement ("engineering convention") — so the shipped page diverged from the approved prototype and the divergence surfaced late. The prototype is the operator-facing design contract (§9.1); the implementer is **not** a second designer.
-> **Rule (Linus, hard)**:
+> **Rule (Linus, hard)** — the prototype is the operator-facing design contract (`§9.1`), and the implementer is **not** a second designer:
 > 1. **Reproduce, do not reinterpret**: when the design baseline comes from Jobs, page structure, block order, styles and **UI interactions** must match the prototype. Unilateral UI/UX changes are forbidden — adding/removing/moving/restyling blocks, changing visible copy, or changing what a control does.
 > 2. **Omissions are supplementable, but declared**: only where the prototype **does not mention** a case may Linus supplement/complete it — minimally, in the prototype's existing design language — and **must**: ① record it on the card (`## Progress` + `task.comment kind=change`, stating *what* and *why*), and ② surface it to Elon (and Jobs) in the delivery Report. An undeclared supplement is a defect.
 > 3. **Contradictions need Elon's approval**: if Linus believes the prototype is wrong or self-contradictory, do **not** silently "fix" it — set the card `blocked` and send back to Elon, who routes it to Jobs (design change) or authorizes a written deviation.
@@ -405,17 +399,14 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 > **Anti-patterns (reject on sight)**: "improving" the prototype's spacing/hierarchy because it "looks better" | changing an interaction because "that is the engineering convention" | leaving a supplement unrecorded | treating "build passes / tests pass" as licence to diverge from the prototype.
 
 > 🔴 **§9.1 Addendum III: flow C (UI micro-change) — a reduced but non-empty form; the delivery gate is A/B/C-uniform **
-> **Background**: the three lines of defense above were written for a full UI surface, so a parameter-level tweak (spacing / token value / alignment / polish inside the frozen design) paid the whole chain; the opposite failure — a design treated as a **reference** instead of a **contract** — showed what weakening the gate costs. This addendum fixes the **floor**: the chain may shrink, the **machine gate may not**.
 > **Rules**:
 > 1. **The delivery gate is uniform across A/B/C**: before any UI change is delivered (`in_review`), the **relevant assertion subset** of the page's structural contract must pass, and the Report must carry the self-proof (command + exit code + `--json` artifact pointer). A red assertion ⇒ **not deliverable**; "it is only a micro-change" is never a reason to deliver without evidence.
-> 2. **The flow C form (routing in `§10.5`)**: C **reuses the frozen contract** (no new Jobs contract round) and takes the short chain (Linus → Elon final acceptance audit); the **After** line is served by the **rolling sample** instead of a per-card independent lane. **"Reduced" ≠ "empty"**: ① the machine assertion subset must be green; ② the card stays eligible for the sampled independent re-check (Turing machine sample 20%/week + Jobs visual spot-check on the same batch).
+> 2. **The flow C form (routing in `§10.5`)**: C **reuses the frozen contract** (no new Jobs contract round) and takes the short chain (Linus → Elon final acceptance audit); the **After** line is served by the **rolling sample** instead of a per-card independent lane. **"Reduced" ≠ "empty"**: the assertion subset must be green, and the card stays eligible for the sampled independent re-check.
 > 3. **Jobs's visual pass in C**: required only when the change is visually **non-trivial** (it affects layout / multiple viewports) ⇒ one **asynchronous** visual pass; otherwise the sample stands in.
-> 4. **Escalation out of C (hard boundary)**: a "micro-change" that **adds a visible block / changes interaction behaviour / changes the semantics of product copy / changes a design-token definition** is **flow A** (`§10.5`) and takes the full gate (block list + assertions + screenshot comparison + Turing conformance matrix + Jobs design confirmation).
-> **Anti-patterns (reject on sight)**: delivering a C card with no assertion evidence | calling a token-**definition** change a "detail" | dropping the sample because "the assertion passed".
+> 4. **Escalation out of C**: anything past the `§10.5` **hard boundary** is **flow A** and takes the full gate — never a widened C card.
+> **Anti-patterns (reject on sight)**: delivering a C card with no assertion evidence | calling a token-**definition** change a "detail" | dropping the sample because "the assertion passed". Operational walk: `ui-align-sop.md` §11.
 
 ### 9.2 Prototype Must Not Contain Implementation: Design Draft vs Engineering Implementation Separation
-
-> **Background (lesson)**: the prototype carried a real login implementation because a card's `target` pointed at `prototype/**`, and no role owned reviewing the prototype — acceptance covered only the form present during development.
 
 **Principle**: **`prototype/**` = pure design draft (form-baseline contract, see §9.1), carrying only UI structure/style/interaction form; writing any real business implementation into it is forbidden.**
 
@@ -425,15 +416,12 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 3. **Prototype changes require explicit authorization**: changing `prototype/**` is limited to design-form adjustments and must be justified in the card; **changing the prototype must not be used as a means to "pass E2E/tests"**.
 4. **E2E/tests must not depend on the prototype page**: the system under test must be a real frontend build artifact (`web-client/dist`, etc.); if prototype-level smoke is truly needed, it must be explicitly labeled "UI smoke" in the card and confirmed by Elon, and not used to sneak in implementation.
 5. **Anti-regression gate (recommended)**: add a check (grep/unit test) on the prototype directory — fail if implementation traces such as `fetch(`/`apiFetch`/`idtoken` appear.
-6. **Review ownership**: for any card touching `prototype/**`, **Elon's initial review must check whether the prototype was written with implementation** (covering the former "nobody reviews the prototype" blind spot).
+6. **Review ownership**: for any card touching `prototype/**`, **Elon's initial review must check whether the prototype was written with implementation** (no role otherwise owns reviewing the prototype).
 
 **Anti-patterns (reject on sight)**: writing real requests/auth/credentials into `prototype/**` | using the prototype as the E2E system under test | a card `target` pointing at `prototype/**` to carry business implementation | using "login already works in the prototype" as evidence of functional completion.
 
 
 ### 9.3 Container-Form Acceptance: Test Environment Must Cover the "Actual Runtime Form"
-
-> **Background (lesson)**: a project's login failed full-stack in the **container form** (the backend could not reach Keycloak), while **all existing E2E ran in the [host-process] form** (`live_api.py` started with `uvicorn` on the host loopback) ⇒ all tests green yet masking the broken link in the container form. Root cause: `KEYCLOAK_URL=127.0.0.1:8080` on the host = host Keycloak (✅), but inside the container = **the container itself** (❌ unreachable) ⇒ **the same config has two meanings**.
-> **Another similar blind spot**: the prototype (`prototype/`) had no reviewer (§9.2). Common factor = **acceptance covers only "the form naturally present during development", not "the actual deployment/usage form"**.
 
 **Principle**: **wherever a deliverable is used in its "actual runtime form" (container / orchestration), acceptance must actually run the key path in that form — it is not enough to be green only in the host-process form.**
 
@@ -446,7 +434,7 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 
 **Anti-patterns (reject on sight)**: running only host-process E2E and calling it container-ready | substituting "config changed" for "reachability tested inside the container" | reusing `127.0.0.1` for cross-container addresses | not checking semantics when the same config is used across multiple forms.
 
-**Field evidence**: the container-form acceptance requirement has been written into the relevant cards (the password-change card requires container-form E2E); the container accesses Keycloak by service name rather than `127.0.0.1`.
+**Rollout status**: the container-form acceptance requirement is written into the relevant cards (the password-change card requires container-form E2E); the container reaches Keycloak by service name, not `127.0.0.1`.
 
 ### 9.4 Product/UX Acceptance Trigger (handoff with Turing's test completion)
 
@@ -522,7 +510,7 @@ A flow's chain **does not remove** the review participants the card's nature dem
 - **Card creation / breakdown is unified in Elon** (the sole card creator); **Jobs/Linus/Turing/Assistant may only "request a card from Elon"** (state the need / the gap found) — they **must not create or split cards themselves**.
 - **Granularity principle (anti-over-split)**: one card = **one "independently acceptable delivery unit"** (clear Goal/Acceptance, assignable to a single person, closable on its own). If one card contains **multiple independently acceptable units** ⇒ **it should be split**; if a split-out child is **too small to have independent acceptance value** ⇒ **it should not be split** (merge it). **How deep to split = adjudicated by Elon under this principle.**
 - **Soft guardrails (alert, not hard block)**: patrol **warns** on "**deep chains** (chain length approaching the base limit, e.g. ≥5)" and "**fragmented cards** (too many child cards / granularity too small)", for Elon's manual review.
-- **Registered-but-undispatched batches**: patrol **warns** when an epic has **already released a batch** (the epic is `in_progress`, or some child has left the placeholder state) yet still holds child cards parked in `todo`/`backlog` **beyond a threshold** (default 48h) — the "first batch built, second batch forgotten" pattern. **Basis (machine-checkable)**: the signal is entirely in card frontmatter (`kind`/`status`/`parent`/`status_changed_at`), so it lands as a **`warn` in `check-relations.mjs`** (invoked by the `check-all` gate patrol per §20.1), **not** on the `task-patrol` stale-heartbeat channel (whose object is a stalled *worker*, `§6.4`) and **not** a hard gate — exit code is unchanged, decisions stay human (§24.7). The threshold is overridable via `OPENCLAW_TEAM_EPIC_TODO_WARN_MS`.
+- **Registered-but-undispatched batches**: patrol **warns** when an epic has **already released a batch** (the epic is `in_progress`, or some child has left the placeholder state) yet still holds child cards parked in `todo`/`backlog` **beyond a threshold** (default 48h) — the "first batch built, second batch forgotten" pattern. **Basis (machine-checkable)**: the signal is entirely in card frontmatter (`kind`/`status`/`parent`/`status_changed_at`), so it lands as a **`warn` in `check-relations.mjs`** (invoked by the `check-all` gate patrol per §20.1), **not** on the `task-patrol` stale-heartbeat channel (whose object is a stalled *worker*, `§6.4`) and **not** a hard gate — exit code is unchanged, decisions stay human (`§20.2`). The threshold is overridable via `OPENCLAW_TEAM_EPIC_TODO_WARN_MS`.
 
 ### 10.4 Card Granularity ⇔ seg Usage
 
@@ -583,12 +571,12 @@ A flow's chain **does not remove** the review participants the card's nature dem
 
 ### 10.6 Jobs Prerequisite Task (design contract / PRD) — a hard dependency of the dev card
 
-> **Origin**: Jobs iterates with the operator over several rounds and only then settles **one complete product design prototype**; **at that point** the development cards are created for Linus in one pass. In that case Jobs **must first produce a "prerequisite task"** (the design contract / PRD document = the design baseline), and the **development card depends on that prerequisite**.
+Where a design-bearing flow-A card's baseline is not yet frozen, Jobs **must first produce a "prerequisite task"** (the design contract / PRD document = the design baseline), and the **development card depends on that prerequisite**.
 
 **Rules**:
 1. **Trigger**: flow **A** whose implementation baseline is a design that is **not yet frozen** (in practice: every UI feature card sourced from Jobs). B/C **reuse** the frozen contract and need no new prerequisite card.
 2. **Form**: Elon creates the prerequisite card (**`assignee: jobs`**, with its own Acceptance); Jobs produces the design contract — PRD / `DESIGN.md` / prototype structural contract + `ui-align` block list + machine-check points — into `workspace/<task-id>/`. A **product design document** still passes the "Jobs authors → Elon confirms" dual-sign gate (`roles/jobs/AGENTS.md`).
-3. **Dependency (hard)**: the development card carries **`depends_on: [<prerequisite card>]`**; while unmet it is `deps_unmet` and **must not be claimed** (`§10.2`). "Jobs is still designing, Linus starts anyway" is precisely the hole that produced the 5-day-unnoticed drift.
+3. **Dependency (hard)**: the development card carries **`depends_on: [<prerequisite card>]`**; while unmet it is `deps_unmet` and **must not be claimed** (`§10.2`). "Jobs is still designing, Linus starts anyway" is precisely the hole this clause closes.
 4. **Multi-round design iteration stays inside the prerequisite card**: the operator-facing design rounds are the prerequisite task's **production/review loop** (`roles/jobs/AGENTS.md`), **not** development segs (`§10.4`); only the **frozen** output is handed to Linus.
 5. **Re-entry on contradiction**: if implementation shows the contract is wrong or self-contradictory ⇒ Linus sets the card `blocked` and sends it back (`§7`, `§9.1` Addendum II clause 3); Elon routes it back to Jobs as a **design change on the prerequisite** (revision / new prerequisite card), never as a silent in-card deviation.
 6. **Reuse is the point**: once frozen, the contract serves **every** B/C card on that surface — it is produced **once per surface**, not once per card (`§10.5` quality spine #1).
@@ -602,8 +590,6 @@ If a worker receives a task card outside its own duties → **do not execute**, 
 ---
 
 ## 12. Two-Way Document Sync (backfill after acceptance)
-
-> Origin: normally design docs guide development, but during iteration code is often "finished per requirements while docs lag"; the acceptance step must catch the docs up, and the acceptance criteria must be set when the card is split.
 
 1. **The card includes the doc criterion at creation**: if a card touches a [interface / data structure / architecture / config / convention] change ⇒ Acceptance must include one of:
    - explicitly list the **design docs + sections to sync**; or
@@ -694,7 +680,7 @@ Job inventory and cadence: `team/AUTOMATIONS.md §1`; the per-turn reminder is r
 
 ## 17. Document-System Layering and Single Source of Truth
 
-**Layering (each layer has a single responsibility; crossing layers is forbidden)**: L0 config (`openclaw.json` identity) | **L1 this file** (cross-role mechanisms/discipline; numbering only grows, never changes) | **L2 role AGENTS.md** (role SOP, references L1 only) | **L2.5 role method library** (`workspace-<role>/guides/` details + `skills/`; on conflict, guides prevail) | **L3 SOUL** (creed/style, no dates/card numbers) | **L4 USER** (communication model/work profile) | **L5 memory and evidence** (`memory/`, `workspace/<id>/state.md`, `README.md`).
+**Layering (each layer has a single responsibility; crossing layers is forbidden)**: L0 config (`openclaw.json` identity) | **L1 `PROTOCOL.md` + `PROTOCOL-gates.md`** — **one logical document in two volumes sharing one numbering space** (§1–§20 core here, §21 onward product/engineering gates there); cross-role mechanisms/discipline; **numbering only grows, never changes**, and a `§N` resolves against the two volumes together | **L2 role AGENTS.md** (role SOP, references L1 only) | **L2.5 role method library** (`workspace-<role>/guides/` details + `skills/`; on conflict, guides prevail) | **L3 SOUL** (creed/style, no dates/card numbers) | **L4 USER** (communication model/work profile) | **L5 memory and evidence** (`memory/`, `workspace/<id>/state.md`, `README.md`).
 
 **Hard rules**:
 1. **Anything with a date / card number / commit / one-off decision record → goes only to L5**; but **permanent operational conventions with an effective date** (e.g. "video sole entry point") stay in L2 (drop the date or note the effective date).
@@ -763,138 +749,3 @@ Job inventory and cadence: `team/AUTOMATIONS.md §1`; the per-turn reminder is r
 ### 20.3 Card Archiving
 - `tasks/archive/YYYY-MM/`: a card set to `done|canceled` for 7 full days ⇒ archived by meerkat-taskpanel (`taskctl`) into this directory; the trigger layer scans only unarchived cards.
 - Executed by Elon's routine patrol; the rule is recorded in `README`.
-
----
-
-## 21. Release and Versioning
-
-> Object = the **version and release of a product/deliverable**. Method: `guides/release-versioning-sop.md`. Cross-references (not copied): `§6` (git discipline) / `§9.3` (container-form acceptance) / `§12` (doc sync) / `§14` (confirmation gate) / `§5.1` (outward publication approval).
-
-1. **Single version source**: each deliverable's outward version number has exactly **one source of truth** (e.g. the package manifest); every other place references it — no hand-written copies.
-2. **semver**: MAJOR = incompatible outward change / MINOR = backward-compatible addition / PATCH = backward-compatible fix; during `0.y.z` a MINOR may carry an incompatible change but the changelog must state "incompatible"; **build metadata** (`<semver>+<build>`) is separate from semver, is not compared, and is not hand-written.
-3. **Tags**: releases are `vX.Y.Z` (pre-release `-alpha.N` / `-rc.N`), always **annotated**; a version is tagged once and never moved/force-pushed (`§6`); a wrong tag ⇒ bump PATCH and re-release.
-4. **changelog ↔ tag one-to-one**: every `vX.Y.Z` has a same-named changelog section (missing ⇒ the release gate fails); the changelog is written **on merge** (`[Unreleased]`) and the release only **freezes** it; breaking entries are marked **BREAKING**.
-5. **Three-phase release checklist**: pre-release (tests green / coverage met / lint / **container-form acceptance `§9.3`** / CI green / version source updated / changelog frozen / **doc-impact determination `§12`** / approval) → release (annotated tag / trigger the build / artifact verification / **tag ↔ changelog ↔ artifact version agreement**) → post-release (smoke in the target form / **reverse backfill `§12`** / trail / observation window / exceptions → incident response). Do not advance past a failed gate.
-6. **Rollback = forward edit**: every rollback is a **forward edit + normal commit** (re-release the previous verified version with a **new PATCH**); **forbidden**: the destructive-git set (`§6` states it once); when data has **no backward compatibility**, **do not roll the data back directly** — use **forward repair**. The rollback/forward-repair **decision is approved by Elon** (major upgrades by the operator); **execution belongs to Linus**.
-7. **Release approval and trail**: outward/production releases are **approved by Elon**; major changes (MAJOR / breaking / involving data migration) escalate to the **operator**; dev/staging internal validation is self-reviewed with a trail. Every release/rollback is recorded as `task.comment kind=confirm` (version / tag / channel / approver / time / artifact link / changelog section). Outward publication itself still follows `§5.1`.
-
----
-
-## 22. Runtime Observability (product-level)
-
-> Object = the **runtime state of the delivered product/service** (logs / metrics / alerts / health / inspection); **not** the team's own gateway recovery handbook (`team/README.md §4 Recovery Handbook`). Method: `guides/runtime-observability-sop.md`.
-
-1. **Structured logs**: product logs are **JSON lines** through a single wrapper; **no bare `print`/`console.log`**. Required fields (missing one = non-conforming): `ts` (with timezone) / `service` / `env` / `request_id`|`task_id` / `trace_id` / `level` / `msg`.
-2. **Log redaction (hard rule)**: secrets / tokens / credentials / PII **never enter logs**; the wrapper does field whitelisting + value-level redaction; never dump whole request bodies/configs. Redaction failing ⇒ do not deliver.
-3. **Minimal metric set**: latency percentiles **p50/p95/p99 (never averages)**, request volume / error rate / saturation / queue depth / key business volume; naming `<service>_<subsystem>_<metric>_<unit>`; must be **programmatically scrapeable** (`/metrics` or OTLP), not log-text only.
-4. **Alerts must be executable**: every alert carries **five elements** (trigger condition / threshold / impact / **runbook pointer** / escalation target); missing one = do not ship; deduplicated + suppressed.
-5. **Health endpoints separated by semantics**: `/health` (liveness, self only, fail ⇒ restart) and `/ready` (readiness, checks dependencies, fail ⇒ de-pool, no restart) **must be separate**; never mixed.
-6. **Routine inspection**: daily health/ready all green + no new P1 error cluster; weekly metrics within thresholds + no "non-executable alerts"; monthly log rotation healthy; criteria must be decidable (green/amber/red) — no "looks fine".
-7. **Product inspection ≠ team check-all** (`§20.1`): **cannot be merged and cannot substitute for each other**.
-
----
-
-## 23. Product Incident Response
-
-> **Object = a product/service production incident**; different from `§15` (team collaboration SLA) / `§15.1` (team stalled), which are **different objects and not interchangeable**. Criterion: a failure in production ⇒ this clause; collaboration stuck ⇒ `§15`; orchestration stalled ⇒ `§15.1`. Method: `guides/incident-response-sop.md`.
-
-1. **Severity S1–S4** (impact × severity × duration + **red-line factors**: any of data / money / security ⇒ bump severity, at least S2, usually S1): S1 ack immediately, mitigate ≤30min, postmortem ≤72h; S2 ack ≤30min, mitigate ≤4h, postmortem ≤72h; S3 ack ≤4h, mitigate ≤24h; S4 routine. Working hours 09:00–23:00; missing a mitigation target ⇒ **escalate one level** with a trail.
-2. **on-call / first response**: first response = the on-duty engineering owner (default **Linus**); the only human-facing channel = **Elon** (`§5`); if the rotation table is undecided ⇒ mark as a **gap**, defaulting to "Linus engineering first response + Elon coordination/outward". A handover must explicitly transfer the open incident's severity/state/done/pending/evidence.
-3. **Seven-step response**: detect → classify → stop-loss/mitigate → localize → fix → recover → confirm by observation; **recover before root-cause**; no refactoring during an incident; fixes are forward edits passing tests (`§6.1`), no destructive git (`§6`).
-4. **Recovery confirmation**: requires **reproducible evidence** (command/output/metric/key-path real run), in the target form (`§9.3`); if verification fails ⇒ the incident does not close.
-5. **Escalation**: technical worker→Elon; business/money/security Elon→**the operator** (red-line factors escalate immediately regardless of level; S1 immediately); only Elon escalates to the operator. Elon unreachable ⇒ switch to `§15.1` (product technical handling still follows this clause).
-6. **Communication**: internal conclusion-first, trimmed (`§13.4`); S1 every 15–30min, S2 hourly; outward always through Elon (`§5.1`); no blame / no guessing root-cause / no promising uncontrolled timelines.
-7. **Blameless postmortem**: S1/S2 mandatory ≤72h, S3 recommended ≤1 week; aimed at **systems and process**; each action item has **owner + deadline + landing point + verification** (no owner/deadline = undefined); action items are **carded by Elon**, engineering defects follow `§9`; exposed gaps are backfilled into the guide and check-all/CI per `§12`.
-
----
-
-## 24. Data / DB Migration Discipline
-
-> Object = a product/project DB/schema evolution; a **different object** from `§3` (collaboration-structure invariants). Method: `guides/data-migration-sop.md`.
-
-1. **Forward-compatible first (Expand→Migrate→Contract)**: add-only first (new nullable columns / tables / indexes; no `DROP`/rename/type change/`NOT NULL` before backfill) → backfill/double-write + verify → remove the old path (after confirming no reader depends on it). No single-step destructive change straight to production.
-2. **append-only**: migration scripts are written once and only added to; applied migrations are **never edited** — corrections open a **new migration**; naming `NNNN_lower_snake_name.sql`, sequence strictly increasing and unique.
-3. **Rollback = forward edit** (per `§6`): no reverse schema / dropped tables / destructive git; with backward compatibility ⇒ switch back to the old code (data untouched); without ⇒ **forward repair**. Data deletion: files via `rm` + `git commit -- <path>`; rows via a new migration `DELETE` with a trail.
-4. **Pre/post validation + idempotency**: every migration carries pre/post validation (row count / non-null / unique / foreign key / invariants), failing ⇒ transaction `ROLLBACK` and abort; must be **re-runnable** (version bookmark / `IF NOT EXISTS` / `ON CONFLICT`).
-5. **Constraints pushed down to DB machine checks**: `NOT NULL/CHECK/UNIQUE` / foreign keys / triggers (cross-row invariants `RAISE(ABORT,<stable code>)`); co-located triggers on the same event have pairwise **disjoint** conditions; schema ↔ manifest is cross-checked by contract tests.
-6. **Destructive changes pre-approved**: `DROP` / column drop / type change / data deletion **require prior approval** (`§14`); pure Expand/backfill is self-reviewed with a trail; every migration and rollback is recorded as `task.comment kind=confirm`.
-
----
-
-## 25. API Compatibility and Deprecation
-
-> Object = the compatibility and version evolution of outward / cross-module API contracts; **completes `§6.1 #8`'s** version/deprecation flow. Method: `guides/api-compat-sop.md`.
-
-1. **Breaking criteria**: judged by "does this change an existing consumer's behavior" — if a consumer cannot keep working without changing code, it is breaking (field/endpoint/enum/error-code removal, type change, semantic change, required/default/status-code-mapping/route/auth change, tightened validation, pagination/response-shape change). Non-breaking = adding optional fields/endpoints, loosening validation, copy-only changes. **Whether a new enum/error-code is breaking depends on whether consumers tolerate unknown values** — trace consumers first.
-2. **Consumer-impact tracing** (per `§6.1 #8`): before changing a contract trace ① backend call sites ② **frontend data flow** ③ cross-service/module contract (interface / event-schema subscribers) ④ docs and scripts; produce a breaking-impact list; **without a reproducible "no callers" proof, do not remove a field/endpoint**.
-3. **Version carrying**: the major version = the compatibility break boundary (bumped only when breaking); within a generation `/vN/` only **adds**; to subtract or re-mean ⇒ cut `/v(N+1)/` and deprecate `/vN/`; **no silent semantic change within a generation**. Semantics reuse `§21` (semver is not redefined).
-4. **Deprecate before removing**: ① announce (deprecation + replacement + removal window, with a `Deprecated` trail) → ② coexistence → ③ observe usage → ④ remove on expiry. **Three removal preconditions**: deprecation window elapsed + **evidence of no active consumers** + announcement trail complete. The deprecation window is decided by Elon.
-5. **Contract tests / snapshots as a machine gate**: cover field names/types/status codes/error codes/pagination; the contract surface is frozen as a **snapshot artifact** in version control, and a **breaking diff blocks**.
-6. **Handoff**: breaking ⇒ version magnitude and `BREAKING` changelog to `§21`; where deprecation approval / outward announcement is needed ⇒ `§14` and via Elon.
-
----
-
-## 26. Dependency CVE Gate
-
-> Object = scanning and gating known vulnerabilities (CVE/GHSA) in dependencies (direct + transitive); excludes SAST of first-party code (Turing's security audit) and vulnerability-fix implementation (`§9`). Method: `guides/dependency-cve-gate.md`.
-
-1. **Hard gate**: scanning the dependency tree for known vulnerabilities is a **hard gate**; Critical/High **must block**, Medium warns, Low is recorded; the block threshold is decided by Elon (recommended CVSS ≥ 7.0).
-2. **Time-boxed waivers**: applicable (no upstream patch / verified false positive / unreachable path); registration requires CVE id · package@version · rationale (with evidence) · expiry · approver · review conclusion; **expiry auto-invalidates and the gate reinstates**; no permanent waivers / no whole-repo blanket exemptions by package name; default waiver ≤90 days (Critical ≤30).
-3. **Three scan times**: dependency change + periodic full scan (catch new disclosures) + pre-release (no unwaived Critical/High before release); missing one is a blind spot.
-4. **SBOM and trail**: produce an SBOM (SPDX/CycloneDX — pick one and stay consistent) as the dependency-surface snapshot; trail the report/exit code/scanner version/threshold version; zero-dependency projects still produce an SBOM.
-5. **Gate registration**: register per `§20.1` (machine-checkable → CI/check-all/hooks) / `§20.2` (not machine-checkable → manual, **never auto-pass**); waiver approval / false-positive adjudication / replacement decisions are human.
-6. **Boundaries**: a suspected defect ⇒ `§9`; a release block ⇒ ties into the `§21` pre-release checklist; false positive / unreachable ⇒ adjudicated by Turing.
-
----
-
-## 27. Performance / SLA Baseline
-
-> Object = product/service performance thresholds and SLA/SLO; the **same word, different object** from `§15` (team collaboration wait times) and **not interchangeable**. Method: `guides/performance-sla-sop.md`.
-
-1. **Latency percentile hard requirement**: performance acceptance always uses **p50/p95/p99**, **never averages**; missing any percentile is non-conforming.
-2. **Machine-checkable performance gate**: pre-release / regression / capacity change / performance-sensitive key-path change must run a benchmark with a **threshold assertion** (a non-zero exit code is a failure).
-3. **Metric naming single source of truth**: naming/units reference `§22` (`<service>_<subsystem>_<metric>_<unit>`), not re-defined here.
-4. **SLA/SLO/SLI distinction**: SLI = a measured value, SLO = an internal target, SLA = an outward commitment; **the SLO must be at least as strict as the SLA**; the SLO is decided by Elon, the outward SLA by the **operator**.
-5. **Real-form acceptance**: must run in the container/orchestration form (`§9.3`); cross-container uses actually-reachable addresses.
-6. **Baseline filed and regressed**: the baseline is filed (e.g. `perf-baseline.json`: environment / sample / per-path six-tuple); regression applies absolute-then-relative criteria, both must pass; the baseline is refreshed only on a **verified** version.
-7. **Landing points**: machine checks land per `§20.1`; threshold/path/SLA/degradation adjudication is marked `§20.2` (human).
-
----
-
-## 28. Cross-Cutting Mechanisms for Post-Delivery Operations and Engineering Gates
-
-> Merges the common mechanisms of `§21–§23` (product operations) and `§24–§27` (engineering gates).
-
-1. **Three mutually-exclusive, non-substitutable object classes**: ① product/service runtime (`§21` release / `§22` observability / `§23` incident — this clause's object); ② the team's own gateway (`team/README.md §4 Recovery Handbook`); ③ team collaboration process (`§15`/`§15.1`). Judge the object first, then pick the convention.
-2. **Always mark gaps, never speculate** (`§19`): undecided items (release approver / on-call rotation / monitoring stack / alert thresholds / release channel / log retention / per-project metrics) are marked as a **gap / to be decided by Elon**; before a decision, follow each SOP's **recommended default** and say it is a default.
-3. **The "convention / responsibility / landing point" three questions**: every capability (release / logs / metrics / alerts / health / inspection / incidents / migration / compatibility / CVE / performance) must answer: how the convention is set, who maintains/decides/accepts it, and the landing point (CI / check-all / hooks / manual).
-4. **Rollback discipline, cross-cutting** (`§6`): any revert/rollback/undo is a **forward edit + normal commit** (or `rm` then commit); data with **no backward compatibility** is not rolled back directly but **forward-repaired** (same as `§24`).
-5. **Layered, no duplication** (`§17`): this clause only cross-references numbers and does not define methods; methods live in `guides/` (L2.5).
-
----
-
-## 29. Card-Creation Idempotency Guard (against same-source duplicate cards)
-
-> **Problem**: concurrent Elon turns / automated turns may **create duplicate cards** for the same intent (observed several times: duplicate review/fix/regress from the same source). `review_of`/title alone are **not enough** (wording varies; same-source reviews by different roles are legitimately distinct cards). Method: `guides/task-interface.md §14`.
-
-1. 🔑 **(Main gate · critical) LLM content de-duplication**: before creating a card, the **creator (Elon/LLM) must read the `title` / `goal` / `Background` of existing non-terminal cards** (especially those sharing `project`/`target`/`review_of`/`parent`), and **judge whether the intent and content match** — a match ⇒ **do not create** (reuse/merge the existing card, or append/reassign on it). **The mechanical key is only a fallback; semantic de-duplication is what matters** (it catches "different key, same intent" duplicates, e.g. a different assignee/source pointing at the same fix). A "similar-candidates script" may list a to-read set, but **the final judgement is made by the LLM**.
-2. **Idempotency key (mechanical fallback, title-independent)**: `idem = <kind> | <assignee> | <source> | <target>`; `source` = `review_of` if non-empty, otherwise `parent`, otherwise empty. Including assignee/kind distinguishes same-source reviews by different roles from review/fix/regress.
-3. **Creation must carry the idempotency key**: derived automatically by the ACL; may also be overridden explicitly with `--idem <key>`.
-4. **Reject/reuse**: if a card with the **same key and a non-terminal state** (not `done`/`canceled`; e.g. `todo`/`in_progress`/`in_review`/`blocked`) exists ⇒ **reject creation** and return the existing card id (reuse).
-5. **Title is only a weak signal**: same source + highly similar title ⇒ **warn** "suspected duplicate", for Elon to adjudicate; **never** judge duplication by title alone.
-6. **Atomic creation lock**: card creation takes a `mkdir` lock (the same mechanism as `claim`), serialising concurrent creation of the same key.
-7. **Exemption**: when multiple same-source cards are genuinely needed (e.g. segmented child cards) ⇒ append `#<seg>` to the key, or explicitly `--allow-dup` with a `kind=change` rationale.
-8. **Landing**: the ACL `task.create` (on **both the md base and the meerkat-taskpanel base**) implements **LLM semantic de-duplication (a mandatory step) + the idempotency-key fallback**; the patrol adds a "duplicate key" check. In this repository, which bundles no create path, the convention is **guaranteed by the connected provider + the creator carrying the `idem` key** (see `guides/task-interface.md §14`).
-
----
-
-## Appendix A: Data-Repo Organization Conventions (general basis for material organization)
-
-- **Material scope**: organize by project/topic (research/tech/product, etc. all fine). Sources = video / web page / **PDF / md notes**. **Material unrelated to the project topic is not collected** → report it to Elon to file into the corresponding data repo.
-- **Directory structure / templates / frontmatter source enum**: the `README.md` and `_templates/` in each data repo root are the **sole authority** (see the repo navigation). Extending a source value requires first changing the template, then syncing each role's clauses.
-- Video material: download + transcript draft temporarily stored in `00-inbox/` → refined draft filed → the draft path is written into frontmatter; do not move the whole transcript.
-- PDF/md notes: extract text/normalize → material card (add frontmatter, file it), retaining the source note.
-- Conclusions must attach the convention and reproducible commands; do not write a conclusion without its basis.
-- Use `[[double links]]` for association within the repo; the body does not write absolute paths outside the repo (except command examples).
-- **Directory governance**: when a subdirectory exceeds ~30 files, consider subdirectory-izing/renaming; adjustments = move + sync the README structure description and affected double links; **archive only, never delete**.
-- ⚠️ Fact note: the data repo root may itself be a git repo with an auto-commit mechanism, and files added/moved within the repo fall into that repo's tracking scope; the repo itself may have no independent git repo, so the material-organization role need not perform git operations — but if independent traceability is needed before changes, copy a snapshot to `team/workspace/<task-id>/`.
