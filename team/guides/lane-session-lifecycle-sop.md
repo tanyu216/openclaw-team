@@ -151,9 +151,9 @@ duplicate_lane`) to **24 notes** (all `duplicate_lane`), hard failures `0` throu
 * **pid reuse**: a recycled pid can make a dead lane look alive ⇒ the reaper waits longer than it
   should (it never writes a *wrong* state). The guard and the sweep are the safety nets.
 * **Lanes without a pid** (the plugin/native harnesses drafted in
-  `guides/codex-plugin-lane-contract.md` / `jobs-html-subagent-contract.md`, both still awaiting an
-  Elon ruling): liveness cannot be observed, so the reaper cannot close them. Those contracts must
-  bring their own terminal hook; until they do, the guard + sweep is all they get.
+  `guides/codex-plugin-lane-contract.md`, still awaiting an Elon ruling): liveness cannot be
+  observed, so the reaper cannot close them. That contract must bring its own terminal hook;
+  until it does, the guard + sweep is all they get.
 * The reaper is one idle process per live lane (one `ps` call every 2 s); it exits as soon as the
   row is terminal or its lane is gone.
 ---

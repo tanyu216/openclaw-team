@@ -2,6 +2,7 @@
 
 > Ownership: **team responsibilities** (authorization layer, consuming the task-management base). Mechanisms and the dispatch matrix are in `PROTOCOL §10`; this table only does **boundary and handoff reconciliation** (to prevent GAPs / multiple owners).
 > Maintainer: Elon. **No column in any row may be empty**; vacancies/multiple-owners/TBD are recorded in the `## GAP log` at the end.
+> **On conflict, `PROTOCOL §10` wins** — this table is a reconciliation view, not a second dispatch matrix.
 
 | Role | Does (scope) | Does not (excluded) | Key inputs | Key outputs | Handoff to |
 |---|---|---|---|---|---|

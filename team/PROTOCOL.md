@@ -1,8 +1,9 @@
-# PROTOCOL.md — OpenClaw Five-Agent Team Protocol (Single Source of Truth)
+# PROTOCOL.md — OpenClaw Five-Agent Team Protocol, Volume I (Core)
 
-> This file is the **single protocol source of truth** for team collaboration. Each agent's AGENTS.md only references section numbers from this file; it does not copy the content.
+> **Volume I of the protocol**, §1–§20. Volume II (`team/PROTOCOL-gates.md`) carries §21–§29 + Appendix A. The two files are **one logical document with one section numbering space**: a bare `§N` resolves against both, and this file remains the normative source for team collaboration.
+> Each agent's AGENTS.md references these sections (and, for method detail, the owning `guides/` file); it does not copy the content.
 > Shared area: `~/.openclaw/team/` (the only cross-agent shared path; always reference it by absolute path).
-> Revisions: this file is maintained by Elon and the implementer (PROTOCOL §3); agents only read/write data and never change structure.
+> Revisions: maintained by Elon and the implementer (PROTOCOL §3); agents only read/write data and never change structure.
 ---
 
 ## Team Roles
@@ -10,10 +11,12 @@
 | Agent | Role | One-line duty |
 |---|---|---|
 | Elon (agent:main:main) | CEO / coordinator (sole card creator / sole dispatcher / human-facing) | Breakdown, dispatch, acceptance, reporting; self-organizes non-research notes |
-| Jobs | Product design + PRD docs + UI design + UX design + image design (five duties) + **ownership of aesthetics and design style (positioning/selection/unification; sole arbiter)** + UX/UI quality gate | Produce designs via Claude Code / MCP design tools (PRD/specs/DESIGN.md/prototypes/illustrations·logos, etc.); maintain the unified design style guide; product design documents must be reviewed and dual-signed by Elon; personally review and certify interactions |
-| Linus | Code development + CI gate + build/release/deploy | Orchestrate ≤8 concurrent Claude Code subsessions |
-| Turing | Product testing + security audit | Orchestrate ≤3 concurrent codex subsessions for verification (functional + security); defect tickets; regression retest |
-| Assistant | Elon's assistant / odd-jobs executor + marketing·operations·customer support | Video download and video text parsing (dispatched via Elon), speech-to-text (ASR), subtitle OCR and speech cross-alignment, marketing/operations/customer support, and other odd jobs with no clear boundary |
+| Jobs | Product design + PRD/UI/UX/image design; **aesthetic and design-style owner (sole arbiter)**; UX/UI quality gate | Produce designs via Claude Code / MCP design tools; maintain the style guide; design docs are dual-signed by Elon |
+| Linus | Code development + CI gate + build/release/deploy | Implementation, tests, CI/release evidence |
+| Turing | Product testing + security audit | Verification (functional + security), defect tickets, regression |
+| Assistant | Elon's assistant / odd-jobs executor + marketing·operations·customer support | Video/text parsing (ASR, subtitle OCR, alignment), marketing/operations/support, and other odd jobs (all dispatched via Elon) |
+
+> **Duties / handoffs**: detailed does/does-not/handoff reconciliation is `team/ROLES.md`; role boundaries and routing are **§10**. This table is the roster (names + one-line scope) only.
 
 > **Positioning & extensibility**: `openclaw-team` is a **framework for individual developers to quickly stand up a dev team**. The **five roles above (elon / jobs / linus / turing / assistant) are the standard built-ins**. **Roles beyond the five** (e.g. business-specific positions) are **defined/extended by the user** — the framework must not hard-code any instance's extra roles.
 
@@ -21,75 +24,41 @@
 
 ## 1. Board Protocol
 
-> **Task provider (ACL, swappable)**: the task layer of this protocol connects to any task system via the ACL in `guides/task-interface.md`; the **reference implementation** = `meerkat-taskpanel` (`taskctl`), **not a mandatory dependency** (swappable for Jira/Linear/Plane, etc.; connectors/skills/MCP for those systems are user-supplied). All commands below use the reference implementation as an example.
+> **Task provider (ACL, swappable)**: the task layer connects to any task system via the ACL in `guides/task-interface.md`; the reference implementation = `meerkat-taskpanel` (`taskctl`), not a mandatory dependency (Jira/Linear/Plane etc. are user-supplied). Provider schema, field names, commands and storage shapes are **owned by the provider**; this section states only the team-side rules that constrain how the team uses them.
 
-A task card is the sole carrier of persisted content (Goal/Acceptance/Background/Report), stored at `~/.openclaw/team/tasks/T-YYYYMMDD-HHMMSS.md` (flat directory).
+A task card is the sole carrier of persisted content (Goal / Acceptance / Background / Report). Its storage shape is provider-owned.
 
-**Card schema — owned by the product; this protocol only references it.**
+**Card schema / body / values — provider-owned.** The fact source is the task provider skill's `references/card-schema.md` (installed with meerkat-taskpanel; see `skills/PROVENANCE.md`; when the installed skill lacks that reference, `taskctl --help` is the fallback). Do **not** restate the field list, body-section order or value enums here. Team-side contract: `guides/task-interface.md` §2 (fields the team relies on) / §7 (comments) / §9 (sessions).
 
-> **Fact source**: the canonical card schema is `skills/meerkat-taskpanel/references/card-schema.md`
-> (the `meerkat-taskpanel` checkout; installed as the skill ⇒
-> `$OPENCLAW_HOME/skills/meerkat-taskpanel/references/card-schema.md`; code fact source `KNOWN_CARD_KEYS`
-> in `src/core/storage/md/import.mjs`). It defines every frontmatter key, the body-section shapes, the
-> status machine and the import→export round-trip rules. **Do not restate it here** — this section names
-> only the **ACL minimal required set**, the **team-side extension keys**, and the team-side rules that
-> constrain how the team uses the values. Card-face contract: `guides/task-interface.md §2`.
+**Team-side alignment rules** (how the team uses provider values; the values themselves are the provider's):
+- **Claimable status = `todo`** (the legacy word `ready` is accepted by the team's checker); `backlog` does not participate in claiming. `done` / `canceled` are terminal; `blocked` is a side state.
+- **kind**: `task | epic | deploy` is the provider vocabulary; the team **does not invent a `review` kind** — use `labels:[review]` + `review_of`. `epic` = container/aggregate (**not claimable**); `deploy` = deployment/on-line operation (**never auto-claimed**; explicit dispatch only).
+- **Labels**: the team's namespaced prefixes (`category:` / `area:` / `env:` / `sev:`) are a team convention — taxonomy: `guides/task-interface.md` §15.
+- **Time columns**: the team writes **ISO-8601 UTC with fixed milliseconds** (`2026-10-08T15:31:25.161Z`); the provider coerces other forms.
+- **Extension keys**: the provider preserves unknown keys verbatim; keep self-invented keys to the team's list in `guides/task-interface.md` §2 — adding one is a `kind:change` decision.
+- **`notify_leader`**: when set, the owner sends the closing summary back to the leader (`sessions_send`, §13.2); the field names the **role**, never a person (§16).
+- **Serialization invariants**: `guides/task-interface.md` §11.
 
-**ACL minimal required set** (card frontmatter) — **the product's own names; a subset, never an addition**:
-`id` `title` `status` `priority` `kind` `labels` `project` `assignee` `assignee_kind` `created_by` `created_at` `updated_at` `status_changed_at` `claimed_by` `claimed_at` `heartbeat_at` `blocked_at` `depends_on` `parent` `notify_leader` — the canonical order of the product's field table.
+**State machine (team-visible semantics)**: `backlog|todo → in_progress → in_review → done`; `canceled` is terminal; `blocked` can be entered from any executing state and reverted. `in_review` = delivered and awaiting Elon's acceptance. The full machine (including the provider's attention overlay and per-transition rules) is the provider's (`references/card-schema.md`).
+- **Terminal irreversibility (team rule, machine-enforced at the ACL)**: `done` / `canceled` are irreversible once entered; the ACL refuses a terminal-status write from any actor outside the acceptance path (`ok:false, reason:terminal_immutable`). Elon's explicit reopen is available and **trailed as a `kind:change` comment** (§13.7). Contract detail: `guides/task-interface.md` §3/§4/§6 clause 3.
+- **`in_review` details**: after delivery the worker sets `in_review` (no heartbeat refresh, no re-claim, poll does not fire, duplicate execution turns are not accepted); Elon's acceptance/regression closes within `in_review` — pass ⇒ `done`; fail ⇒ `blocked`/`canceled` or a fix card.
 
-**Team-side extension keys** (outside the ACL set; carried by the provider's unknown-key passthrough — the
-product document names `target` / `goal` / `review_of` / `git_rules` / `subsession_ids` /
-`active_session_id`, and the team adds `writes`): semantics are team-side — `guides/task-interface.md §2`
-(`target` / `writes` / `project`) and §10 (`review_of`). Among them **`goal` is required by the team's own
-card checker** (`scripts/check-card.mjs`), not by the provider.
+**Atomic claim (team rule; implementation is the provider's)**:
+- Claim only when `assignee == self` and the card is `todo`, or a stale-recovery condition is met (the provider defines the thresholds and the atomic occupancy; contract: `guides/task-interface.md` §7).
+- A fresh heartbeat (≤10min) on an `in_progress` card ⇒ **do not touch**; poll returns `fire:false`.
+- **Claim timing**: qualifying claims are completed during the provider's poll evaluation. A run turn therefore does not claim again when `claimed_by == self` + a fresh heartbeat; only a direct dispatch that finds the card still `todo` needs an explicit claim.
 
-**Card body sections** (canonical order): `## Background` · `## Acceptance` · `## Progress` · `## Comments` ·
-`## Sessions` · `## Report`. Their shapes and semantics are the product document's (*Body sections*);
-team-side handling: `guides/task-interface.md §7` / `§9` (session-id forms: §6 clause 8) / `§10`. An unknown
-`##` section is **not** carried onto the board — a team-only value belongs in frontmatter, where unknown
-keys round-trip.
+**Deploy cards (`kind:deploy`) are never auto-claimed**: a deploy card executes a deployment / on-line operation — high-impact and not executable by whoever happens to be idle — so it is entered only by **explicit dispatch** (Elon `assign` / `issue move`). The provider's candidate surface excludes it; the team's poll path carries the same exclusion (`team/scripts/poll.mjs`). The claim gate stays open for explicit dispatch.
 
-**Alignment rules (team-side; the values below are the product's — this file does not define them, it constrains how the team uses them)**:
-- **Status**: canonical `backlog | todo | in_progress | in_review | blocked | done | canceled`; the team's card checker additionally accepts the legacy words `ready` / `failed`. Compatible aliases (`cancelled`, `in-review`, `in-progress`) are **resolved only at the boundary and never persisted** ⇒ old cards stay byte-stable. The product document's status machine is the authority (it also carries the provider's attention overlay `awaiting`).
-- **Claimable status = `todo`** (= the old `ready`); **`backlog` does not participate in claiming**.
-- **Priority**: `low | medium | high | urgent` (default `medium`).
-- **kind**: `task | epic | deploy`; **do not invent a `review` kind** — use `labels:[review]` + `review_of`. `epic` = container/aggregate (**not claimable** by anyone); `deploy` = a card that executes a deployment/on-line operation (**never auto-claimed** — explicit dispatch only; see the deploy paragraph under Atomic claim below).
-- **Labels**: free-form plus namespaced prefix labels (`category:` / `area:` / `env:` / `sev:`) — taxonomy: `guides/task-interface.md §15`; array form: `guides/task-interface.md §11`.
-- **Time columns**: always **ISO-8601 UTC with fixed milliseconds** (`2026-10-08T15:31:25.161Z`) — the form the team writes; the provider coerces other forms on import.
-- **Extension keys**: the provider **preserves unknown keys verbatim and writes them back**; keep self-invented keys to the team's list above — adding one is a `kind:change` decision, not a per-card habit.
-- **`notify_leader`**: when set, the owner sends the closing summary back to the leader (`sessions_send`, §13.2); the field names the **role**, never a person (§16), and the provider only preserves it.
-- **Serialization invariants**: see `guides/task-interface.md §11`.
+**Execution uniqueness (anti-double-run)**: any newly woken turn that finds the target card already `in_progress` → **only report status or append a heartbeat, and do not execute again**; only a stale card (heartbeat expired beyond the provider's recovery threshold) may be re-claimed. The first executor holds execution rights; other turns must not re-spawn a subsession or repeat side-effecting operations.
 
-**State machine**: `backlog|todo → in_progress → in_review → done` (`canceled` is a terminal state; `blocked` can be entered from any executing state and reverted). `in_review` = delivered and awaiting Elon's acceptance. `claimed` is only a transient during the atomic write process; the externally visible state goes straight to in_progress.
-- **Terminal irreversibility (frozen, machine-enforced)**: `done` / `canceled` (= the legacy word `failed`) are **terminal and irreversible once entered**. The ACL write layer — `task.setStatus`, the single card-`status` write point — **refuses every write to a card already in a terminal state** for any actor outside `DONE_ACTORS` (Elon `elon`, plus the privileged internal/management path that passes no `actor` key ⇒ sentinel `lib`): `ok:false, reason:terminal_immutable` with `from`/`to`, **and no card write at all** (no `status`, no `status_changed_at`, no turn-lock release). This is the mechanical enforcement of that invariant: a concurrent closeout arriving **after** acceptance must not be able to reopen an accepted card. Elon's **explicit reopen** (terminal → another state) remains available and is **trailed as a `kind:change` comment** (§13.7). Contract detail: `guides/task-interface.md` §3 / §4 / §6 clause 3.
-- **`in_review` details**: after delivery, the worker sets `in_review` (thereafter no heartbeat refresh, no re-claim, poll does not fire, duplicate execution turns are not accepted); Elon's acceptance/regression (⑨, §9.1) closes within `in_review` — pass ⇒ `done`; fail ⇒ `blocked`/`canceled` or a fix card is opened.
+**Heartbeat**: while executing, refresh `heartbeat_at` every ≤10min (`taskctl heartbeat <card> <assignee>`); append a timestamped line to the Progress section, append-only.
 
-**Atomic claim (meerkat-taskpanel base)**:
-1. Read card frontmatter: only continue if `assignee==self && status==todo` (or a stale-recovery condition is met);
-2. Atomically occupy the card (the same card cannot be claimed twice; implementation detail is the base's responsibility);
-3. On successful occupation → atomically write `status: in_progress` + `claimed_by/claimed_at/heartbeat_at`.
-- Stale-occupation self-healing: if an occupation is not completed within 15min → retry claiming if the card is still `todo`; if the card is `in_progress` but the heartbeat has expired (>30min), hand it to the stale-recovery path.
-- Stale-claim recovery: `heartbeat_at` older than >30min → the same assignee may re-claim (the executor is considered dead); >6h → any assignee may claim and escalate (escalation = the re-claimer sends sessions_send back to agent:main:main to inform Elon).
-- Fresh heartbeat (≤10min) and `in_progress` → **do not touch**; poll returns fire:false.
-
-**Claim timing belongs to poll (key to preventing spin)**: qualifying claims are completed during meerkat-taskpanel's poll trigger evaluation (fire:true ⇔ the card has been moved to `in_progress` with claimed_by=self). Therefore a **run turn does not claim again**: when the card has `claimed_by==self` + a fresh heartbeat → skip claiming and execute directly; only when the turn finds the card still `todo` (e.g. a sessions_send direct dispatch bypassing poll) do you additionally run `taskctl claim`.
-
-**Deploy cards (`kind:deploy`) are never auto-claimed**: a deploy card executes a **deployment / on-line operation** (rebuild `dist`, restart `taskd`, a full `install.sh` run, …) — high-impact and generally not executable by whoever happens to be idle — so it is entered only by **explicit dispatch** (Elon `assign` / `issue move`). Concretely: **poll's candidate surface excludes it** — `team/scripts/poll.mjs#scanCandidates` skips any card whose `kind` is in `AUTO_CLAIM_EXCLUDED_KINDS` (`team/scripts/lib.mjs`), which is the **single** candidate read surface, so the exclusion covers every pool (ready + stale recovery) and the read-only ACL query `task.pollCandidates` inherits it.
-The rule **mirrors** the provider base's `isAutoClaimableKind`  but is **not inherited for free**: framework poll reads the card files directly and never calls the base's `issue candidates`, so the framework carries the rule again on its own path. The **claim gate stays open** for explicit dispatch — `claimCard` refuses only `epic` (`epic_container`), never `deploy` — this deliberate layering (auto-candidate read: excluded; explicit claim: allowed) differs from `epic`'s "not claimable by anyone". Regression: `team/scripts/tests/poll-deploy.test.mjs`.
-
-**Execution uniqueness (anti-double-run hardening; the claim lock only prevents double-claiming, not double-execution)**: any newly woken turn (cron isolated run / sessions_send direct dispatch to the main session / sessions_spawn turn) that finds the target card already `in_progress` (regardless of whether claimed_by is self and whether the heartbeat is fresh) → **only report status (IN_PROGRESS + claimed_by/heartbeat) or append heartbeat_at, and do not execute again**; only a stale card (heartbeat expired >30min) may be re-claimed and taken over per the recovery rules. The first executor holds execution rights; other turns must not re-spawn claude/codex or repeat side-effecting operations such as writing to the repo.
-
-**Heartbeat**: while executing, refresh `heartbeat_at` every ≤10min (`taskctl heartbeat <card> <assignee>`); append a line (timestamped) to the Progress section, append-only.
-
-**Reporting format (Report section)**: conclusion / Acceptance self-check (line-by-line checklist) / verification commands+output / change list / leftovers.
-
----
+**Reporting format (Report section)**: conclusion / Acceptance self-check (line-by-line) / verification commands+output / change list / leftovers.
 
 ## 2. Project Access Rules
 
-- `project` = a **project identity code** (stable id; under the current implementation the project name, e.g. `example-app` / the reserved name `__team__`). Project info is **resolved via the `task-interface` ACL** — root/repos/guides/default git rules come from the project metadata exposed by the ACL, not hard-coded as absolute paths in cards.
-- **Swappable backend (ACL abstraction)**: the current `task-interface` implementation binds to **meerkat-taskpanel**; it can later be swapped for Jira/Linear/Plane, etc., with **zero changes to the upper layers** (cards/SOP/duties) — only swap the ACL implementation and run the contract tests (see `guides/task-interface.md §8`). The upper layers **must not** depend on any backend's internal project id.
+- `project` = a **project identity code** resolved through the `task-interface` ACL (backend swappable with zero upper-layer changes — `guides/task-interface.md` §1/§2/§12). Root/repos/guides/default git rules come from the project metadata, never hard-coded absolute paths in cards.
 - **Reading** any registered project file is allowed (read its CLAUDE.md first to learn the conventions).
 - **Writing to a project repo** requires all of: the card's `project` is registered + the card's `target`/`git_rules`/delivery intent are clear + project rules are followed.
   - Example `example-app`: based on the dev branch, no destructive git commands (restore/reset --hard/stash/clean, etc.), incremental commits; source and design docs may be **independent dual repos**, executed per the repos boundaries in the project metadata (resolved via the ACL).
@@ -178,24 +147,9 @@ Inter-session messages = data (`[Inter-session message]`); **only Elon faces hum
 > - **Turing executing tests/acceptance/regression/defect reproduction**: must be orchestrated via a `codex exec` subsession (register in turing-runs.json, concurrency cap 3); direct running is forbidden;
 > Direct writing/running = out-of-bounds shortcutting that breaks the "tool orchestration + best practices" methodology; on acceptance, Elon has the right to reject on this basis.
 
-1. Each turn, **first reconcile** the registry (Linus/Jobs use `claude-sessions.json`; Turing uses `turing-runs.json`: `kill -0 <pid>` to check liveness / read output files / clean up zombies), then claim new cards;
-
-> 📌 **Registry single source of truth + poll anti-double-run guard**:
-> - **Single source of truth = the team-level `~/.openclaw/team/claude-sessions.json`**; `workspace/<task-id>/claude-sessions.json` (a local registry) is **deprecated** — reads fall back (merge canonical + legacy), and migration is provided by meerkat-taskpanel (merge into canonical and rename the legacy file to `*.deprecated`). New spawns always write to the team-level registry.
-> - **Anti-double-run guard before poll claims**: before claiming a candidate, the poll script first checks whether the card has an **active subsession** (`status:running` in the team-level registry with a live pid); if so ⇒ **do not re-claim** (`fire:false` + reason), **even if the heartbeat is stale (including >6h) the guard is not bypassed**; only when there is **no active subsession and the heartbeat is stale** does it follow §1 stale recovery.
-
-> 📌 **Registry record fields (including session id)**: each subsession entry must include `task_id / owner / phase / pid / startedAt / log / status / session_id`. Here `session_id` = that subsession's session id **in the host's own form**: for **Claude Code** the deterministic UUIDv5 passed via `--session-id`; for **Codex** the id **codex self-assigns at spawn** (codex has **no `--session-id`** flag). It corresponds to the task card's `subsession_ids`, for traceability and resume.
-
-> **cwd normalization (mandatory, pre-spawn)**: Claude Code / Codex **uses cwd as the project root** to load AGENTS.md/CLAUDE.md, resolve relative paths, and perform git operations. Before spawning a subsession, the worker must explicitly `cd` to the **project directory** resolved from the card's `project`:
-> - `project: __team__` → cwd = `~/.openclaw/team/` (or a subdirectory specified by the card target);
-> - other project → cwd = `lib.get_project(project).root` + the specific directory pointed to by the card's `target`/`repos[].rel_path` (e.g. `example-app`'s `server/`, `web/`, etc., per the repos boundaries in the project metadata (resolved via the ACL));
-> - the task workspace `team/workspace/<task-id>/` **only holds orchestration artifacts** (CLAUDE.md/plan/report/registry/evidence) and **is not the subsession cwd for business code**;
-> - when there is no `target` and the project has multiple repos, cwd defaults to `root`, and which repo to change is written as relative paths in CLAUDE.md/the plan; never spawn in the wrong directory.
-2. Concurrency caps counted per owner: spawn only when **Linus/Jobs `running(owner) < 8`** and **Turing `running(owner) < 3`**; **Codex-plugin lanes (`harness=plugin`) and CLI lanes are counted together** (one registry), and an entry counts as running when **liveness holds** — `pid` alive **or**, for a plugin lane, the native thread is reachable (see the plugin-lane note below); each subtask gets its own directory (`~/.openclaw/team/workspace/<task-id>/`, containing the task's CLAUDE.md + `.claude/settings.json`);
-3. Spawn mode: Linus/Jobs use **`subprocess.Popen([...], start_new_session=True, stdin=DEVNULL, stdout=<owner>-<n>.out.jsonl, stderr=<owner>-<n>.err.log, cwd=<project root>)`** (**prefer `Popen`**; the equivalent shell form `nohup claude -p … &` is kept as a fallback); **use `--output-format stream-json --verbose` for output** (`json` only writes stdout at the end, so intermediate output is invisible and stalls are easily misjudged); Turing uses `codex exec` redirected as `codex exec … > turing-<n>.out.log 2>&1` (same "write results to file first" requirement); **both register in the registry before/during spawn** (task_id/owner/phase/pid/startedAt/log/status=running; on terminal state set done/failed). **A Codex lane may instead be spawned as an official-plugin harness turn (`harness=plugin`, opt-in; single entry only)** — then the handle is a **native thread id**, not a pid, and registration is a **two-step backfill** (see the plugin-lane note below);
-
-> 🚨 **Detaching from the session group must be cross-platform correct**: this machine (macOS) **has no `setsid`**; the old template `nohup setsid …` fails outright, while `nohup … &` is **not enough to keep the subprocess reliably alive** (it gets reaped when the parent turn ends/is interrupted, and output breaks mid-way). **Always use `subprocess.Popen(..., start_new_session=True)`** (= a portable equivalent of `setsid`: new session + detach from the parent process group, so the subprocess survives after the parent turn ends/is interrupted); fall back to `setsid` **only on Linux and only when there is no Python call surface**.
-> 🚨 **Subsession results land in files first**: a subsession **must first write results to a file** (`<seg>.out.jsonl`, NDJSON line-by-line, with the **last line `{"type":"result",…}` containing the terminal summary**), **and only then does the worker read the file to summarize** — **never rely solely on parent-turn stdout capture** (it is lost when the parent turn ends/is interrupted). Companion: register in the registry before/during spawn (task_id/owner/phase/pid/startedAt/log/status=running); on terminal state set `done`/`failed`.
+1. Each turn, **first reconcile** the registry, then claim new cards. The registry is the team-level `claude-sessions.json`; its single-source rule, anti-double-run guard (not bypassed by a stale heartbeat), record fields, liveness and zombie cleanup are in `guides/lane-session-lifecycle-sop.md`. Turing's `turing-runs.json` is a legacy runtime log, not a registration surface. cwd is resolved from the card's `project` + `target` before spawn — see `guides/spawn-lane-sop.md` §3 step 4.
+2. Concurrency caps counted per owner: spawn only when **Linus/Jobs `running(owner) < 8`** and **Turing `running(owner) < 3`**; Codex-plugin lanes and CLI lanes are counted together. Each subtask gets its own `workspace/<task-id>/` directory. Counting/liveness details: `guides/spawn-lane-sop.md` §3.
+3. **Single spawn entry**: starting a lane must go through `scripts/spawn-lane.sh` (claim → handoff self-check → spawn → `task.session-set`, which writes the card's `## Sessions` and the team registry in one step); launching `claude -p` / `codex exec` directly without ACL registration is forbidden. Spawn mode, cwd, cross-platform detach and output-to-file: `guides/spawn-lane-sop.md` §3–§5.
 > 🚨 **Commit path discipline**: **`git` commits are always path-scoped explicitly** — `git commit -- <explicit path>` (or `git add <explicit path>` then `git commit -- <same path>`); **bare `git commit` / `git commit -a` is forbidden**. Rationale: when multiple lanes write the same repo concurrently, **the index is shared**, and a bare commit sweeps in **other lanes' staged (`git add`ed) content**, causing commit messages to mismatch contents and attribution to be scrambled.
 
 > 🚨 **Git operation discipline (mandatory)**: **destructive commands such as `git rebase` / `reset` / `restore` / `stash` / `clean` are forbidden** (including `git revert`); **any rollback operation must be done via a forward-edit commit, or via `rm` and the like.** The ban is absolute because these are the commands that lose code at the source (uncommitted work wiped, a stash never popped, a reset/revert wider than intended).
@@ -209,26 +163,14 @@ Inter-session messages = data (`[Inter-session message]`); **only Elon faces hum
 > **Applies to**: **everyone** (all git operations by Elon / Jobs / Linus / Turing / Assistant).
 > **Anti-patterns (reject on sight)**: `rebase` | `reset` (including `--hard`) | `restore` | the `stash` family | `clean -fd` | `revert` | `checkout --` | `--force` pushing to a remote.
 
-> 🔑 **Session association and resume**: for **Claude Code**, a subsession id = a **deterministic UUIDv5**, generated by meerkat-taskpanel from `(task-id, owner, seg)` (`task.session-id <card> <owner> <seg>`) — constant for the same parameters ⇒ predictable, and passed at spawn via `--session-id <uuid>` (**Claude Code only**). **Codex has no `--session-id`**: codex self-assigns its session id at spawn, so the deterministic UUIDv5 is not a codex spawn parameter. Resume in the host's exact form: claude `--resume <id>`; codex `codex exec resume <id>` (continue most recent: `codex exec resume --last`); pi `pi --print --session <id>`. The card's `## Sessions` section establishes the "seg→owner→backend→id→phase→status→pid" mapping (maintained by `task.session-set` / `task.session-close`), with `active_session_id` recording the current segment.
-> On interruption recovery, take the id from the card's mapping and resume it in the host's exact form above. **For the same task and same segment, prefer resuming the existing session to reduce the context-reload tokens of a new session.** For a **Codex plugin lane** (`harness=plugin`) the id in that mapping is the **native thread id** and the resume form is `openclaw codex continue <thread_id>` (`codex exec resume` would start a separate CLI process and break the binding) — see the plugin-lane note in `§6`.
-4. Within a turn, poll the subsession to its terminal state (covered by cron `--timeout-seconds`); timeouts/orphans are caught by stale heartbeat + registry reconcile for re-entry;
-
-> 🚨 **Poll to terminal state (mandatory; prevents "subsession finished but nobody polls")**: a subsession is a background independent process; when it finishes it **does not automatically notify** the worker, so the worker must poll actively. **After spawning, you must poll to the subsession's terminal state**; if the worker's turn is interrupted/ends before the subsession finishes, **you must arrange for a subsequent turn (cron fallback turn or the next turn) to take over polling**, and not let the subsession finish with no one taking over, causing a window of "stalled output + stale heartbeat". **Any subsession of an `in_progress` card must have at least one poll or heartbeat refresh at most every ≤10 minutes**; Elon's 10-minute patrol is the last-resort safety net, but it cannot replace the worker's own poll discipline.
-5. Subsession output always lands in `*.out.jsonl` (NDJSON); reconcile/registry parse line-by-line;
+4. Within a turn, poll the subsession to its terminal state; if the turn is interrupted before it finishes, a subsequent turn (cron fallback or the next turn) must take over polling. Timeouts/orphans are caught by stale heartbeat + registry reconcile. **An `in_progress` card's subsession must have at least one poll or heartbeat refresh every ≤10 minutes**; Elon's patrol is the last-resort safety net, not a replacement. Session id/resume forms and the `task.handoff` background pack: `guides/task-interface.md` §9.
+5. Subsession output always lands in `*.out.jsonl` (NDJSON); reconcile/registry parse line-by-line. Detach and output-to-file mechanics: `guides/spawn-lane-sop.md` §3–§5.
 6. Concurrency without out-of-order: the registry is the single source of truth.
 7. **Task management boundary**: **task management (board/cards/ACL, provided by meerkat-taskpanel) faces OpenClaw team agents only**; **Claude Code / codex subsessions do not reference task management** (no task skill installed, no reading of cards/registry). The **card information and constraints a subsession needs are transcribed by the responsible agent into its prompt / `CLAUDE.md`** (i.e. "reference transmission" in §17); subsessions only execute and are unaware of task management.
 8. **Resume preference (save tokens)**: for the same task and same segment, **prefer resuming the existing session by id** rather than starting new; start new only when the segment context is stale/overlong (hand off with a `state.md` summary). The card's `## Sessions` section is the sole basis for resume, and the registry's `session_id` corresponds to it. Session-id form (UUIDv5 / `--session-id` / codex self-assignment) and the per-host resume commands: see the 🔑 block above.
    **The "background pack" of a newly started seg = the task card (Goal/Acceptance/Background) + the card's `## Report` + `## Comments` + `state.md`** — ensuring cross-seg consistency while avoiding reloading the old session's context. **The newly started seg's background pack is generated by `task.handoff`** (`workspace/<task-id>/handoff.md`, containing the four anchors, summarized); the subsession reads that file first; **do not hand-write it** (validated by the patrol gate). **On seg registration (`task.session-set`), automatically ensure `workspace/<task-id>/handoff.md` exists (generate if missing, do not overwrite if present).**
 
-> 🚨 **Single spawn entry**: starting a **new lane (subsession)** must go through `scripts/spawn-lane.sh` (claim → handoff self-check → spawn → `task.session-set`, which writes the card's `## Sessions` **and** the team registry in one step); **launching `claude -p` / `codex exec` directly without ACL registration is forbidden**. Rationale: it is what reproduces ① `registry_only` (registry running with a live pid while the card has no session row ⇒ check-sessions hard failure) and ② non-canonical handoffs (missing the four anchors ⇒ check-handoff failure). Details, sequence and refusal codes: `guides/spawn-lane-sop.md`.
-
-> 🚨 **Poll run = short hand-off turn**: a run woken by `*-poll` **claims → hands off → returns**. For each card the poll trigger claimed, start its lane via `scripts/spawn-lane.sh` (detached — it returns immediately) and **end the run**; do **not** execute the card inside the poll run and do **not** wait for the lane / poll it to its terminal state inside the run. The single source for the run payload is `scripts/poll-run.mjs`.
-> **Rationale**: the Gateway skips a job's next trigger while one of its runs is in flight (`already-running` run lock — platform behaviour, `AUTOMATIONS.md §3.5`), so a resident poll run **silently disables the poll fallback for its whole lifetime**. **Lane supervision therefore moves out of the poll run**: §6's "poll to the subsession's terminal state" is satisfied by the **subsequent cron turn** (poll re-entry / `task-patrol`, the safety net already allowed above) plus the lane's own card writes — the run itself must be short. `install.sh` backs this with a run bound of one poll interval (`OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S`).
-> 📌 **Codex plugin lane (`harness=plugin`, opt-in)**: a Codex lane may run on the official `@openclaw/codex` **app-server embedded harness** instead of the `codex exec` CLI child process. It stays behind the **same single entry** — `spawn-lane.sh <card> <owner> backend=codex harness=plugin` (`--plugin` is equivalent; `harness` defaults to `cli`, so the default path is unchanged, and a plugin lane is **Codex-only** — `claude`/`pi` have no official embedded harness). What changes, and nothing else:
-> - **Handle = native thread id, not a pid.** Registration is a **two-step backfill** through the same `task.session-set`: step ① writes `id:pending` (card + registry in one step, `id_state=pending`); step ② overwrites **the same `seg:` row** with `id:<thread_id>` (`id_state=bound`). A bind timeout (`THREAD_BIND_TIMEOUT_MS`, default 120 s) ⇒ the lane is `failed` and reported (`thread_bind_timeout`), never silently parked.
-> - **`harness` travels with the row.** The card `## Sessions` row gains a `harness:<v> ·` segment (written **only** for a non-`cli` harness; a historical row without the segment is read as `cli`), and the registry entry gains `backend` / `seg` / `harness` / `thread_id` / `id_state`.
-> - **Liveness = `pid` alive OR native thread reachable** (this clause 1's reconcile and clause 2's cap). A plugin lane's registry `pid` is the **gateway** pid (long-lived, placeholder `-` when unknown) and must **never** be used as the lane's own liveness signal — judge by thread reachability instead, or a dead lane reads as live forever.
-> - **cwd / sandbox / approval are equivalent, not relaxed.** cwd is the same `resolveCwd(project, target)`; sandbox maps to the same `read-only | workspace-write | danger-full-access` domain; the approval posture of an unattended lane is **equivalent to the CLI lane's (non-interactive, `workspace-write`)** — **bypass/auto-approve weakening is forbidden**; a blocking approval is reported as `blocked`.
+> **Session mechanics pointers**: registry/session lifecycle → `guides/lane-session-lifecycle-sop.md`; spawn/cwd/detach/output → `guides/spawn-lane-sop.md` §3–§5; session id/resume/background pack → `guides/task-interface.md` §9; plugin lane (`harness=plugin`) → `guides/codex-plugin-lane-contract.md`; poll run = short hand-off turn → `team/AUTOMATIONS.md` §3.5.
 > - **Evidence**: gateway logs (24 h prune) are exported to `workspace/<task-id>/evidence/` at lane start, and the lane emits the same machine-readable NDJSON envelope.
 > Mechanism contract, per-gate evidence commands and the three-host N/A declaration: `guides/codex-plugin-lane-contract.md`; entry usage/refusal codes: `guides/spawn-lane-sop.md`.
 
@@ -240,21 +182,14 @@ Inter-session messages = data (`[Inter-session message]`); **only Elon faces hum
 - **Task card Progress section**: records segment-level **milestones/results** ("Segment N complete, pytest X passed, artifact Y"), append-only, each line timestamped (for Elon to see progress).
 - **`~/.openclaw/team/workspace/<task-id>/state.md`**: records segment-level **decisions/conventions/agreements/leftovers** (so the next segment stays consistent), **always appended, never truncated**.
 
-**At the end of each segment, state.md appends a "segment completion snapshot" section**, containing at least:
-```
-## Segment N (segN) completion snapshot · <timestamp>
-- Segment goal / implemented artifacts
-- Key decisions (with rationale + constraints on subsequent segments)
-- Conventions/calibration (naming/fields/constants/interface signatures)
-- Pitfalls found / leftovers / expected input for the next segment
-```
+**At the end of each segment, `state.md` appends a "segment completion snapshot"** (goal, decisions + rationale, conventions, pitfalls/leftovers). Template: `guides/seg-continuity-sop.md` §3.
 
 **Mandatory read/write (both required)**:
 - **End of segment = must write a state.md snapshot**, otherwise the segment does not count as completed.
-- **Start of segment = must first read state.md and inject it into the segment's prompt** (making the previous segment's decisions/constraints/conventions explicit context), otherwise do not spawn; **a newly started seg's background pack must also include: the task card (Goal/Acceptance/Background) + the card's `## Report` + `## Comments`** (see §6 clause 8).
+- **Start of segment = must first read state.md and inject it into the segment's prompt** (making the previous segment's decisions/constraints/conventions explicit context), otherwise do not spawn; a newly started seg's background pack is the one defined in **§6 clause 8**.
 - **Overturning a previous segment's decision must be declared explicitly** ("overturning segment N's decision X, for reason Y"); silent drift is not allowed.
 
-**Consistency check (contract test, done from the first version)**: for cross-segment interfaces/conventions that have verifiable agreements (field names/constants/signatures), add **contract assertions** in tests; inconsistency = test failure, never a silent drift.
+**Consistency check**: for cross-segment interfaces/conventions with verifiable agreements, add **contract assertions** in tests; inconsistency = test failure, never a silent drift. Detail: `guides/seg-continuity-sop.md` §5.
 
 > Scope: limited to **segments within the same worker** (e.g. Linus's seg1→seg2); cross-worker handoff still goes through the task card + Report.
 
@@ -282,22 +217,7 @@ Inter-session messages = data (`[Inter-session message]`); **only Elon faces hum
 
 ### 6.2 Model and Reasoning-Effort Decisions (for Jobs/Linus/Turing during execution)
 
-> Workers default to `deepseek-flash` (fast, cheap); **actively decide whether to switch to `deepseek-v4-pro` + adjust reasoning effort based on task complexity**; do not blindly always use the highest tier (wasteful) or always the lowest (insufficient quality).
-
-| Situation | Model | Reasoning effort (thinking) |
-|---|---|---|
-| Routine/templated/simple repetitive tasks (e.g. routine collection, simple CRUD, doc cleanup) | `deepseek-flash` | `off`/`minimal` |
-| Medium complexity (multi-step logic, routine dev/test/cleanup) | `deepseek-flash` | `low`/`medium` |
-| High complexity (architecture design, hard bug localization, long-chain reasoning, domain modeling, complex regression) | `deepseek-v4-pro` | `medium`/`high` |
-| Highest complexity (cross-module refactor, root-cause investigation, solution design) | `deepseek-v4-pro` | `high`/`max` |
-
-Rules:
-1. **Default flash**; upgrade to pro only when judged "complex reasoning insufficient"; after upgrading to pro, if the task turns out to still be simple, fall back to flash — do not waste.
-2. Implementation: a worker specifies `--model` (Claude Code) or the subsession model parameter (codex) when spawning; or switches via OpenClaw session model/thinking override. **A worker does not change openclaw.json's primary on its own**.
-3. When image/vision is needed (design drafts, UI screenshots, chart analysis), use `deepseek-flash`.
-4. Write the decision rationale into the Report ("used model X / reasoning effort Y, because…"), for traceability.
-
-> Scope note: the table above applies equally to the three workers Jobs/Linus/Turing, **with no role exceptions** (all agents' default tier is uniformly flash, upgraded to pro by complexity). Elon (main) is the orchestrator and is not covered by the table; its agent default tier is likewise `deepseek-flash`, and when strong reasoning is needed it upgrades temporarily via the same mechanism using a session-level model override / `--model`.
+> Workers default to `deepseek-flash`; upgrade to `deepseek-v4-pro` + adjust reasoning effort by task complexity. **Do not blindly always use the highest tier (wasteful) or always the lowest (insufficient quality).** The selection table, per-backend implementation, visual-task rule, Report rationale and scope note: `guides/spawn-lane-sop.md` §10.
 
 ### 6.3 Worker Parallelism-First + Elon Throughput Patrol
 
@@ -315,7 +235,7 @@ Rules:
 - **Isolation is the lane's own act, not the spawner's.** `scripts/spawn-lane.sh` neither decides nor creates worktrees: cwd is always the repo root, and the lane follows the **`using-git-worktrees`** skill, whose git fallback places the tree at `<repo>/.worktrees/<branch>` (git-ignored). The lane prompt supplies the two things the skill cannot know — the **authorisation** and the **branch name** — because the skill's Step 0 otherwise asks the *user* for consent, which a headless `claude -p` lane can never obtain. The skill prefers a native worktree tool when the harness provides one, and falls back to `git worktree add`.
 - **The branch is based on `dev`.** Because the main checkout holds `dev`, the skill's implicit `HEAD` base **is** `dev` — correct by construction, with no bespoke base derivation. Consequences to respect: a **continuation** segment may only start once the previous segment's branch has been **merged into `dev`** (otherwise the new tree silently lacks it), and **rework of an unmerged branch stays in the same worktree**.
 - **A card's product must be merged into `dev` before the card is closed.** Where the work happened on a non-`dev` branch or in a worktree, the merge into `dev` is a **precondition of the terminal `done`**, not a cleanup step after it: the lane owner merges the card branch into `dev` and the Report carries the **merged sha / the `dev` tip**; **Elon's acceptance confirms the merge landed and records it on the card** before setting `done`. An **unmerged branch is not evidence of delivery** — its tree is invisible to `dev`, so a later task bases on a tree that does not contain it. A card whose product was never merged must **not** reach `done`: send it back to the owner to merge first, or make the merge the closing act.
-  The closeout order is **merge → remove the worktree → delete the card branch** (`git branch -d`, never `-D`: the safe form simply refuses an unmerged branch, so the safe behaviour is the default). Deleting the branch is part of the clause, not optional tidiness — a merged branch is a **ref of 41 bytes** that duplicates nothing, so what it accumulates is not disk but **illegibility** (`git branch` / `git log --all` filling with branches nobody will read again); and a kept branch is exactly what a later reader mistakes for live work. `scripts/check-merge.mjs` machine-checks the merge at the gate; its residual limits are recorded in `§20.2`.
+  The closeout order is **merge → remove the worktree → delete the card branch** (`git branch -d`, never `-D`: the safe form refuses an unmerged branch). Deleting the branch is part of the clause; `scripts/check-merge.mjs` machine-checks the merge at the gate, and its residual limits are in `§20.2`. Rationale: `guides/dev-worktree-flow-sop.md`.
 - **Never commit on the protected branch.** A direct commit on a protected branch (default `main`; `OPENCLAW_PROTECTED_BRANCHES` overrides the set) is **refused** by `scripts/branch-guard.mjs`; run it before committing. This is **not** "only `dev`": commits legitimately land on a card branch (and on `dev` for the integration step) — the rule is "not on the protected branch". The `dev → main` step is the one sanctioned direct-to-protected action and must pass the guard's explicit `--allow-protected` escape, whose `overridden:true` is its trail.
 - **Branch names are not assumed — they are resolved.** A repo's release branch may be `main`, `master`, `trunk` or anything else, and its integration branch may be `dev`, `develop` or something else. Two consequences, both load-bearing:
   - **The protected/release branch is never hardcoded.** `scripts/branch-guard.mjs` protects *the repo's own default branch* — detected locally from `refs/remotes/origin/HEAD` — **union** `main` and `master`, so a `master` repo cannot silently lose protection just because the framework's docs say `main`. A detection failure does **not** shrink the set; it only costs the extra name. Pin it exactly with `OPENCLAW_PROTECTED_BRANCHES` / `--protected` (an explicit set is taken **as written**, never unioned).
@@ -339,7 +259,7 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 4. Only then can task cards reference that **identity code**.
    - Example: a data repo = `kind: docs` (no independent git); write rules = materials md only, follow the directory and template conventions.
 
-> 📌 **`project` lives in the ACL layer**: `project` = an **identity code**, **resolved via the `task-interface` ACL**; **meerkat-taskpanel is only one current implementation** (like Jira / Linear / Plane), **not the source of truth**. See the identity-code ↔ backend mapping in `guides/task-interface.md §8/§13`.
+> 📌 **`project` lives in the ACL layer**: `project` = an **identity code**, resolved via the `task-interface` ACL; meerkat-taskpanel is only one current implementation (like Jira / Linear / Plane), **not the source of truth**. Full registration detail: `roles/elon/guides/project-registration-sop.md`; identity-code ↔ backend mapping: `guides/task-interface.md §8/§13`.
 
 ---
 
@@ -382,29 +302,9 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
     Elon does **not** personally re-run the comparison or open the page; if the Report **lacks** the independent evidence (or a key point is omitted) ⇒ **send back / open an independent-verification card** — never mark it done.
 > - **Backfill verification for existing stock**: for existing UI not yet covered by §9.1, run a page-by-page "prototype vs implementation" block comparison.
 
-> 🔴 **§9.1 Addendum: prototype text [ambiguity] discrimination (mandatory)**
-> **Rules**:
-> 1. **Discriminate**: when migrating prototype text into the implementation, **distinguish UI copy vs developer annotations**; annotations **must not enter the UI** (they may go into code comments).
-> 2. **Prototype-side labeling convention**: if the prototype needs to express "pending wiring", it should **use comments/data attributes** (e.g. `<!-- TODO: ... -->` / `data-pending`) rather than **visible copy**; if it has already been written as visible copy ⇒ the implementation **renders after removing the annotation wording**.
-> 3. **Acceptance check**: when comparing UI-card screenshots, **check whether the UI contains words like "placeholder/pending backend/TODO"** ⇒ if present, reject (a user-visible defect).
-> 4. **The real state of pending wiring**: if you genuinely need to tell the user "data not wired", use a **proper empty/loading state component** (§EmptyState), not a parenthetical annotation.
-> **Anti-patterns (reject on sight)**: rendering developer annotations like "(static placeholder)" to users | keeping visible annotations on the grounds that "the prototype wrote it that way".
-
-> 🔴 **§9.1 Addendum II: Linus-side UI/UX fidelity restriction — a Jobs prototype is reproduced, not reinterpreted **
-> **Rule (Linus, hard)** — the prototype is the operator-facing design contract (`§9.1`), and the implementer is **not** a second designer:
-> 1. **Reproduce, do not reinterpret**: when the design baseline comes from Jobs, page structure, block order, styles and **UI interactions** must match the prototype. Unilateral UI/UX changes are forbidden — adding/removing/moving/restyling blocks, changing visible copy, or changing what a control does.
-> 2. **Omissions are supplementable, but declared**: only where the prototype **does not mention** a case may Linus supplement/complete it — minimally, in the prototype's existing design language — and **must**: ① record it on the card (`## Progress` + `task.comment kind=change`, stating *what* and *why*), and ② surface it to Elon (and Jobs) in the delivery Report. An undeclared supplement is a defect.
-> 3. **Contradictions need Elon's approval**: if Linus believes the prototype is wrong or self-contradictory, do **not** silently "fix" it — set the card `blocked` and send back to Elon, who routes it to Jobs (design change) or authorizes a written deviation.
-> 4. **Deviation is written, never silent**: an approved deviation is recorded in the card with approver + reason (`kind=decision`).
-> **Anti-patterns (reject on sight)**: "improving" the prototype's spacing/hierarchy because it "looks better" | changing an interaction because "that is the engineering convention" | leaving a supplement unrecorded | treating "build passes / tests pass" as licence to diverge from the prototype.
-
-> 🔴 **§9.1 Addendum III: flow C (UI micro-change) — a reduced but non-empty form; the delivery gate is A/B/C-uniform **
-> **Rules**:
-> 1. **The delivery gate is uniform across A/B/C**: before any UI change is delivered (`in_review`), the **relevant assertion subset** of the page's structural contract must pass, and the Report must carry the self-proof (command + exit code + `--json` artifact pointer). A red assertion ⇒ **not deliverable**; "it is only a micro-change" is never a reason to deliver without evidence.
-> 2. **The flow C form (routing in `§10.5`)**: C **reuses the frozen contract** (no new Jobs contract round) and takes the short chain (Linus → Elon final acceptance audit); the **After** line is served by the **rolling sample** instead of a per-card independent lane. **"Reduced" ≠ "empty"**: the assertion subset must be green, and the card stays eligible for the sampled independent re-check.
-> 3. **Jobs's visual pass in C**: required only when the change is visually **non-trivial** (it affects layout / multiple viewports) ⇒ one **asynchronous** visual pass; otherwise the sample stands in.
-> 4. **Escalation out of C**: anything past the `§10.5` **hard boundary** is **flow A** and takes the full gate — never a widened C card.
-> **Anti-patterns (reject on sight)**: delivering a C card with no assertion evidence | calling a token-**definition** change a "detail" | dropping the sample because "the assertion passed". Operational walk: `ui-align-sop.md` §11.
+> 🔴 **§9.1 Addendum: prototype text [ambiguity] discrimination** — annotations **must not enter the UI**; the prototype expresses "pending wiring" via comments/`data-pending`, never visible copy; acceptance rejects visible "placeholder/pending backend/TODO". Full rules: `guides/ui-align-sop.md` §12.1.
+> 🔴 **§9.1 Addendum II: Linus-side UI/UX fidelity restriction — a Jobs prototype is reproduced, not reinterpreted** — no unilateral UI/UX change; omissions are supplementable but declared; contradictions go to Elon; deviations are recorded with approver + reason. Full rules: `guides/ui-align-sop.md` §12.2.
+> 🔴 **§9.1 Addendum III: flow C (UI micro-change) — reduced but non-empty** — the delivery gate is A/B/C-uniform; the relevant assertion subset must pass with self-proof before `in_review`; C reuses the frozen contract and stays sample-eligible; anything past the `§10.5` hard boundary is flow A. Full rules: `guides/ui-align-sop.md` §11 / §12.3.
 
 ### 9.2 Prototype Must Not Contain Implementation: Design Draft vs Engineering Implementation Separation
 
@@ -434,13 +334,11 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 
 **Anti-patterns (reject on sight)**: running only host-process E2E and calling it container-ready | substituting "config changed" for "reachability tested inside the container" | reusing `127.0.0.1` for cross-container addresses | not checking semantics when the same config is used across multiple forms.
 
-**Rollout status**: the container-form acceptance requirement is written into the relevant cards (the password-change card requires container-form E2E); the container reaches Keycloak by service name, not `127.0.0.1`.
-
 ### 9.4 Product/UX Acceptance Trigger (handoff with Turing's test completion)
 
 > For any task card touching product/UI/UX (or containing UI deliverables), after Turing's functional test/regression passes, **Elon coordinates Jobs to do product acceptance**; only after passing may the original card reach terminal done. Pure-backend/no-UI tasks skip this step.
 >
-> **Flow scope (`§10.5`)**: this **per-card** Jobs product-acceptance card is the **flow-A** path. **Flow B** is closed by Turing's reproduce→pass + regression and Elon's audit; **flow C** is covered by the **rolling sample** (Turing machine sample + Jobs visual spot-check on the same batch), so neither B nor C opens a per-card Jobs review card unless the change turns out to be visually non-trivial (then one **asynchronous** Jobs visual pass — `§9.1` Addendum III).
+> **Flow scope**: this per-card Jobs acceptance is **flow A**; B closes at Turing + Elon, C is covered by the rolling sample — see **§10.5** (and `§9.1` Addendum III for the C exception).
 
 1. **Trigger condition**: the task card's `project` touches product/UI/UX (or the Acceptance/Background contains UI/UX deliverables such as interfaces, prototypes, design drafts, interaction flows).
 2. **Trigger timing**: after Turing's functional test/regression retest passes (the `status` could be set to done but the product side is not yet verified), Elon decides to trigger.
@@ -452,7 +350,7 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 
 ## 10. Task Triage Matrix
 
-The sole dispatcher = Elon; workers do not dispatch to each other (including defects/UX reviews, all created by Elon). Composite tasks are split by Elon into **serial subtask chains**.
+Sole dispatcher = Elon (**§5**); workers do not dispatch to each other (including defects/UX reviews). Composite tasks are split by Elon into **serial subtask chains**.
 
 | Task type (examples) | assignee | Notes |
 |---|---|---|
@@ -476,59 +374,30 @@ The sole dispatcher = Elon; workers do not dispatch to each other (including def
 
 ### 10.1 Task-Card Review Participants (determined dynamically, not a fixed roster)
 
-> **Who reviews a task card is determined by the workers the card actually involves; it is not fixed that "some set of agents all review".**
-
-| Card nature | Review participants |
-|---|---|
-| Involves development (assignee or deliverables related to implementation) | Linus (engineering feasibility) |
-| Involves verifiability (Acceptance measurable, test points complete) | Turing (verifiability) |
-| Involves product/UX design | Jobs (design) |
-| Purely internal chores / none of the above | Only the assignee confirms; no multi-party cross-review needed |
-
-- Elon organizes the review: dispatch the relevant workers in parallel to review the task card, collect, then summarize; undivided technical corrections are written back directly by Elon, cognitive differences are escalated to the operator for a decision; only after confirming line-by-line "no omissions, no differences" is it dispatched.
-- For the full card-splitting SOP (splitting scope/review gatekeeping/serial dispatch), see Elon AGENTS.md "Task Card Splitting SOP".
-
-**By flow**: the participant set of a card **is its flow's chain** (`§10.5`) —
-**A** = Jobs (prerequisite contract, then design-dimension confirmation) + Linus + Turing (independent verification + conformance matrix) + Elon (final acceptance audit);
-**B** = Linus + Turing (reproduce → pass + regression) + Elon;
-**C** = Linus + Elon, with Turing/Jobs entering through the **rolling sample** (Turing machine sample 20%/week; Jobs visual spot-check on the same batch), or one **asynchronous** Jobs visual pass when the change is visually non-trivial.
-A flow's chain **does not remove** the review participants the card's nature demands in the table above; the flow decides **who reviews the card at intake and whose reports Elon audits at acceptance**, not whether review happens.
+> Who reviews a card = the workers the card actually involves, not a fixed roster. The dynamic participant table and the per-flow (A/B/C) review set are in `roles/elon/guides/carding-sop.md` §2; the flow itself is **§10.5**. A flow's chain does **not** remove the participants the card's nature demands — it decides who reviews at intake and whose reports Elon audits at acceptance, not whether review happens.
 
 ### 10.2 Composite Task = Subtask Cards + Dependency Graph (DAG)
 
-- **Split**: a composite task creates a `kind:epic` parent card (container/aggregate, **not claimable**); units become **child cards** (`parent=<epic>`, ordinary cards).
-- **Registration is all-at-once; dispatch may be batched**: when a requirement has to be built out in **more than one batch**, **create the epic first and register *every* batch as child cards in the same pass** (`task.spawn <epic> title=… assignee=… [depends_on=…]` per child; register the roster by enumerating `task.children <epic>`); later batches may sit as `todo`/`backlog` **placeholders**. **Only the dispatch/release step may be batched** — release the next batch when the previous batch's cards are accepted. Registering batch 1 and stopping is a violation: nothing downstream (`task.children`/`task.deps`/`task.rollup`) can see a batch that was never registered, so the epic would look finished while the rest of the requirement is silently lost. This is **consistent with the aggregation semantics below** (parent `done` = all children `done` **+ integration acceptance**): an early placeholder child correctly holds the epic open until every registered batch is finished.
-- **Parallel/temporal**: child cards add `depends_on:[predecessors]` (store predecessors only; cross-parent allowed); no dependency ⇒ parallel, with dependency ⇒ serial (resource-aware parallel reuse).
-- **Relations only via ACL**: `task.spawn/depend/undepend/children/deps/rollup`; **at write time** validate invariants (reject cycles/self-reference/dependency on ancestors/deep trees/over-long chains/fan-in), returning reason codes.
-- **Claim guard**: `kind:epic` is skipped; if `depends_on` is not all done ⇒ `deps_unmet`, not claimed (no new status added). **Review cards must not `depends_on` the card under review**: for a card with non-empty `review_of`, the dependency entry equal to `review_of` is exempt (all other entries still apply) — that relation is carried by `review_of`, and the reviewed card stops at `in_review` and never reaches `done` first, so the entry would be permanently unsatisfiable (contract detail: `guides/task-interface.md §10`).
-- **Aggregation**: parent card `done` = all child cards done **and integration acceptance passes**; if any child card is blocked/canceled ⇒ the parent card is blocked/canceled (`task.rollup`).
-- **Invariants (I1–I13)**: see the team proposal document; **patrol**: relation invariants enter the patrol gate; **archive protection**: referenced cards cannot be archived.
-- **Hierarchy/shape**: **follows the provider base (meerkat-taskpanel)** — **single parent, no cycles/self-reference, chain length ≤8, fan-in ≤8**; **supports multiple levels (a parent must be an epic; intermediate nodes are epics)**; the team sets **no additional depth number** (how deep to split ⇒ see §10.3 granularity principle).
+- **Split**: a composite task creates a `kind:epic` parent (container/aggregate, **not claimable**); units become child cards (`parent=<epic>`, ordinary cards).
+- **Register all batches at once; dispatch in batches**: every batch's child cards are registered in the same pass (later batches may sit as `todo`/`backlog` placeholders); only the release step may be batched. A batch that was never registered is invisible to the provider's child/rollup surface — the epic would look finishable while the requirement silently loses work.
+- **Dependencies**: children carry `depends_on` (predecessors only; cross-parent allowed); no dependency ⇒ parallel, with dependency ⇒ serial. The provider validates graph invariants at write time and returns reason codes.
+- **Claim guard**: `kind:epic` is skipped; unmet `depends_on` ⇒ `deps_unmet`. A review card's `review_of` dependency is exempt from the unmet check (the reviewed card stops at `in_review`, so the entry would otherwise be permanently unsatisfiable).
+- **Aggregation**: parent `done` = all children done **and integration acceptance passes**; a blocked/canceled child blocks/cancels the parent (`task.rollup`).
+- **Archive protection**: referenced cards cannot be archived. Relation invariants enter the patrol gate.
+- **Hierarchy/shape**: follows the provider base (single parent, no cycles/self-reference, chain/fan-in limits; contract: `guides/task-interface.md §10`). The team sets **no additional depth number** — how deep to split is the §10.3 granularity principle.
 
 ### 10.3 Carding Granularity & Breakdown Authority
 
-- **Card creation / breakdown is unified in Elon** (the sole card creator); **Jobs/Linus/Turing/Assistant may only "request a card from Elon"** (state the need / the gap found) — they **must not create or split cards themselves**.
-- **Granularity principle (anti-over-split)**: one card = **one "independently acceptable delivery unit"** (clear Goal/Acceptance, assignable to a single person, closable on its own). If one card contains **multiple independently acceptable units** ⇒ **it should be split**; if a split-out child is **too small to have independent acceptance value** ⇒ **it should not be split** (merge it). **How deep to split = adjudicated by Elon under this principle.**
-- **Soft guardrails (alert, not hard block)**: patrol **warns** on "**deep chains** (chain length approaching the base limit, e.g. ≥5)" and "**fragmented cards** (too many child cards / granularity too small)", for Elon's manual review.
-- **Registered-but-undispatched batches**: patrol **warns** when an epic has **already released a batch** (the epic is `in_progress`, or some child has left the placeholder state) yet still holds child cards parked in `todo`/`backlog` **beyond a threshold** (default 48h) — the "first batch built, second batch forgotten" pattern. **Basis (machine-checkable)**: the signal is entirely in card frontmatter (`kind`/`status`/`parent`/`status_changed_at`), so it lands as a **`warn` in `check-relations.mjs`** (invoked by the `check-all` gate patrol per §20.1), **not** on the `task-patrol` stale-heartbeat channel (whose object is a stalled *worker*, `§6.4`) and **not** a hard gate — exit code is unchanged, decisions stay human (`§20.2`). The threshold is overridable via `OPENCLAW_TEAM_EPIC_TODO_WARN_MS`.
+- **Breakdown authority = §5** (Elon is the sole card creator; Jobs/Linus/Turing/Assistant may only request a card, never create or split one).
+- **Granularity principle (anti-over-split)**: one card = one independently acceptable delivery unit; multiple units ⇒ split; a split child too small to have independent acceptance value ⇒ merge. How deep to split = Elon under this principle.
+- **Soft guardrails**: patrol warns on deep chains and fragmented cards (manual review).
+- **Registered-but-undispatched batches**: patrol warns when an epic released a batch but still parks `todo`/`backlog` children past the threshold (default 48h). Signal = card frontmatter; a `warn` in `check-relations.mjs`, never a hard gate; threshold `OPENCLAW_TEAM_EPIC_TODO_WARN_MS`.
+- Detailed carding procedure, including the `__team__` target hard gate: `roles/elon/guides/carding-sop.md` §7.
 
 ### 10.4 Card Granularity ⇔ seg Usage
 
-> A card carries **one Acceptance**; a `seg` is a further session *inside* one card. Opening segs is an execution-level tool, **not** a way to cope with "the card is big" — the team's actual practice for large work is to **split cards**. This clause fixes when a seg is legitimate.
+> A card carries **one Acceptance**; a `seg` is a further session *inside* one card, not a way to cope with "the card is big" — large work is **split into cards**. Legitimate seg reasons (only these four, each still sharing one Acceptance): ① the lane cannot reach the environment; ② bounded retry; ③ ≥2 mutually-exclusive file families with one Acceptance; ④ author-isolated independent verification. Split the card instead when: a second independent Acceptance appears; ≥2 independently acceptable deliverables; a different phase/delivery surface; a fix touching >1 Acceptance; different roles must accept separately. "The context is too long" is not a seg reason. Full rationale, triggers and anti-patterns: `roles/elon/guides/carding-sop.md` §7.1.
 
-- **Criterion (one line)**: ask whether the two segs are the **same Acceptance**. Same Acceptance ⇒ a seg *may* be legitimate (and only if it fits the whitelist below); different Acceptance ⇒ **split the card**.
-- **The intuition, rewritten explicitly**: **"card is big ⇒ split the card"** (NOT "card is big ⇒ open a pile of segs"). Opening segs to cope with size uses an execution tool to hide "the breakdown was not done".
-- **seg whitelist (only these four; each must still share a single Acceptance)**:
-  1. **the current lane cannot reach the environment** (the run must continue in another window — deterministic UUIDv5 + resume, `§6`);
-  2. **bounded retry** where reopening the whole card costs more than re-running the failing seg;
-  3. **≥2 mutually-exclusive file families + a single acceptance** run as parallel probes (splitting into cards would make each demand its own acceptance);
-  4. **independent verification isolated from the author** (fresh context, no anchoring — anti-confirmation-bias).
-- **Split triggers (any one ⇒ split the card; do not open a seg)**: ① a **second independent Acceptance** appears; ② **≥2 independently-acceptable deliverables**; ③ a different **phase / delivery surface**; ④ a fix touching **more than one Acceptance**; ⑤ **different roles** must accept separately.
-- **Anti-patterns (forbidden)**:
-  ① opening a pile of segs because "the card is big" ⇒ the correct action is **split the card**;
-  ② **phase / delivery-surface segmentation** ⇒ should be **epic child cards** (`§10.2`, each with its own Acceptance/claim/acceptance);
-  ③ **fix–fix–fix retry segments** ⇒ should be a **defect/fix card** (`§9`);
-  ④ "**the context is just too long**" is not a reason to open a seg — it is a reason to **split the card**.
 - **Carding enforcement (hard gate)**: `roles/elon/AGENTS.md` §1 (Task-Card Breakdown SOP — Breakdown Scope), carried **alongside the batch-carding hard rule**: expecting ≥2 independent Acceptance or ≥2 independently-acceptable deliverables ⇒ judge whether to split / build an epic **before** carding.
 - **`__team__` cards must declare `target`**: a card with `project: __team__` **must** carry a `target`, one of the two meanings — **framework change (write the repo)** ⇒ the **repo checkout root** on this host; **deploy/ops on live** ⇒ the **live team root** (`~/.openclaw/team`, i.e. `$OPENCLAW_HOME/team`). Both are this host's absolute paths; neither is a fixed literal (the repo may be checked out anywhere). Rationale: `spawn-lane` resolves cwd from `project` and, with **no `target`**, silently falls back to the **live** team root (`§6` cwd normalization) — so a missing `target` is exactly the hole through which a card "about the framework" ends up writing live. **A `__team__` card with no `target` is therefore a carding defect ⇒ hard red** (`check-card.mjs`: machine-readable `[role] <owner>` tag + exit≠0), not a soft warning.
   **Scope of the check = non-terminal cards only**: the gate exists to catch a **carding-time** defect, so cards already in a **terminal** state (`done`/`failed`/`canceled`) are **grandfathered** — the gate does **not** retro-redden history (`check-card.mjs` narrows on `!TERMINAL.includes(status)`, the complement of the provider's `TERMINAL_STATUSES`; `ready`/`todo`/`backlog` stay in scope, since `spawn-lane` exec auto-claims `ready`/`todo` and would land on `cwd=live`).
@@ -673,14 +542,14 @@ Job inventory and cadence: `team/AUTOMATIONS.md §1`; the per-turn reminder is r
 - `agent:main:main` ≡ **Elon** (two spellings of the same subject).
 - **leader** = the team coordinator (currently = **Elon**); the card field is uniformly **`notify_leader`**, **never hard-coding a person's name** (renaming the leader does not affect the schema or cards).
 - **The role roster** in this file's "Team Roles" table is the **sole authority (5 people)**; each `SOUL.md` "positioning" no longer lists its own roster and instead references this table.
-- **State-machine vocabulary**: the canonical 7 values `backlog` / `todo` / `in_progress` / `in_review` / `blocked` / `done` / `canceled` (= the canonical names for the old `ready`/`failed`; worker text must not use terminal words outside this table).
-- **Model tier**: default `deepseek-flash`; high complexity upgrades to `deepseek-v4-pro`; visual tasks see §6.2. **Specific model names appear only in this file (L1)**; role files uniformly reference §6.2 and never write specific models (to prevent L2/L3 drifting from L1).
+- **State-machine vocabulary**: the canonical status set is the **provider's card schema** (`references/card-schema.md`; see §1); `ready`/`failed` are legacy aliases. Worker text must not use terminal words outside that set.
+- **Model tier**: **§6.2 is the single source** (tier rules and model names); role files reference §6.2 and never write specific models (to prevent L2/L3 drifting from L1).
 - **Flow vocabulary**: **`flow: A|B|C`** (`§10.5`) = the **change-nature route** recorded on the card — **A** feature/design-bearing, **B** defect/behaviour fix, **C** UI micro-change inside the frozen design. It is a **team-side convention field** (the provider schema is not changed). The **combination** "flow + status/state" is written with the canonical 7 status words only (`§16` state-machine bullet); "flow" never replaces the participant set the card's nature demands (`§10.1`).
 ---
 
 ## 17. Document-System Layering and Single Source of Truth
 
-**Layering (each layer has a single responsibility; crossing layers is forbidden)**: L0 config (`openclaw.json` identity) | **L1 `PROTOCOL.md` + `PROTOCOL-gates.md`** — **one logical document in two volumes sharing one numbering space** (§1–§20 core here, §21 onward product/engineering gates there); cross-role mechanisms/discipline; **numbering only grows, never changes**, and a `§N` resolves against the two volumes together | **L2 role AGENTS.md** (role SOP, references L1 only) | **L2.5 role method library** (`workspace-<role>/guides/` details + `skills/`; on conflict, guides prevail) | **L3 SOUL** (creed/style, no dates/card numbers) | **L4 USER** (communication model/work profile) | **L5 memory and evidence** (`memory/`, `workspace/<id>/state.md`, `README.md`).
+**Layering (each layer has a single responsibility; crossing layers is forbidden)**: L0 config (`openclaw.json` identity) | **L1 `PROTOCOL.md` + `PROTOCOL-gates.md`** — **one logical document in two volumes sharing one numbering space** (§1–§20 core here, §21 onward product/engineering gates there); cross-role mechanisms/discipline; **numbering only grows, never changes**, and a `§N` resolves against the two volumes together | **L2 role AGENTS.md** (role SOP, references L1 only) | **L2.5 method library** (`team/guides/` shared methods + `workspace-<role>/guides/` role methods + `skills/`; on conflict, the method guide prevails over a role copy, and L1 prevails over both) | **L3 SOUL** (creed/style, no dates/card numbers) | **L4 USER** (communication model/work profile) | **L5 memory and evidence** (`memory/`, `workspace/<id>/state.md`, `README.md`).
 
 **Hard rules**:
 1. **Anything with a date / card number / commit / one-off decision record → goes only to L5**; but **permanent operational conventions with an effective date** (e.g. "video sole entry point") stay in L2 (drop the date or note the effective date).
@@ -698,6 +567,8 @@ Job inventory and cadence: `team/AUTOMATIONS.md §1`; the per-turn reminder is r
 - Any conclusion (metric/experiment/comparison) **must attach the convention + reproducible commands + output trail**; missing = considered incomplete.
 - Research items go through the **full lifecycle**: definition → single-item analysis → evaluation (out-of-sample/robustness) → conclusion and disposition; do not skip stages.
 - A research Report missing "reproducible commands / data convention" ⇒ check fails.
+
+> Full detail: `roles/assistant/guides/research-and-data-repo-conventions.md` §1.
 ---
 
 ## 19. All-Hands Work Creed

@@ -1,6 +1,19 @@
 {
-  "_comment": "doc-clause-diff.mjs 的登记表：登记**有意移除**的规范性原子。两种粒度 —— 精确 `atoms[\"<file>:<axis>:<atom>\"]`，或整轴 `files[\"<file>\"][\"<axis>\"]`。值一律写**理由**；无理由的登记等于关掉这道门。axis ∈ codes | tokens | refs | numbers。",
-  "files": {},
+  "_comment": "doc-clause-diff.mjs 的登记表：登记**有意移除**的规范性原子。两种粒度 —— 精确 `atoms[\"<file>:<axis>:<atom>\"]`，或整轴 `files[\"<file>\"][\"<axis>\"]`。值一律写**理由**；无理由的登记等于关掉这道门。精确登记的值也可以是 { \"to\": \"<path>\", \"reason\": \"...\" } 表示**搬移**——工具会验证目标文件确实含该原子，目标缺失/不含则仍判未登记。axis ∈ codes | tokens | refs | numbers。",
+  "files": {
+    "team/guides/boundary-design-vs-promo.md": {
+      "codes": "整文件删除（owner 已拍板）：全仓 0 引用，文件自述规范性正文已并入 PROTOCOL §10 + ROLES.md，不再是规范来源。",
+      "tokens": "同上：整文件删除。",
+      "refs": "同上：整文件删除。",
+      "numbers": "同上：整文件删除。"
+    },
+    "team/guides/jobs-html-subagent-contract.md": {
+      "codes": "整文件删除（owner 已拍板）：card-era 设计交付，来源 workspace/T-…/design-spec.md，全仓仅一处描述为 awaiting ruling，不是常驻 SOP。",
+      "tokens": "同上：整文件删除。",
+      "refs": "同上：整文件删除。",
+      "numbers": "同上：整文件删除。"
+    }
+  },
   "atoms": {
     "team/PROTOCOL.md:tokens:T-20260924-184000-paramcatalog": "去变更史：该卡号只是 `setsid` 事故的出处，规则（跨平台 detach）不依赖它（§17 规则 1：带卡号的一次性记录只归 L5）。",
     "team/PROTOCOL.md:tokens:T-20260924-225300-apiroutes": "去变更史：该卡号只是「裸 commit 扫入他人 staged 内容」的证据出处；规则与其 Rationale 均保留。",
@@ -19,7 +32,6 @@
     "team/PROTOCOL.md:tokens:turing-poll": "去事故叙事：§6 clause 8 的 `Why` 块删掉 E2E-C-4 实测复述（`turing-poll` 是那次被观测的运行）。作业名定义在 `team/AUTOMATIONS.md`，PROTOCOL 不承担定义职责；规则（poll run = 短交接轮）与其 Rationale 均保留。",
     "team/PROTOCOL.md:numbers:5days": "去事故叙事：§9.1 的 Background 整段删除（「6 个模块只实现 2 个，5 天没人发现」）。Principle、三线防御表、Acceptance hard gate 六条、反模式全部保留。",
     "team/PROTOCOL.md:refs:§24.7": "修断引用：§24 只有 6 条顶层条目、也无 `### 24.*`，`§24.7` 在 PROTOCOL.md 与 `scripts/check-relations.mjs` 两处都是悬空的。按语义（「不是硬门禁、退出码不变、阈值裁定归人」）改指 `§20.2`（Not Machine-Checkable），同批改掉脚本注释里的同一处。",
-
     "_note_gates_split": "以下 20 条全部属于同一次改动：**拆册**（§21 起 + 附录 A 移入 `team/PROTOCOL-gates.md`，L1 第二册，与 PROTOCOL.md 共用同一节编号空间）。doc-clause-diff 按**文件**比原子、不识别「搬移」，故必须逐条登记；每条后面的 §N 是该原子现在所在的节。规则一条都没删——这正是这次改动要保住的东西。",
     "team/PROTOCOL.md:codes:request_id": "拆册：随 §22 运行时可观测移入 `PROTOCOL-gates.md`。",
     "team/PROTOCOL.md:codes:trace_id": "拆册：随 §22 运行时可观测移入 `PROTOCOL-gates.md`。",
@@ -104,6 +116,469 @@
     "team/guides/task-interface.md:tokens:T-20261014-131423": "seg3b：移除挂靠规则的引用式溯源（`(evidence …)` / `(basis: …)` / `(provider side …)`）；括号内说明文字一律保留，只去掉出处。",
     "team/guides/task-interface.md:tokens:T-20261014-214625": "seg3b：移除挂靠规则的引用式溯源（`(evidence …)` / `(basis: …)` / `(provider side …)`）；括号内说明文字一律保留，只去掉出处。",
     "team/guides/task-interface.md:tokens:T-20261015-025543-3": "seg3b：移除挂靠规则的引用式溯源（`(evidence …)` / `(basis: …)` / `(provider side …)`）；括号内说明文字一律保留，只去掉出处。",
-    "team/guides/worker-report-template.md:tokens:T-20261015-010749-3": "seg3b：同上；`tasks/T-….md` 形式的**格式示例**已保留。"
+    "team/guides/worker-report-template.md:tokens:T-20261015-010749-3": "seg3b：同上；`tasks/T-….md` 形式的**格式示例**已保留。",
+    "team/PROTOCOL-gates.md:refs:§28": "去重：§28.4 的 rollback 复述改为引用 `§6` / `§24`，该处裸 `§28` 自引用随之移除；规则本身仍由 §6/§24 承载，§28 标题保留。",
+    "team/guides/lane-session-lifecycle-sop.md:tokens:jobs-html-subagent-contract.md": "清理：该 card-era 设计交付已删除；liveness 说明仍保留 `codex-plugin-lane-contract.md`（唯一仍在维护的 plugin/native harness 契约）。",
+    "team/PROTOCOL.md:tokens:ui-align-sop.md": "搬移：Addendum III 的操作走查随全文移入 `guides/ui-align-sop.md` §11/§12；L1 的 Full SOP 行仍以完整路径引用同一文件，裸文件名 token 不再重复。",
+    "team/PROTOCOL.md:codes:registry_only": {
+      "to": "team/guides/spawn-lane-sop.md",
+      "reason": "§6 registry/双跑守卫细节下沉；拒绝码与守卫规则在 spawn-lane-sop 原文保留。"
+    },
+    "team/PROTOCOL.md:codes:start_new_session": {
+      "to": "team/guides/spawn-lane-sop.md",
+      "reason": "§6 spawn/detach 机制下沉；跨平台 detach 的 Popen 等价形式在 guide §5。"
+    },
+    "team/PROTOCOL.md:codes:task_id": {
+      "to": "team/guides/spawn-lane-sop.md",
+      "reason": "§6 registry 字段细节下沉；注册行字段在 guide §3/§4。"
+    },
+    "team/PROTOCOL.md:codes:thread_bind_timeout": {
+      "to": "team/guides/codex-plugin-lane-contract.md",
+      "reason": "§6 plugin-lane 细节下沉；绑定超时拒绝码在 codex 契约。"
+    },
+    "team/PROTOCOL.md:tokens:OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S": {
+      "to": "team/AUTOMATIONS.md",
+      "reason": "§6 poll-run 细节下沉；运行时限变量在 AUTOMATIONS §3.5。"
+    },
+    "team/PROTOCOL.md:tokens:THREAD_BIND_TIMEOUT_MS": {
+      "to": "team/guides/codex-plugin-lane-contract.md",
+      "reason": "§6 plugin-lane 细节下沉；绑定超时变量在 codex 契约。"
+    },
+    "team/PROTOCOL.md:tokens:already-running": {
+      "to": "team/AUTOMATIONS.md",
+      "reason": "§6 poll-run 理由下沉；run lock 语义在 AUTOMATIONS §3.5。"
+    },
+    "team/PROTOCOL.md:tokens:task.session-close": "搬移：§6 session 生命周期细节下沉；关闭命令在 `task-interface.md` §9 以带参数的完整命令形式出现，不再作为裸 token（命令语法本身保留）。",
+    "team/PROTOCOL.md:tokens:workspace-write": "搬移：§6 plugin-lane sandbox 等价性下沉；`workspace-write` 在 codex 契约中以 `read-only | workspace-write | danger-full-access` 枚举形式出现，不再作为裸 token（姿态规则保留）。",
+    "team/PROTOCOL.md:tokens:task.children": {
+      "to": "roles/elon/guides/carding-sop.md",
+      "reason": "§10.2 的 DAG 操作细节下沉到 Elon 角色方法库；命令名保留。"
+    },
+    "team/PROTOCOL.md:tokens:task.deps": {
+      "to": "roles/elon/guides/carding-sop.md",
+      "reason": "§10.2 的 DAG 操作细节下沉到 Elon 角色方法库；命令名保留。"
+    },
+    "team/PROTOCOL.md:tokens:check-all": {
+      "to": "roles/elon/guides/carding-sop.md",
+      "reason": "§10.3 的巡逻告警细节下沉到 Elon 角色方法库；门禁名保留。"
+    },
+    "team/PROTOCOL.md:tokens:task-patrol": {
+      "to": "roles/elon/guides/carding-sop.md",
+      "reason": "§10.3 的巡逻告警细节下沉到 Elon 角色方法库；作业名保留。"
+    },
+    "team/PROTOCOL-gates.md:codes:in_progress": "去重：§29 clause 4 的状态枚举移除；状态集由 §1 / provider schema 定义，§29 不再重复。",
+    "team/PROTOCOL-gates.md:codes:in_review": "去重：§29 clause 4 的状态枚举移除；状态集由 §1 / provider schema 定义，§29 不再重复。",
+    "team/PROTOCOL.md:codes:active_session_id": {
+      "to": "team/guides/task-interface.md",
+      "reason": "§1 provider 字段清单下沉；session 字段在 task-interface §9。"
+    },
+    "team/PROTOCOL.md:codes:assignee_kind": "§1 provider 实现细节归还 provider：该字段/实现路径由 provider schema 与 CLI 拥有；薄契约不再保留该原子，团队侧规则与不变量保留。",
+    "team/PROTOCOL.md:codes:claimed_at": "§1 provider 实现细节归还 provider：该字段/实现路径由 provider schema 与 CLI 拥有；薄契约不再保留该原子，团队侧规则与不变量保留。",
+    "team/PROTOCOL.md:codes:created_at": "§1 provider 实现细节归还 provider：该字段/实现路径由 provider schema 与 CLI 拥有；薄契约不再保留该原子，团队侧规则与不变量保留。",
+    "team/PROTOCOL.md:codes:created_by": "§1 provider 实现细节归还 provider：该字段/实现路径由 provider schema 与 CLI 拥有；薄契约不再保留该原子，团队侧规则与不变量保留。",
+    "team/PROTOCOL.md:codes:epic_container": {
+      "to": "team/guides/task-interface.md",
+      "reason": "§1 claim 拒绝码下沉；epic 不可领取的契约在 task-interface §3。"
+    },
+    "team/PROTOCOL.md:codes:subsession_ids": {
+      "to": "team/guides/task-interface.md",
+      "reason": "§1 session 字段下沉；session 关联在 task-interface §9。"
+    },
+    "team/PROTOCOL.md:codes:updated_at": "§1 provider 实现细节归还 provider：该字段/实现路径由 provider schema 与 CLI 拥有；薄契约不再保留该原子，团队侧规则与不变量保留。",
+    "team/PROTOCOL.md:tokens:AUTO_CLAIM_EXCLUDED_KINDS": "§1 provider 实现细节归还 provider：该字段/实现路径由 provider schema 与 CLI 拥有；薄契约不再保留该原子，团队侧规则与不变量保留。",
+    "team/PROTOCOL.md:tokens:DONE_ACTORS": "§1 provider 实现细节归还 provider：该字段/实现路径由 provider schema 与 CLI 拥有；薄契约不再保留该原子，团队侧规则与不变量保留。",
+    "team/PROTOCOL.md:tokens:KNOWN_CARD_KEYS": "§1 provider 实现细节归还 provider：该字段/实现路径由 provider schema 与 CLI 拥有；薄契约不再保留该原子，团队侧规则与不变量保留。",
+    "team/PROTOCOL.md:tokens:in-progress": "§1 provider 实现细节归还 provider：该字段/实现路径由 provider schema 与 CLI 拥有；薄契约不再保留该原子，团队侧规则与不变量保留。",
+    "team/PROTOCOL.md:tokens:in-review": "§1 provider 实现细节归还 provider：该字段/实现路径由 provider schema 与 CLI 拥有；薄契约不再保留该原子，团队侧规则与不变量保留。",
+    "team/PROTOCOL.md:tokens:install.sh": "§1 provider 实现细节归还 provider：该字段/实现路径由 provider schema 与 CLI 拥有；薄契约不再保留该原子，团队侧规则与不变量保留。",
+    "team/PROTOCOL.md:tokens:task.pollCandidates": {
+      "to": "team/guides/task-interface.md",
+      "reason": "§1 poll 候选面的实现细节下沉；团队规则保留。"
+    },
+    "team/PROTOCOL.md:tokens:task.setStatus": "§1 provider 实现细节归还 provider：该字段/实现路径由 provider schema 与 CLI 拥有；薄契约不再保留该原子，团队侧规则与不变量保留。",
+    "team/PROTOCOL.md:codes:sessions_spawn": "移除：`sessions_spawn` 是宿主实现路径，不属团队规则；团队规则（新 lane 走单一入口）保留。",
+    "team/PROTOCOL.md:numbers:15min": "移除：provider 定义的 stale-occupation 阈值；L1 不再复述，契约见 `task-interface.md` §7。",
+    "team/guides/task-interface.md:codes:allow_dup": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:assignee_kind": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:card_busy": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:chain_too_long": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:claimed_at": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:claimed_by": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:created_at": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:created_by": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:dep_cycle": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:dep_missing": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:dep_on_ancestor": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:duplicate_lane": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:duplicate_running_lane": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:fanin_too_high": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:notify_leader": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:parent_cycle": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:parent_not_epic": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:review_of_not_found": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:review_unmet": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:schema_version": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:second_exec_lane": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:self_ref": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:status_changed_at": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:codes:updated_at": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:AUTO_CLAIM_EXCLUDED_KINDS": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:BOARD_WIRE_SCHEMA_VERSION": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:CONTRACT_SCHEMA_VERSION": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:DONE_ACTORS": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:KNOWN_CARD_KEYS": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:PATH": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:PROJECT_WIRE_FIELDS": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:__team__": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:card-schema.md": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:check-all": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:check-idem": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:check-relations": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:check-sessions": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:data.schema_version": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:example-app": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:in-progress": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:in-review": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:install.sh": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:lib.mjs": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:openclaw-team": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:opts.boardSchemaVersion": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:poll-deploy.test.mjs": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:projects.json": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:seed-projects.mjs": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:seg1-verify": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:seg2-browser": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:session-close": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:task-ops": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:task.claim": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:tokens:task.setStatus": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:refs:§13": "薄契约重写：该节内交叉引用随实现细节移除；对应节标题保留（§14.1 / §8.1 的子节内容并入正文，不再单列）。",
+    "team/guides/task-interface.md:refs:§14.1": "薄契约重写：该节内交叉引用随实现细节移除；对应节标题保留（§14.1 / §8.1 的子节内容并入正文，不再单列）。",
+    "team/guides/task-interface.md:refs:§15": "薄契约重写：该节内交叉引用随实现细节移除；对应节标题保留（§14.1 / §8.1 的子节内容并入正文，不再单列）。",
+    "team/guides/task-interface.md:refs:§2": "薄契约重写：该节内交叉引用随实现细节移除；对应节标题保留（§14.1 / §8.1 的子节内容并入正文，不再单列）。",
+    "team/guides/task-interface.md:refs:§8": "薄契约重写：该节内交叉引用随实现细节移除；对应节标题保留（§14.1 / §8.1 的子节内容并入正文，不再单列）。",
+    "team/guides/task-interface.md:refs:§8.1": "薄契约重写：该节内交叉引用随实现细节移除；对应节标题保留（§14.1 / §8.1 的子节内容并入正文，不再单列）。",
+    "team/guides/task-interface.md:numbers:1KiB": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:numbers:256KB": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:numbers:29KB": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:numbers:3KB": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:numbers:×1.5": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "team/guides/task-interface.md:numbers:×4": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "roles/assistant/AGENTS.md:codes:end_ms": {
+      "to": "roles/assistant/guides/research-and-data-repo-conventions.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/assistant/AGENTS.md:codes:start_ms": {
+      "to": "roles/assistant/guides/research-and-data-repo-conventions.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/assistant/AGENTS.md:tokens:conflicts.json": {
+      "to": "roles/assistant/guides/research-and-data-repo-conventions.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/assistant/AGENTS.md:tokens:conflicts.md": {
+      "to": "roles/assistant/guides/research-and-data-repo-conventions.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/assistant/AGENTS.md:tokens:subtitle-extractor": {
+      "to": "roles/assistant/guides/research-and-data-repo-conventions.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/assistant/AGENTS.md:tokens:transcript.segments.jsonl": {
+      "to": "roles/assistant/guides/research-and-data-repo-conventions.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/assistant/AGENTS.md:tokens:transcript.txt": {
+      "to": "roles/assistant/guides/research-and-data-repo-conventions.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/assistant/AGENTS.md:tokens:video-downloader-skill": {
+      "to": "roles/assistant/guides/research-and-data-repo-conventions.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:codes:depends_on": {
+      "to": "roles/elon/guides/carding-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:codes:detect_changes": {
+      "to": "roles/elon/guides/token-hygiene-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:codes:memory_search": {
+      "to": "roles/elon/guides/token-hygiene-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:codes:review_of": {
+      "to": "roles/elon/guides/carding-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:codes:sessions_send": {
+      "to": "roles/elon/guides/carding-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:codes:sessions_spawn": {
+      "to": "roles/elon/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:tokens:OPENCLAW_TEAM_INTEGRATION_BRANCH": {
+      "to": "roles/elon/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:tokens:TOTAL": {
+      "to": "roles/elon/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:tokens:__init__.py": {
+      "to": "roles/elon/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:tokens:session-rollover": {
+      "to": "roles/elon/guides/token-hygiene-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:tokens:team-check-all": {
+      "to": "roles/elon/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:tokens:term-missing": {
+      "to": "roles/elon/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:numbers:0%": {
+      "to": "roles/elon/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:numbers:12MB": {
+      "to": "roles/elon/guides/token-hygiene-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:numbers:15min": {
+      "to": "roles/elon/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:numbers:20%": {
+      "to": "roles/elon/guides/carding-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:codes:apply_patch": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:codes:depends_on": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:codes:review_of": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:DESIGN.md": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:base.css": {
+      "to": "roles/jobs/guides/tool-discipline-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:claude-sessions.json": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:daisyUI": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:document.querySelector": {
+      "to": "roles/jobs/guides/tool-discipline-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:google-stitch": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:mcp.servers": {
+      "to": "roles/jobs/guides/tool-discipline-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:prototype.carrier": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:static-html": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:styles.css": {
+      "to": "roles/jobs/guides/tool-discipline-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:tw.css": {
+      "to": "roles/jobs/guides/tool-discipline-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:ui-align": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:refs:§6.1": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:refs:§6.3": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:numbers:20%": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:codes:depends_on": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:codes:heartbeat_at": {
+      "to": "roles/linus/guides/development-process-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:codes:rel_path": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:codes:session_id": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:codes:start_new_session": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:codes:task_id": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:branch-guard.mjs": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:daisyUI": {
+      "to": "roles/linus/guides/testing-and-delivery-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:execute-guide.md": {
+      "to": "roles/linus/guides/development-process-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:google-stitch": {
+      "to": "roles/linus/guides/testing-and-delivery-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:handoff.md": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:mcp.servers": {
+      "to": "roles/linus/guides/testing-and-delivery-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:plan-guide.md": {
+      "to": "roles/linus/guides/development-process-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:plan.md": {
+      "to": "roles/linus/guides/development-process-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:prototype.carrier": {
+      "to": "roles/linus/guides/testing-and-delivery-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:static-html": {
+      "to": "roles/linus/guides/testing-and-delivery-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:task.handoff": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:task.session-close": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:task.session-set": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:verify-guide.md": {
+      "to": "roles/linus/guides/development-process-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:refs:§6.3": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:numbers:50%": {
+      "to": "roles/linus/guides/development-process-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:codes:rel_path": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:codes:session_id": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:codes:task_id": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:tokens:DESIGN.md": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:tokens:danger-full-access": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:tokens:handoff.md": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:tokens:task.handoff": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:tokens:task.session-close": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:tokens:task.session-set": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:tokens:ui-align": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:refs:§13.5": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:refs:§6.2": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:refs:§6.3": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:numbers:20%": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:numbers:80%": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    }
   }
 }

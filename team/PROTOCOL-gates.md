@@ -1,7 +1,7 @@
 # PROTOCOL-gates.md — OpenClaw Team Protocol, Volume II (Product & Engineering Gates)
 
 > **This is the second volume of `team/PROTOCOL.md`.** The two files are **one logical document with one section numbering space**:
-> this volume continues at §21 and runs through §28 + Appendix A; §1–§20 live in `PROTOCOL.md`. **A bare `§N` in either volume
+> this volume continues at §21 and runs through §29 + Appendix A; §1–§20 live in `PROTOCOL.md`. **A bare `§N` in either volume
 > refers to that shared numbering** (so `§6` here means `PROTOCOL.md` §6), and a citation elsewhere may say `PROTOCOL §22`
 > without naming this file.
 > **Ownership / Maintainer**: Elon (structure) and the owning role named in each section (content) — `PROTOCOL §3`.
@@ -20,7 +20,7 @@
 3. **Tags**: releases are `vX.Y.Z` (pre-release `-alpha.N` / `-rc.N`), always **annotated**; a version is tagged once and never moved/force-pushed (`§6`); a wrong tag ⇒ bump PATCH and re-release.
 4. **changelog ↔ tag one-to-one**: every `vX.Y.Z` has a same-named changelog section (missing ⇒ the release gate fails); the changelog is written **on merge** (`[Unreleased]`) and the release only **freezes** it; breaking entries are marked **BREAKING**.
 5. **Three-phase release checklist**: pre-release (tests green / coverage met / lint / **container-form acceptance `§9.3`** / CI green / version source updated / changelog frozen / **doc-impact determination `§12`** / approval) → release (annotated tag / trigger the build / artifact verification / **tag ↔ changelog ↔ artifact version agreement**) → post-release (smoke in the target form / **reverse backfill `§12`** / trail / observation window / exceptions → incident response). Do not advance past a failed gate.
-6. **Rollback = forward edit**: every rollback is a **forward edit + normal commit** (re-release the previous verified version with a **new PATCH**); **forbidden**: the destructive-git set (`§6` states it once); when data has **no backward compatibility**, **do not roll the data back directly** — use **forward repair**. The rollback/forward-repair **decision is approved by Elon** (major upgrades by the operator); **execution belongs to Linus**.
+6. **Rollback (`§6`)**: re-release the previous verified version with a **new PATCH**; **forbidden**: the destructive-git set (`§6`); when data has **no backward compatibility**, **do not roll the data back directly** — use **forward repair**. The rollback/forward-repair **decision is approved by Elon** (major upgrades by the operator); **execution belongs to Linus**.
 7. **Release approval and trail**: outward/production releases are **approved by Elon**; major changes (MAJOR / breaking / involving data migration) escalate to the **operator**; dev/staging internal validation is self-reviewed with a trail. Every release/rollback is recorded as `task.comment kind=confirm` (version / tag / channel / approver / time / artifact link / changelog section). Outward publication itself still follows `§5.1`.
 
 ---
@@ -59,7 +59,7 @@
 
 1. **Forward-compatible first (Expand→Migrate→Contract)**: add-only first (new nullable columns / tables / indexes; no `DROP`/rename/type change/`NOT NULL` before backfill) → backfill/double-write + verify → remove the old path (after confirming no reader depends on it). No single-step destructive change straight to production.
 2. **append-only**: migration scripts are written once and only added to; applied migrations are **never edited** — corrections open a **new migration**; naming `NNNN_lower_snake_name.sql`, sequence strictly increasing and unique.
-3. **Rollback = forward edit** (per `§6`): no reverse schema / dropped tables / destructive git; with backward compatibility ⇒ switch back to the old code (data untouched); without ⇒ **forward repair**. Data deletion: files via `rm` + `git commit -- <path>`; rows via a new migration `DELETE` with a trail.
+3. **Rollback (`§6`)**: no reverse schema / dropped tables / destructive git; with backward compatibility ⇒ switch back to the old code (data untouched); without ⇒ **forward repair**. Data deletion: files via `rm` + `git commit -- <path>`; rows via a new migration `DELETE` with a trail.
 4. **Pre/post validation + idempotency**: every migration carries pre/post validation (row count / non-null / unique / foreign key / invariants), failing ⇒ transaction `ROLLBACK` and abort; must be **re-runnable** (version bookmark / `IF NOT EXISTS` / `ON CONFLICT`).
 5. **Constraints pushed down to DB machine checks**: `NOT NULL/CHECK/UNIQUE` / foreign keys / triggers (cross-row invariants `RAISE(ABORT,<stable code>)`); co-located triggers on the same event have pairwise **disjoint** conditions; schema ↔ manifest is cross-checked by contract tests.
 6. **Destructive changes pre-approved**: `DROP` / column drop / type change / data deletion **require prior approval** (`§14`); pure Expand/backfill is self-reviewed with a trail; every migration and rollback is recorded as `task.comment kind=confirm`.
@@ -113,7 +113,7 @@
 1. **Three mutually-exclusive, non-substitutable object classes**: ① product/service runtime (`§21` release / `§22` observability / `§23` incident — this clause's object); ② the team's own gateway (`team/README.md §4 Recovery Handbook`); ③ team collaboration process (`§15`/`§15.1`). Judge the object first, then pick the convention.
 2. **Always mark gaps, never speculate** (`§19`): undecided items (release approver / on-call rotation / monitoring stack / alert thresholds / release channel / log retention / per-project metrics) are marked as a **gap / to be decided by Elon**; before a decision, follow each SOP's **recommended default** and say it is a default.
 3. **The "convention / responsibility / landing point" three questions**: every capability (release / logs / metrics / alerts / health / inspection / incidents / migration / compatibility / CVE / performance) must answer: how the convention is set, who maintains/decides/accepts it, and the landing point (CI / check-all / hooks / manual).
-4. **Rollback discipline, cross-cutting** (`§6`): any revert/rollback/undo is a **forward edit + normal commit** (or `rm` then commit); data with **no backward compatibility** is not rolled back directly but **forward-repaired** (same as `§24`).
+4. **Rollback discipline, cross-cutting** (`§6` / `§24`) — do not restate.
 5. **Layered, no duplication** (`§17`): this clause only cross-references numbers and does not define methods; methods live in `guides/` (L2.5).
 
 ---
@@ -122,24 +122,20 @@
 
 > **Problem**: concurrent Elon turns / automated turns may **create duplicate cards** for the same intent. `review_of`/title alone are **not enough** (wording varies; same-source reviews by different roles are legitimately distinct cards). Method: `guides/task-interface.md §14`.
 
-1. 🔑 **(Main gate · critical) LLM content de-duplication**: before creating a card, the **creator (Elon/LLM) must read the `title` / `goal` / `Background` of existing non-terminal cards** (especially those sharing `project`/`target`/`review_of`/`parent`), and **judge whether the intent and content match** — a match ⇒ **do not create** (reuse/merge the existing card, or append/reassign on it). **The mechanical key is only a fallback; semantic de-duplication is what matters** (it catches "different key, same intent" duplicates, e.g. a different assignee/source pointing at the same fix). A "similar-candidates script" may list a to-read set, but **the final judgement is made by the LLM**.
-2. **Idempotency key (mechanical fallback, title-independent)**: `idem = <kind> | <assignee> | <source> | <target>`; `source` = `review_of` if non-empty, otherwise `parent`, otherwise empty. Including assignee/kind distinguishes same-source reviews by different roles from review/fix/regress.
-3. **Creation must carry the idempotency key**: derived automatically by the ACL; may also be overridden explicitly with `--idem <key>`.
-4. **Reject/reuse**: if a card with the **same key and a non-terminal state** (not `done`/`canceled`; e.g. `todo`/`in_progress`/`in_review`/`blocked`) exists ⇒ **reject creation** and return the existing card id (reuse).
-5. **Title is only a weak signal**: same source + highly similar title ⇒ **warn** "suspected duplicate", for Elon to adjudicate; **never** judge duplication by title alone.
-6. **Atomic creation lock**: card creation takes a `mkdir` lock (the same mechanism as `claim`), serialising concurrent creation of the same key.
-7. **Exemption**: when multiple same-source cards are genuinely needed (e.g. segmented child cards) ⇒ append `#<seg>` to the key, or explicitly `--allow-dup` with a `kind=change` rationale.
-8. **Landing**: the ACL `task.create` (on **both the md base and the meerkat-taskpanel base**) implements **LLM semantic de-duplication (a mandatory step) + the idempotency-key fallback**; the patrol adds a "duplicate key" check. In this repository, which bundles no create path, the convention is **guaranteed by the connected provider + the creator carrying the `idem` key** (see `guides/task-interface.md §14`).
+1. 🔑 **(Main gate) LLM content de-duplication**: before creating a card, the creator (Elon/LLM) must read the `title`/`goal`/`Background` of existing non-terminal cards (especially those sharing `project`/`target`/`review_of`/`parent`) and judge whether the intent matches. A match ⇒ **do not create** (reuse/merge/append). The mechanical key is only a fallback.
+2. **Idempotency key (mechanical fallback)**: `idem = <kind> | <assignee> | <source> | <target>`; `source` = `review_of` if non-empty, else `parent`, else empty. Assignee/kind distinguish same-source reviews by different roles.
+3. **Creation must carry the key**: derived automatically by the ACL; may be overridden explicitly with `--idem <key>`.
+4. **Reject/reuse**: same key + non-terminal state ⇒ reject creation and return the existing card id.
+5. **Title is only a weak signal**: same source + similar title ⇒ warn "suspected duplicate"; never judge by title alone.
+6. **Atomic creation lock**: creation takes a lock (same mechanism as `claim`), serialising concurrent creation of the same key.
+7. **Exemption**: genuinely-needed same-source cards ⇒ append `#<seg>` to the key, or `--allow-dup` with a `kind=change` rationale.
+8. **Landing**: the ACL `task.create` implements semantic de-duplication + the key fallback; the patrol adds a duplicate-key check. In this repository the convention is guaranteed by the connected provider + the creator carrying the key (see `guides/task-interface.md §14`).
 
 ---
 
 ## Appendix A: Data-Repo Organization Conventions (general basis for material organization)
 
-- **Material scope**: organize by project/topic (research/tech/product, etc. all fine). Sources = video / web page / **PDF / md notes**. **Material unrelated to the project topic is not collected** → report it to Elon to file into the corresponding data repo.
-- **Directory structure / templates / frontmatter source enum**: the `README.md` and `_templates/` in each data repo root are the **sole authority** (see the repo navigation). Extending a source value requires first changing the template, then syncing each role's clauses.
-- Video material: download + transcript draft temporarily stored in `00-inbox/` → refined draft filed → the draft path is written into frontmatter; do not move the whole transcript.
-- PDF/md notes: extract text/normalize → material card (add frontmatter, file it), retaining the source note.
-- Conclusions must attach the convention and reproducible commands; do not write a conclusion without its basis.
-- Use `[[double links]]` for association within the repo; the body does not write absolute paths outside the repo (except command examples).
-- **Directory governance**: when a subdirectory exceeds ~30 files, consider subdirectory-izing/renaming; adjustments = move + sync the README structure description and affected double links; **archive only, never delete**.
-- ⚠️ Fact note: the data repo root may itself be a git repo with an auto-commit mechanism, and files added/moved within the repo fall into that repo's tracking scope; the repo itself may have no independent git repo, so the material-organization role need not perform git operations — but if independent traceability is needed before changes, copy a snapshot to `team/workspace/<task-id>/`.
+- **Material scope**: organize by project/topic; sources = video / web page / **PDF / md notes**. Material unrelated to the project topic is not collected → report it to Elon.
+- **Authority**: each data repo's root `README.md` and `_templates/` are the **sole authority** for directory structure / templates / frontmatter source enum; extending a source value requires changing the template first.
+- **Fact note**: the data repo may itself be a git repo with auto-commit, and materials added/moved within it fall into that repo's tracking scope. If independent traceability is needed before changes, snapshot to `team/workspace/<task-id>/` first.
+- Video/PDF handling, association links, directory governance and archive rules: `roles/assistant/guides/research-and-data-repo-conventions.md` §2.

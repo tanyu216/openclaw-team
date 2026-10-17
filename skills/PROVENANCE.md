@@ -222,3 +222,12 @@ upstream content and would be overwritten by `update.mjs --apply`.
 ---
 
 **task-ops / meerkat-taskpanel**: the team's task skill comes from the external [meerkat-taskpanel](https://github.com/) project, installed separately. It is intentionally not vendored here.
+
+**Expected provider-skill capabilities** (the provider owns them; this repo only references them):
+`references/card-schema.md` (frontmatter fields, state machine, body sections), `references/cli.md`
+(the `taskctl` command surface), `references/practice-guides.md` (board rules), `references/projects-json.md`
+(the local project map) and `references/reports.md` (periodic reports). The installed skill name and
+version may vary (`meerkat-taskpanel` in the source repo; some hosts install it as `task-panel`), so
+openclaw-team docs reference the **capability and reference filename**, never a hardcoded absolute
+path or version. When an installed copy lacks a reference, read `taskctl --help` and the provider's
+own repo; do not copy the missing text back into this repo.

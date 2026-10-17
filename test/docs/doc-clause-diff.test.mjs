@@ -9,6 +9,9 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { extractAtoms, compareFile } from './doc-clause-diff.mjs';
 
 const EMPTY = { files: {}, atoms: {} };
@@ -101,4 +104,28 @@ test('软轴（标题）：只报告，不判红', () => {
   const { entry, unaccountedTotal } = compareFile('f.md', before, after, EMPTY);
   assert.equal(unaccountedTotal, 0, '标题改名不得判红');
   assert.ok(entry.missing.headings.includes('Old Heading'), '但须报告出来');
+});
+
+test('搬移登记：目标文件含该原子才销账，缺失/不含仍判红', () => {
+  const before = '- use `task.claim` here.\n';
+  const after = '- moved.\n';
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clause-move-'));
+  const dest = path.join(dir, 'dest.md');
+  try {
+    const allow = (to) => ({ files: {}, atoms: { 'a.md:tokens:task.claim': { to, reason: 'moved' } } });
+
+    fs.writeFileSync(dest, '- `task.claim` now lives here.\n');
+    assert.equal(compareFile('a.md', before, after, allow(dest)).unaccountedTotal, 0, '目标含原子 ⇒ 销账');
+
+    fs.writeFileSync(dest, '- something else.\n');
+    assert.equal(compareFile('a.md', before, after, allow(dest)).unaccountedTotal, 1, '目标不含原子 ⇒ 仍红');
+
+    assert.equal(
+      compareFile('a.md', before, after, allow(path.join(dir, 'nope.md'))).unaccountedTotal,
+      1,
+      '目标不存在 ⇒ 仍红',
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
