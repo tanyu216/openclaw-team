@@ -122,14 +122,14 @@
 
 > **Problem**: concurrent Elon turns / automated turns may **create duplicate cards** for the same intent. `review_of`/title alone are **not enough** (wording varies; same-source reviews by different roles are legitimately distinct cards). Method: `guides/task-interface.md §14`.
 
-1. 🔑 **(Main gate · critical) LLM content de-duplication**: before creating a card, the **creator (Elon/LLM) must read the `title` / `goal` / `Background` of existing non-terminal cards** (especially those sharing `project`/`target`/`review_of`/`parent`), and **judge whether the intent and content match** — a match ⇒ **do not create** (reuse/merge the existing card, or append/reassign on it). **The mechanical key is only a fallback; semantic de-duplication is what matters** (it catches "different key, same intent" duplicates, e.g. a different assignee/source pointing at the same fix). A "similar-candidates script" may list a to-read set, but **the final judgement is made by the LLM**.
-2. **Idempotency key (mechanical fallback, title-independent)**: `idem = <kind> | <assignee> | <source> | <target>`; `source` = `review_of` if non-empty, otherwise `parent`, otherwise empty. Including assignee/kind distinguishes same-source reviews by different roles from review/fix/regress.
-3. **Creation must carry the idempotency key**: derived automatically by the ACL; may also be overridden explicitly with `--idem <key>`.
-4. **Reject/reuse**: if a card with the **same key and a non-terminal state** (not `done`/`canceled`; e.g. `todo`/`in_progress`/`in_review`/`blocked`) exists ⇒ **reject creation** and return the existing card id (reuse).
-5. **Title is only a weak signal**: same source + highly similar title ⇒ **warn** "suspected duplicate", for Elon to adjudicate; **never** judge duplication by title alone.
-6. **Atomic creation lock**: card creation takes a `mkdir` lock (the same mechanism as `claim`), serialising concurrent creation of the same key.
-7. **Exemption**: when multiple same-source cards are genuinely needed (e.g. segmented child cards) ⇒ append `#<seg>` to the key, or explicitly `--allow-dup` with a `kind=change` rationale.
-8. **Landing**: the ACL `task.create` (on **both the md base and the meerkat-taskpanel base**) implements **LLM semantic de-duplication (a mandatory step) + the idempotency-key fallback**; the patrol adds a "duplicate key" check. In this repository, which bundles no create path, the convention is **guaranteed by the connected provider + the creator carrying the `idem` key** (see `guides/task-interface.md §14`).
+1. 🔑 **(Main gate) LLM content de-duplication**: before creating a card, the creator (Elon/LLM) must read the `title`/`goal`/`Background` of existing non-terminal cards (especially those sharing `project`/`target`/`review_of`/`parent`) and judge whether the intent matches. A match ⇒ **do not create** (reuse/merge/append). The mechanical key is only a fallback.
+2. **Idempotency key (mechanical fallback)**: `idem = <kind> | <assignee> | <source> | <target>`; `source` = `review_of` if non-empty, else `parent`, else empty. Assignee/kind distinguish same-source reviews by different roles.
+3. **Creation must carry the key**: derived automatically by the ACL; may be overridden explicitly with `--idem <key>`.
+4. **Reject/reuse**: same key + non-terminal state ⇒ reject creation and return the existing card id.
+5. **Title is only a weak signal**: same source + similar title ⇒ warn "suspected duplicate"; never judge by title alone.
+6. **Atomic creation lock**: creation takes a lock (same mechanism as `claim`), serialising concurrent creation of the same key.
+7. **Exemption**: genuinely-needed same-source cards ⇒ append `#<seg>` to the key, or `--allow-dup` with a `kind=change` rationale.
+8. **Landing**: the ACL `task.create` implements semantic de-duplication + the key fallback; the patrol adds a duplicate-key check. In this repository the convention is guaranteed by the connected provider + the creator carrying the key (see `guides/task-interface.md §14`).
 
 ---
 

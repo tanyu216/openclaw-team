@@ -129,6 +129,12 @@
     "team/PROTOCOL.md:tokens:THREAD_BIND_TIMEOUT_MS": { "to": "team/guides/codex-plugin-lane-contract.md", "reason": "§6 plugin-lane 细节下沉；绑定超时变量在 codex 契约。" },
     "team/PROTOCOL.md:tokens:already-running": { "to": "team/AUTOMATIONS.md", "reason": "§6 poll-run 理由下沉；run lock 语义在 AUTOMATIONS §3.5。" },
     "team/PROTOCOL.md:tokens:task.session-close": "搬移：§6 session 生命周期细节下沉；关闭命令在 `task-interface.md` §9 以带参数的完整命令形式出现，不再作为裸 token（命令语法本身保留）。",
-    "team/PROTOCOL.md:tokens:workspace-write": "搬移：§6 plugin-lane sandbox 等价性下沉；`workspace-write` 在 codex 契约中以 `read-only | workspace-write | danger-full-access` 枚举形式出现，不再作为裸 token（姿态规则保留）。"
+    "team/PROTOCOL.md:tokens:workspace-write": "搬移：§6 plugin-lane sandbox 等价性下沉；`workspace-write` 在 codex 契约中以 `read-only | workspace-write | danger-full-access` 枚举形式出现，不再作为裸 token（姿态规则保留）。",
+    "team/PROTOCOL.md:tokens:task.children": { "to": "roles/elon/guides/carding-sop.md", "reason": "§10.2 的 DAG 操作细节下沉到 Elon 角色方法库；命令名保留。" },
+    "team/PROTOCOL.md:tokens:task.deps": { "to": "roles/elon/guides/carding-sop.md", "reason": "§10.2 的 DAG 操作细节下沉到 Elon 角色方法库；命令名保留。" },
+    "team/PROTOCOL.md:tokens:check-all": { "to": "roles/elon/guides/carding-sop.md", "reason": "§10.3 的巡逻告警细节下沉到 Elon 角色方法库；门禁名保留。" },
+    "team/PROTOCOL.md:tokens:task-patrol": { "to": "roles/elon/guides/carding-sop.md", "reason": "§10.3 的巡逻告警细节下沉到 Elon 角色方法库；作业名保留。" },
+    "team/PROTOCOL-gates.md:codes:in_progress": "去重：§29 clause 4 的状态枚举移除；状态集由 §1 / provider schema 定义，§29 不再重复。",
+    "team/PROTOCOL-gates.md:codes:in_review": "去重：§29 clause 4 的状态枚举移除；状态集由 §1 / provider schema 定义，§29 不再重复。"
   }
 }

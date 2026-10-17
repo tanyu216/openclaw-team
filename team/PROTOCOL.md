@@ -293,7 +293,7 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 4. Only then can task cards reference that **identity code**.
    - Example: a data repo = `kind: docs` (no independent git); write rules = materials md only, follow the directory and template conventions.
 
-> 📌 **`project` lives in the ACL layer**: `project` = an **identity code**, **resolved via the `task-interface` ACL**; **meerkat-taskpanel is only one current implementation** (like Jira / Linear / Plane), **not the source of truth**. See the identity-code ↔ backend mapping in `guides/task-interface.md §8/§13`.
+> 📌 **`project` lives in the ACL layer**: `project` = an **identity code**, resolved via the `task-interface` ACL; meerkat-taskpanel is only one current implementation (like Jira / Linear / Plane), **not the source of truth**. Full registration detail: `roles/elon/guides/project-registration-sop.md`; identity-code ↔ backend mapping: `guides/task-interface.md §8/§13`.
 
 ---
 
@@ -408,41 +408,25 @@ Sole dispatcher = Elon (**§5**); workers do not dispatch to each other (includi
 
 ### 10.1 Task-Card Review Participants (determined dynamically, not a fixed roster)
 
-> **Who reviews a task card is determined by the workers the card actually involves; it is not fixed that "some set of agents all review".**
-
-| Card nature | Review participants |
-|---|---|
-| Involves development (assignee or deliverables related to implementation) | Linus (engineering feasibility) |
-| Involves verifiability (Acceptance measurable, test points complete) | Turing (verifiability) |
-| Involves product/UX design | Jobs (design) |
-| Purely internal chores / none of the above | Only the assignee confirms; no multi-party cross-review needed |
-
-- Elon organizes the review: dispatch the relevant workers in parallel to review the task card, collect, then summarize; undivided technical corrections are written back directly by Elon, cognitive differences are escalated to the operator for a decision; only after confirming line-by-line "no omissions, no differences" is it dispatched.
-- For the full card-splitting SOP (splitting scope/review gatekeeping/serial dispatch), see Elon AGENTS.md "Task Card Splitting SOP".
-
-**By flow**: the participant set of a card **is its flow's chain** (`§10.5`) —
-**A** = Jobs (prerequisite contract, then design-dimension confirmation) + Linus + Turing (independent verification + conformance matrix) + Elon (final acceptance audit);
-**B** = Linus + Turing (reproduce → pass + regression) + Elon;
-**C** = Linus + Elon, with Turing/Jobs entering through the **rolling sample** (Turing machine sample 20%/week; Jobs visual spot-check on the same batch), or one **asynchronous** Jobs visual pass when the change is visually non-trivial.
-A flow's chain **does not remove** the review participants the card's nature demands in the table above; the flow decides **who reviews the card at intake and whose reports Elon audits at acceptance**, not whether review happens.
+> Who reviews a card = the workers the card actually involves, not a fixed roster. The dynamic participant table and the per-flow (A/B/C) review set are in `roles/elon/guides/carding-sop.md` §2; the flow itself is **§10.5**. A flow's chain does **not** remove the participants the card's nature demands — it decides who reviews at intake and whose reports Elon audits at acceptance, not whether review happens.
 
 ### 10.2 Composite Task = Subtask Cards + Dependency Graph (DAG)
 
-- **Split**: a composite task creates a `kind:epic` parent card (container/aggregate, **not claimable**); units become **child cards** (`parent=<epic>`, ordinary cards).
-- **Registration is all-at-once; dispatch may be batched**: when a requirement has to be built out in **more than one batch**, **create the epic first and register *every* batch as child cards in the same pass** (`task.spawn <epic> title=… assignee=… [depends_on=…]` per child; register the roster by enumerating `task.children <epic>`); later batches may sit as `todo`/`backlog` **placeholders**. **Only the dispatch/release step may be batched** — release the next batch when the previous batch's cards are accepted. Registering batch 1 and stopping is a violation: nothing downstream (`task.children`/`task.deps`/`task.rollup`) can see a batch that was never registered, so the epic would look finished while the rest of the requirement is silently lost. This is **consistent with the aggregation semantics below** (parent `done` = all children `done` **+ integration acceptance**): an early placeholder child correctly holds the epic open until every registered batch is finished.
-- **Parallel/temporal**: child cards add `depends_on:[predecessors]` (store predecessors only; cross-parent allowed); no dependency ⇒ parallel, with dependency ⇒ serial (resource-aware parallel reuse).
-- **Relations only via ACL**: `task.spawn/depend/undepend/children/deps/rollup`; **at write time** validate invariants (reject cycles/self-reference/dependency on ancestors/deep trees/over-long chains/fan-in), returning reason codes.
-- **Claim guard**: `kind:epic` is skipped; if `depends_on` is not all done ⇒ `deps_unmet`, not claimed (no new status added). **Review cards must not `depends_on` the card under review**: for a card with non-empty `review_of`, the dependency entry equal to `review_of` is exempt (all other entries still apply) — that relation is carried by `review_of`, and the reviewed card stops at `in_review` and never reaches `done` first, so the entry would be permanently unsatisfiable (contract detail: `guides/task-interface.md §10`).
-- **Aggregation**: parent card `done` = all child cards done **and integration acceptance passes**; if any child card is blocked/canceled ⇒ the parent card is blocked/canceled (`task.rollup`).
-- **Invariants (I1–I13)**: see the team proposal document; **patrol**: relation invariants enter the patrol gate; **archive protection**: referenced cards cannot be archived.
-- **Hierarchy/shape**: **follows the provider base (meerkat-taskpanel)** — **single parent, no cycles/self-reference, chain length ≤8, fan-in ≤8**; **supports multiple levels (a parent must be an epic; intermediate nodes are epics)**; the team sets **no additional depth number** (how deep to split ⇒ see §10.3 granularity principle).
+- **Split**: a composite task creates a `kind:epic` parent (container/aggregate, **not claimable**); units become child cards (`parent=<epic>`, ordinary cards).
+- **Register all batches at once; dispatch in batches**: every batch's child cards are registered in the same pass (later batches may sit as `todo`/`backlog` placeholders); only the release step may be batched. A batch that was never registered is invisible to the provider's child/rollup surface — the epic would look finishable while the requirement silently loses work.
+- **Dependencies**: children carry `depends_on` (predecessors only; cross-parent allowed); no dependency ⇒ parallel, with dependency ⇒ serial. The provider validates graph invariants at write time and returns reason codes.
+- **Claim guard**: `kind:epic` is skipped; unmet `depends_on` ⇒ `deps_unmet`. A review card's `review_of` dependency is exempt from the unmet check (the reviewed card stops at `in_review`, so the entry would otherwise be permanently unsatisfiable).
+- **Aggregation**: parent `done` = all children done **and integration acceptance passes**; a blocked/canceled child blocks/cancels the parent (`task.rollup`).
+- **Archive protection**: referenced cards cannot be archived. Relation invariants enter the patrol gate.
+- **Hierarchy/shape**: follows the provider base (single parent, no cycles/self-reference, chain/fan-in limits; contract: `guides/task-interface.md §10`). The team sets **no additional depth number** — how deep to split is the §10.3 granularity principle.
 
 ### 10.3 Carding Granularity & Breakdown Authority
 
-- **Breakdown authority = §5** (Elon is the sole card creator; Jobs/Linus/Turing/Assistant may only request a card, never create or split one themselves).
-- **Granularity principle (anti-over-split)**: one card = **one "independently acceptable delivery unit"** (clear Goal/Acceptance, assignable to a single person, closable on its own). If one card contains **multiple independently acceptable units** ⇒ **it should be split**; if a split-out child is **too small to have independent acceptance value** ⇒ **it should not be split** (merge it). **How deep to split = adjudicated by Elon under this principle.**
-- **Soft guardrails (alert, not hard block)**: patrol **warns** on "**deep chains** (chain length approaching the base limit, e.g. ≥5)" and "**fragmented cards** (too many child cards / granularity too small)", for Elon's manual review.
-- **Registered-but-undispatched batches**: patrol **warns** when an epic has **already released a batch** (the epic is `in_progress`, or some child has left the placeholder state) yet still holds child cards parked in `todo`/`backlog` **beyond a threshold** (default 48h) — the "first batch built, second batch forgotten" pattern. **Basis (machine-checkable)**: the signal is entirely in card frontmatter (`kind`/`status`/`parent`/`status_changed_at`), so it lands as a **`warn` in `check-relations.mjs`** (invoked by the `check-all` gate patrol per §20.1), **not** on the `task-patrol` stale-heartbeat channel (whose object is a stalled *worker*, `§6.4`) and **not** a hard gate — exit code is unchanged, decisions stay human (`§20.2`). The threshold is overridable via `OPENCLAW_TEAM_EPIC_TODO_WARN_MS`.
+- **Breakdown authority = §5** (Elon is the sole card creator; Jobs/Linus/Turing/Assistant may only request a card, never create or split one).
+- **Granularity principle (anti-over-split)**: one card = one independently acceptable delivery unit; multiple units ⇒ split; a split child too small to have independent acceptance value ⇒ merge. How deep to split = Elon under this principle.
+- **Soft guardrails**: patrol warns on deep chains and fragmented cards (manual review).
+- **Registered-but-undispatched batches**: patrol warns when an epic released a batch but still parks `todo`/`backlog` children past the threshold (default 48h). Signal = card frontmatter; a `warn` in `check-relations.mjs`, never a hard gate; threshold `OPENCLAW_TEAM_EPIC_TODO_WARN_MS`.
+- Detailed carding procedure, including the `__team__` target hard gate: `roles/elon/guides/carding-sop.md` §7.
 
 ### 10.4 Card Granularity ⇔ seg Usage
 
