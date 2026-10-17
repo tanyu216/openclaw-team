@@ -89,3 +89,21 @@ A flow's chain **does not remove** the review participants the card's nature dem
 7. **Empty frontier = consensus reached** ⇒ proceed to Phase 1 (carding).
 
 **Output**: design tree + settled decisions + frontier trail, saved to `workspace/<task-id>/design-tree.md` (new projects) or the card Background (small requirements).
+
+## 7.1 seg usage (`PROTOCOL §10.4`)
+
+> A card carries **one Acceptance**; a `seg` is a further session *inside* one card. Opening segs is an execution-level tool, **not** a way to cope with "the card is big" — the team's actual practice for large work is to **split cards**. This clause fixes when a seg is legitimate.
+
+- **Criterion (one line)**: ask whether the two segs are the **same Acceptance**. Same Acceptance ⇒ a seg *may* be legitimate (and only if it fits the whitelist below); different Acceptance ⇒ **split the card**.
+- **The intuition, rewritten explicitly**: **"card is big ⇒ split the card"** (NOT "card is big ⇒ open a pile of segs"). Opening segs to cope with size uses an execution tool to hide "the breakdown was not done".
+- **seg whitelist (only these four; each must still share a single Acceptance)**:
+  1. **the current lane cannot reach the environment** (the run must continue in another window — deterministic UUIDv5 + resume, `§6`);
+  2. **bounded retry** where reopening the whole card costs more than re-running the failing seg;
+  3. **≥2 mutually-exclusive file families + a single acceptance** run as parallel probes (splitting into cards would make each demand its own acceptance);
+  4. **independent verification isolated from the author** (fresh context, no anchoring — anti-confirmation-bias).
+- **Split triggers (any one ⇒ split the card; do not open a seg)**: ① a **second independent Acceptance** appears; ② **≥2 independently-acceptable deliverables**; ③ a different **phase / delivery surface**; ④ a fix touching **more than one Acceptance**; ⑤ **different roles** must accept separately.
+- **Anti-patterns (forbidden)**:
+  ① opening a pile of segs because "the card is big" ⇒ the correct action is **split the card**;
+  ② **phase / delivery-surface segmentation** ⇒ should be **epic child cards** (`§10.2`, each with its own Acceptance/claim/acceptance);
+  ③ **fix–fix–fix retry segments** ⇒ should be a **defect/fix card** (`§9`);
+  ④ "**the context is just too long**" is not a reason to open a seg — it is a reason to **split the card**.

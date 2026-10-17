@@ -396,21 +396,8 @@ Sole dispatcher = Elon (**§5**); workers do not dispatch to each other (includi
 
 ### 10.4 Card Granularity ⇔ seg Usage
 
-> A card carries **one Acceptance**; a `seg` is a further session *inside* one card. Opening segs is an execution-level tool, **not** a way to cope with "the card is big" — the team's actual practice for large work is to **split cards**. This clause fixes when a seg is legitimate.
+> A card carries **one Acceptance**; a `seg` is a further session *inside* one card, not a way to cope with "the card is big" — large work is **split into cards**. Legitimate seg reasons (only these four, each still sharing one Acceptance): ① the lane cannot reach the environment; ② bounded retry; ③ ≥2 mutually-exclusive file families with one Acceptance; ④ author-isolated independent verification. Split the card instead when: a second independent Acceptance appears; ≥2 independently acceptable deliverables; a different phase/delivery surface; a fix touching >1 Acceptance; different roles must accept separately. "The context is too long" is not a seg reason. Full rationale, triggers and anti-patterns: `roles/elon/guides/carding-sop.md` §7.1.
 
-- **Criterion (one line)**: ask whether the two segs are the **same Acceptance**. Same Acceptance ⇒ a seg *may* be legitimate (and only if it fits the whitelist below); different Acceptance ⇒ **split the card**.
-- **The intuition, rewritten explicitly**: **"card is big ⇒ split the card"** (NOT "card is big ⇒ open a pile of segs"). Opening segs to cope with size uses an execution tool to hide "the breakdown was not done".
-- **seg whitelist (only these four; each must still share a single Acceptance)**:
-  1. **the current lane cannot reach the environment** (the run must continue in another window — deterministic UUIDv5 + resume, `§6`);
-  2. **bounded retry** where reopening the whole card costs more than re-running the failing seg;
-  3. **≥2 mutually-exclusive file families + a single acceptance** run as parallel probes (splitting into cards would make each demand its own acceptance);
-  4. **independent verification isolated from the author** (fresh context, no anchoring — anti-confirmation-bias).
-- **Split triggers (any one ⇒ split the card; do not open a seg)**: ① a **second independent Acceptance** appears; ② **≥2 independently-acceptable deliverables**; ③ a different **phase / delivery surface**; ④ a fix touching **more than one Acceptance**; ⑤ **different roles** must accept separately.
-- **Anti-patterns (forbidden)**:
-  ① opening a pile of segs because "the card is big" ⇒ the correct action is **split the card**;
-  ② **phase / delivery-surface segmentation** ⇒ should be **epic child cards** (`§10.2`, each with its own Acceptance/claim/acceptance);
-  ③ **fix–fix–fix retry segments** ⇒ should be a **defect/fix card** (`§9`);
-  ④ "**the context is just too long**" is not a reason to open a seg — it is a reason to **split the card**.
 - **Carding enforcement (hard gate)**: `roles/elon/AGENTS.md` §1 (Task-Card Breakdown SOP — Breakdown Scope), carried **alongside the batch-carding hard rule**: expecting ≥2 independent Acceptance or ≥2 independently-acceptable deliverables ⇒ judge whether to split / build an epic **before** carding.
 - **`__team__` cards must declare `target`**: a card with `project: __team__` **must** carry a `target`, one of the two meanings — **framework change (write the repo)** ⇒ the **repo checkout root** on this host; **deploy/ops on live** ⇒ the **live team root** (`~/.openclaw/team`, i.e. `$OPENCLAW_HOME/team`). Both are this host's absolute paths; neither is a fixed literal (the repo may be checked out anywhere). Rationale: `spawn-lane` resolves cwd from `project` and, with **no `target`**, silently falls back to the **live** team root (`§6` cwd normalization) — so a missing `target` is exactly the hole through which a card "about the framework" ends up writing live. **A `__team__` card with no `target` is therefore a carding defect ⇒ hard red** (`check-card.mjs`: machine-readable `[role] <owner>` tag + exit≠0), not a soft warning.
   **Scope of the check = non-terminal cards only**: the gate exists to catch a **carding-time** defect, so cards already in a **terminal** state (`done`/`failed`/`canceled`) are **grandfathered** — the gate does **not** retro-redden history (`check-card.mjs` narrows on `!TERMINAL.includes(status)`, the complement of the provider's `TERMINAL_STATUSES`; `ready`/`todo`/`backlog` stay in scope, since `spawn-lane` exec auto-claims `ready`/`todo` and would land on `cwd=live`).
