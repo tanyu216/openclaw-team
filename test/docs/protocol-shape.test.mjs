@@ -1,0 +1,128 @@
+/**
+ * protocol-shape.test.mjs — PROTOCOL.md 的「形状」回归门。
+ *
+ * 为什么存在：本轮把 §6/§9/§10 的执行细节下沉到 guides，但四处结构是不可动的：
+ *   1. `## 1. Board Protocol` 的标题形状（lint-impl-names.mjs 精确跳过 `## 1.`）；
+ *   2. §6 / §6.1 / §9.1 / §10.5 的顶层有序列表（lint-doc-refs.mjs 按位置解析 `§N clause M`）；
+ *   3. §15 / §15.1 的切片形状（sla-scan.mjs 结构化解析 `## 15.` 与 `> 6h`）；
+ *   4. §9.1 的三个 Addendum 锚字符串（多份 AGENTS/guide 按散文引用）。
+ * 后续每一次搬移都必须先过这道门；否则 linter 可能「静默跳过」而不是报红。
+ *
+ * 另外记录**体积预算**（warning 级）：超预算只打印 diagnostic，不判红。
+ *
+ * 运行：node --test test/docs/protocol-shape.test.mjs
+ */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const REPO = path.resolve(HERE, '..', '..');
+const PROTOCOL = path.join(REPO, 'team', 'PROTOCOL.md');
+
+const text = fs.readFileSync(PROTOCOL, 'utf8');
+const lines = text.split('\n');
+
+/**
+ * 取一个节的正文：从匹配 `startRe` 的标题之后，到**下一个任意级标题**之前。
+ * 围栏内的 `## ` 不是标题（§6 里就有 `## Segment N ...` 的示例块）。
+ * 关键：不能只按 `## ` 切 —— 那会把 §6.0/§6.1/§6.2 的条目一并算进 §6。
+ */
+function sectionBody(startRe) {
+  const i = lines.findIndex((l) => startRe.test(l));
+  if (i < 0) return null;
+  let fence = false;
+  const out = [];
+  for (let j = i + 1; j < lines.length; j++) {
+    const l = lines[j];
+    if (/^\s*```/.test(l)) {
+      fence = !fence;
+      out.push(l);
+      continue;
+    }
+    if (!fence && /^#{2,6}\s/.test(l)) break;
+    out.push(l);
+  }
+  return out;
+}
+
+const ordered = (body) => (body || []).filter((l) => /^\d{1,3}\.\s/.test(l));
+
+test('§1 标题形状不变（lint-impl-names 精确跳过 `## 1.`）', () => {
+  assert.match(text, /^## 1\. Board Protocol\s*$/m);
+});
+
+test('§6 正文仍是 8 条，且主题顺序不变', () => {
+  const items = ordered(sectionBody(/^## 6\./));
+  assert.equal(items.length, 8, `§6 正文应为 8 条，实测 ${items.length}`);
+  const expected = [
+    /reconcile/i,
+    /Concurrency caps/i,
+    /Spawn mode/i,
+    /poll the subsession/i,
+    /\*\.out\.jsonl/,
+    /single source of truth/i,
+    /Task management boundary/i,
+    /Resume preference/i,
+  ];
+  expected.forEach((re, i) => {
+    assert.match(items[i], re, `§6 第 ${i + 1} 条主题漂移`);
+  });
+});
+
+test('§6.1 仍是 14 条', () => {
+  const items = ordered(sectionBody(/^### 6\.1/));
+  assert.equal(items.length, 14, `§6.1 应为 14 条，实测 ${items.length}`);
+});
+
+test('§9.1 Acceptance hard gate 仍是 6 条（Addenda 的 `> 1.` 不计）', () => {
+  const items = ordered(sectionBody(/^### 9\.1/));
+  assert.equal(items.length, 6, `§9.1 顶层有序条目应为 6，实测 ${items.length}`);
+});
+
+test('§10.5 quality spine 仍是 5 条', () => {
+  const items = ordered(sectionBody(/^### 10\.5/));
+  assert.equal(items.length, 5, `§10.5 顶层有序条目应为 5，实测 ${items.length}`);
+});
+
+test('§15 表仍是 6 个数据行（含表头/分隔共 8 行 `|`）', () => {
+  const body = sectionBody(/^## 15\./);
+  const table = (body || []).filter((l) => l.startsWith('|'));
+  assert.equal(table.length, 8, `§15 表格行应为 8（表头+分隔+6 数据），实测 ${table.length}`);
+  assert.equal(table.length - 2, 6, '§15 数据行应为 6');
+});
+
+test('§15.1 仍含 `> 6h` 边界（sla-scan 解析）', () => {
+  const body = sectionBody(/^### 15\.1/);
+  assert.ok(body, '§15.1 标题必须存在');
+  assert.match(body.join('\n'), />\s*6h/);
+});
+
+test('§9.1 三个 Addendum 锚字符串原样存在', () => {
+  assert.ok(text.includes('§9.1 Addendum:'), '缺少 §9.1 Addendum:');
+  assert.ok(text.includes('§9.1 Addendum II:'), '缺少 §9.1 Addendum II:');
+  assert.ok(text.includes('§9.1 Addendum III:'), '缺少 §9.1 Addendum III:');
+});
+
+test('体积预算（warning 级，不判红）', (t) => {
+  const budgets = [
+    ['team/PROTOCOL.md', 85 * 1024],
+    ['team/PROTOCOL-gates.md', 17 * 1024],
+    ['roles/elon/AGENTS.md', 15 * 1024],
+    ['roles/jobs/AGENTS.md', 12 * 1024],
+    ['roles/linus/AGENTS.md', 14 * 1024],
+    ['roles/turing/AGENTS.md', 10 * 1024],
+    ['roles/assistant/AGENTS.md', 8 * 1024],
+  ];
+  for (const [rel, budget] of budgets) {
+    const p = path.join(REPO, rel);
+    if (!fs.existsSync(p)) continue;
+    const size = fs.statSync(p).size;
+    if (size > budget) {
+      t.diagnostic(`WARN 体积超预算：${rel} = ${size} B > ${budget} B`);
+    }
+  }
+  assert.ok(true);
+});

@@ -155,6 +155,9 @@ run "文档路径引用 lint-doc-refs"         node "$S/lint-doc-refs.mjs" ${LIN
 # repo 模式的仓内语法自证（实例面步骤在 repo 模式整体跳过，见下）。
 if [ "$MODE" = repo ]; then
   run "仓内语法自证 bash -n / node --check" syntax_selfcheck
+  # PROTOCOL 结构门：§1 标题形状、§6/§6.1/§9.1/§10.5 有序条目、§15/§15.1 切片、§9.1 Addendum 锚。
+  # 只对 repo 种子有意义（live 实例是部署副本），故与仓内语法自证同处 repo 分支。
+  run "PROTOCOL 形状回归" node --test "$REPO_DIR/test/docs/protocol-shape.test.mjs"
 fi
 
 # 依赖 CVE 扫描（team/guides/dependency-cve-gate.md §3.2；告警档）：
