@@ -49,6 +49,34 @@ const SOFT_AXES = ['headings'];
 
 const FENCE = /^\s*```/;
 
+// ── 登记解析 ────────────────────────────────────────────────────────────────
+
+/**
+ * 某条缺失原子是否已被登记。
+ *
+ * 支持三种登记形态：
+ *   · `files["<file>"]["<axis>"]`           整轴（整文件删除时使用）
+ *   · `atoms["<file>:<axis>:<atom>"] = "理由"` 精确登记（有意移除）
+ *   · `atoms[...] = { to, reason }`          **搬移**：工具验证 `to` 文件确实含该原子。
+ *                                           目标不存在 / 不含该原子 ⇒ 仍算未登记（拒绝「假搬移」）。
+ */
+function atomAccounted(rel, axis, atom, allow) {
+  if (allow.files[rel] && allow.files[rel][axis]) return true;
+  const entry = allow.atoms[`${rel}:${axis}:${atom}`];
+  if (entry === undefined) return false;
+  if (typeof entry === 'string') return true;
+  if (entry && typeof entry.to === 'string') {
+    const dest = path.isAbsolute(entry.to) ? entry.to : path.join(REPO, entry.to);
+    try {
+      if (!fs.existsSync(dest)) return false;
+      return extractAtoms(fs.readFileSync(dest, 'utf8'))[axis].has(atom);
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
 // ── 原子抽取 ────────────────────────────────────────────────────────────────
 
 /**
@@ -161,10 +189,7 @@ export function compareFile(rel, beforeText, afterText, allow) {
     if (!missing.length) continue;
     entry.missing[axis] = missing;
     if (!AXES.includes(axis)) continue;                                // 软轴只报告
-    const un = missing.filter((x) => {
-      const wholeAxis = allow.files[rel] && allow.files[rel][axis];
-      return !wholeAxis && !allow.atoms[`${rel}:${axis}:${x}`];
-    });
+    const un = missing.filter((x) => !atomAccounted(rel, axis, x, allow));
     if (un.length) entry.unaccounted[axis] = un;
     missingTotal += missing.length;
     unaccountedTotal += un.length;
