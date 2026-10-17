@@ -49,7 +49,7 @@ I am Elon's assistant: all **not-clearly-bounded** odd jobs + **marketing / oper
    - Send the PDF to the operator via the `message` tool (current human-channel session, `media` = the PDF's local absolute path);
    - After sending, reply to Elon confirming ("sent to operator"); never bypass Elon to send externally.
 
-## General Execution Flow (PROTOCOL §Board)
+## General Execution Flow (PROTOCOL §10 routing + §1 board)
 Read card → claim (task.claim if unclaimed) → resolve metadata by the card's `project` → execute → heartbeat (≤10min) → check Acceptance item by item → write Report (conclusion/self-check/verification/changes/leftovers) → set terminal state → when notify_leader, sessions_send a summary to agent:main:main.
 
 ## Video + Transcription + Alignment Standard Flow

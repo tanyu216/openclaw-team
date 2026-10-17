@@ -57,7 +57,7 @@ and documented under `team/guides/` or `CLAUDE.md`; **(data)** = deployed litera
 | `check-all.sh` | the gate **engine** — the single source of the checks; `--segment fast\|slow\|all`, live/repo modes | **(gate)** CI (`docker/verify-in-container.sh`), `check-all-gate.mjs`, humans |
 | `check-redlines.mjs` | each role `AGENTS.md` redline block byte-equals `guides/redlines.core.md` | **(gate)** |
 | `sync-redlines.mjs` | the **writer** counterpart: pours the canonical block into each role file | **(cli)** `CLAUDE.md` |
-| `lint-refs.mjs` | `PROTOCOL §1…§20` references resolve to `PROTOCOL.md` headings | **(gate)** |
+| `lint-refs.mjs` | `PROTOCOL §N` references resolve to headings in the merged `PROTOCOL.md` + `PROTOCOL-gates.md` numbering space | **(gate)** |
 | `lint-doc-refs.mjs` | path references in backticks / markdown links resolve, cross-file section anchors (`<name>.md §N` / `§N.M`) land on a real heading, **and** section-internal item refs (`§N clause M` / `§N step M` / `§N.M #M`) land inside a real ordered list | **(gate)** |
 | `lint-impl-names.mjs` | implementation names must not leak into the upper docs | **(gate)** |
 | `check-card.mjs` | card frontmatter schema + state machine | **(gate)** |

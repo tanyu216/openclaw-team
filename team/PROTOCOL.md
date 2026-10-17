@@ -1,8 +1,9 @@
-# PROTOCOL.md — OpenClaw Five-Agent Team Protocol (Single Source of Truth)
+# PROTOCOL.md — OpenClaw Five-Agent Team Protocol, Volume I (Core)
 
-> This file is the **single protocol source of truth** for team collaboration. Each agent's AGENTS.md only references section numbers from this file; it does not copy the content.
+> **Volume I of the protocol**, §1–§20. Volume II (`team/PROTOCOL-gates.md`) carries §21–§29 + Appendix A. The two files are **one logical document with one section numbering space**: a bare `§N` resolves against both, and this file remains the normative source for team collaboration.
+> Each agent's AGENTS.md references these sections (and, for method detail, the owning `guides/` file); it does not copy the content.
 > Shared area: `~/.openclaw/team/` (the only cross-agent shared path; always reference it by absolute path).
-> Revisions: this file is maintained by Elon and the implementer (PROTOCOL §3); agents only read/write data and never change structure.
+> Revisions: maintained by Elon and the implementer (PROTOCOL §3); agents only read/write data and never change structure.
 ---
 
 ## Team Roles
@@ -436,8 +437,6 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 
 **Anti-patterns (reject on sight)**: running only host-process E2E and calling it container-ready | substituting "config changed" for "reachability tested inside the container" | reusing `127.0.0.1` for cross-container addresses | not checking semantics when the same config is used across multiple forms.
 
-**Rollout status**: the container-form acceptance requirement is written into the relevant cards (the password-change card requires container-form E2E); the container reaches Keycloak by service name, not `127.0.0.1`.
-
 ### 9.4 Product/UX Acceptance Trigger (handoff with Turing's test completion)
 
 > For any task card touching product/UI/UX (or containing UI deliverables), after Turing's functional test/regression passes, **Elon coordinates Jobs to do product acceptance**; only after passing may the original card reach terminal done. Pure-backend/no-UI tasks skip this step.
@@ -682,7 +681,7 @@ Job inventory and cadence: `team/AUTOMATIONS.md §1`; the per-turn reminder is r
 
 ## 17. Document-System Layering and Single Source of Truth
 
-**Layering (each layer has a single responsibility; crossing layers is forbidden)**: L0 config (`openclaw.json` identity) | **L1 `PROTOCOL.md` + `PROTOCOL-gates.md`** — **one logical document in two volumes sharing one numbering space** (§1–§20 core here, §21 onward product/engineering gates there); cross-role mechanisms/discipline; **numbering only grows, never changes**, and a `§N` resolves against the two volumes together | **L2 role AGENTS.md** (role SOP, references L1 only) | **L2.5 role method library** (`workspace-<role>/guides/` details + `skills/`; on conflict, guides prevail) | **L3 SOUL** (creed/style, no dates/card numbers) | **L4 USER** (communication model/work profile) | **L5 memory and evidence** (`memory/`, `workspace/<id>/state.md`, `README.md`).
+**Layering (each layer has a single responsibility; crossing layers is forbidden)**: L0 config (`openclaw.json` identity) | **L1 `PROTOCOL.md` + `PROTOCOL-gates.md`** — **one logical document in two volumes sharing one numbering space** (§1–§20 core here, §21 onward product/engineering gates there); cross-role mechanisms/discipline; **numbering only grows, never changes**, and a `§N` resolves against the two volumes together | **L2 role AGENTS.md** (role SOP, references L1 only) | **L2.5 method library** (`team/guides/` shared methods + `workspace-<role>/guides/` role methods + `skills/`; on conflict, the method guide prevails over a role copy, and L1 prevails over both) | **L3 SOUL** (creed/style, no dates/card numbers) | **L4 USER** (communication model/work profile) | **L5 memory and evidence** (`memory/`, `workspace/<id>/state.md`, `README.md`).
 
 **Hard rules**:
 1. **Anything with a date / card number / commit / one-off decision record → goes only to L5**; but **permanent operational conventions with an effective date** (e.g. "video sole entry point") stay in L2 (drop the date or note the effective date).

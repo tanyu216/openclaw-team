@@ -233,8 +233,8 @@ What the installer does (every stage is idempotent; existing items are skipped):
 
 1. **Preflight** — node / OpenClaw CLI; checks for `claude` and `codex` (warns with
    install hints if absent; never aborts).
-2. **Team docs** → `~/.openclaw/team/` (`PROTOCOL.md`, `ROLES.md`, `README.md`,
-   `guides/`). Never touches runtime dirs `tasks/`, `workspace/`, `memory/`.
+2. **Team docs** → `~/.openclaw/team/` (`PROTOCOL.md`, `PROTOCOL-gates.md`, `ROLES.md`,
+   `README.md`, `guides/`). Never touches runtime dirs `tasks/`, `workspace/`, `memory/`.
 3. **Skills (declared sources)** — resolves every entry in `skills/manifest.json`
    from its upstream (ClawHub / GitHub / git) and installs it into the right
    target. Entries with no verified upstream (`needs_source`) are skipped with a
@@ -449,7 +449,7 @@ openclaw-team/
 │  ├─ agents/<agent>/        # per-agent workspace skills
 │  └─ PROVENANCE.md          # source + license manifest
 └─ team/                     # static docs deployed to ~/.openclaw/team/
-   ├─ PROTOCOL.md ROLES.md README.md AUTOMATIONS.md
+   ├─ PROTOCOL.md PROTOCOL-gates.md ROLES.md README.md AUTOMATIONS.md
    ├─ automations/           # framework dispatcher + provider entries (scheduling)
    ├─ scripts/               # framework entry scripts (poll/patrol/check-all) + tests
    └─ guides/

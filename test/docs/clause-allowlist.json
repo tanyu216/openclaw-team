@@ -1,6 +1,19 @@
 {
   "_comment": "doc-clause-diff.mjs 的登记表：登记**有意移除**的规范性原子。两种粒度 —— 精确 `atoms[\"<file>:<axis>:<atom>\"]`，或整轴 `files[\"<file>\"][\"<axis>\"]`。值一律写**理由**；无理由的登记等于关掉这道门。axis ∈ codes | tokens | refs | numbers。",
-  "files": {},
+  "files": {
+    "team/guides/boundary-design-vs-promo.md": {
+      "codes": "整文件删除（owner 已拍板）：全仓 0 引用，文件自述规范性正文已并入 PROTOCOL §10 + ROLES.md，不再是规范来源。",
+      "tokens": "同上：整文件删除。",
+      "refs": "同上：整文件删除。",
+      "numbers": "同上：整文件删除。"
+    },
+    "team/guides/jobs-html-subagent-contract.md": {
+      "codes": "整文件删除（owner 已拍板）：card-era 设计交付，来源 workspace/T-…/design-spec.md，全仓仅一处描述为 awaiting ruling，不是常驻 SOP。",
+      "tokens": "同上：整文件删除。",
+      "refs": "同上：整文件删除。",
+      "numbers": "同上：整文件删除。"
+    }
+  },
   "atoms": {
     "team/PROTOCOL.md:tokens:T-20260924-184000-paramcatalog": "去变更史：该卡号只是 `setsid` 事故的出处，规则（跨平台 detach）不依赖它（§17 规则 1：带卡号的一次性记录只归 L5）。",
     "team/PROTOCOL.md:tokens:T-20260924-225300-apiroutes": "去变更史：该卡号只是「裸 commit 扫入他人 staged 内容」的证据出处；规则与其 Rationale 均保留。",
@@ -105,6 +118,7 @@
     "team/guides/task-interface.md:tokens:T-20261014-214625": "seg3b：移除挂靠规则的引用式溯源（`(evidence …)` / `(basis: …)` / `(provider side …)`）；括号内说明文字一律保留，只去掉出处。",
     "team/guides/task-interface.md:tokens:T-20261015-025543-3": "seg3b：移除挂靠规则的引用式溯源（`(evidence …)` / `(basis: …)` / `(provider side …)`）；括号内说明文字一律保留，只去掉出处。",
     "team/guides/worker-report-template.md:tokens:T-20261015-010749-3": "seg3b：同上；`tasks/T-….md` 形式的**格式示例**已保留。",
-    "team/PROTOCOL-gates.md:refs:§28": "去重：§28.4 的 rollback 复述改为引用 `§6` / `§24`，该处裸 `§28` 自引用随之移除；规则本身仍由 §6/§24 承载，§28 标题保留。"
+    "team/PROTOCOL-gates.md:refs:§28": "去重：§28.4 的 rollback 复述改为引用 `§6` / `§24`，该处裸 `§28` 自引用随之移除；规则本身仍由 §6/§24 承载，§28 标题保留。",
+    "team/guides/lane-session-lifecycle-sop.md:tokens:jobs-html-subagent-contract.md": "清理：该 card-era 设计交付已删除；liveness 说明仍保留 `codex-plugin-lane-contract.md`（唯一仍在维护的 plugin/native harness 契约）。"
   }
 }

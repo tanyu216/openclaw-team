@@ -159,7 +159,7 @@ cd <path/to/openclaw-team>
 安装器做这些事（每步幂等，已存在则跳过）：
 
 1. **预检**：node / openclaw CLI；检查 `claude`、`codex`（缺失给出安装提示，不中断）。
-2. **团队文档** → `~/.openclaw/team/`（`PROTOCOL.md`、`ROLES.md`、`README.md`、`guides/`）。**不覆盖**运行时目录 `tasks/`、`workspace/`、`memory/`。
+2. **团队文档** → `~/.openclaw/team/`（`PROTOCOL.md`、`PROTOCOL-gates.md`、`ROLES.md`、`README.md`、`guides/`）。**不覆盖**运行时目录 `tasks/`、`workspace/`、`memory/`。
 3. **技能（声明源）**：逐条解析 `skills/manifest.json` 的上游来源（ClawHub / GitHub / git）并安装到对应目标。无已核上游（`needs_source`）的条目会跳过并告警。`--vendor` 快照到 `skills/vendor/`；`--offline` 从快照安装。
 4. **Agent 与角色工作区**：拷贝 `AGENTS.md`/`SOUL.md`/`IDENTITY.md`，然后 `openclaw agents add <id> --workspace <dir> --non-interactive`；已注册则跳过。**永不覆盖**既有 `USER.md`。
 5. **配置片段** → `openclaw config patch --file config/*.json5`（`config/examples/` 下仅参考，不自动应用）。
@@ -280,7 +280,7 @@ openclaw-team/
 │  ├─ agents/<agent>/        # 各 agent 工作区技能
 │  └─ PROVENANCE.md          # 来源与许可清单
 └─ team/                     # 部署到 ~/.openclaw/team/ 的静态文档
-   ├─ PROTOCOL.md ROLES.md README.md AUTOMATIONS.md
+   ├─ PROTOCOL.md PROTOCOL-gates.md ROLES.md README.md AUTOMATIONS.md
    ├─ automations/           # 框架派发器 + provider 入口（调度）
    └─ guides/
 ```

@@ -94,7 +94,7 @@
 >   (requirement→implementation conformance) + `team/guides/ui-align-sop.md` for the UI surface
 > ⚠️ Where the details conflict with this section, the normative text prevails.
 
-## General Execution Flow (PROTOCOL §Board)
+## General Execution Flow (PROTOCOL §10 routing + §1 board)
 Read card → **determine claim**: if the poll already claimed it (claimed_by=self && in_progress && fresh heartbeat) → skip claim and execute; if the card is still todo (direct dispatch, unclaimed) → task.claim first → resolve metadata by the card's `project` (`lib.get_project`: root/repos/guides/rules; `__team__` returns team-specific semantics without consulting the registry) → execute → heartbeat (≤10min) → check Acceptance item by item → write Report (conclusion/self-check/verification/changes/leftovers) → set terminal state → when notify_leader, sessions_send a summary back to agent:main:main.
 
 ## Tool Discipline (mandatory, no detours)

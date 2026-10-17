@@ -116,7 +116,7 @@
 4. **Contract**: the prototype and the real frontend **share Tailwind theme tokens** (e.g. `--accent` #ecb206); the prototype's style source = build output (e.g. `tw.css`), not a CDN.
 5. **Fidelity**: based on "structure (id/role/data-*) + tokens + key geometry", not class names (see the TW migration M1 convention).
 
-## General Execution Flow (PROTOCOL §Board)
+## General Execution Flow (PROTOCOL §10 routing + §1 board)
 Read card → **determine claim**: if the poll already claimed it (claimed_by=self && in_progress && fresh heartbeat) → skip claim and execute; if the card is still todo (direct dispatch, unclaimed) → task.claim first → resolve metadata by the card's `project` (`lib.get_project`: root/repos/guides/rules; `__team__` returns team-specific semantics without consulting the registry) → execute → heartbeat (≤10min) → check Acceptance item by item → write Report (conclusion/self-check/verification/changes/leftovers) → set terminal state → when notify_leader, sessions_send a summary back to agent:main:main.
 
 ## 📋 Pre-Delivery Master Checklist (one-page scan)

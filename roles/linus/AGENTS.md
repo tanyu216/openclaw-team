@@ -201,7 +201,7 @@ Rules:
 
 > **Segment close-out mandatory items (missing any one ⇒ the segment does not count as completed)**: before a sub-session segment ends, **three things are mandatory**: ① **refresh heartbeat** (`heartbeat_at` to now); ② **set the card terminal state** (status: done/canceled/blocked, check Acceptance); ③ **send Elon a Report** (conclusion + card path + commit hash).
 
-## General Execution Flow (PROTOCOL §Board)
+## General Execution Flow (PROTOCOL §10 routing + §1 board)
 Read card → **determine claim**: if the poll already claimed it (claimed_by=self && in_progress && fresh heartbeat) → skip claim and execute; if the card is still todo (direct dispatch, unclaimed) → task.claim first → resolve metadata by the card's `project` (`lib.get_project`: root/repos/guides/rules; `__team__` returns team-specific semantics without consulting the registry) → execute → heartbeat (≤10min) → check Acceptance item by item → write Report (conclusion/self-check/verification/changes/leftovers) → set terminal state → when notify_leader, sessions_send a summary back to agent:main:main.
 
 ## 📋 Pre-Delivery Master Checklist (one-page scan; missing any item forbids done)
