@@ -21,22 +21,25 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..', '..');
 const PROTOCOL = path.join(REPO, 'team', 'PROTOCOL.md');
+const ENGINEERING = path.join(REPO, 'team', 'guides', 'engineering-standards-sop.md');
 
 const text = fs.readFileSync(PROTOCOL, 'utf8');
 const lines = text.split('\n');
+const engineering = fs.readFileSync(ENGINEERING, 'utf8');
+const engineeringLines = engineering.split('\n');
 
 /**
  * 取一个节的正文：从匹配 `startRe` 的标题之后，到**下一个任意级标题**之前。
  * 围栏内的 `## ` 不是标题（§6 里就有 `## Segment N ...` 的示例块）。
  * 关键：不能只按 `## ` 切 —— 那会把 §6.0/§6.1/§6.2 的条目一并算进 §6。
  */
-function sectionBody(startRe) {
-  const i = lines.findIndex((l) => startRe.test(l));
+function bodyOf(src, startRe) {
+  const i = src.findIndex((l) => startRe.test(l));
   if (i < 0) return null;
   let fence = false;
   const out = [];
-  for (let j = i + 1; j < lines.length; j++) {
-    const l = lines[j];
+  for (let j = i + 1; j < src.length; j++) {
+    const l = src[j];
     if (/^\s*```/.test(l)) {
       fence = !fence;
       out.push(l);
@@ -47,6 +50,7 @@ function sectionBody(startRe) {
   }
   return out;
 }
+const sectionBody = (startRe) => bodyOf(lines, startRe);
 
 const ordered = (body) => (body || []).filter((l) => /^\d{1,3}\.\s/.test(l));
 
@@ -72,9 +76,12 @@ test('§6 正文仍是 8 条，且主题顺序不变', () => {
   });
 });
 
-test('§6.1 仍是 14 条，且主题顺序不变', () => {
-  const items = ordered(sectionBody(/^### 6\.1/));
-  assert.equal(items.length, 14, `§6.1 应为 14 条，实测 ${items.length}`);
+test('§6.1 是指针节，正文在 engineering-standards-sop.md，仍是 14 条且主题顺序不变', () => {
+  const pointer = (sectionBody(/^### 6\.1/) || []).join('\n');
+  assert.match(pointer, /Normative body\*\*: `guides\/engineering-standards-sop\.md` §6\.1/,
+    '§6.1 必须指向 engineering-standards-sop.md §6.1');
+  const items = ordered(bodyOf(engineeringLines, /^## §6\.1/));
+  assert.equal(items.length, 14, `指南 §6.1 应为 14 条，实测 ${items.length}`);
   const expected = [
     /TDD first/,
     /coverage ≥ 80%/,
