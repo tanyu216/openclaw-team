@@ -86,7 +86,19 @@ done
 for f in .openclaw/workspace-elon/AGENTS.md .openclaw/workspace-linus/AGENTS.md; do
   [ -f "$KHOME/$f" ] || { echo "missing role workspace: $f"; exit 1; }
 done
-for f in .openclaw/workspace-elon/guides/carding-sop.md .openclaw/workspace-elon/guides/project-registration-sop.md .openclaw/workspace-assistant/guides/research-and-data-repo-conventions.md; do
+for f in \
+  .openclaw/workspace-elon/guides/carding-sop.md \
+  .openclaw/workspace-elon/guides/project-registration-sop.md \
+  .openclaw/workspace-elon/guides/token-hygiene-sop.md \
+  .openclaw/workspace-elon/guides/duties-sop.md \
+  .openclaw/workspace-jobs/guides/duties-sop.md \
+  .openclaw/workspace-jobs/guides/tool-discipline-sop.md \
+  .openclaw/workspace-linus/guides/duties-sop.md \
+  .openclaw/workspace-linus/guides/testing-and-delivery-sop.md \
+  .openclaw/workspace-linus/guides/development-process-sop.md \
+  .openclaw/workspace-turing/guides/duties-sop.md \
+  .openclaw/workspace-turing/guides/tool-discipline-sop.md \
+  .openclaw/workspace-assistant/guides/research-and-data-repo-conventions.md; do
   [ -f "$KHOME/$f" ] || { echo "missing role guide: $f"; exit 1; }
 done
 echo "deployed files ok"

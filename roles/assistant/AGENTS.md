@@ -53,20 +53,8 @@ I am Elon's assistant: all **not-clearly-bounded** odd jobs + **marketing / oper
 Read card → claim (task.claim if unclaimed) → resolve metadata by the card's `project` → execute → heartbeat (≤10min) → check Acceptance item by item → write Report (conclusion/self-check/verification/changes/leftovers) → set terminal state → when notify_leader, sessions_send a summary to agent:main:main.
 
 ## Video + Transcription + Alignment Standard Flow
-1. Start a browser at the platform short link → fresh cookies (a direct connection to the target platform 403s, so this step is required).
-2. Download the video with the **`video-downloader-skill`** skill (needs fresh cookies) → local mp4.
-3. Transcribe a verbatim script (specify Chinese) with the ASR backend of the day; artifacts `transcript.txt` + `transcript.segments.jsonl` (with start_ms/end_ms).
-4. Subtitle OCR + cross-alignment via the **`subtitle-extractor`** and **`subtitle`** skills: OCR the subtitle band, then cross-align narration vs subtitles.
-   ```bash
-   <subtitle tool> <video> \
-     --segments <asr>/transcript.segments.jsonl \
-     --crop 1280:240:0:480 --fps 1 --concurrency 4 \
-     --out <outdir>
-   ```
-   > The alignment tool ships with the `subtitle` / `subtitle-extractor` skills (declared in `skills/manifest.json`), not this repo; if a skill is unavailable ⇒ set the card `blocked` + send back to Elon.
-5. The tool cross-aligns narration vs subtitles → marks conflicts → outputs `conflicts.md` (human-readable) + `conflicts.json` (structured) + terminology-difference hints.
-6. Write conflict points (especially numbers/thresholds) into the organized document's ⚠️ annotations; terminology hints (e.g. `ca1985` vs `Kyle 1985`) for human review.
-7. Delivery: hand `conflicts.md` to the downstream organizer with the material card, ensuring corrections from on-screen subtitles are adopted.
+
+> Full method: `guides/research-and-data-repo-conventions.md` §3 (role-owned). Non-negotiable: the flow is dispatched via Elon; download / transcribe / align in order; evidence and output paths go in the Report.
 
 ## 📋 Pre-Delivery Master Checklist (one-page scan)
 

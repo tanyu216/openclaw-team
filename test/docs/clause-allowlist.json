@@ -263,6 +263,322 @@
     "team/guides/task-interface.md:numbers:29KB": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
     "team/guides/task-interface.md:numbers:3KB": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
     "team/guides/task-interface.md:numbers:×1.5": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
-    "team/guides/task-interface.md:numbers:×4": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。"
+    "team/guides/task-interface.md:numbers:×4": "薄契约重写：该原子属 provider 实现细节（schema / CLI 参数 / 命令内部语义 / 序列化阈值 / 实现路径），已归还 provider skill 的 `references/card-schema.md` + `references/cli.md`；团队侧操作面、状态语义、不变量与切换契约保留。",
+    "roles/assistant/AGENTS.md:codes:end_ms": {
+      "to": "roles/assistant/guides/research-and-data-repo-conventions.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/assistant/AGENTS.md:codes:start_ms": {
+      "to": "roles/assistant/guides/research-and-data-repo-conventions.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/assistant/AGENTS.md:tokens:conflicts.json": {
+      "to": "roles/assistant/guides/research-and-data-repo-conventions.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/assistant/AGENTS.md:tokens:conflicts.md": {
+      "to": "roles/assistant/guides/research-and-data-repo-conventions.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/assistant/AGENTS.md:tokens:subtitle-extractor": {
+      "to": "roles/assistant/guides/research-and-data-repo-conventions.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/assistant/AGENTS.md:tokens:transcript.segments.jsonl": {
+      "to": "roles/assistant/guides/research-and-data-repo-conventions.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/assistant/AGENTS.md:tokens:transcript.txt": {
+      "to": "roles/assistant/guides/research-and-data-repo-conventions.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/assistant/AGENTS.md:tokens:video-downloader-skill": {
+      "to": "roles/assistant/guides/research-and-data-repo-conventions.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:codes:depends_on": {
+      "to": "roles/elon/guides/carding-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:codes:detect_changes": {
+      "to": "roles/elon/guides/token-hygiene-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:codes:memory_search": {
+      "to": "roles/elon/guides/token-hygiene-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:codes:review_of": {
+      "to": "roles/elon/guides/carding-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:codes:sessions_send": {
+      "to": "roles/elon/guides/carding-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:codes:sessions_spawn": {
+      "to": "roles/elon/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:tokens:OPENCLAW_TEAM_INTEGRATION_BRANCH": {
+      "to": "roles/elon/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:tokens:TOTAL": {
+      "to": "roles/elon/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:tokens:__init__.py": {
+      "to": "roles/elon/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:tokens:session-rollover": {
+      "to": "roles/elon/guides/token-hygiene-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:tokens:team-check-all": {
+      "to": "roles/elon/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:tokens:term-missing": {
+      "to": "roles/elon/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:numbers:0%": {
+      "to": "roles/elon/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:numbers:12MB": {
+      "to": "roles/elon/guides/token-hygiene-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:numbers:15min": {
+      "to": "roles/elon/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/elon/AGENTS.md:numbers:20%": {
+      "to": "roles/elon/guides/carding-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:codes:apply_patch": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:codes:depends_on": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:codes:review_of": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:DESIGN.md": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:base.css": {
+      "to": "roles/jobs/guides/tool-discipline-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:claude-sessions.json": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:daisyUI": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:document.querySelector": {
+      "to": "roles/jobs/guides/tool-discipline-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:google-stitch": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:mcp.servers": {
+      "to": "roles/jobs/guides/tool-discipline-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:prototype.carrier": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:static-html": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:styles.css": {
+      "to": "roles/jobs/guides/tool-discipline-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:tw.css": {
+      "to": "roles/jobs/guides/tool-discipline-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:tokens:ui-align": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:refs:§6.1": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:refs:§6.3": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/jobs/AGENTS.md:numbers:20%": {
+      "to": "roles/jobs/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:codes:depends_on": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:codes:heartbeat_at": {
+      "to": "roles/linus/guides/development-process-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:codes:rel_path": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:codes:session_id": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:codes:start_new_session": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:codes:task_id": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:branch-guard.mjs": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:daisyUI": {
+      "to": "roles/linus/guides/testing-and-delivery-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:execute-guide.md": {
+      "to": "roles/linus/guides/development-process-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:google-stitch": {
+      "to": "roles/linus/guides/testing-and-delivery-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:handoff.md": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:mcp.servers": {
+      "to": "roles/linus/guides/testing-and-delivery-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:plan-guide.md": {
+      "to": "roles/linus/guides/development-process-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:plan.md": {
+      "to": "roles/linus/guides/development-process-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:prototype.carrier": {
+      "to": "roles/linus/guides/testing-and-delivery-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:static-html": {
+      "to": "roles/linus/guides/testing-and-delivery-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:task.handoff": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:task.session-close": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:task.session-set": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:tokens:verify-guide.md": {
+      "to": "roles/linus/guides/development-process-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:refs:§6.3": {
+      "to": "roles/linus/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/linus/AGENTS.md:numbers:50%": {
+      "to": "roles/linus/guides/development-process-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:codes:rel_path": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:codes:session_id": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:codes:task_id": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:tokens:DESIGN.md": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:tokens:danger-full-access": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:tokens:handoff.md": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:tokens:task.handoff": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:tokens:task.session-close": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:tokens:task.session-set": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:tokens:ui-align": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:refs:§13.5": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:refs:§6.2": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:refs:§6.3": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:numbers:20%": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "roles/turing/AGENTS.md:numbers:80%": {
+      "to": "roles/turing/guides/duties-sop.md",
+      "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    }
   }
 }
