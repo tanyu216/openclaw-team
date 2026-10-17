@@ -135,11 +135,7 @@
 
 ## Appendix A: Data-Repo Organization Conventions (general basis for material organization)
 
-- **Material scope**: organize by project/topic (research/tech/product, etc. all fine). Sources = video / web page / **PDF / md notes**. **Material unrelated to the project topic is not collected** → report it to Elon to file into the corresponding data repo.
-- **Directory structure / templates / frontmatter source enum**: the `README.md` and `_templates/` in each data repo root are the **sole authority** (see the repo navigation). Extending a source value requires first changing the template, then syncing each role's clauses.
-- Video material: download + transcript draft temporarily stored in `00-inbox/` → refined draft filed → the draft path is written into frontmatter; do not move the whole transcript.
-- PDF/md notes: extract text/normalize → material card (add frontmatter, file it), retaining the source note.
-- Conclusions must attach the convention and reproducible commands; do not write a conclusion without its basis.
-- Use `[[double links]]` for association within the repo; the body does not write absolute paths outside the repo (except command examples).
-- **Directory governance**: when a subdirectory exceeds ~30 files, consider subdirectory-izing/renaming; adjustments = move + sync the README structure description and affected double links; **archive only, never delete**.
-- ⚠️ Fact note: the data repo root may itself be a git repo with an auto-commit mechanism, and files added/moved within the repo fall into that repo's tracking scope; the repo itself may have no independent git repo, so the material-organization role need not perform git operations — but if independent traceability is needed before changes, copy a snapshot to `team/workspace/<task-id>/`.
+- **Material scope**: organize by project/topic; sources = video / web page / **PDF / md notes**. Material unrelated to the project topic is not collected → report it to Elon.
+- **Authority**: each data repo's root `README.md` and `_templates/` are the **sole authority** for directory structure / templates / frontmatter source enum; extending a source value requires changing the template first.
+- **Fact note**: the data repo may itself be a git repo with auto-commit, and materials added/moved within it fall into that repo's tracking scope. If independent traceability is needed before changes, snapshot to `team/workspace/<task-id>/` first.
+- Video/PDF handling, association links, directory governance and archive rules: `roles/assistant/guides/research-and-data-repo-conventions.md` §2.

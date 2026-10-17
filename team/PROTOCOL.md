@@ -614,6 +614,8 @@ Job inventory and cadence: `team/AUTOMATIONS.md §1`; the per-turn reminder is r
 - Any conclusion (metric/experiment/comparison) **must attach the convention + reproducible commands + output trail**; missing = considered incomplete.
 - Research items go through the **full lifecycle**: definition → single-item analysis → evaluation (out-of-sample/robustness) → conclusion and disposition; do not skip stages.
 - A research Report missing "reproducible commands / data convention" ⇒ check fails.
+
+> Full detail: `roles/assistant/guides/research-and-data-repo-conventions.md` §1.
 ---
 
 ## 19. All-Hands Work Creed
