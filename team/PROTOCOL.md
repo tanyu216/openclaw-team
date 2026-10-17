@@ -58,8 +58,7 @@ A task card is the sole carrier of persisted content (Goal / Acceptance / Backgr
 
 ## 2. Project Access Rules
 
-- `project` = a **project identity code** (stable id; under the current implementation the project name, e.g. `example-app` / the reserved name `__team__`). Project info is **resolved via the `task-interface` ACL** — root/repos/guides/default git rules come from the project metadata exposed by the ACL, not hard-coded as absolute paths in cards.
-- **Swappable backend (ACL abstraction)**: the current `task-interface` implementation binds to **meerkat-taskpanel**; it can later be swapped for Jira/Linear/Plane, etc., with **zero changes to the upper layers** (cards/SOP/duties) — only swap the ACL implementation and run the contract tests (see `guides/task-interface.md §8`). The upper layers **must not** depend on any backend's internal project id.
+- `project` = a **project identity code** resolved through the `task-interface` ACL (backend swappable with zero upper-layer changes — `guides/task-interface.md` §1/§2/§12). Root/repos/guides/default git rules come from the project metadata, never hard-coded absolute paths in cards.
 - **Reading** any registered project file is allowed (read its CLAUDE.md first to learn the conventions).
 - **Writing to a project repo** requires all of: the card's `project` is registered + the card's `target`/`git_rules`/delivery intent are clear + project rules are followed.
   - Example `example-app`: based on the dev branch, no destructive git commands (restore/reset --hard/stash/clean, etc.), incremental commits; source and design docs may be **independent dual repos**, executed per the repos boundaries in the project metadata (resolved via the ACL).
