@@ -104,6 +104,7 @@
     "team/guides/task-interface.md:tokens:T-20261014-131423": "seg3b：移除挂靠规则的引用式溯源（`(evidence …)` / `(basis: …)` / `(provider side …)`）；括号内说明文字一律保留，只去掉出处。",
     "team/guides/task-interface.md:tokens:T-20261014-214625": "seg3b：移除挂靠规则的引用式溯源（`(evidence …)` / `(basis: …)` / `(provider side …)`）；括号内说明文字一律保留，只去掉出处。",
     "team/guides/task-interface.md:tokens:T-20261015-025543-3": "seg3b：移除挂靠规则的引用式溯源（`(evidence …)` / `(basis: …)` / `(provider side …)`）；括号内说明文字一律保留，只去掉出处。",
-    "team/guides/worker-report-template.md:tokens:T-20261015-010749-3": "seg3b：同上；`tasks/T-….md` 形式的**格式示例**已保留。"
+    "team/guides/worker-report-template.md:tokens:T-20261015-010749-3": "seg3b：同上；`tasks/T-….md` 形式的**格式示例**已保留。",
+    "team/PROTOCOL-gates.md:refs:§28": "去重：§28.4 的 rollback 复述改为引用 `§6` / `§24`，该处裸 `§28` 自引用随之移除；规则本身仍由 §6/§24 承载，§28 标题保留。"
   }
 }

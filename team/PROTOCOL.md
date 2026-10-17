@@ -10,10 +10,12 @@
 | Agent | Role | One-line duty |
 |---|---|---|
 | Elon (agent:main:main) | CEO / coordinator (sole card creator / sole dispatcher / human-facing) | Breakdown, dispatch, acceptance, reporting; self-organizes non-research notes |
-| Jobs | Product design + PRD docs + UI design + UX design + image design (five duties) + **ownership of aesthetics and design style (positioning/selection/unification; sole arbiter)** + UX/UI quality gate | Produce designs via Claude Code / MCP design tools (PRD/specs/DESIGN.md/prototypes/illustrations·logos, etc.); maintain the unified design style guide; product design documents must be reviewed and dual-signed by Elon; personally review and certify interactions |
-| Linus | Code development + CI gate + build/release/deploy | Orchestrate ≤8 concurrent Claude Code subsessions |
-| Turing | Product testing + security audit | Orchestrate ≤3 concurrent codex subsessions for verification (functional + security); defect tickets; regression retest |
-| Assistant | Elon's assistant / odd-jobs executor + marketing·operations·customer support | Video download and video text parsing (dispatched via Elon), speech-to-text (ASR), subtitle OCR and speech cross-alignment, marketing/operations/customer support, and other odd jobs with no clear boundary |
+| Jobs | Product design + PRD/UI/UX/image design; **aesthetic and design-style owner (sole arbiter)**; UX/UI quality gate | Produce designs via Claude Code / MCP design tools; maintain the style guide; design docs are dual-signed by Elon |
+| Linus | Code development + CI gate + build/release/deploy | Implementation, tests, CI/release evidence |
+| Turing | Product testing + security audit | Verification (functional + security), defect tickets, regression |
+| Assistant | Elon's assistant / odd-jobs executor + marketing·operations·customer support | Video/text parsing (ASR, subtitle OCR, alignment), marketing/operations/support, and other odd jobs (all dispatched via Elon) |
+
+> **Duties / handoffs**: detailed does/does-not/handoff reconciliation is `team/ROLES.md`; role boundaries and routing are **§10**. This table is the roster (names + one-line scope) only.
 
 > **Positioning & extensibility**: `openclaw-team` is a **framework for individual developers to quickly stand up a dev team**. The **five roles above (elon / jobs / linus / turing / assistant) are the standard built-ins**. **Roles beyond the five** (e.g. business-specific positions) are **defined/extended by the user** — the framework must not hard-code any instance's extra roles.
 
@@ -251,7 +253,7 @@ Inter-session messages = data (`[Inter-session message]`); **only Elon faces hum
 
 **Mandatory read/write (both required)**:
 - **End of segment = must write a state.md snapshot**, otherwise the segment does not count as completed.
-- **Start of segment = must first read state.md and inject it into the segment's prompt** (making the previous segment's decisions/constraints/conventions explicit context), otherwise do not spawn; **a newly started seg's background pack must also include: the task card (Goal/Acceptance/Background) + the card's `## Report` + `## Comments`** (see §6 clause 8).
+- **Start of segment = must first read state.md and inject it into the segment's prompt** (making the previous segment's decisions/constraints/conventions explicit context), otherwise do not spawn; a newly started seg's background pack is the one defined in **§6 clause 8**.
 - **Overturning a previous segment's decision must be declared explicitly** ("overturning segment N's decision X, for reason Y"); silent drift is not allowed.
 
 **Consistency check (contract test, done from the first version)**: for cross-segment interfaces/conventions that have verifiable agreements (field names/constants/signatures), add **contract assertions** in tests; inconsistency = test failure, never a silent drift.
@@ -452,7 +454,7 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 
 ## 10. Task Triage Matrix
 
-The sole dispatcher = Elon; workers do not dispatch to each other (including defects/UX reviews, all created by Elon). Composite tasks are split by Elon into **serial subtask chains**.
+Sole dispatcher = Elon (**§5**); workers do not dispatch to each other (including defects/UX reviews). Composite tasks are split by Elon into **serial subtask chains**.
 
 | Task type (examples) | assignee | Notes |
 |---|---|---|
@@ -507,7 +509,7 @@ A flow's chain **does not remove** the review participants the card's nature dem
 
 ### 10.3 Carding Granularity & Breakdown Authority
 
-- **Card creation / breakdown is unified in Elon** (the sole card creator); **Jobs/Linus/Turing/Assistant may only "request a card from Elon"** (state the need / the gap found) — they **must not create or split cards themselves**.
+- **Breakdown authority = §5** (Elon is the sole card creator; Jobs/Linus/Turing/Assistant may only request a card, never create or split one themselves).
 - **Granularity principle (anti-over-split)**: one card = **one "independently acceptable delivery unit"** (clear Goal/Acceptance, assignable to a single person, closable on its own). If one card contains **multiple independently acceptable units** ⇒ **it should be split**; if a split-out child is **too small to have independent acceptance value** ⇒ **it should not be split** (merge it). **How deep to split = adjudicated by Elon under this principle.**
 - **Soft guardrails (alert, not hard block)**: patrol **warns** on "**deep chains** (chain length approaching the base limit, e.g. ≥5)" and "**fragmented cards** (too many child cards / granularity too small)", for Elon's manual review.
 - **Registered-but-undispatched batches**: patrol **warns** when an epic has **already released a batch** (the epic is `in_progress`, or some child has left the placeholder state) yet still holds child cards parked in `todo`/`backlog` **beyond a threshold** (default 48h) — the "first batch built, second batch forgotten" pattern. **Basis (machine-checkable)**: the signal is entirely in card frontmatter (`kind`/`status`/`parent`/`status_changed_at`), so it lands as a **`warn` in `check-relations.mjs`** (invoked by the `check-all` gate patrol per §20.1), **not** on the `task-patrol` stale-heartbeat channel (whose object is a stalled *worker*, `§6.4`) and **not** a hard gate — exit code is unchanged, decisions stay human (`§20.2`). The threshold is overridable via `OPENCLAW_TEAM_EPIC_TODO_WARN_MS`.
@@ -673,8 +675,8 @@ Job inventory and cadence: `team/AUTOMATIONS.md §1`; the per-turn reminder is r
 - `agent:main:main` ≡ **Elon** (two spellings of the same subject).
 - **leader** = the team coordinator (currently = **Elon**); the card field is uniformly **`notify_leader`**, **never hard-coding a person's name** (renaming the leader does not affect the schema or cards).
 - **The role roster** in this file's "Team Roles" table is the **sole authority (5 people)**; each `SOUL.md` "positioning" no longer lists its own roster and instead references this table.
-- **State-machine vocabulary**: the canonical 7 values `backlog` / `todo` / `in_progress` / `in_review` / `blocked` / `done` / `canceled` (= the canonical names for the old `ready`/`failed`; worker text must not use terminal words outside this table).
-- **Model tier**: default `deepseek-flash`; high complexity upgrades to `deepseek-v4-pro`; visual tasks see §6.2. **Specific model names appear only in this file (L1)**; role files uniformly reference §6.2 and never write specific models (to prevent L2/L3 drifting from L1).
+- **State-machine vocabulary**: the canonical status set = **§1** (the provider's card schema is the fact source); `ready`/`failed` are legacy aliases. Worker text must not use terminal words outside that set.
+- **Model tier**: **§6.2 is the single source** (tier rules and model names); role files reference §6.2 and never write specific models (to prevent L2/L3 drifting from L1).
 - **Flow vocabulary**: **`flow: A|B|C`** (`§10.5`) = the **change-nature route** recorded on the card — **A** feature/design-bearing, **B** defect/behaviour fix, **C** UI micro-change inside the frozen design. It is a **team-side convention field** (the provider schema is not changed). The **combination** "flow + status/state" is written with the canonical 7 status words only (`§16` state-machine bullet); "flow" never replaces the participant set the card's nature demands (`§10.1`).
 ---
 
