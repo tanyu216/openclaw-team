@@ -583,6 +583,14 @@
     "team/PROTOCOL.md:numbers:20%": {
       "to": "roles/elon/guides/carding-sop.md",
       "reason": "§10.5 只裁解释：抽样率/周单位/算术的操作细节移入 Elon 的 carding-sop §7.2（`PROTOCOL §10.5` 保留 A/B/C 路由表、hard boundary、5 条 spine、report 表与「chain 可缩、spine 不可缩」），20% 规则句仍在 §7.2。"
+    },
+    "team/PROTOCOL.md:tokens:sla-inspection-contract.md": {
+      "to": "team/guides/doc-style.md",
+      "reason": "§6.1 clause 11 压缩为一句规范句 + 指向 `guides/doc-style.md` §6（该条已声明这里是 full form）；示例文件名与 `§①` 反例本来就在 doc-style §6 的 1–4 条里，未删原子。"
+    },
+    "team/PROTOCOL.md:refs:§①": {
+      "to": "team/guides/doc-style.md",
+      "reason": "同上：§6.1 clause 11 的 `§①` 只是「不要这样写」的反例，完整记法与反例在 `guides/doc-style.md` §6 第 1、3 条。"
     }
   }
 }
