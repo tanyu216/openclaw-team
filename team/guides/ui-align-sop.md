@@ -96,6 +96,14 @@ Aligned with `PROTOCOL §9.1` "acceptance hard gate", landed as operable items:
 
 > **Applicability by flow (`PROTOCOL §10.5`, added 2026-10-13)**: items 1 (full block list), 4 (screenshot comparison) and 8 (conformance matrix) are the **flow-A** gate. Items **2, 3 and 5** (machine-check conditions in Acceptance / the assertions pass / clean console + no overflow) apply to **every** flow — at **subset weight** (the touched blocks) for B and C. Item 6 (single writer per file) is unconditional. For **flow C** there is no per-card Jobs certification and no per-card Turing lane — that "After" line is served by the **rolling sample** (§11). Item 7 binds Elon to **the report set its flow produces** (`PROTOCOL §10.5` report table), not to a fixed roster.
 
+### 4.1 Reinforcement (moved from `PROTOCOL §9.1`)
+
+> The "acceptance hard gate" above is a **card-template-level hard gate**, not a suggestion.
+
+- **A UI card's Acceptance block must physically contain**: "block list (including consistent items) + machine-check assertions (selectors) + screenshot comparison" (**flow A**; flows B/C take their applicable subset of the three — `PROTOCOL §10.5`); if any is missing ⇒ **Elon must not mark it done**.
+- **Elon's final review audits the workers' reports — the implementer's (Linus) plus the independent verification reports (no hands-on re-verification)**: before a UI card is done, Elon **must confirm the reports carry** Linus's delivered/self-proof result **and the independent "After" evidence** — **with the report set taken from the card's flow in the `PROTOCOL §10.5` report table, never from a fixed roster** — and that every hard-gate item is **covered with an evidence pointer**. Elon does **not** personally re-run the comparison or open the page; if the Report **lacks** the independent evidence (or a key point is omitted) ⇒ **send back / open an independent-verification card** — never mark it done.
+- **Backfill verification for existing stock**: for existing UI not yet covered by `PROTOCOL §9.1`, run a page-by-page "prototype vs implementation" block comparison.
+
 ---
 
 ## 5. Anti-Pattern List (reject on sight)
