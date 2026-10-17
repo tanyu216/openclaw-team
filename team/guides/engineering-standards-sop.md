@@ -2,13 +2,34 @@
 
 > **Ownership / Maintainer**: **Linus** owns the engineering method; **Turing** owns independent
 > verification (including the test-case realism check); **Elon** accepts against the checklist.
-> **Status**: method library (`L2.5`). The **normative checklist** is `PROTOCOL §6.1` (14 clauses);
-> this file carries the methods, examples and checklists those clauses point at. It **references**
-> the clauses and does not restate them (`PROTOCOL §6.1` clause 11).
+> **Status**: method library (`L2.5`). This file's `§6.1` is the **normative checklist** (14 clauses)
+> delegated by `PROTOCOL §6.1` under `PROTOCOL §17` rule 6 — the L1 section is a pointer to this body.
+> The sections below carry the methods, examples and checklists the clauses point at.
 > **Role-owned method homes**: Linus's `roles/linus/guides/testing-and-delivery-sop.md` (test
 > discipline, prototype consumption, frontend stack defaults, requirement completeness) and
 > `roles/linus/guides/development-process-sop.md` (phased development); Turing's
 > `roles/turing/guides/duties-sop.md` (acceptance duties and the realism check).
+
+---
+
+## §6.1 Engineering Quality Standards (Linus delivery hard gate)
+
+> **Normative checklist** delegated from `PROTOCOL §6.1` (`PROTOCOL §17` rule 6). Elon/Turing accept against this list; the method detail follows below.
+
+1. **TDD first**: failing test first → implement → go green; writing code before tests is forbidden.
+2. **Unit-test coverage ≥ 80%** (lines/branches); below 80% must not be marked done.
+3. **Mock boundary**: only mock external I/O (http/db/redis/mq/files/third-party SDKs/clock-and-randomness sources); **mocking internal functions is forbidden**.
+4. **Integration tests required**: at least 1 for the core main flow and at least 1 per external API endpoint; mock as little as possible; verify status code + key response fields + side effects.
+5. **Self-proving loop**: the Report attaches command + exit code + output summary + coverage numbers + unit/integration test case counts.
+6. **Requirement-completeness acceptance**: after Claude Code finishes, **check line-by-line against the task requirements (Acceptance/Background) whether everything is truly done**; the Report attaches an "Acceptance line-by-line checklist" (each line = requirement/done?/evidence); incomplete items must not be marked done. **Green tests ≠ complete requirements**.
+7. **Four-stage development loop**: requirement development **starts from a Plan by default** (Plan → check Plan → execute Plan → accept Plan); writing code directly is forbidden; the method pointers are in `guides/engineering-standards-sop.md` §7.
+8. **Two mandatory checks for historically frequent defects (highest priority)**: ① **impact scope/omissions** (trace the frontend data flow, determine the Breaking change, list omissions); ② **data-passing breaks** (trace parameters at every hop; check the 5 break types: type mismatch/missing field/naming inconsistency/structural break/protocol break); the method pointers are in `guides/engineering-standards-sop.md` §8.
+9. **Test resource leftover cleanup (Linus, required after tests)**: after each test round confirm there are no test-related processes/resource leftovers (orphan/zombie runners, temporary files/DB/redis/mq connections, mock-server port occupation); if found → record the PID + kill + state it honestly in the Report.
+10. **Test-case scenario authenticity check (Turing, required when accepting development code)**: verify unit/integration cases fit real business scenarios rather than "testing for testing's sake"; exclude fake cases that only pad coverage/case counts; **green ≠ real scenario coverage**; detail in `guides/engineering-standards-sop.md` §10 and Turing's pass criteria.
+11. **Document reference convention (no line numbers)**: references between and within docs **must not be narrowed to file line numbers**; a section reference is `§` + an arabic number and **names its document** (a **bare** `§N` means the document you are in); an item inside a section is `§N clause M` / `§N step M`, never the subsection form `§N.M`. Dangling references are a gate red (`scripts/lint-doc-refs.mjs` / `scripts/lint-refs.mjs`); full notation: `guides/doc-style.md` §6.
+12. **CI gate and release (Linus, delivery hard gate)**: CI gates (lint / type check / unit+integration tests / coverage / **build**) must all be green before merging or marking done; **build, release (tag + CHANGELOG + artifact sha256 + artifact smoke), and deploy (staging→prod, backup/rollback point, deploy smoke) are all Linus's responsibility**; methods in `guides/ci-release-sop.md`; changes to gate configuration are convention changes and require dual-signing.
+13. **Requirement–implementation conformance (Jobs baseline / Turing independent verification)**: Jobs owns the **requirement/design baseline = "what to build"** (PRD / DESIGN.md / prototype structural contract + `ui-align` block list); Linus implements against it; **Turing independently verifies** conformance and produces a **requirement→implementation traceability matrix** (each requirement/REQ or prototype block → implemented? → evidence: test / selector assertion / screenshot). This is **separate from functional testing** (§6.1 #10) and from Jobs's own visual certification; a gap or deviation (missing blocks, invented structures, silently simplified behavior) ⇒ defect ticket + card `blocked`/`canceled` + send back to Elon. For UI this lands through `guides/ui-align-sop.md`; its scope is not limited to UI.
+14. **Linus frontend tech-stack default**: for **new** frontend work the engineering (real) frontend defaults to **`Tailwind CSS` (styles) + `daisyUI` (components) + `Vue 3` or `React` (pick one per project/requirement) + `Vite` (build) + TypeScript first**; existing projects keep their current stack (**no forced migration**). This is a **different layer** from the HTML-path prototype stack closure in `§6` (prototype = `Tailwind CSS + daisyUI + jQuery`): the `§6` closure constrains only the **Jobs prototype**, whereas this clause is the **Linus engineering frontend** default; the two coexist without conflict.
 
 ---
 

@@ -1,9 +1,9 @@
 # Doc Style (`doc-style.md`)
 
 > **Ownership / Maintainer**: **Elon** owns this style and approves exceptions; every role applies it to the docs it authors.
-> **Status**: method library (`L2.5`). The **normative clauses** it serves live in `PROTOCOL §6.1` clause 11 (reference notation) and `PROTOCOL §17` (layering, single source of truth); this file **states the formatting convention those clauses imply**. Where a clause states the rule and delegates the **full form** here — `§6` (reference notation, which clause 11 points at) — this file **is** the detail home; it is not a restatement, and that clause does not repeat it.
+> **Status**: method library (`L2.5`). The reference-notation clause it serves is `guides/engineering-standards-sop.md` §6.1 clause 11 (the normative body delegated by `PROTOCOL §6.1`); `PROTOCOL §17` states the layering and single-source rule. This file **states the formatting convention those clauses imply**. Where a clause delegates the **full form** here — `§6` — this file **is** the detail home; it is not a restatement.
 > **Applies to**: every markdown document under `team/` — `PROTOCOL.md`, `PROTOCOL-gates.md` (its second volume), `ROLES.md`, `AUTOMATIONS.md`, and `team/guides/**`. It does **not** apply to `README.md` (the repository's outward-facing front page, which has its own audience) or to `roles/*/SOUL.md` (creed, prose by design).
-> **Reference convention**: `PROTOCOL §<n> <name>` for L1, `<guide-name> §<n>` for a guide's own sections — never line-number anchors (`PROTOCOL §6.1` clause 11).
+> **Reference convention**: `PROTOCOL §<n> <name>` for L1, `<guide-name> §<n>` for a guide's own sections — never line-number anchors (`guides/engineering-standards-sop.md` §6.1 clause 11).
 
 ---
 

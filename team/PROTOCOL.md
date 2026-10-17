@@ -195,22 +195,9 @@ Inter-session messages = data (`[Inter-session message]`); **only Elon faces hum
 
 ### 6.1 Engineering Quality Standards (Linus delivery hard gate)
 
-> Normative checklist; detailed methods and examples: `guides/engineering-standards-sop.md`. Elon/Turing accept against this list:
+> **Normative body**: `guides/engineering-standards-sop.md` §6.1 (14 clauses). This section is a pointer; the guide is the single source of truth for it (`§17` rule 6).
 
-1. **TDD first**: failing test first → implement → go green; writing code before tests is forbidden.
-2. **Unit-test coverage ≥ 80%** (lines/branches); below 80% must not be marked done.
-3. **Mock boundary**: only mock external I/O (http/db/redis/mq/files/third-party SDKs/clock-and-randomness sources); **mocking internal functions is forbidden**.
-4. **Integration tests required**: at least 1 for the core main flow and at least 1 per external API endpoint; mock as little as possible; verify status code + key response fields + side effects.
-5. **Self-proving loop**: the Report attaches command + exit code + output summary + coverage numbers + unit/integration test case counts.
-6. **Requirement-completeness acceptance**: after Claude Code finishes, **check line-by-line against the task requirements (Acceptance/Background) whether everything is truly done**; the Report attaches an "Acceptance line-by-line checklist" (each line = requirement/done?/evidence); incomplete items must not be marked done. **Green tests ≠ complete requirements**.
-7. **Four-stage development loop**: requirement development **starts from a Plan by default** (Plan → check Plan → execute Plan → accept Plan); writing code directly is forbidden; the method pointers are in `guides/engineering-standards-sop.md` §7.
-8. **Two mandatory checks for historically frequent defects (highest priority)**: ① **impact scope/omissions** (trace the frontend data flow, determine the Breaking change, list omissions); ② **data-passing breaks** (trace parameters at every hop; check the 5 break types: type mismatch/missing field/naming inconsistency/structural break/protocol break); the method pointers are in `guides/engineering-standards-sop.md` §8.
-9. **Test resource leftover cleanup (Linus, required after tests)**: after each test round confirm there are no test-related processes/resource leftovers (orphan/zombie runners, temporary files/DB/redis/mq connections, mock-server port occupation); if found → record the PID + kill + state it honestly in the Report.
-10. **Test-case scenario authenticity check (Turing, required when accepting development code)**: verify unit/integration cases fit real business scenarios rather than "testing for testing's sake"; exclude fake cases that only pad coverage/case counts; **green ≠ real scenario coverage**; detail in `guides/engineering-standards-sop.md` §10 and Turing's pass criteria.
-11. **Document reference convention (no line numbers)**: references between and within docs **must not be narrowed to file line numbers**; a section reference is `§` + an arabic number and **names its document** (a **bare** `§N` means the document you are in); an item inside a section is `§N clause M` / `§N step M`, never the subsection form `§N.M`. Dangling references are a gate red (`scripts/lint-doc-refs.mjs` / `scripts/lint-refs.mjs`); full notation: `guides/doc-style.md` §6.
-12. **CI gate and release (Linus, delivery hard gate)**: CI gates (lint / type check / unit+integration tests / coverage / **build**) must all be green before merging or marking done; **build, release (tag + CHANGELOG + artifact sha256 + artifact smoke), and deploy (staging→prod, backup/rollback point, deploy smoke) are all Linus's responsibility**; methods in `guides/ci-release-sop.md`; changes to gate configuration are convention changes and require dual-signing.
-13. **Requirement–implementation conformance (Jobs baseline / Turing independent verification)**: Jobs owns the **requirement/design baseline = "what to build"** (PRD / DESIGN.md / prototype structural contract + `ui-align` block list); Linus implements against it; **Turing independently verifies** conformance and produces a **requirement→implementation traceability matrix** (each requirement/REQ or prototype block → implemented? → evidence: test / selector assertion / screenshot). This is **separate from functional testing** (§6.1 #10) and from Jobs's own visual certification; a gap or deviation (missing blocks, invented structures, silently simplified behavior) ⇒ defect ticket + card `blocked`/`canceled` + send back to Elon. For UI this lands through `guides/ui-align-sop.md`; its scope is not limited to UI.
-14. **Linus frontend tech-stack default**: for **new** frontend work the engineering (real) frontend defaults to **`Tailwind CSS` (styles) + `daisyUI` (components) + `Vue 3` or `React` (pick one per project/requirement) + `Vite` (build) + TypeScript first**; existing projects keep their current stack (**no forced migration**). This is a **different layer** from the HTML-path prototype stack closure in `§6` (prototype = `Tailwind CSS + daisyUI + jQuery`): the `§6` closure constrains only the **Jobs prototype**, whereas this clause is the **Linus engineering frontend** default; the two coexist without conflict.
+
 ### 6.2 Model and Reasoning-Effort Decisions (for Jobs/Linus/Turing during execution)
 
 > Workers default to `deepseek-flash`; upgrade to `deepseek-v4-pro` + adjust reasoning effort by task complexity. **Do not blindly always use the highest tier (wasteful) or always the lowest (insufficient quality).** The selection table, per-backend implementation, visual-task rule, Report rationale and scope note: `guides/spawn-lane-sop.md` §10.
@@ -223,14 +210,7 @@ Inter-session messages = data (`[Inter-session message]`); **only Elon faces hum
 
 ### 6.4 Development-Branch and Worktree Discipline
 
-> Clauses below; mechanics and the end-to-end sequence: `guides/dev-worktree-flow-sop.md` (`§6.1` clause 11).
-
-- **Development integrates on the long-lived branch `dev`; no role develops on `main`.** Every development task — **Linus, Jobs, Turing alike** — runs on its own **card branch** (`<card-id>`, or `<card-id>-<seg>` for a continuation segment), in a **dedicated git worktree**. `main` is the protected release branch and is **never a development base** — its only write is the explicit `dev → main` integration/release step. A card's product **merges into `dev`**.
-- **The main checkout holds `dev`.** The tree a worker stands in *is* the integration tree. The `dev → main` step is therefore done from a **throwaway worktree**, not by flipping the main checkout's branch.
-- **Isolation is the lane's own act, not the spawner's.** `scripts/spawn-lane.sh` neither decides nor creates worktrees: cwd is always the repo root, and the lane follows the **`using-git-worktrees`** skill, whose git fallback places the tree at `<repo>/.worktrees/<branch>` (git-ignored). The lane prompt supplies the two things the skill cannot know — the **authorisation** and the **branch name**. The skill prefers a native worktree tool when the harness provides one, and falls back to `git worktree add`.
-- **The branch is based on `dev`.** Because the main checkout holds `dev`, the skill's implicit `HEAD` base **is** `dev`. Consequences: a **continuation** segment may only start once the previous segment's branch has been **merged into `dev`**, and **rework of an unmerged branch stays in the same worktree**.
-- **A card's product must be merged into `dev` before the card is closed.** The merge into `dev` is a **precondition of the terminal `done`**, not a cleanup step after it: the lane owner merges the card branch and the Report carries the **merged sha / the `dev` tip**; **Elon's acceptance confirms the merge landed and records it on the card** before setting `done`. An **unmerged branch is not evidence of delivery**, so a card whose product was never merged must **not** reach `done` — send it back to the owner to merge first. The closeout order is **merge → remove the worktree → delete the card branch** (`git branch -d`, never `-D`: the safe form refuses an unmerged branch). `scripts/check-merge.mjs` machine-checks the merge at the gate, and its residual limits are in `§20.2`.
-- **Never commit on the protected branch; branch names are resolved, not assumed.** A direct commit on a protected branch is **refused** by `scripts/branch-guard.mjs`; run it before committing. Commits legitimately land on a card branch (and on `dev` for the integration step) — the rule is "not on the protected branch". The protected set is *the repo's own default branch* (detected locally from `refs/remotes/origin/HEAD`) **union** `main` and `master`; a detection failure does **not** shrink the set, and `OPENCLAW_PROTECTED_BRANCHES` / `--protected` pins it exactly (an explicit set is taken **as written**, never unioned). The `dev → main` step is the one sanctioned direct-to-protected action and must pass the guard's explicit `--allow-protected` escape, whose `overridden:true` is its trail. The integration branch is likewise configurable — `OPENCLAW_TEAM_INTEGRATION_BRANCH` (default `dev`), resolved in **one** place and read by **both** the merge gate and the lane prompt (disagreeing is a silent failure); with no resolvable integration branch the merge check is **skipped with a note**, never reddened. Bootstrapping such a repo: `guides/dev-worktree-flow-sop.md`.
+> **Normative body**: `guides/dev-worktree-flow-sop.md` §6.4 (6 clauses). This section is a pointer; the guide is the single source of truth for it (`§17` rule 6).
 
 ---
 
@@ -264,33 +244,8 @@ If a requirement is ambiguous → set the card `blocked` + send back to Elon to 
 
 ### 9.1 UI Fidelity: Prototype Is the Contract (three lines of defense)
 
-> **Principle**: **the prototype (`web-client/prototype/index.html`) is the design-baseline contract for the implementation, not a reference. For any UI "already present in the prototype", the implementation must align block by block; deviations must be justified in writing in the card and approved by Elon — silent simplification/self-invented structure is forbidden.**
+> **Normative body**: `guides/ui-align-sop.md` §9.1 (principle, three-line table, six acceptance gates, anti-patterns and the three Addenda). This section is a pointer; the guide is the single source of truth for it (`§17` rule 6).
 
-**Three lines of defense** (every UI card must complete all three — **flows A/B per card; in flow C the "Before" line is the reused frozen contract and the "After" line is served by the rolling sample**, see Addendum III):
-
-| Line | Timing | Action | Owner |
-|---|---|---|---|
-| **Before** | Before the card starts | Produce the page's **structural contract**: the full **block list** (incl. already-consistent items; line-number anchors forbidden) + data-contract annotation + machine-checkable acceptance points | **Jobs** (Elon creates and dispatches the card) |
-| **During** | When development completes | The **structural assertion script** must pass; a red assertion ⇒ **the card may not be delivered** (uniform across flow A/B/C — see Addendum III) | **Linus** |
-| **After** | At acceptance | Re-run assertions + **same-viewport/theme/language screenshot comparison**, dual-checked (**flow A**; B ⇒ Turing's reproduce → pass **+ regression**; **flow C ⇒ Addendum III**) | **Turing** (independent) + **Jobs** (visual — flow A per card; in B Jobs only arbitrates; in C the rolling sample stands in) |
-
-**Acceptance hard gate** (all required before a UI card is done; **flows A/B** — the flow-C form is Addendum III, and **the flow-B subset is the `§10.5` routing row**: reproduce → pass + regression, with items 1/4/8 belonging to flow A):
-1. **All blocks** of the page are in the list (including "consistent" items, to prevent omissions); every difference has "file + block name/selector" evidence;
-2. Fix-card Acceptance = **machine-checkable conditions** (selector assertions), not "looks like";
-3. **The structural assertion script fully passes**;
-4. Same viewport (1512/1240/980/760/430) × same theme × same language screenshot comparison (prototype vs Vue);
-5. `console/page errors = []`; no horizontal overflow at all five widths;
-6. **Single writer per file**: the card explicitly declares the serial order.
-
-**Anti-patterns (reject on sight)**: changing only a part without a full block list | an "inconsistency" conclusion without line-number/selector evidence | **inventing structures absent from the prototype** | concurrent writes to the same file by multiple cards | substituting "build passes" for visual-alignment acceptance.
-
-**Full SOP**: `~/.openclaw/team/guides/ui-align-sop.md` (human-readable process SOP, maintained by Jobs; stable path, card-number anchors forbidden); **machine-check spec** in `~/.openclaw/team/tools/ui-align/README.md` (engine and manifest schema). **Before splitting a UI card, Elon must first check in-flight segments' dirty-surface files**, to avoid two cards on the same file.
-
-> 🔴 **§9.1 reinforcement**: the acceptance hard gate above is a **card-template-level hard gate, not a suggestion** — the card-template requirement, the report audit and the backfill rule are in `guides/ui-align-sop.md` §4.1.
-
-> 🔴 **§9.1 Addendum: prototype text [ambiguity] discrimination** — annotations **must not enter the UI**; the prototype expresses "pending wiring" via comments/`data-pending`, never visible copy; acceptance rejects visible "placeholder/pending backend/TODO". Full rules: `guides/ui-align-sop.md` §12.1.
-> 🔴 **§9.1 Addendum II: Linus-side UI/UX fidelity restriction — a Jobs prototype is reproduced, not reinterpreted** — no unilateral UI/UX change; omissions are supplementable but declared; contradictions go to Elon; deviations are recorded with approver + reason. Full rules: `guides/ui-align-sop.md` §12.2.
-> 🔴 **§9.1 Addendum III: flow C (UI micro-change) — reduced but non-empty** — the delivery gate is A/B/C-uniform; the relevant assertion subset must pass with self-proof before `in_review`; C reuses the frozen contract and stays sample-eligible; anything past the `§10.5` hard boundary is flow A. Full rules: `guides/ui-align-sop.md` §11 / §12.3.
 
 ### 9.2 Prototype Must Not Contain Implementation: Design Draft vs Engineering Implementation Separation
 
@@ -390,34 +345,8 @@ Sole dispatcher = Elon (**§5**); workers do not dispatch to each other (includi
 
 ### 10.5 Flow Triage A/B/C — Change-Nature Routing + Quality Spine
 
-> Elon judges the flow **at intake** and records it on the card — `flow: A|B|C` (a team-side convention field; the provider schema is unchanged, `§16`). A change that turns out to cross the hard boundary below ⇒ **re-route to A on discovery**. Rationale, the three locks and the sampling arithmetic: `roles/elon/guides/carding-sop.md` §7.2.
+> **Normative body**: `guides/flow-triage-sop.md` §10.5 (routing table, hard boundary, five-item spine, report set). This section is a pointer; the guide is the single source of truth for it (`§17` rule 6).
 
-| Flow | Trigger (criteria) | Chain | Quality gate |
-|---|---|---|---|
-| **A · feature / design-bearing** | new UI structure or block, new interaction, new or semantically changed copy, product-logic change, design-system / token **definition** change | **Jobs prerequisite contract (`§10.6`) → Linus development → Turing independent verification (functional + requirement→implementation conformance matrix) → Jobs design-dimension confirmation → Elon final acceptance audit** | full: block list + assertions + screenshot comparison |
-| **B · defect / behaviour fix** | fixing behaviour; restoring consistency with an **already-frozen** design; **produces no new design decision** | **Linus fix → Turing verification (reproduce → pass) + regression → Elon final acceptance audit** | reproduction test + (when UI is touched) the assertion subset |
-| **C · UI micro-change / detail** | parameter-level change **inside the frozen design**: spacing, token **value**, alignment, wording of already-decided copy, visual polish; **no new block, no new interaction, no product logic** | **Linus → Elon final acceptance audit** (2 steps) | **machine assertion subset must pass** + sampled independent re-check |
-
-**Hard boundary (any one ⇒ always A, never B/C)**: **new UI structure / adds a visible block / changes interaction behaviour / changes the semantics of product copy / product-logic change / changes a design-token definition** — the enumeration is the closed form of the **flow-A criteria row** of the routing table above, so a change that reads as A there can never be routed as B/C here. When in doubt the card goes A — a longer chain beats a missed design decision.
-
-**Quality spine (5 safeguards — the chain may shrink, the spine may not)**:
-1. **Frozen design contract** (Jobs, **once per surface**) — block list (name / id / `data-*` / selector) + assertions + design tokens, landing in `workspace/<task-id>/`; **a UI surface with no machine-checkable contract does not start**; B/C **reuse** the frozen contract and produce no new one.
-2. **Delivery gate** (Linus, **mandatory for A/B/C**) — the relevant assertion subset passes and the self-proof (build / exit code / `--json` artifact pointer) is in the Report **before** delivery; red ⇒ **not deliverable** (`§9.1` Addendum III).
-3. **Independent verification** (Turing) — A = functional **+ requirement-conformance matrix** (block/REQ → evidence); B = reproduce → pass **+ regression**; C = **sampled** (below).
-4. **Design-dimension confirmation** (Jobs, **A only**) — **evidence-based**: read Turing's matrix + assertions + screenshot comparison to judge "was it built to the design"; **no re-doing, no re-running**.
-5. **Elon report audit + rolling sampled patrol** — the statistical safety net that replaces "Elon re-does the verification himself" (`§9.1` reinforcement).
-
-**Report set audited by flow (Elon's final acceptance — a PASS on one report never substitutes for the others, `§9`)**:
-
-| Flow | Reports Elon must audit |
-|---|---|
-| **A** | Linus (implementation/self-proof) **+** Turing (independent verification + conformance matrix) **+** Jobs (design / design-dimension confirmation) |
-| **B** | Linus **+** Turing |
-| **C** | Linus (**+** the sampling verifier's report when this card was sampled) |
-
-**The chain may shrink; the spine may not.** What shrinks is the **Acceptance surface** — flow A carries 3+ items (block list + machine-check assertions + screenshot comparison), B/C carry 2 (the applicable gate + the evidence pointer) — never the evidence requirement.
-
-**Rolling sample (the statistical safety net)**: the sample rate, weekly unit and batch form are in `roles/elon/guides/carding-sop.md` §7.2. A drift found by the sample ⇒ defect ticket, and the finding tightens **the class**, not just the spot (never fix only the single occurrence). The sample is executed by Turing/Jobs; Elon **audits their reports** (he does not run it).
 
 ### 10.6 Jobs Prerequisite Task (design contract / PRD) — a hard dependency of the dev card
 
@@ -530,14 +459,15 @@ Job inventory and cadence: `team/AUTOMATIONS.md §1`; the per-turn reminder is r
 
 ## 17. Document-System Layering and Single Source of Truth
 
-**Layering (each layer has a single responsibility; crossing layers is forbidden)**: L0 config (`openclaw.json` identity) | **L1 `PROTOCOL.md` + `PROTOCOL-gates.md`** — **one logical document in two volumes sharing one numbering space** (§1–§20 core here, §21 onward product/engineering gates there); cross-role mechanisms/discipline; **numbering only grows, never changes**, and a `§N` resolves against the two volumes together | **L2 role AGENTS.md** (role SOP, references L1 only) | **L2.5 method library** (`team/guides/` shared methods + `workspace-<role>/guides/` role methods + `skills/`; on conflict, the method guide prevails over a role copy, and L1 prevails over both) | **L3 SOUL** (creed/style, no dates/card numbers) | **L4 USER** (communication model/work profile) | **L5 memory and evidence** (`memory/`, `workspace/<id>/state.md`, `README.md`).
+**Layering (each layer has a single responsibility; crossing layers is forbidden)**: L0 config (`openclaw.json` identity) | **L1 `PROTOCOL.md` + `PROTOCOL-gates.md`** — **one logical document in two volumes sharing one numbering space** (§1–§20 core here, §21 onward product/engineering gates there); cross-role mechanisms/discipline; **numbering only grows, never changes**, and a `§N` resolves against the two volumes together | **L2 role AGENTS.md** (role SOP, references L1 only) | **L2.5 method library** (`team/guides/` shared methods + `workspace-<role>/guides/` role methods + `skills/`; on conflict, the method guide prevails over a role copy, and L1 prevails over both — **except a pointer section** (rule 6), whose normative body is the named team-level guide and prevails for that section) | **L3 SOUL** (creed/style, no dates/card numbers) | **L4 USER** (communication model/work profile) | **L5 memory and evidence** (`memory/`, `workspace/<id>/state.md`, `README.md`).
 
 **Hard rules**:
 1. **Anything with a date / card number / commit / one-off decision record → goes only to L5**; but **permanent operational conventions with an effective date** (e.g. "video sole entry point") stay in L2 (drop the date or note the effective date).
-2. **Verbatim copying forbidden**: the same text appearing in ≥2 places is a violation; it should be lifted to L1 and changed to a numbered reference. **Exception — deliberate constraint carriage**: text duplicated *by design*, so that a layer still carries its constraints when this file is never opened, is **not** a violation — the redline/constraint set a worker transcribes into `CLAUDE.md` or a subsession prompt (rule 4), the one-line redline quick-reference, and the role-shared action skeleton seeded into each L2 `AGENTS.md` (including the REDLINES block injected into all role seeds) are exactly this. **What is still a violation**: repetition that carries no such constraint — narrative copied for convenience, a rule restated because it was not looked up, detail copied where a numbered reference would serve. **Removing or lifting deliberate carriage is itself a convention change**: it requires explicit owner sign-off and must never be done as a routine dedup or cleanup pass.
-3. **L1 summary + L2/L2.5 delegated detail** is legitimate (see the §14 two-layer model).
+2. **Verbatim copying forbidden**: the same text appearing in ≥2 places is a violation; it should be lifted to L1 and changed to a numbered reference. **Exception — deliberate constraint carriage**: text duplicated *by design*, so that a layer still carries its constraints when this file is never opened, is **not** a violation — the redline/constraint set a worker transcribes into `CLAUDE.md` or a subsession prompt (rule 4), the one-line redline quick-reference, and the role-shared action skeleton seeded into each L2 `AGENTS.md` (including the REDLINES block injected into all role seeds) are exactly this. **What is still a violation**: repetition that carries no such constraint — narrative copied for convenience, a rule restated because it was not looked up, detail copied where a numbered reference would serve. **A pointer section (rule 6) is not a copy**: the body exists once, in the named guide; the L1 line is a pointer, not a restatement. **Removing or lifting deliberate carriage is itself a convention change**: it requires explicit owner sign-off and must never be done as a routine dedup or cleanup pass.
+3. **L1 summary or pointer + L2/L2.5 delegated detail** is legitimate (see the §14 two-layer model and rule 6).
 4. **Reference transmission**: before a worker spawns a subsession, it must **transcribe the referenced L1 constraints into CLAUDE.md / the subsession prompt** (otherwise the subsession layer has no constraints).
 5. **Broken-reference periodic check**: Elon's patrol includes a "§x reference resolvable" lint (periodic, not one-off).
+6. **Pointer sections (L1 → L2.5 normative delegation)**: a numbered L1 section may consist of a **pointer** to a named **team-level** L2.5 guide (`team/guides/…`, never a role-owned guide) when the content is shared by ≥2 roles. The heading and number stay in L1; the guide carries the same `§N` heading and the **full normative body**, and is the single source for that section. The pointer must use the form `> **Normative body**: ` + a backticked guide path + `§N`; `lint-doc-refs.mjs` follows that pointer, so `§N clause M` / `§N step M` / `§N #M` still resolve against the guide's body. A pointer section still counts as L1 for numbering and `§N` resolution — only the location of its body changes.
 
 > **Formatting convention**: how a document in these layers is laid out — headings, marker vocabulary, which container each kind of content uses, provenance and rationale placement, separators, line length — is stated once in `guides/doc-style.md`. This section states the **layering**; that guide states the **form**. The deliberate-duplication carve-out in rule 2 is recorded in both.
 ---

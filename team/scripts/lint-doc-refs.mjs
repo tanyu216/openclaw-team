@@ -61,6 +61,11 @@
  * `1..n`（重启/跳号/重复 ⇒ `ambiguous` ⇒ skip）；体内无有序列表 ⇒ `no-list` ⇒ skip。
  * 只在「文件可解析 且 标题存在 且 体是 1..n 连续顶层列表 且 K > n」时判红 —— 所有守卫**朝 skip 收敛**。
  *
+ * **指针节（`PROTOCOL §17` 规则 6）**：L1 的某个编号节可以只留一行
+ * `> **Normative body**: `guides/x.md` §N`，正文在团队级 L2.5 指南的同名 `§N` 节里。第三腿
+ * **跟随该指针**到指南再数条目，因此 `PROTOCOL §N clause M` 的语义不变；指针目标不存在/不含该节
+ * ⇒ 按 `no-section`/`nofile` 记 skip（不误报），指针成环 ⇒ `pointer-loop`（也记 skip）。
+ *
  * 模式：`host-paths.mjs#resolveMode`（repo = 仓内自证，无需实例；live = 巡检安装实例）。
  * 退出码：0 全解析；1 有断引用；2 用法错或模式不可判定。
  * 用法：node lint-doc-refs.mjs [--repo <R> | --live]
@@ -193,14 +198,40 @@ function headingNumberOf(l) {
 }
 
 /**
+ * 指针节的目标：正文里的 `> **Normative body**: `guide.md` §N`。
+ * 返回 `{target, sec}` 或 null。目标按「L1 所在层根」解析（repo: `<repo>/team`，live: `<team>`），
+ * 再回退到上一级（兼容写成 `team/guides/…` 的指针）。
+ */
+function pointerTarget(abs, body) {
+  for (const l of body) {
+    const m = l.match(/Normative body\**[^\n]*?`([^`\n]+\.md)`[^\n]*?§\s*(\d+(?:\.\d+)*)/i);
+    if (!m) continue;
+    const rel = m[1];
+    const sec = m[2];
+    const dir = path.dirname(abs);
+    const target = [
+      path.resolve(dir, rel),
+      path.resolve(dir, '..', rel),
+      path.resolve(dir, '..', '..', rel),
+    ].find((p) => p.endsWith('.md') && fs.existsSync(p));
+    if (target) return { target, sec };
+  }
+  return null;
+}
+
+/**
  * 「`sec` 这一节的顶层有序列表有几条」。
  * 体 = 该标题 → **下一个任意级标题**（子节条目不得串进父节）。
- * 返回 `{ok:true,count}` 或 `{ok:false,why}`；`why ∈ no-section | no-list | ambiguous | nofile`。
+ * 体内无有序列表时，若该节是**指针节**（`PROTOCOL §17` 规则 6），跟随
+ * `> **Normative body**: `guide.md` §N` 到指南的同名节再数。
+ * 返回 `{ok:true,count}` 或 `{ok:false,why}`；`why ∈ no-section | no-list | ambiguous | nofile | pointer-loop`。
  */
 const _itemCache = new Map();
-function itemIndex(abs, sec) {
+export function itemIndex(abs, sec, seen = new Set()) {
   const key = `${abs}\u0000${sec}`;
   if (_itemCache.has(key)) return _itemCache.get(key);
+  if (seen.has(key)) return { ok: false, why: 'pointer-loop' };
+  seen.add(key);
   let res;
   try {
     const lines = fs.readFileSync(abs, 'utf8').split('\n');
@@ -219,8 +250,10 @@ function itemIndex(abs, sec) {
         const m = /^(\d{1,3})\.\s/.exec(l);           // 顶层：不允缩进 ⇒ 嵌套子列表不计入
         if (m) nums.push(Number(m[1]));
       }
-      if (!nums.length) res = { ok: false, why: 'no-list' };
-      else if (nums.some((n, i) => n !== i + 1)) res = { ok: false, why: 'ambiguous' };
+      if (!nums.length) {
+        const ptr = pointerTarget(abs, body);
+        res = ptr ? itemIndex(ptr.target, ptr.sec, seen) : { ok: false, why: 'no-list' };
+      } else if (nums.some((n, i) => n !== i + 1)) res = { ok: false, why: 'ambiguous' };
       else res = { ok: true, count: nums.length };
     }
   } catch { res = { ok: false, why: 'nofile' }; }

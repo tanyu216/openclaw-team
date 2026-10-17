@@ -21,22 +21,34 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..', '..');
 const PROTOCOL = path.join(REPO, 'team', 'PROTOCOL.md');
+const ENGINEERING = path.join(REPO, 'team', 'guides', 'engineering-standards-sop.md');
+const WORKTREE = path.join(REPO, 'team', 'guides', 'dev-worktree-flow-sop.md');
+const UIALIGN = path.join(REPO, 'team', 'guides', 'ui-align-sop.md');
+const FLOWTRIAGE = path.join(REPO, 'team', 'guides', 'flow-triage-sop.md');
 
 const text = fs.readFileSync(PROTOCOL, 'utf8');
 const lines = text.split('\n');
+const engineering = fs.readFileSync(ENGINEERING, 'utf8');
+const engineeringLines = engineering.split('\n');
+const worktree = fs.readFileSync(WORKTREE, 'utf8');
+const worktreeLines = worktree.split('\n');
+const uialign = fs.readFileSync(UIALIGN, 'utf8');
+const uialignLines = uialign.split('\n');
+const flowtriage = fs.readFileSync(FLOWTRIAGE, 'utf8');
+const flowtriageLines = flowtriage.split('\n');
 
 /**
  * 取一个节的正文：从匹配 `startRe` 的标题之后，到**下一个任意级标题**之前。
  * 围栏内的 `## ` 不是标题（§6 里就有 `## Segment N ...` 的示例块）。
  * 关键：不能只按 `## ` 切 —— 那会把 §6.0/§6.1/§6.2 的条目一并算进 §6。
  */
-function sectionBody(startRe) {
-  const i = lines.findIndex((l) => startRe.test(l));
+function bodyOf(src, startRe) {
+  const i = src.findIndex((l) => startRe.test(l));
   if (i < 0) return null;
   let fence = false;
   const out = [];
-  for (let j = i + 1; j < lines.length; j++) {
-    const l = lines[j];
+  for (let j = i + 1; j < src.length; j++) {
+    const l = src[j];
     if (/^\s*```/.test(l)) {
       fence = !fence;
       out.push(l);
@@ -47,6 +59,7 @@ function sectionBody(startRe) {
   }
   return out;
 }
+const sectionBody = (startRe) => bodyOf(lines, startRe);
 
 const ordered = (body) => (body || []).filter((l) => /^\d{1,3}\.\s/.test(l));
 
@@ -72,9 +85,12 @@ test('§6 正文仍是 8 条，且主题顺序不变', () => {
   });
 });
 
-test('§6.1 仍是 14 条，且主题顺序不变', () => {
-  const items = ordered(sectionBody(/^### 6\.1/));
-  assert.equal(items.length, 14, `§6.1 应为 14 条，实测 ${items.length}`);
+test('§6.1 是指针节，正文在 engineering-standards-sop.md，仍是 14 条且主题顺序不变', () => {
+  const pointer = (sectionBody(/^### 6\.1/) || []).join('\n');
+  assert.match(pointer, /Normative body\*\*: `guides\/engineering-standards-sop\.md` §6\.1/,
+    '§6.1 必须指向 engineering-standards-sop.md §6.1');
+  const items = ordered(bodyOf(engineeringLines, /^## §6\.1/));
+  assert.equal(items.length, 14, `指南 §6.1 应为 14 条，实测 ${items.length}`);
   const expected = [
     /TDD first/,
     /coverage ≥ 80%/,
@@ -96,9 +112,12 @@ test('§6.1 仍是 14 条，且主题顺序不变', () => {
   });
 });
 
-test('§6.4 仍是 6 条 bullet，且主题顺序不变', () => {
-  const bullets = (sectionBody(/^### 6\.4/) || []).filter((l) => /^- \*\*/.test(l));
-  assert.equal(bullets.length, 6, `§6.4 应为 6 条 bullet，实测 ${bullets.length}`);
+test('§6.4 是指针节，正文在 dev-worktree-flow-sop.md，仍是 6 条 bullet', () => {
+  const pointer = (sectionBody(/^### 6\.4/) || []).join('\n');
+  assert.match(pointer, /Normative body\*\*: `guides\/dev-worktree-flow-sop\.md` §6\.4/,
+    '§6.4 必须指向 dev-worktree-flow-sop.md §6.4');
+  const bullets = (bodyOf(worktreeLines, /^## §6\.4/) || []).filter((l) => /^- \*\*/.test(l));
+  assert.equal(bullets.length, 6, `指南 §6.4 应为 6 条 bullet，实测 ${bullets.length}`);
   const expected = [
     /Development integrates/,
     /main checkout holds `dev`/,
@@ -112,26 +131,32 @@ test('§6.4 仍是 6 条 bullet，且主题顺序不变', () => {
   });
 });
 
-test('§9.1 Acceptance hard gate 仍是 6 条（Addenda 的 `> 1.` 不计）', () => {
-  const items = ordered(sectionBody(/^### 9\.1/));
-  assert.equal(items.length, 6, `§9.1 顶层有序条目应为 6，实测 ${items.length}`);
+test('§9.1 是指针节，正文在 ui-align-sop.md，hard gate 仍是 6 条（Addenda 的 `> 1.` 不计）', () => {
+  const pointer = (sectionBody(/^### 9\.1/) || []).join('\n');
+  assert.match(pointer, /Normative body\*\*: `guides\/ui-align-sop\.md` §9\.1/,
+    '§9.1 必须指向 ui-align-sop.md §9.1');
+  const items = ordered(bodyOf(uialignLines, /^## §9\.1/));
+  assert.equal(items.length, 6, `指南 §9.1 顶层有序条目应为 6，实测 ${items.length}`);
 });
 
 test('§9.1 三线防御表仍是 Before/During/After 三行', () => {
-  const table = (sectionBody(/^### 9\.1/) || []).filter((l) => l.startsWith('|'));
-  assert.equal(table.length, 5, `§9.1 表格行应为 5（表头+分隔+3 数据），实测 ${table.length}`);
+  const table = (bodyOf(uialignLines, /^## §9\.1/) || []).filter((l) => l.startsWith('|'));
+  assert.equal(table.length, 5, `指南 §9.1 表格行应为 5（表头+分隔+3 数据），实测 ${table.length}`);
   for (const line of ['Before', 'During', 'After']) {
     assert.ok(table.some((l) => l.includes(`| **${line}** |`)), `§9.1 三线表缺少 ${line} 行`);
   }
 });
 
-test('§10.5 quality spine 仍是 5 条', () => {
-  const items = ordered(sectionBody(/^### 10\.5/));
-  assert.equal(items.length, 5, `§10.5 顶层有序条目应为 5，实测 ${items.length}`);
+test('§10.5 是指针节，正文在 flow-triage-sop.md，quality spine 仍是 5 条', () => {
+  const pointer = (sectionBody(/^### 10\.5/) || []).join('\n');
+  assert.match(pointer, /Normative body\*\*: `guides\/flow-triage-sop\.md` §10\.5/,
+    '§10.5 必须指向 flow-triage-sop.md §10.5');
+  const items = ordered(bodyOf(flowtriageLines, /^## §10\.5/));
+  assert.equal(items.length, 5, `指南 §10.5 顶层有序条目应为 5，实测 ${items.length}`);
 });
 
 test('§10.5 路由表、报告表与 hard boundary 原样存在', () => {
-  const body = (sectionBody(/^### 10\.5/) || []).join('\n');
+  const body = (bodyOf(flowtriageLines, /^## §10\.5/) || []).join('\n');
   for (const flow of ['A · feature / design-bearing', 'B · defect / behaviour fix', 'C · UI micro-change / detail']) {
     assert.ok(body.includes(`| **${flow}** |`), `§10.5 路由表缺少 ${flow} 行`);
   }
@@ -155,17 +180,17 @@ test('§15.1 仍含 `> 6h` 边界（sla-scan 解析）', () => {
   assert.match(body.join('\n'), />\s*6h/);
 });
 
-test('§9.1 三个 Addendum 锚字符串原样存在', () => {
-  assert.ok(text.includes('§9.1 Addendum:'), '缺少 §9.1 Addendum:');
-  assert.ok(text.includes('§9.1 Addendum II:'), '缺少 §9.1 Addendum II:');
-  assert.ok(text.includes('§9.1 Addendum III:'), '缺少 §9.1 Addendum III:');
+test('§9.1 三个 Addendum 锚字符串原样存在（在指针目标指南里）', () => {
+  assert.ok(uialign.includes('§9.1 Addendum:'), '缺少 §9.1 Addendum:');
+  assert.ok(uialign.includes('§9.1 Addendum II:'), '缺少 §9.1 Addendum II:');
+  assert.ok(uialign.includes('§9.1 Addendum III:'), '缺少 §9.1 Addendum III:');
 });
 
 test('体积预算（warning 级，不判红）', (t) => {
   // 阈值 = 2026-10 瘦身后的实测 + 少量余量：用于防反弹，不是"再压到此值"的目标。
   // 继续下降需要动共享规范（§6.1/§6.4/§9.1/§10.5），风险高于收益。
   const budgets = [
-    ['team/PROTOCOL.md', 93 * 1024],
+    ['team/PROTOCOL.md', 78 * 1024],
     ['team/PROTOCOL-gates.md', 20 * 1024],
     ['roles/elon/AGENTS.md', 15 * 1024],
     ['roles/jobs/AGENTS.md', 13 * 1024],

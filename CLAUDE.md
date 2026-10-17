@@ -215,8 +215,10 @@ refreshes that cache out of band.
 ### Content layers
 
 - **[team/](team/)** — static docs deployed to `~/.openclaw/team/`.
-  [PROTOCOL.md](team/PROTOCOL.md) is the single source of the protocol body (board
-  protocol, state machine, dispatch matrix, gates); [ROLES.md](team/ROLES.md) is
+  [PROTOCOL.md](team/PROTOCOL.md) is the L1 index: its numbered headings are the
+  reference surface, and four shared sections (§6.1, §6.4, §9.1, §10.5) are
+  **pointer sections** whose normative bodies live in team-level guides
+  (`PROTOCOL §17` rule 6). [ROLES.md](team/ROLES.md) is
   the boundary/handoff reconciliation table. Other docs **reference, not copy**.
   [team/guides/](team/guides/) holds the per-domain SOPs and contracts
   (`task-interface.md` is the ACL contract; `redlines.core.md` is the canonical
@@ -295,7 +297,8 @@ use `dev` and `main`, another repo may use `develop` and `master`.
 - **Bootstrapping:** a repo with no integration branch has no integration target — create it once
   (`git branch dev <base>`), or point `OPENCLAW_TEAM_INTEGRATION_BRANCH` at the branch it already has.
 
-Normative source: [team/PROTOCOL.md](team/PROTOCOL.md) PROTOCOL §6.4. Mechanics:
+Normative source: PROTOCOL §6.4 (a pointer; the body is
+[dev-worktree-flow-sop.md](team/guides/dev-worktree-flow-sop.md) §6.4). Mechanics:
 [dev-worktree-flow-sop.md](team/guides/dev-worktree-flow-sop.md),
 [spawn-lane-sop.md](team/guides/spawn-lane-sop.md). The merge-back is machine-checked at
 the gate by [check-merge.mjs](team/scripts/check-merge.mjs) (`PROTOCOL §20.1`); what it

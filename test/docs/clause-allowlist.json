@@ -591,6 +591,54 @@
     "team/PROTOCOL.md:refs:§①": {
       "to": "team/guides/doc-style.md",
       "reason": "同上：§6.1 clause 11 的 `§①` 只是「不要这样写」的反例，完整记法与反例在 `guides/doc-style.md` §6 第 1、3 条。"
+    },
+    "team/PROTOCOL.md:numbers:80%": {
+      "to": "team/guides/engineering-standards-sop.md",
+      "reason": "Track B 指针节：PROTOCOL §6.1 的正文整体移入 engineering-standards-sop.md 的同名 §6.1（`PROTOCOL §17` 规则 6），覆盖阈值 80% 随 clause 2 搬走，规则句仍在指南 §6.1。"
+    },
+    "team/PROTOCOL.md:tokens:HEAD": {
+      "to": "team/guides/dev-worktree-flow-sop.md",
+      "reason": "Track B 指针节：PROTOCOL §6.4 的六条正文移入 dev-worktree-flow-sop.md 的同名 §6.4，`HEAD` base 规则随 clause 4 搬走。"
+    },
+    "team/PROTOCOL.md:tokens:OPENCLAW_PROTECTED_BRANCHES": {
+      "to": "team/guides/dev-worktree-flow-sop.md",
+      "reason": "同上：受保护分支解析随 §6.4 clause 6 搬入指南（指南 §4 的理由段与 §6.4 正文均含该变量）。"
+    },
+    "team/PROTOCOL.md:tokens:OPENCLAW_TEAM_INTEGRATION_BRANCH": {
+      "to": "team/guides/dev-worktree-flow-sop.md",
+      "reason": "同上：集成分支可配置随 §6.4 clause 6 搬入指南（指南头部与 §6.4 正文均含该变量）。"
+    },
+    "team/PROTOCOL.md:tokens:using-git-worktrees": {
+      "to": "team/guides/dev-worktree-flow-sop.md",
+      "reason": "同上：lane 自建 worktree 的 skill 名随 §6.4 clause 3 搬入指南。"
+    },
+    "team/PROTOCOL.md:tokens:data-pending": {
+      "to": "team/guides/ui-align-sop.md",
+      "reason": "Track B 指针节：PROTOCOL §9.1 的正文（含三个 Addendum 锚）整体移入 ui-align-sop.md 的同名 §9.1；`data-pending` 随 Addendum I 搬走，规则句仍在指南 §9.1 / §12.1。"
+    },
+    "team/PROTOCOL.md:refs:§12.1": {
+      "to": "team/guides/ui-align-sop.md",
+      "reason": "§9.1 Addendum I 的「Full rules: §12.1」随正文移入 ui-align-sop.md §9.1；目标节就是该指南的 §12.1。"
+    },
+    "team/PROTOCOL.md:refs:§12.2": {
+      "to": "team/guides/ui-align-sop.md",
+      "reason": "§9.1 Addendum II 的「Full rules: §12.2」随正文移入 ui-align-sop.md §9.1；目标节就是该指南的 §12.2。"
+    },
+    "team/PROTOCOL.md:refs:§12.3": {
+      "to": "team/guides/ui-align-sop.md",
+      "reason": "§9.1 Addendum III 的「Full rules: §11 / §12.3」随正文移入 ui-align-sop.md §9.1；目标节就是该指南的 §12.3。"
+    },
+    "team/PROTOCOL.md:refs:§4.1": {
+      "to": "team/guides/ui-align-sop.md",
+      "reason": "§9.1 reinforcement 的指针（「在 §4.1」）随正文移入 ui-align-sop.md §9.1；目标节就是该指南的 §4.1。"
+    },
+    "team/PROTOCOL.md:refs:§10.6": {
+      "to": "team/guides/flow-triage-sop.md",
+      "reason": "Track B 指针节：PROTOCOL §10.5 的正文整体移入 flow-triage-sop.md 的同名 §10.5；A 流路由行里的 `§10.6` 随表搬走。"
+    },
+    "team/PROTOCOL.md:refs:§7.2": {
+      "to": "team/guides/flow-triage-sop.md",
+      "reason": "同上：§10.5 正文里指向 carding-sop §7.2（抽样算术）的引用随正文搬入 flow-triage-sop.md §10.5。"
     }
   }
 }

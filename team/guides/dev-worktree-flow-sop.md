@@ -2,16 +2,29 @@
 
 > **Ownership / Maintainer**: **Linus** (engineering) owns the flow and this guide; **Elon** owns
 > dispatch and acceptance.
-> **Status**: method library (`L2.5`). The **normative clauses** live in `PROTOCOL §6.4`
-> (development-branch and worktree discipline), `PROTOCOL §6.3` (parallelism-first) and
-> `PROTOCOL §20.1/§20.2` (what is machine-checked and what is *not*). This file **references** them and
-> does not copy their text (`PROTOCOL §6.1` clause 11).
+> **Status**: method library (`L2.5`). This file's `§6.4` is the **normative clause body** delegated by
+> `PROTOCOL §6.4` (`PROTOCOL §17` rule 6). `PROTOCOL §6.3` (parallelism-first) and
+> `PROTOCOL §20.1/§20.2` (what is machine-checked and what is *not*) remain in L1 and are referenced.
+> Reference convention: `guides/engineering-standards-sop.md` §6.1 clause 11.
 > **Applies to**: every development card whose work lands in a git checkout this framework manages.
 > **Replaces**: `worktree-isolation-sop.md` (deleted 2026-10-16 with the mechanism it documented).
 > **Branch names are resolved, not assumed**: the release branch may be `main`/`master`/`trunk` and is
 > determined per repo by `branch-guard.mjs`; the integration branch may be `dev`/`develop` and is
 > `OPENCLAW_TEAM_INTEGRATION_BRANCH` (default `dev`). Where this guide says "the integration branch",
 > read "whatever your repo's is".
+
+---
+
+## §6.4 Development-Branch and Worktree Discipline
+
+> **Normative clauses** delegated from `PROTOCOL §6.4` (`PROTOCOL §17` rule 6). The mechanics and the end-to-end sequence follow below.
+
+- **Development integrates on the long-lived branch `dev`; no role develops on `main`.** Every development task — **Linus, Jobs, Turing alike** — runs on its own **card branch** (`<card-id>`, or `<card-id>-<seg>` for a continuation segment), in a **dedicated git worktree**. `main` is the protected release branch and is **never a development base** — its only write is the explicit `dev → main` integration/release step. A card's product **merges into `dev`**.
+- **The main checkout holds `dev`.** The tree a worker stands in *is* the integration tree. The `dev → main` step is therefore done from a **throwaway worktree**, not by flipping the main checkout's branch.
+- **Isolation is the lane's own act, not the spawner's.** `scripts/spawn-lane.sh` neither decides nor creates worktrees: cwd is always the repo root, and the lane follows the **`using-git-worktrees`** skill, whose git fallback places the tree at `<repo>/.worktrees/<branch>` (git-ignored). The lane prompt supplies the two things the skill cannot know — the **authorisation** and the **branch name**. The skill prefers a native worktree tool when the harness provides one, and falls back to `git worktree add`.
+- **The branch is based on `dev`.** Because the main checkout holds `dev`, the skill's implicit `HEAD` base **is** `dev`. Consequences: a **continuation** segment may only start once the previous segment's branch has been **merged into `dev`**, and **rework of an unmerged branch stays in the same worktree**.
+- **A card's product must be merged into `dev` before the card is closed.** The merge into `dev` is a **precondition of the terminal `done`**, not a cleanup step after it: the lane owner merges the card branch and the Report carries the **merged sha / the `dev` tip**; **Elon's acceptance confirms the merge landed and records it on the card** before setting `done`. An **unmerged branch is not evidence of delivery**, so a card whose product was never merged must **not** reach `done` — send it back to the owner to merge first. The closeout order is **merge → remove the worktree → delete the card branch** (`git branch -d`, never `-D`: the safe form refuses an unmerged branch). `scripts/check-merge.mjs` machine-checks the merge at the gate, and its residual limits are in `§20.2`.
+- **Never commit on the protected branch; branch names are resolved, not assumed.** A direct commit on a protected branch is **refused** by `scripts/branch-guard.mjs`; run it before committing. Commits legitimately land on a card branch (and on `dev` for the integration step) — the rule is "not on the protected branch". The protected set is *the repo's own default branch* (detected locally from `refs/remotes/origin/HEAD`) **union** `main` and `master`; a detection failure does **not** shrink the set, and `OPENCLAW_PROTECTED_BRANCHES` / `--protected` pins it exactly (an explicit set is taken **as written**, never unioned). The `dev → main` step is the one sanctioned direct-to-protected action and must pass the guard's explicit `--allow-protected` escape, whose `overridden:true` is its trail. The integration branch is likewise configurable — `OPENCLAW_TEAM_INTEGRATION_BRANCH` (default `dev`), resolved in **one** place and read by **both** the merge gate and the lane prompt (disagreeing is a silent failure); with no resolvable integration branch the merge check is **skipped with a note**, never reddened. Bootstrapping such a repo: `guides/dev-worktree-flow-sop.md`.
 
 ---
 
