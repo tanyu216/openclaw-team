@@ -611,6 +611,26 @@
     "team/PROTOCOL.md:tokens:using-git-worktrees": {
       "to": "team/guides/dev-worktree-flow-sop.md",
       "reason": "同上：lane 自建 worktree 的 skill 名随 §6.4 clause 3 搬入指南。"
+    },
+    "team/PROTOCOL.md:tokens:data-pending": {
+      "to": "team/guides/ui-align-sop.md",
+      "reason": "Track B 指针节：PROTOCOL §9.1 的正文（含三个 Addendum 锚）整体移入 ui-align-sop.md 的同名 §9.1；`data-pending` 随 Addendum I 搬走，规则句仍在指南 §9.1 / §12.1。"
+    },
+    "team/PROTOCOL.md:refs:§12.1": {
+      "to": "team/guides/ui-align-sop.md",
+      "reason": "§9.1 Addendum I 的「Full rules: §12.1」随正文移入 ui-align-sop.md §9.1；目标节就是该指南的 §12.1。"
+    },
+    "team/PROTOCOL.md:refs:§12.2": {
+      "to": "team/guides/ui-align-sop.md",
+      "reason": "§9.1 Addendum II 的「Full rules: §12.2」随正文移入 ui-align-sop.md §9.1；目标节就是该指南的 §12.2。"
+    },
+    "team/PROTOCOL.md:refs:§12.3": {
+      "to": "team/guides/ui-align-sop.md",
+      "reason": "§9.1 Addendum III 的「Full rules: §11 / §12.3」随正文移入 ui-align-sop.md §9.1；目标节就是该指南的 §12.3。"
+    },
+    "team/PROTOCOL.md:refs:§4.1": {
+      "to": "team/guides/ui-align-sop.md",
+      "reason": "§9.1 reinforcement 的指针（「在 §4.1」）随正文移入 ui-align-sop.md §9.1；目标节就是该指南的 §4.1。"
     }
   }
 }

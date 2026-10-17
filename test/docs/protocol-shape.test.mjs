@@ -23,6 +23,7 @@ const REPO = path.resolve(HERE, '..', '..');
 const PROTOCOL = path.join(REPO, 'team', 'PROTOCOL.md');
 const ENGINEERING = path.join(REPO, 'team', 'guides', 'engineering-standards-sop.md');
 const WORKTREE = path.join(REPO, 'team', 'guides', 'dev-worktree-flow-sop.md');
+const UIALIGN = path.join(REPO, 'team', 'guides', 'ui-align-sop.md');
 
 const text = fs.readFileSync(PROTOCOL, 'utf8');
 const lines = text.split('\n');
@@ -30,6 +31,8 @@ const engineering = fs.readFileSync(ENGINEERING, 'utf8');
 const engineeringLines = engineering.split('\n');
 const worktree = fs.readFileSync(WORKTREE, 'utf8');
 const worktreeLines = worktree.split('\n');
+const uialign = fs.readFileSync(UIALIGN, 'utf8');
+const uialignLines = uialign.split('\n');
 
 /**
  * 取一个节的正文：从匹配 `startRe` 的标题之后，到**下一个任意级标题**之前。
@@ -125,14 +128,17 @@ test('§6.4 是指针节，正文在 dev-worktree-flow-sop.md，仍是 6 条 bul
   });
 });
 
-test('§9.1 Acceptance hard gate 仍是 6 条（Addenda 的 `> 1.` 不计）', () => {
-  const items = ordered(sectionBody(/^### 9\.1/));
-  assert.equal(items.length, 6, `§9.1 顶层有序条目应为 6，实测 ${items.length}`);
+test('§9.1 是指针节，正文在 ui-align-sop.md，hard gate 仍是 6 条（Addenda 的 `> 1.` 不计）', () => {
+  const pointer = (sectionBody(/^### 9\.1/) || []).join('\n');
+  assert.match(pointer, /Normative body\*\*: `guides\/ui-align-sop\.md` §9\.1/,
+    '§9.1 必须指向 ui-align-sop.md §9.1');
+  const items = ordered(bodyOf(uialignLines, /^## §9\.1/));
+  assert.equal(items.length, 6, `指南 §9.1 顶层有序条目应为 6，实测 ${items.length}`);
 });
 
 test('§9.1 三线防御表仍是 Before/During/After 三行', () => {
-  const table = (sectionBody(/^### 9\.1/) || []).filter((l) => l.startsWith('|'));
-  assert.equal(table.length, 5, `§9.1 表格行应为 5（表头+分隔+3 数据），实测 ${table.length}`);
+  const table = (bodyOf(uialignLines, /^## §9\.1/) || []).filter((l) => l.startsWith('|'));
+  assert.equal(table.length, 5, `指南 §9.1 表格行应为 5（表头+分隔+3 数据），实测 ${table.length}`);
   for (const line of ['Before', 'During', 'After']) {
     assert.ok(table.some((l) => l.includes(`| **${line}** |`)), `§9.1 三线表缺少 ${line} 行`);
   }
@@ -168,10 +174,10 @@ test('§15.1 仍含 `> 6h` 边界（sla-scan 解析）', () => {
   assert.match(body.join('\n'), />\s*6h/);
 });
 
-test('§9.1 三个 Addendum 锚字符串原样存在', () => {
-  assert.ok(text.includes('§9.1 Addendum:'), '缺少 §9.1 Addendum:');
-  assert.ok(text.includes('§9.1 Addendum II:'), '缺少 §9.1 Addendum II:');
-  assert.ok(text.includes('§9.1 Addendum III:'), '缺少 §9.1 Addendum III:');
+test('§9.1 三个 Addendum 锚字符串原样存在（在指针目标指南里）', () => {
+  assert.ok(uialign.includes('§9.1 Addendum:'), '缺少 §9.1 Addendum:');
+  assert.ok(uialign.includes('§9.1 Addendum II:'), '缺少 §9.1 Addendum II:');
+  assert.ok(uialign.includes('§9.1 Addendum III:'), '缺少 §9.1 Addendum III:');
 });
 
 test('体积预算（warning 级，不判红）', (t) => {

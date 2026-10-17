@@ -1,13 +1,46 @@
 # UI Alignment SOP (human-readable end-to-end process)
 
-> **Ownership**: `PROTOCOL §9.1` (UI fidelity: prototype is the contract). This file is the **full SOP** referenced by that clause, placed at a stable path (`~/.openclaw/team/guides/ui-align-sop.md`) for humans to execute end to end.
+> **Ownership**: UI fidelity (prototype is the contract). This file's `§9.1` is the **normative body** delegated by `PROTOCOL §9.1` (`PROTOCOL §17` rule 6); the SOP sections below are the full process, placed at a stable path (`~/.openclaw/team/guides/ui-align-sop.md`) for humans to execute end to end.
 > **Maintainer**: **Jobs** (owner of aesthetics and the UX/UI quality gate). Changes must stay consistent with the text below and must not conflict.
 > **Single sources of truth (this file references, does not copy)**:
-> - Mechanisms and hard numbering (three lines of defense / acceptance hard gate / anti-patterns / reinforcement clauses / ambiguity discrimination) → `PROTOCOL §9.1`;
+> - Mechanisms and hard numbering (three lines of defense / acceptance hard gate / anti-patterns / reinforcement clauses / ambiguity discrimination) → this file's `§9.1`, the normative body delegated by `PROTOCOL §9.1` (`PROTOCOL §17` rule 6);
 > - Machine-check engine and manifest schema (`.ui-align.json`, `<page>.json`, the check vocabulary, computed style, exit codes, integration, security model, known boundaries) → `tools/ui-align/README.md`;
 > - Assertion artifact contract (selector-manifest JSON + runner determination) → `guides/ui-align-assert-spec.md`;
 > - Related redlines: prototype must not contain implementation → `PROTOCOL §9.2`; document reference convention / no verbatim copying → `PROTOCOL §6.1 clause 11`, `PROTOCOL §17`; machine-checkable gate landing points → `PROTOCOL §20.1`; container-form acceptance → `PROTOCOL §9.3`.
 > **Reference convention**: always write "document name §section name", with **no line-number anchors and no card-number anchors** (following `PROTOCOL §6.1 clause 11`).
+
+---
+
+## §9.1 UI Fidelity: Prototype Is the Contract (three lines of defense)
+
+
+> **Principle**: **the prototype (`web-client/prototype/index.html`) is the design-baseline contract for the implementation, not a reference. For any UI "already present in the prototype", the implementation must align block by block; deviations must be justified in writing in the card and approved by Elon — silent simplification/self-invented structure is forbidden.**
+
+**Three lines of defense** (every UI card must complete all three — **flows A/B per card; in flow C the "Before" line is the reused frozen contract and the "After" line is served by the rolling sample**, see Addendum III):
+
+| Line | Timing | Action | Owner |
+|---|---|---|---|
+| **Before** | Before the card starts | Produce the page's **structural contract**: the full **block list** (incl. already-consistent items; line-number anchors forbidden) + data-contract annotation + machine-checkable acceptance points | **Jobs** (Elon creates and dispatches the card) |
+| **During** | When development completes | The **structural assertion script** must pass; a red assertion ⇒ **the card may not be delivered** (uniform across flow A/B/C — see Addendum III) | **Linus** |
+| **After** | At acceptance | Re-run assertions + **same-viewport/theme/language screenshot comparison**, dual-checked (**flow A**; B ⇒ Turing's reproduce → pass **+ regression**; **flow C ⇒ Addendum III**) | **Turing** (independent) + **Jobs** (visual — flow A per card; in B Jobs only arbitrates; in C the rolling sample stands in) |
+
+**Acceptance hard gate** (all required before a UI card is done; **flows A/B** — the flow-C form is Addendum III, and **the flow-B subset is the `§10.5` routing row**: reproduce → pass + regression, with items 1/4/8 belonging to flow A):
+1. **All blocks** of the page are in the list (including "consistent" items, to prevent omissions); every difference has "file + block name/selector" evidence;
+2. Fix-card Acceptance = **machine-checkable conditions** (selector assertions), not "looks like";
+3. **The structural assertion script fully passes**;
+4. Same viewport (1512/1240/980/760/430) × same theme × same language screenshot comparison (prototype vs Vue);
+5. `console/page errors = []`; no horizontal overflow at all five widths;
+6. **Single writer per file**: the card explicitly declares the serial order.
+
+**Anti-patterns (reject on sight)**: changing only a part without a full block list | an "inconsistency" conclusion without line-number/selector evidence | **inventing structures absent from the prototype** | concurrent writes to the same file by multiple cards | substituting "build passes" for visual-alignment acceptance.
+
+**Full SOP**: this file (human-readable process SOP, maintained by Jobs; stable path, card-number anchors forbidden); **machine-check spec** in `~/.openclaw/team/tools/ui-align/README.md` (engine and manifest schema). **Before splitting a UI card, Elon must first check in-flight segments' dirty-surface files**, to avoid two cards on the same file.
+
+> 🔴 **§9.1 reinforcement**: the acceptance hard gate above is a **card-template-level hard gate, not a suggestion** — the card-template requirement, the report audit and the backfill rule are in `guides/ui-align-sop.md` §4.1.
+
+> 🔴 **§9.1 Addendum: prototype text [ambiguity] discrimination** — annotations **must not enter the UI**; the prototype expresses "pending wiring" via comments/`data-pending`, never visible copy; acceptance rejects visible "placeholder/pending backend/TODO". Full rules: `guides/ui-align-sop.md` §12.1.
+> 🔴 **§9.1 Addendum II: Linus-side UI/UX fidelity restriction — a Jobs prototype is reproduced, not reinterpreted** — no unilateral UI/UX change; omissions are supplementable but declared; contradictions go to Elon; deviations are recorded with approver + reason. Full rules: `guides/ui-align-sop.md` §12.2.
+> 🔴 **§9.1 Addendum III: flow C (UI micro-change) — reduced but non-empty** — the delivery gate is A/B/C-uniform; the relevant assertion subset must pass with self-proof before `in_review`; C reuses the frozen contract and stays sample-eligible; anything past the `§10.5` hard boundary is flow A. Full rules: `guides/ui-align-sop.md` §11 / §12.3.
 
 ---
 
