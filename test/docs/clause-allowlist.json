@@ -579,6 +579,10 @@
     "roles/turing/AGENTS.md:numbers:80%": {
       "to": "roles/turing/guides/duties-sop.md",
       "reason": "角色常驻瘦身：方法块整体移入该角色的 guides（同轴原子已核对存在）；AGENTS 只保留约束句与指针。"
+    },
+    "team/PROTOCOL.md:numbers:20%": {
+      "to": "roles/elon/guides/carding-sop.md",
+      "reason": "§10.5 只裁解释：抽样率/周单位/算术的操作细节移入 Elon 的 carding-sop §7.2（`PROTOCOL §10.5` 保留 A/B/C 路由表、hard boundary、5 条 spine、report 表与「chain 可缩、spine 不可缩」），20% 规则句仍在 §7.2。"
     }
   }
 }
