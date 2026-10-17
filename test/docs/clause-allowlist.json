@@ -120,6 +120,15 @@
     "team/guides/worker-report-template.md:tokens:T-20261015-010749-3": "seg3b：同上；`tasks/T-….md` 形式的**格式示例**已保留。",
     "team/PROTOCOL-gates.md:refs:§28": "去重：§28.4 的 rollback 复述改为引用 `§6` / `§24`，该处裸 `§28` 自引用随之移除；规则本身仍由 §6/§24 承载，§28 标题保留。",
     "team/guides/lane-session-lifecycle-sop.md:tokens:jobs-html-subagent-contract.md": "清理：该 card-era 设计交付已删除；liveness 说明仍保留 `codex-plugin-lane-contract.md`（唯一仍在维护的 plugin/native harness 契约）。",
-    "team/PROTOCOL.md:tokens:ui-align-sop.md": "搬移：Addendum III 的操作走查随全文移入 `guides/ui-align-sop.md` §11/§12；L1 的 Full SOP 行仍以完整路径引用同一文件，裸文件名 token 不再重复。"
+    "team/PROTOCOL.md:tokens:ui-align-sop.md": "搬移：Addendum III 的操作走查随全文移入 `guides/ui-align-sop.md` §11/§12；L1 的 Full SOP 行仍以完整路径引用同一文件，裸文件名 token 不再重复。",
+    "team/PROTOCOL.md:codes:registry_only": { "to": "team/guides/spawn-lane-sop.md", "reason": "§6 registry/双跑守卫细节下沉；拒绝码与守卫规则在 spawn-lane-sop 原文保留。" },
+    "team/PROTOCOL.md:codes:start_new_session": { "to": "team/guides/spawn-lane-sop.md", "reason": "§6 spawn/detach 机制下沉；跨平台 detach 的 Popen 等价形式在 guide §5。" },
+    "team/PROTOCOL.md:codes:task_id": { "to": "team/guides/spawn-lane-sop.md", "reason": "§6 registry 字段细节下沉；注册行字段在 guide §3/§4。" },
+    "team/PROTOCOL.md:codes:thread_bind_timeout": { "to": "team/guides/codex-plugin-lane-contract.md", "reason": "§6 plugin-lane 细节下沉；绑定超时拒绝码在 codex 契约。" },
+    "team/PROTOCOL.md:tokens:OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S": { "to": "team/AUTOMATIONS.md", "reason": "§6 poll-run 细节下沉；运行时限变量在 AUTOMATIONS §3.5。" },
+    "team/PROTOCOL.md:tokens:THREAD_BIND_TIMEOUT_MS": { "to": "team/guides/codex-plugin-lane-contract.md", "reason": "§6 plugin-lane 细节下沉；绑定超时变量在 codex 契约。" },
+    "team/PROTOCOL.md:tokens:already-running": { "to": "team/AUTOMATIONS.md", "reason": "§6 poll-run 理由下沉；run lock 语义在 AUTOMATIONS §3.5。" },
+    "team/PROTOCOL.md:tokens:task.session-close": "搬移：§6 session 生命周期细节下沉；关闭命令在 `task-interface.md` §9 以带参数的完整命令形式出现，不再作为裸 token（命令语法本身保留）。",
+    "team/PROTOCOL.md:tokens:workspace-write": "搬移：§6 plugin-lane sandbox 等价性下沉；`workspace-write` 在 codex 契约中以 `read-only | workspace-write | danger-full-access` 枚举形式出现，不再作为裸 token（姿态规则保留）。"
   }
 }

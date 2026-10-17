@@ -184,6 +184,26 @@ bash ~/.openclaw/team/scripts/spawn-lane.sh <card> turing --review backend=codex
 The preset is idempotent and side-effect-free under `--dry-run`, and it is done for every backend (for `codex`, which takes no `--settings`, the file is simply inert).
 ---
 
+## 10. Model and reasoning-effort selection (`PROTOCOL §6.2`)
+
+> Method home for `PROTOCOL §6.2`. L1 keeps the tier rule; this table carries the selection detail.
+
+| Situation | Model | Reasoning effort (thinking) |
+|---|---|---|
+| Routine/templated/simple repetitive tasks (e.g. routine collection, simple CRUD, doc cleanup) | `deepseek-flash` | `off`/`minimal` |
+| Medium complexity (multi-step logic, routine dev/test/cleanup) | `deepseek-flash` | `low`/`medium` |
+| High complexity (architecture design, hard bug localization, long-chain reasoning, domain modeling, complex regression) | `deepseek-v4-pro` | `medium`/`high` |
+| Highest complexity (cross-module refactor, root-cause investigation, solution design) | `deepseek-v4-pro` | `high`/`max` |
+
+Rules:
+
+1. **Default flash**; upgrade to pro only when judged "complex reasoning insufficient"; after upgrading to pro, if the task turns out to still be simple, fall back to flash — do not waste.
+2. Implementation: a worker specifies `--model` (Claude Code) or the subsession model parameter (codex) when spawning; or switches via OpenClaw session model/thinking override. **A worker does not change `openclaw.json`'s primary on its own**.
+3. When image/vision is needed (design drafts, UI screenshots, chart analysis), use `deepseek-flash`.
+4. Write the decision rationale into the Report ("used model X / reasoning effort Y, because…"), for traceability.
+
+> Scope: the table applies equally to Jobs/Linus/Turing, **with no role exceptions** (all workers default to flash, upgraded to pro by complexity). Elon (main) is the orchestrator and is not covered by the table; its agent default tier is likewise `deepseek-flash`, and when strong reasoning is needed it upgrades temporarily through the same session-level override / `--model` mechanism.
+
 ## 11. Isolation is the lane's own act (`PROTOCOL §6.4`)
 
 **There is no automatic isolation in this entry any more** (`T-20261016-`). The entry resolves cwd
