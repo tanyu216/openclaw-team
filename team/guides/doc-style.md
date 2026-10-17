@@ -1,8 +1,8 @@
 # Doc Style (`doc-style.md`)
 
 > **Ownership / Maintainer**: **Elon** owns this style and approves exceptions; every role applies it to the docs it authors.
-> **Status**: method library (`L2.5`). The **normative clauses** it serves live in `PROTOCOL §6.1` clause 11 (reference notation) and `PROTOCOL §17` (layering, single source of truth); this file **states the formatting convention those clauses imply** and does not restate them.
-> **Applies to**: every markdown document under `team/` — `PROTOCOL.md`, `ROLES.md`, `AUTOMATIONS.md`, and `team/guides/**`. It does **not** apply to `README.md` (the repository's outward-facing front page, which has its own audience) or to `roles/*/SOUL.md` (creed, prose by design).
+> **Status**: method library (`L2.5`). The **normative clauses** it serves live in `PROTOCOL §6.1` clause 11 (reference notation) and `PROTOCOL §17` (layering, single source of truth); this file **states the formatting convention those clauses imply**. Where a clause states the rule and delegates the **full form** here — `§6` (reference notation, which clause 11 points at) — this file **is** the detail home; it is not a restatement, and that clause does not repeat it.
+> **Applies to**: every markdown document under `team/` — `PROTOCOL.md`, `PROTOCOL-gates.md` (its second volume), `ROLES.md`, `AUTOMATIONS.md`, and `team/guides/**`. It does **not** apply to `README.md` (the repository's outward-facing front page, which has its own audience) or to `roles/*/SOUL.md` (creed, prose by design).
 > **Reference convention**: `PROTOCOL §<n> <name>` for L1, `<guide-name> §<n>` for a guide's own sections — never line-number anchors (`PROTOCOL §6.1` clause 11).
 
 ---
@@ -68,7 +68,7 @@ The same role always uses the same container. Nothing here varies by section.
 
 ## 6. References
 
-Numbered references follow `PROTOCOL §6.1` clause 11. Three things this file adds:
+Numbered references follow `PROTOCOL §6.1` clause 11, which states the rule; this is the **full form** that clause points at:
 
 1. **The discriminator is the name, not the glyph.** A section reference is always `§` plus an **arabic** number. A **bare** `§5` means **the document you are in**; a reference to any other document **names it** — `PROTOCOL §6.1`, `guides/task-interface.md` §3, `sla-inspection-contract.md` §4. Being L1 buys no exemption: write `PROTOCOL §6.1`, never `§①`.
 2. **A citation list may give the name once per backtick span**, separating the rest with `·` or `/`: `PROTOCOL §15 · §1 · §9.1`.

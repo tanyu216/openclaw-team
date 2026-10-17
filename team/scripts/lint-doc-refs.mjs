@@ -360,8 +360,11 @@ export function lintDocRefs(M) {
 
       // ── 第三腿：节内条款号 ──
       for (const { file: tgt, sec, kind, item } of extractItemRefs(line)) {
+        // 裸 `§N clause M` = L1；L1 是两册同一编号空间 ⇒ 哪一册有该节就在哪一册数条目。
+        const l1 = ['PROTOCOL.md', 'PROTOCOL-gates.md']
+          .map((f) => path.join(M.mode === 'repo' ? path.join(M.repo, 'team') : M.team, f));
         const abs = tgt === null
-          ? path.join(M.mode === 'repo' ? path.join(M.repo, 'team') : M.team, 'PROTOCOL.md')
+          ? l1.find((p) => fs.existsSync(p) && itemIndex(p, sec).ok)
           : tgt === SELF ? f
           : bases.map((b) => path.resolve(b, tgt)).find((p) => fs.existsSync(p));
         if (!abs || !abs.endsWith('.md') || !fs.existsSync(abs)) {

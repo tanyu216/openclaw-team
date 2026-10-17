@@ -22,7 +22,13 @@ const shrink = (p) => p.replace(M.home, '~').replace(M.repo, '<repo>');
 // 文档面在两种模式下来自不同的树：live = 安装实例（<team>/** + <home>/workspace-<r>/），
 // repo = 分发仓（<repo>/team/** + <repo>/roles/<r>/）。
 const docRoot = M.mode === 'repo' ? path.join(M.repo, 'team') : M.team;
-const P = fs.readFileSync(path.join(docRoot, 'PROTOCOL.md'), 'utf8');
+// L1 是**两册、同一个节编号空间**：§1–§20 在 PROTOCOL.md，§21 起（+ 附录 A）在 PROTOCOL-gates.md。
+// `PROTOCOL §N` 与裸 `§N` 一律按两册合计解析，所以合订成一份文本再查标题。
+const P = ['PROTOCOL.md', 'PROTOCOL-gates.md']
+  .map((f) => path.join(docRoot, f))
+  .filter((p) => fs.existsSync(p))
+  .map((p) => fs.readFileSync(p, 'utf8'))
+  .join('\n');
 
 const targets = [];
 for (const a of ROLES) {
