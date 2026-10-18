@@ -13,8 +13,8 @@
   "entries": [
     "CLAUDE.md:302:PROTOCOL.md",
     "CLAUDE.md:302:PROTOCOL-gates.md",
-    "install.sh:426:PROTOCOL.md",
-    "install.sh:426:PROTOCOL-gates.md",
+    "install.sh:404:PROTOCOL.md",
+    "install.sh:404:PROTOCOL-gates.md",
     "docker/verify-in-container.sh:86:PROTOCOL.md",
     "docker/verify-in-container.sh:86:PROTOCOL-gates.md",
     "docker/verify-in-container.sh:111:PROTOCOL.md",

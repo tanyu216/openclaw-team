@@ -273,28 +273,6 @@ deploy_tree() {
   deploy_file "$src" "$dst" "$label"
 }
 
-# install_skills <label> <src_root> <dst_root>
-# Copies each immediate child (file or dir) of <src_root> into <dst_root>,
-# skipping children that already exist unless --force.
-install_skills() {
-  local label="$1" src="$2" dst="$3" name target installed=0 skipped=0
-  if [ ! -d "$src" ]; then info "$label: no source ($src), skip"; return 0; fi
-  step "skills: $label → $dst"
-  run mkdir -p "$dst"
-  for entry in "$src"/*; do
-    [ -e "$entry" ] || continue
-    name="$(basename "$entry")"
-    target="$dst/$name"
-    if [ -e "$target" ] && [ "$FORCE" != 1 ]; then
-      skipped=$((skipped+1)); continue
-    fi
-    run rm -rf "$target"
-    run cp -R "$entry" "$target"
-    installed=$((installed+1))
-  done
-  info "installed=$installed  skipped(exists)=$skipped"
-}
-
 # resolve_openclaw -> sets OCL array
 OCL=()
 resolve_openclaw() {
@@ -533,13 +511,7 @@ if [ "$DO_SKILLS" = 1 ]; then
     [ "$OFFLINE" = 1 ] && sargs+=(--offline)
     node "$REPO/skills/fetch.mjs" "${sargs[@]}" || warn "some skills failed to fetch (see above)"
   else
-    warn "skills/manifest.json missing — falling back to vendored copies"
-    install_skills "openclaw global" "$REPO/skills/openclaw" "$OPENCLAW_HOME/skills"
-    [ "$DO_CLAUDE_SKILLS" = 1 ] && install_skills "claude code" "$REPO/skills/claude" "$CLAUDE_HOME/skills"
-    [ "$DO_CODEX_SKILLS" = 1 ] && install_skills "codex" "$REPO/skills/codex" "$CODEX_HOME/skills"
-    for a in jobs linus turing assistant; do
-      install_skills "agent:$a" "$REPO/skills/agents/$a" "$OPENCLAW_HOME/workspace-$a/skills"
-    done
+    warn "skills/manifest.json missing — skill install skipped (the manifest is the only skill source; there is no vendored fallback)"
   fi
 
   # External CLIs the declared skills shell out to (declared in config/skill-clis.json).

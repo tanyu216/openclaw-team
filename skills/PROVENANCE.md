@@ -1,11 +1,11 @@
 # SKILL PROVENANCE
 
-> **Source of truth is now [`manifest.json`](manifest.json) + [`lock.json`](lock.json)**
-> (option A: declarations, not vendored code). The table below documents the
-> vendored copies that remain as a transitional fallback — it is superseded as
-> entries acquire verified upstream sources.
+> **Source of truth is [`manifest.json`](manifest.json) + [`lock.json`](lock.json)**
+> (option A: declarations, not vendored code). This file is the **provenance and
+> license record**: where each skill comes from, and which ones carry a
+> `LICENSE.txt`. It is not an install source.
 
-Vendored skills, by source layer. Generated 2026-10-08T17:56Z.
+Skill provenance, by original source layer. Snapshot 2026-10-08T17:56Z.
 
 > Third-party skills keep their own licenses. Review each before redistribution.
 
@@ -82,7 +82,17 @@ Normative source: `R-WORKTREE-1`; sequence and closure strength:
 The skill body is deliberately **not** edited to record any of this: bodies are third-party
 upstream content and would be overwritten by `update.mjs --apply`.
 
-### OpenClaw global (`skills/openclaw/` → `~/.openclaw/skills/`)
+---
+
+## Historical: the transitional vendored layout
+
+The tables from here down describe the vendored copies that shipped before option A.
+Those directories (`skills/openclaw/`, `skills/claude/`, `skills/codex/`,
+`skills/agents/*`) **no longer exist in the repo** — the paths are retained only
+because the tables carry the per-skill license attribution. For the current source,
+ref and target of any skill, read [`manifest.json`](manifest.json) + [`lock.json`](lock.json).
+
+### OpenClaw global (`skills/openclaw/` → `~/.openclaw/skills/`, historical)
 
 | skill | license file | source |
 |---|---|---|
