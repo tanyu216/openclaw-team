@@ -3,7 +3,7 @@
 //
 // 语义契约（本文件的**规范来源**，阈值一律引用不复制）：team/guides/sla-inspection-contract.md
 // （C1 `T-20261014-022254-2` design-only 契约）。阈值**单一事实源 = `team/guides/sla-thresholds.json`**；本文件只携带
-// 「引用 + 运行期映射表」，`--check-thresholds` 对 §15 做漂移核对（契约 §11 钩子 H6）。
+// 「引用 + 运行期映射表」，阈值直接加载 `team/guides/sla-thresholds.json`（契约 §11 钩子 H6）。
 //
 // 为什么存在（父 epic `T-20261014-022254`）：openclaw 侧与 loop 侧的巡检**都只扫 `in_progress`
 // 心跳 >30min**；blocked / in_review / 确认门 / 缺陷建卡 / 验收建卡 / 巡检失联**均零覆盖**，而二者

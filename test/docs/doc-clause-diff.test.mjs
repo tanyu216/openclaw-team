@@ -114,6 +114,22 @@ test('allowlist：精确登记与整轴登记都生效，未登记的仍判红',
   assert.equal(compareFile('f.md', before, after, whole).unaccountedTotal, 0, '整轴登记应全部豁免');
 });
 
+test('refMap：旧 §N 改写成存在的 R-* 即销账；规则不存在或未登记仍红', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dcd-refmap-'));
+  try {
+    fs.mkdirSync(path.join(root, 'team/guides'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'team/guides/rule-id-registry.json'),
+      JSON.stringify({ version: 1, rules: { 'R-BOARD-1': { status: 'active' } } }));
+    const before = '- see `§1`.\n';
+    const after = '- see `R-BOARD-1`.\n';
+    const good = { files: {}, atoms: {}, refMap: { 'f.md': { '§1': 'R-BOARD-1' } } };
+    assert.equal(compareFile('f.md', before, after, good, root).unaccountedTotal, 0, '改名到存在的规则应销账');
+    const bad = { files: {}, atoms: {}, refMap: { 'f.md': { '§1': 'R-NOPE-9' } } };
+    assert.equal(compareFile('f.md', before, after, bad, root).unaccountedTotal, 1, '目标规则不存在必须仍红');
+    assert.equal(compareFile('f.md', before, after, EMPTY, root).unaccountedTotal, 1, '未登记的 § 引用必须仍红');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test('allowlist：整轴登记不越界到别的文件', () => {
   const before = '- refuse `base_unresolved`.\n';
   const after = '- done.\n';

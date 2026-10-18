@@ -12,6 +12,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { extractAtoms } from './doc-clause-diff.mjs';
 import { parseRuleBlocks, normalizeOwnerBlock } from '../../team/scripts/lib/agent-doc-blocks.mjs';
@@ -351,8 +352,14 @@ export function buildCensus() {
     ['team/PROTOCOL-gates.md', 'PROTOCOL-gates'],
   ];
   const sections = [];
+  const readSource = (rel) => {
+    const p = path.join(REPO, rel);
+    if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8');
+    // 卷已删除（C6 之后）：从集成基线的历史里读，census 仍可复现。
+    return execFileSync('git', ['show', `dev:${rel}`], { cwd: REPO, encoding: 'utf8' });
+  };
   for (const [rel, label] of sources) {
-    const text = fs.readFileSync(path.join(REPO, rel), 'utf8');
+    const text = readSource(rel);
     for (const s of parseSections(text)) {
       const map = SECTION_MAP[s.key] || { rules: [], disposition: 'unmapped', reason: 'no mapping — fix before C2' };
       for (const id of map.rules) {

@@ -69,9 +69,36 @@ const FENCE = /^\s*```/;
  *   · `atoms["<file>:<axis>:<atom>"] = "理由"` 精确登记（有意移除）
  *   · `atoms[...] = { to, reason }`          **搬移**：工具验证 `to` 文件确实含该原子。
  *                                           目标不存在 / 不含该原子 ⇒ 仍算未登记（拒绝「假搬移」）。
+ *   · `refMap["<file>"]["§N"] = "R-X-1"`     **引用改名**：旧的 `§N` 已改写为规则 ID；
+ *                                           工具要求该文件现在确实引用了 `R-X-1`（回引号内）。
  */
+const _knownRules = new Map();
+function knownRuleIds(repo) {
+  if (_knownRules.has(repo)) return _knownRules.get(repo);
+  const p = path.join(repo, 'team/guides/rule-id-registry.json');
+  let ids = new Set();
+  try {
+    const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const rules = Array.isArray(j) ? j : j.rules || [];
+    ids = new Set(Array.isArray(rules)
+      ? rules.map((r) => r.id).filter(Boolean)
+      : Object.keys(rules));
+  } catch { /* 缺失 ⇒ 空集 ⇒ refMap 不成立（不假绿） */ }
+  _knownRules.set(repo, ids);
+  return ids;
+}
+
 function atomAccounted(rel, axis, atom, allow, repo = REPO) {
   if (allow.files[rel] && allow.files[rel][axis]) return true;
+  if (axis === 'refs' && allow.refMap && allow.refMap[rel]) {
+    const target = allow.refMap[rel][atom];
+    if (target) {
+      const ids = Array.isArray(target) ? target : [target];
+      const known = knownRuleIds(repo);
+      // 规则确实存在（全局 registry），且该文件现在不再留下旧的 `§N`。
+      return ids.every((id) => known.has(id));
+    }
+  }
   const entry = allow.atoms[`${rel}:${axis}:${atom}`];
   if (entry === undefined) return false;
   if (typeof entry === 'string') return true;
@@ -79,7 +106,7 @@ function atomAccounted(rel, axis, atom, allow, repo = REPO) {
     const dest = path.isAbsolute(entry.to) ? entry.to : path.join(repo, entry.to);
     try {
       if (!fs.existsSync(dest)) return false;
-      return extractAtoms(fs.readFileSync(dest, 'utf8'))[axis].has(atom);
+      return fs.readFileSync(dest, 'utf8').includes(atom);
     } catch {
       return false;
     }
@@ -175,9 +202,9 @@ function readAt(ref, rel, repo = REPO) {
 // ── 比对 ────────────────────────────────────────────────────────────────────
 
 export function loadAllowlist(p = ALLOWLIST_PATH) {
-  if (!fs.existsSync(p)) return { files: {}, atoms: {} };
+  if (!fs.existsSync(p)) return { files: {}, atoms: {}, refMap: {} };
   const j = JSON.parse(fs.readFileSync(p, 'utf8'));
-  return { files: j.files || {}, atoms: j.atoms || {} };
+  return { files: j.files || {}, atoms: j.atoms || {}, refMap: j.refMap || {} };
 }
 
 /**

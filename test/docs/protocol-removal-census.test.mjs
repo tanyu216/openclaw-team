@@ -9,8 +9,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
 import { buildCensus, CENSUS_PATH } from './protocol-removal-census.mjs';
 
+const REPO = path.resolve(import.meta.dirname, '..', '..');
 const census = buildCensus();
 const ROLES = ['elon', 'jobs', 'linus', 'turing', 'assistant'];
 
@@ -59,6 +61,54 @@ test('census：原子清单非空，且每节都有四轴结构', () => {
     }
   }
   assert.ok(total > 0, '整张表不得没有任何原子');
+});
+
+test('census：每节要么有规则归属，要么显式标为 deleted 并有理由', () => {
+  for (const s of census.sections) {
+    assert.ok(s.disposition === 'deleted' || s.ruleIds.length > 0, `${s.volume}:${s.section} 既无规则也未标 deleted`);
+    if (s.disposition === 'deleted') assert.ok(s.reason && s.reason.trim(), `${s.volume}:${s.section} deleted 但无理由`);
+  }
+});
+
+test('census：退役卷之外不再出现被禁表述', () => {
+  const FORBIDDEN = [/PROTOCOL\.md/, /L2\.5/, /sole writer of L1/i, /register in turing-runs\.json/i, /terminal state \(in_review/i];
+  const hits = [];
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) { if (!['.git', 'tasks', 'workspace', 'memory', '.tmp'].includes(e.name)) walk(p); }
+      else if (e.isFile() && (p.endsWith('.md') || p.endsWith('.mjs') || p.endsWith('.sh') || p.endsWith('.json') || p.endsWith('.json5'))) {
+        const text = fs.readFileSync(p, 'utf8');
+        for (const re of FORBIDDEN) if (re.test(text)) hits.push(`${path.relative(REPO, p)}: ${re}`);
+      }
+    }
+  };
+  walk(path.join(REPO, 'team'));
+  walk(path.join(REPO, 'roles'));
+  assert.deepEqual(hits, [], `被禁表述仍存在：\n${hits.join('\n')}`);
+});
+
+test('census：redline 块引用的规则都存在', () => {
+  const ids = new Set(census.rules.map((r) => r.id));
+  const text = fs.readFileSync(path.join(REPO, 'team/guides/redlines.core.md'), 'utf8');
+  for (const m of text.matchAll(/\bR-[A-Z][A-Z0-9]*-[0-9]+\b/g)) {
+    assert.ok(ids.has(m[0]), `redline 引用未知规则 ${m[0]}`);
+  }
+});
+
+test('census：SLA 数值只有一个来源（sla-thresholds.json）', () => {
+  const j = JSON.parse(fs.readFileSync(path.join(REPO, 'team/guides/sla-thresholds.json'), 'utf8'));
+  const ids = new Set(census.rules.map((r) => r.id));
+  assert.equal(j.rows.length, 6);
+  for (const r of j.rows) {
+    assert.ok(ids.has(r.slaRef), `${r.row}: slaRef ${r.slaRef} 不是 census 规则`);
+    assert.match(r.thresholdRef, /^R-SLA-[1-9][0-9]* clause [1-9][0-9]*$/);
+    assert.ok(Number.isInteger(r.normalMin) && Number.isInteger(r.furtherMin));
+  }
+  const scan = fs.readFileSync(path.join(REPO, 'team/scripts/sla-scan.mjs'), 'utf8');
+  for (const n of ['120', '240', '1440', '2880', '360']) {
+    assert.ok(!new RegExp(`normalMin\\s*:\\s*${n}`).test(scan), `sla-scan 仍硬编码阈值 ${n}`);
+  }
 });
 
 test('census：16 条内部矛盾都有处置', () => {

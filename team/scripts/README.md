@@ -82,7 +82,7 @@ and documented under `team/guides/` or `CLAUDE.md`; **(data)** = deployed litera
 | `check-all-gate.mjs` | scheduled entry of the gate: fast segment in-band + cached slow verdict + detached refresh | **(job)** `team-check-all` |
 | `poll.mjs` | cron fallback poll: read-only scan + atomic claim | **(job)** `poll-<agent>` |
 | `patrol.mjs` | patrol entry: stale-heartbeat scan (+ pre-emit re-check) | **(job)** `task-patrol` |
-| `sla-scan.mjs` | board SLA inspection over the `R-SLA-1`…`R-SLA-6` rows + the threshold-drift check | **(job)** `sla-scan`; **(gate)** `--check-thresholds` |
+| `sla-scan.mjs` | board SLA inspection over the `R-SLA-1`…`R-SLA-6` rows; thresholds are read from `guides/sla-thresholds.json` | **(job)** `sla-scan`; **(gate)** `check-sla-thresholds.mjs` |
 | `tmp-gc.mjs` | scratch GC of `workspace-*/.tmp` + `$OPENCLAW_HOME/tmp` + `team/tmp` (entry reads the last verdict; `--sweep` does the work) | **(job)** `tmp-gc` |
 | `spawn-lane.sh` / `spawn-lane.mjs` | the single mandatory lane entry (claim → handoff → spawn → `session-set`) | `R-SESSION-1`; humans |
 | `lane-host.mjs` | interactive-lane supervisor: owns the backend and its pipes, speaks Claude stream-json / Codex app-server, applies `lane-policy`, escalates questions | **(lib)** `spawn-lane.mjs`; `guides/interactive-lane-sop.md` |
