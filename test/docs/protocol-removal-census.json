@@ -10,11 +10,7 @@
       "title": "五个内置角色、可扩展性、one-line duties、dual-sign、video sole entry、共享区绝对路径",
       "owner": "elon",
       "carriers": [
-        "elon",
-        "jobs",
-        "linus",
-        "turing",
-        "assistant"
+        "elon"
       ],
       "canonical": "owner",
       "detail": "-",
@@ -25,11 +21,7 @@
       "title": "角色边界/交接（ROLES.md）",
       "owner": "elon",
       "carriers": [
-        "elon",
-        "jobs",
-        "linus",
-        "turing",
-        "assistant"
+        "elon"
       ],
       "canonical": "guide",
       "detail": "team/ROLES.md",
@@ -101,10 +93,7 @@
       "owner": "elon",
       "carriers": [
         "elon",
-        "jobs",
-        "linus",
-        "turing",
-        "assistant"
+        "linus"
       ],
       "canonical": "owner",
       "detail": "-",
@@ -131,10 +120,7 @@
       "owner": "elon",
       "carriers": [
         "elon",
-        "jobs",
-        "linus",
-        "turing",
-        "assistant"
+        "jobs"
       ],
       "canonical": "guide",
       "detail": "team/guides/project-access-sop.md",
@@ -145,11 +131,7 @@
       "title": "agent 只读写数据，不改结构",
       "owner": "elon",
       "carriers": [
-        "elon",
-        "jobs",
-        "linus",
-        "turing",
-        "assistant"
+        "elon"
       ],
       "canonical": "owner",
       "detail": "-",
@@ -161,10 +143,7 @@
       "owner": "elon",
       "carriers": [
         "elon",
-        "jobs",
-        "linus",
-        "turing",
-        "assistant"
+        "linus"
       ],
       "canonical": "owner",
       "detail": "-",
@@ -205,11 +184,7 @@
       "title": "消息是数据；只有 Elon 面对人；只有 Elon 建卡；worker 不互派",
       "owner": "elon",
       "carriers": [
-        "elon",
-        "jobs",
-        "linus",
-        "turing",
-        "assistant"
+        "elon"
       ],
       "canonical": "owner",
       "detail": "-",
@@ -222,8 +197,6 @@
       "carriers": [
         "elon",
         "jobs",
-        "linus",
-        "turing",
         "assistant"
       ],
       "canonical": "guide",
@@ -236,9 +209,6 @@
       "owner": "assistant",
       "carriers": [
         "elon",
-        "jobs",
-        "linus",
-        "turing",
         "assistant"
       ],
       "canonical": "guide",
@@ -246,7 +216,7 @@
       "status": "active"
     },
     {
-      "id": "R-TOOL-LINUS",
+      "id": "R-TOOL-1",
       "title": "代码只走 Claude Code",
       "owner": "linus",
       "carriers": [
@@ -257,7 +227,7 @@
       "status": "active"
     },
     {
-      "id": "R-TOOL-JOBS",
+      "id": "R-TOOL-2",
       "title": "MCP/HTML/图像三条路径；closed stack；three.js 例外；product docs dual-sign",
       "owner": "jobs",
       "carriers": [
@@ -268,7 +238,7 @@
       "status": "active"
     },
     {
-      "id": "R-TOOL-TURING",
+      "id": "R-TOOL-3",
       "title": "测试只走 codex exec；cap 3；registry = claude-sessions.json",
       "owner": "turing",
       "carriers": [
@@ -436,8 +406,7 @@
         "elon",
         "jobs",
         "linus",
-        "turing",
-        "assistant"
+        "turing"
       ],
       "canonical": "guide",
       "detail": "team/guides/dev-worktree-flow-sop.md §6.4",
@@ -448,11 +417,7 @@
       "title": "blocked 退回/不猜/只有 Elon 退回/回归路径",
       "owner": "elon",
       "carriers": [
-        "elon",
-        "jobs",
-        "linus",
-        "turing",
-        "assistant"
+        "elon"
       ],
       "canonical": "owner",
       "detail": "-",
@@ -514,7 +479,6 @@
       "title": "容器形态验收（五条）",
       "owner": "linus",
       "carriers": [
-        "elon",
         "linus",
         "turing"
       ],
@@ -540,11 +504,7 @@
       "title": "任务类型路由/角色边界",
       "owner": "elon",
       "carriers": [
-        "elon",
-        "jobs",
-        "linus",
-        "turing",
-        "assistant"
+        "elon"
       ],
       "canonical": "guide",
       "detail": "team/ROLES.md",
@@ -555,11 +515,7 @@
       "title": "动态评审参与者；chain 不削减 nature-required participants",
       "owner": "elon",
       "carriers": [
-        "elon",
-        "jobs",
-        "linus",
-        "turing",
-        "assistant"
+        "elon"
       ],
       "canonical": "guide",
       "detail": "roles/elon/guides/carding-sop.md §2",
@@ -570,11 +526,7 @@
       "title": "epic/child/all batches 一次注册/depends_on/review_of 豁免/rollup/archive/no extra depth",
       "owner": "elon",
       "carriers": [
-        "elon",
-        "jobs",
-        "linus",
-        "turing",
-        "assistant"
+        "elon"
       ],
       "canonical": "guide",
       "detail": "team/guides/task-interface.md §10",
@@ -699,11 +651,7 @@
       "title": "统一 claim",
       "owner": "elon",
       "carriers": [
-        "elon",
-        "jobs",
-        "linus",
-        "turing",
-        "assistant"
+        "elon"
       ],
       "canonical": "owner",
       "detail": "-",
@@ -759,11 +707,7 @@
       "title": "task-change trail",
       "owner": "elon",
       "carriers": [
-        "elon",
-        "jobs",
-        "linus",
-        "turing",
-        "assistant"
+        "elon"
       ],
       "canonical": "owner",
       "detail": "team/guides/task-interface.md §7",
@@ -789,11 +733,7 @@
       "title": "scratch/.tmp 放置与保留",
       "owner": "elon",
       "carriers": [
-        "elon",
-        "jobs",
-        "linus",
-        "turing",
-        "assistant"
+        "elon"
       ],
       "canonical": "owner",
       "detail": "team/AUTOMATIONS.md §1",
@@ -850,7 +790,6 @@
       "owner": "elon",
       "carriers": [
         "elon",
-        "linus",
         "turing"
       ],
       "canonical": "guide",
@@ -863,7 +802,6 @@
       "owner": "elon",
       "carriers": [
         "elon",
-        "linus",
         "turing"
       ],
       "canonical": "guide",
@@ -916,11 +854,7 @@
       "title": "operator/Elon/leader/roster/状态词/model/flow；Terry/中文例外",
       "owner": "elon",
       "carriers": [
-        "elon",
-        "jobs",
-        "linus",
-        "turing",
-        "assistant"
+        "elon"
       ],
       "canonical": "owner",
       "detail": "-",
@@ -1017,11 +951,7 @@
       "title": "结论先行/先读 AGENTS+卡/状态纪律/最小权限/不猜",
       "owner": "elon",
       "carriers": [
-        "elon",
-        "jobs",
-        "linus",
-        "turing",
-        "assistant"
+        "elon"
       ],
       "canonical": "owner",
       "detail": "-",
@@ -1062,11 +992,7 @@
       "title": "7 天归档/patrol/README",
       "owner": "elon",
       "carriers": [
-        "elon",
-        "jobs",
-        "linus",
-        "turing",
-        "assistant"
+        "elon"
       ],
       "canonical": "owner",
       "detail": "-",
@@ -1077,7 +1003,6 @@
       "title": "版本源/semver/tag/changelog/checklist/rollback 机制",
       "owner": "linus",
       "carriers": [
-        "elon",
         "linus",
         "turing"
       ],
@@ -1104,10 +1029,8 @@
       "owner": "linus",
       "carriers": [
         "elon",
-        "jobs",
         "linus",
-        "turing",
-        "assistant"
+        "turing"
       ],
       "canonical": "guide",
       "detail": "team/guides/runtime-observability-sop.md",
@@ -1118,7 +1041,6 @@
       "title": "severity/on-call/七步/recovery/postmortem",
       "owner": "linus",
       "carriers": [
-        "elon",
         "linus",
         "turing",
         "assistant"
@@ -1133,7 +1055,6 @@
       "owner": "elon",
       "carriers": [
         "elon",
-        "jobs",
         "linus",
         "turing",
         "assistant"
@@ -1173,8 +1094,7 @@
       "owner": "linus",
       "carriers": [
         "linus",
-        "turing",
-        "elon"
+        "turing"
       ],
       "canonical": "guide",
       "detail": "team/guides/api-compat-sop.md",
@@ -1198,8 +1118,7 @@
       "owner": "linus",
       "carriers": [
         "linus",
-        "turing",
-        "elon"
+        "turing"
       ],
       "canonical": "guide",
       "detail": "team/guides/dependency-cve-gate.md",
@@ -1234,7 +1153,6 @@
       "title": "percentiles/benchmark/metric naming/baseline/regression",
       "owner": "linus",
       "carriers": [
-        "elon",
         "linus",
         "turing"
       ],
@@ -1261,7 +1179,6 @@
       "owner": "elon",
       "carriers": [
         "elon",
-        "jobs",
         "linus",
         "turing",
         "assistant"
@@ -1540,9 +1457,9 @@
       "title": "6. Session Orchestration Discipline (Jobs/Linus/Turing)",
       "line": 137,
       "ruleIds": [
-        "R-TOOL-LINUS",
-        "R-TOOL-JOBS",
-        "R-TOOL-TURING",
+        "R-TOOL-1",
+        "R-TOOL-2",
+        "R-TOOL-3",
         "R-SESSION-1",
         "R-SESSION-2",
         "R-SESSION-3",
@@ -3003,7 +2920,7 @@
     }
   ],
   "bareRefs": {
-    "total": 630,
+    "total": 631,
     "unresolved": [
       {
         "file": "roles/elon/guides/carding-sop.md",
@@ -3099,12 +3016,6 @@
         "file": "team/guides/flow-triage-sop.md",
         "line": 29,
         "ref": "§9.1",
-        "intendedTarget": "PROTOCOL (rewrite to R-*)"
-      },
-      {
-        "file": "team/guides/flow-triage-sop.md",
-        "line": 31,
-        "ref": "§9",
         "intendedTarget": "PROTOCOL (rewrite to R-*)"
       },
       {

@@ -34,17 +34,261 @@
 
 ## Shared rules (owner)
 
-<!-- BEGIN SHARED-RULE:R-SESSION-2 v1 owner=linus carriers=all canonical=owner detail=- redline=7 title=Commit path discipline -->
-> **Commit path discipline**: `git` commits are always path-scoped explicitly — `git commit -- <explicit path>` (or `git add <explicit path>` then `git commit -- <same path>`); bare `git commit` / `git commit -a` is forbidden.
+<!-- BEGIN SHARED-RULE:R-API-1 v1 owner=linus carriers=linus,turing canonical=guide detail=team/guides/api-compat-sop.md -->
+> `R-API-1` — API compatibility; normative body: `team/guides/api-compat-sop.md`.
+<!-- END SHARED-RULE:R-API-1 -->
+
+<!-- BEGIN SHARED-RULE:R-CONTAINER-1 v1 owner=linus carriers=linus,turing canonical=guide detail=team/guides/container-form-acceptance-sop.md -->
+> `R-CONTAINER-1` — Container-form acceptance; normative body: `team/guides/container-form-acceptance-sop.md`.
+<!-- END SHARED-RULE:R-CONTAINER-1 -->
+
+<!-- BEGIN SHARED-RULE:R-CVE-1 v1 owner=linus carriers=linus,turing canonical=guide detail=team/guides/dependency-cve-gate.md -->
+> `R-CVE-1` — Dependency CVE gate; normative body: `team/guides/dependency-cve-gate.md`.
+<!-- END SHARED-RULE:R-CVE-1 -->
+
+<!-- BEGIN SHARED-RULE:R-ENG-1 v1 owner=linus carriers=elon,jobs,linus,turing canonical=guide detail=team/guides/engineering-standards-sop.md §6.1 -->
+> `R-ENG-1` — Engineering quality standards; normative body: `team/guides/engineering-standards-sop.md §6.1`.
+<!-- END SHARED-RULE:R-ENG-1 -->
+
+<!-- BEGIN SHARED-RULE:R-ENG-2 v1 owner=linus carriers=all canonical=guide detail=team/guides/doc-style.md §6 -->
+> `R-ENG-2` — Reference convention; normative body: `team/guides/doc-style.md §6`.
+<!-- END SHARED-RULE:R-ENG-2 -->
+
+<!-- BEGIN SHARED-RULE:R-ENG-3 v1 owner=linus carriers=elon,jobs,linus,turing canonical=guide detail=team/guides/engineering-standards-sop.md -->
+> `R-ENG-3` — CI, release and conformance; normative body: `team/guides/engineering-standards-sop.md`.
+<!-- END SHARED-RULE:R-ENG-3 -->
+
+<!-- BEGIN SHARED-RULE:R-INCIDENT-1 v1 owner=linus carriers=linus,turing,assistant canonical=guide detail=team/guides/incident-response-sop.md -->
+> `R-INCIDENT-1` — Incident response; normative body: `team/guides/incident-response-sop.md`.
+<!-- END SHARED-RULE:R-INCIDENT-1 -->
+
+<!-- BEGIN SHARED-RULE:R-MIGRATE-1 v1 owner=linus carriers=linus,turing canonical=guide detail=team/guides/data-migration-sop.md -->
+> `R-MIGRATE-1` — Data/DB migration mechanics; normative body: `team/guides/data-migration-sop.md`.
+<!-- END SHARED-RULE:R-MIGRATE-1 -->
+
+<!-- BEGIN SHARED-RULE:R-OBS-1 v1 owner=linus carriers=elon,linus,turing canonical=guide detail=team/guides/runtime-observability-sop.md -->
+> `R-OBS-1` — Product observability; normative body: `team/guides/runtime-observability-sop.md`.
+<!-- END SHARED-RULE:R-OBS-1 -->
+
+<!-- BEGIN SHARED-RULE:R-PARALLEL-1 v1 owner=linus carriers=jobs,linus,turing canonical=owner detail=- -->
+> Workers run in parallel by default. Serialize only for an unmet `depends_on`, a same-file/resource write conflict (a warning, never a spawn refusal), a card that explicitly says serialize, or another hard dependency.
+<!-- END SHARED-RULE:R-PARALLEL-1 -->
+
+<!-- BEGIN SHARED-RULE:R-PERF-1 v1 owner=linus carriers=linus,turing canonical=guide detail=team/guides/performance-sla-sop.md -->
+> `R-PERF-1` — Performance baseline; normative body: `team/guides/performance-sla-sop.md`.
+<!-- END SHARED-RULE:R-PERF-1 -->
+
+<!-- BEGIN SHARED-RULE:R-PROTO-1 v1 owner=linus carriers=linus,jobs canonical=guide detail=team/guides/prototype-separation-sop.md -->
+> `R-PROTO-1` — Prototype must not contain implementation; normative body: `team/guides/prototype-separation-sop.md`.
+<!-- END SHARED-RULE:R-PROTO-1 -->
+
+<!-- BEGIN SHARED-RULE:R-SEG-1 v1 owner=linus carriers=jobs,linus,turing canonical=guide detail=team/guides/seg-continuity-sop.md -->
+> `R-SEG-1` — Cross-segment consistency; normative body: `team/guides/seg-continuity-sop.md`.
+<!-- END SHARED-RULE:R-SEG-1 -->
+
+<!-- BEGIN SHARED-RULE:R-SESSION-1 v1 owner=linus carriers=elon,jobs,linus,turing canonical=guide detail=team/guides/lane-session-lifecycle-sop.md -->
+> `R-SESSION-1` — Session registry and concurrency; normative body: `team/guides/lane-session-lifecycle-sop.md`.
+<!-- END SHARED-RULE:R-SESSION-1 -->
+
+<!-- BEGIN SHARED-RULE:R-SESSION-2 v1 owner=linus carriers=all canonical=owner detail=- -->
+> `git` commits are always path-scoped explicitly: `git commit -- <explicit path>` (or `git add <explicit path>` then `git commit -- <same path>`); bare `git commit` / `git commit -a` is forbidden.
 <!-- END SHARED-RULE:R-SESSION-2 -->
 
-<!-- BEGIN SHARED-RULE:R-SESSION-3 v1 owner=linus carriers=all canonical=owner detail=- redline=7 title=Destructive git ban -->
-> **Destructive git ban**: `git rebase` / `reset` / `restore` / `stash` / `clean` / `revert` are forbidden; any rollback is a forward-edit commit or `rm` + commit. Rewriting a pushed remote (`push --force`) is forbidden. Applies to every role.
+<!-- BEGIN SHARED-RULE:R-SESSION-3 v1 owner=linus carriers=all canonical=owner detail=- -->
+> `git rebase` / `reset` / `restore` / `stash` / `clean` / `revert` are forbidden; any rollback is a forward-edit commit or `rm` + commit. Rewriting a pushed remote (`push --force`) is forbidden. Applies to every role.
 <!-- END SHARED-RULE:R-SESSION-3 -->
+
+<!-- BEGIN SHARED-RULE:R-SESSION-4 v1 owner=linus carriers=jobs,linus,turing canonical=guide detail=team/guides/task-interface.md §9 -->
+> `R-SESSION-4` — Task-management boundary and background pack; normative body: `team/guides/task-interface.md §9`.
+<!-- END SHARED-RULE:R-SESSION-4 -->
+
+<!-- BEGIN SHARED-RULE:R-TOOL-1 v1 owner=linus carriers=linus canonical=owner detail=- -->
+> All code writing goes through a Claude Code sub-session; native exec/edit/apply_patch must not write code.
+<!-- END SHARED-RULE:R-TOOL-1 -->
+
+<!-- BEGIN SHARED-RULE:R-VERSION-1 v1 owner=linus carriers=linus,turing canonical=guide detail=team/guides/release-versioning-sop.md -->
+> `R-VERSION-1` — Release and versioning mechanics; normative body: `team/guides/release-versioning-sop.md`.
+<!-- END SHARED-RULE:R-VERSION-1 -->
+
+<!-- BEGIN SHARED-RULE:R-WORKTREE-1 v1 owner=linus carriers=elon,jobs,linus,turing canonical=guide detail=team/guides/dev-worktree-flow-sop.md §6.4 -->
+> `R-WORKTREE-1` — Branch and worktree discipline; normative body: `team/guides/dev-worktree-flow-sop.md §6.4`.
+<!-- END SHARED-RULE:R-WORKTREE-1 -->
 
 ## Shared rules (generated)
 
 <!-- generated by team/scripts/sync-shared-rules.mjs; do not hand-edit -->
+
+<!-- BEGIN SHARED-RULE:R-BOARD-1 v1 generated=1 source=owner:elon -->
+> A task card is the sole carrier of persisted content (Goal/Acceptance/Background/Report). Schema and value enums are provider-owned; do not restate them. The ACL contract is `team/guides/task-interface.md`.
+<!-- END SHARED-RULE:R-BOARD-1 -->
+
+<!-- BEGIN SHARED-RULE:R-BOARD-2 v1 generated=1 source=owner:elon -->
+> Team-side provider values: claimable=`todo` (`ready` legacy), `backlog` not claimable; `kind`=`task|epic|deploy` (no `review`; use `labels:[review]`+`review_of`); label prefixes `category:/area:/env:/sev:`; ISO-8601 UTC with fixed ms; unknown extension keys preserved, new team keys are `kind:change`; `notify_leader` names a role.
+<!-- END SHARED-RULE:R-BOARD-2 -->
+
+<!-- BEGIN SHARED-RULE:R-BOARD-3 v1 generated=1 source=owner:elon -->
+> `R-BOARD-3` — State machine and terminal states; normative body: `team/guides/task-interface.md §3`.
+<!-- END SHARED-RULE:R-BOARD-3 -->
+
+<!-- BEGIN SHARED-RULE:R-BOARD-4 v1 generated=1 source=owner:elon -->
+> `R-BOARD-4` — Claim, heartbeat and execution uniqueness; normative body: `team/guides/task-interface.md §7`.
+<!-- END SHARED-RULE:R-BOARD-4 -->
+
+<!-- BEGIN SHARED-RULE:R-BOARD-5 v1 generated=1 source=owner:elon -->
+> `kind:deploy` is never auto-claimed; it is entered only by explicit dispatch (Elon assign / `issue move`). The provider candidate surface and the team poll path exclude it; the claim gate stays open.
+<!-- END SHARED-RULE:R-BOARD-5 -->
+
+<!-- BEGIN SHARED-RULE:R-CONFIRM-1 v1 generated=1 source=owner:elon -->
+> `R-CONFIRM-1` — Confirmation gate; normative body: `team/guides/confirmation-gate-sop.md`.
+<!-- END SHARED-RULE:R-CONFIRM-1 -->
+
+<!-- BEGIN SHARED-RULE:R-CROSS-1 v1 generated=1 source=owner:elon -->
+> `R-CROSS-1` — Cross-cutting object classes; normative body: `team/guides/sla-inspection-contract.md §0`.
+<!-- END SHARED-RULE:R-CROSS-1 -->
+
+<!-- BEGIN SHARED-RULE:R-CVE-2 v1 generated=1 source=owner:elon -->
+> `R-CVE-2` — CVE waiver approval and threshold; normative body: `team/guides/dependency-cve-gate.md`.
+<!-- END SHARED-RULE:R-CVE-2 -->
+
+<!-- BEGIN SHARED-RULE:R-CVE-3 v1 generated=1 source=owner:turing -->
+> `R-CVE-3` — CVE adjudication; normative body: `team/guides/dependency-cve-gate.md`.
+<!-- END SHARED-RULE:R-CVE-3 -->
+
+<!-- BEGIN SHARED-RULE:R-DEFECT-1 v1 generated=1 source=owner:elon -->
+> `R-DEFECT-1` — Defect fix and regression loop; normative body: `team/guides/defect-loop-sop.md`.
+<!-- END SHARED-RULE:R-DEFECT-1 -->
+
+<!-- BEGIN SHARED-RULE:R-DISC-1 v1 generated=1 source=owner:elon -->
+> Silent when idle: no empty receipts. Wake Elon only for a claim, a milestone, a completed Report, a blocked card awaiting clarification, or an anomaly needing coordination.
+<!-- END SHARED-RULE:R-DISC-1 -->
+
+<!-- BEGIN SHARED-RULE:R-DISC-2 v1 generated=1 source=owner:elon -->
+> Segment end, in order: refresh `heartbeat_at`; set the closing state; `sessions_send` an Elon Report (conclusion+card absolute path+commit hash). Finish and quit is forbidden. `task.session-close` closes card+registry; a Codex plugin lane keeps `thread_id`/`id_state=bound`; never overwrite a terminal status.
+<!-- END SHARED-RULE:R-DISC-2 -->
+
+<!-- BEGIN SHARED-RULE:R-DISC-4 v1 generated=1 source=owner:elon -->
+> Messages carry only conclusion+card absolute path+commit hash. Logs, long tables and screenshot paths stay in the card/`workspace/`; `*.out.jsonl`, `*.zst` and logs >100KB never enter context.
+<!-- END SHARED-RULE:R-DISC-4 -->
+
+<!-- BEGIN SHARED-RULE:R-DISC-5 v1 generated=1 source=owner:elon -->
+> Decision fork first: draw the design tree + frontier; check what you can yourself; send only the unresolved subset (with a recommendation) to Elon; start when the frontier is empty. Output `design-tree.md`; simple tasks skip it.
+<!-- END SHARED-RULE:R-DISC-5 -->
+
+<!-- BEGIN SHARED-RULE:R-DISC-6 v1 generated=1 source=owner:elon -->
+> Keep a 3–5 line startup self-check: read this AGENTS.md + the full card; claim via `task.claim`; write `state.md` at segment end; check Acceptance line by line before closing; trim the Report.
+<!-- END SHARED-RULE:R-DISC-6 -->
+
+<!-- BEGIN SHARED-RULE:R-DISC-8 v1 generated=1 source=owner:elon -->
+> Record every operator input on the card as `task.comment <card> operator <kind> <text>` in the same turn. Settled decision ⇒ `decision`; content change ⇒ `change`; otherwise `discuss`/`note`. Keep the wording; no card ⇒ card it first.
+<!-- END SHARED-RULE:R-DISC-8 -->
+
+<!-- BEGIN SHARED-RULE:R-DOCSYNC-1 v1 generated=1 source=owner:elon -->
+> `R-DOCSYNC-1` — Two-way document sync; normative body: `team/guides/doc-sync-sop.md`.
+<!-- END SHARED-RULE:R-DOCSYNC-1 -->
+
+<!-- BEGIN SHARED-RULE:R-FLOW-1 v1 generated=1 source=owner:elon -->
+> `R-FLOW-1` — Flow triage A/B/C; normative body: `team/guides/flow-triage-sop.md §10.5`.
+<!-- END SHARED-RULE:R-FLOW-1 -->
+
+<!-- BEGIN SHARED-RULE:R-GATE-1 v1 generated=1 source=owner:elon -->
+> `R-GATE-1` — Machine-checkable gate register; normative body: `team/scripts/README.md`.
+<!-- END SHARED-RULE:R-GATE-1 -->
+
+<!-- BEGIN SHARED-RULE:R-GATE-2 v1 generated=1 source=owner:elon -->
+> `R-GATE-2` — Not machine-checkable; normative body: `team/guides/dev-worktree-flow-sop.md §4`.
+<!-- END SHARED-RULE:R-GATE-2 -->
+
+<!-- BEGIN SHARED-RULE:R-GRANULARITY-1 v1 generated=1 source=owner:elon -->
+> `R-GRANULARITY-1` — Carding granularity and __team__ target; normative body: `roles/elon/guides/carding-sop.md §7`.
+<!-- END SHARED-RULE:R-GRANULARITY-1 -->
+
+<!-- BEGIN SHARED-RULE:R-INCIDENT-2 v1 generated=1 source=owner:elon -->
+> `R-INCIDENT-2` — Incident escalation and communication; normative body: `team/guides/incident-response-sop.md`.
+<!-- END SHARED-RULE:R-INCIDENT-2 -->
+
+<!-- BEGIN SHARED-RULE:R-LAYER-1 v1 generated=1 source=owner:elon -->
+> Layers: role AGENTS.md is the rule layer; `team/guides/` and `workspace-<role>/guides/` are the method layer; SOUL/USER are creed/communication; memory/workspace/evidence is L3. There is no central protocol volume.
+<!-- END SHARED-RULE:R-LAYER-1 -->
+
+<!-- BEGIN SHARED-RULE:R-LAYER-2 v1 generated=1 source=owner:elon -->
+> Verbatim copying is forbidden except deliberate carriage (redline digest, generated carrier blocks, subsession prompts). Removing deliberate carriage is a convention change requiring owner sign-off.
+<!-- END SHARED-RULE:R-LAYER-2 -->
+
+<!-- BEGIN SHARED-RULE:R-LAYER-3 v1 generated=1 source=owner:elon -->
+> Before spawning a subsession, transcribe the referenced rule constraints into its prompt/CLAUDE.md.
+<!-- END SHARED-RULE:R-LAYER-3 -->
+
+<!-- BEGIN SHARED-RULE:R-LAYER-4 v1 generated=1 source=owner:elon -->
+> Cross-role rules are `R-DOMAIN-N` (backticked); guide sections are `<guide>.md §N`; a bare `§N` means the current file. Broken references are a gate failure.
+<!-- END SHARED-RULE:R-LAYER-4 -->
+
+<!-- BEGIN SHARED-RULE:R-LAYER-5 v1 generated=1 source=owner:elon -->
+> Files under `team/guides/**` and `roles/*/guides/**` must never reference the retired PROTOCOL volumes; the lint is a hard gate.
+<!-- END SHARED-RULE:R-LAYER-5 -->
+
+<!-- BEGIN SHARED-RULE:R-MIGRATE-2 v1 generated=1 source=owner:elon -->
+> `R-MIGRATE-2` — Destructive migration approval; normative body: `team/guides/data-migration-sop.md`.
+<!-- END SHARED-RULE:R-MIGRATE-2 -->
+
+<!-- BEGIN SHARED-RULE:R-MODEL-1 v1 generated=1 source=owner:elon -->
+> `R-MODEL-1` — Model and effort selection; normative body: `team/guides/spawn-lane-sop.md §10`.
+<!-- END SHARED-RULE:R-MODEL-1 -->
+
+<!-- BEGIN SHARED-RULE:R-OOB-1 v1 generated=1 source=owner:elon -->
+> A card outside your duties: do not execute; set it `blocked` and send it back to Elon with the correct owner and rationale. Do not reassign or discard it yourself.
+<!-- END SHARED-RULE:R-OOB-1 -->
+
+<!-- BEGIN SHARED-RULE:R-PERF-2 v1 generated=1 source=owner:elon -->
+> `R-PERF-2` — SLO and SLA adjudication; normative body: `team/guides/performance-sla-sop.md`.
+<!-- END SHARED-RULE:R-PERF-2 -->
+
+<!-- BEGIN SHARED-RULE:R-PREREQ-1 v1 generated=1 source=owner:elon -->
+> `R-PREREQ-1` — Jobs prerequisite task; normative body: `roles/elon/guides/carding-sop.md §7.3`.
+<!-- END SHARED-RULE:R-PREREQ-1 -->
+
+<!-- BEGIN SHARED-RULE:R-PROJECT-1 v1 generated=1 source=owner:elon -->
+> `R-PROJECT-1` — Project identity and access; normative body: `team/guides/project-access-sop.md`.
+<!-- END SHARED-RULE:R-PROJECT-1 -->
+
+<!-- BEGIN SHARED-RULE:R-REPORT-1 v1 generated=1 source=owner:elon -->
+> `R-REPORT-1` — Reporting discipline; normative body: `team/guides/worker-report-template.md`.
+<!-- END SHARED-RULE:R-REPORT-1 -->
+
+<!-- BEGIN SHARED-RULE:R-REPORT-2 v1 generated=1 source=owner:elon -->
+> A self-assertion about did I do X / do I have permission must be verified via `sessions_history` tool_use records before concluding; the current turn tool list and memory are not evidence.
+<!-- END SHARED-RULE:R-REPORT-2 -->
+
+<!-- BEGIN SHARED-RULE:R-SEGUSE-1 v1 generated=1 source=owner:elon -->
+> `R-SEGUSE-1` — One Acceptance and seg usage; normative body: `roles/elon/guides/carding-sop.md §7.1`.
+<!-- END SHARED-RULE:R-SEGUSE-1 -->
+
+<!-- BEGIN SHARED-RULE:R-SLA-1 v1 generated=1 source=owner:elon -->
+> `R-SLA-1` — SLA blocked clarification; normative body: `team/guides/sla-inspection-contract.md`.
+<!-- END SHARED-RULE:R-SLA-1 -->
+
+<!-- BEGIN SHARED-RULE:R-SLA-2 v1 generated=1 source=owner:elon -->
+> `R-SLA-2` — SLA confirmation gate; normative body: `team/guides/sla-inspection-contract.md`.
+<!-- END SHARED-RULE:R-SLA-2 -->
+
+<!-- BEGIN SHARED-RULE:R-SLA-5 v1 generated=1 source=owner:elon -->
+> `R-SLA-5` — SLA stale heartbeat; normative body: `team/guides/sla-inspection-contract.md`.
+<!-- END SHARED-RULE:R-SLA-5 -->
+
+<!-- BEGIN SHARED-RULE:R-SLA-7 v1 generated=1 source=owner:elon -->
+> `R-SLA-7` — Worker-to-operator exception; normative body: `team/guides/sla-inspection-contract.md`.
+<!-- END SHARED-RULE:R-SLA-7 -->
+
+<!-- BEGIN SHARED-RULE:R-STRUCT-2 v1 generated=1 source=owner:elon -->
+> The schema the team consumes (card frontmatter, scripts, project registration) is maintained by Elon and the implementer.
+<!-- END SHARED-RULE:R-STRUCT-2 -->
+
+<!-- BEGIN SHARED-RULE:R-UI-1 v1 generated=1 source=owner:jobs -->
+> `R-UI-1` — UI fidelity; normative body: `team/guides/ui-align-sop.md §9.1`.
+<!-- END SHARED-RULE:R-UI-1 -->
+
+<!-- BEGIN SHARED-RULE:R-VERSION-2 v1 generated=1 source=owner:elon -->
+> `R-VERSION-2` — Release approval; normative body: `team/guides/release-versioning-sop.md`.
+<!-- END SHARED-RULE:R-VERSION-2 -->
 
 ## Role Duties (Standing Orders)
 

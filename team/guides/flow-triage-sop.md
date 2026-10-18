@@ -42,6 +42,18 @@
 
 ---
 
+## §9.4 Product/UX acceptance trigger (`R-UXACCEPT-1`)
+
+> For a card touching product/UI/UX, after Turing's functional test/regression passes, Elon coordinates Jobs' product acceptance; only then may the original card close.
+
+1. **Trigger**: the card's `project` touches product/UI/UX, or its Acceptance/Background contains UI/UX deliverables (interfaces, prototypes, design drafts, interaction flows).
+2. **Timing**: after Turing's functional pass (the card could be set to done but the product side is not yet verified).
+3. **Coordination**: Elon creates a card with `review_of=<original>` and dispatches Jobs; workers do not dispatch each other.
+4. **Closure**: Jobs reports; no open items ⇒ the original may close; issues ⇒ the defect loop (`R-DEFECT-1`).
+5. **Division of labor**: Elon coordinates/cards/dispatches; Jobs certifies UX/UI; Turing owns functional testing; Linus owns implementation.
+
+---
+
 ## Related
 
 - `PROTOCOL §10.5` — the L1 pointer.

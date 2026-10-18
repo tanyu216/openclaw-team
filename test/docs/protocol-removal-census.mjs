@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extractAtoms } from './doc-clause-diff.mjs';
+import { parseRuleBlocks, normalizeOwnerBlock } from '../../team/scripts/lib/agent-doc-blocks.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..', '..');
@@ -55,9 +56,9 @@ const RULES = [
   r('R-PUB-1', '对外发布审批/执行链/trail', 'elon', 'all', 'guide', 'team/guides/promo-ops-sop.md'),
   r('R-PUB-2', '渠道/账号 registry/gap', 'assistant', 'all', 'guide', 'team/guides/promo-ops-sop.md'),
   // §6 session orchestration
-  r('R-TOOL-LINUS', '代码只走 Claude Code', 'linus', ['linus'], 'owner'),
-  r('R-TOOL-JOBS', 'MCP/HTML/图像三条路径；closed stack；three.js 例外；product docs dual-sign', 'jobs', ['jobs'], 'guide', 'roles/jobs/guides/tool-discipline-sop.md'),
-  r('R-TOOL-TURING', '测试只走 codex exec；cap 3；registry = claude-sessions.json', 'turing', ['turing'], 'guide', 'roles/turing/guides/tool-discipline-sop.md'),
+  r('R-TOOL-1', '代码只走 Claude Code', 'linus', ['linus'], 'owner'),
+  r('R-TOOL-2', 'MCP/HTML/图像三条路径；closed stack；three.js 例外；product docs dual-sign', 'jobs', ['jobs'], 'guide', 'roles/jobs/guides/tool-discipline-sop.md'),
+  r('R-TOOL-3', '测试只走 codex exec；cap 3；registry = claude-sessions.json', 'turing', ['turing'], 'guide', 'roles/turing/guides/tool-discipline-sop.md'),
   r('R-SESSION-1', 'registry 唯一（claude-sessions.json；turing-runs.json 仅 legacy log）/caps/单一 spawn/poll/NDJSON/resume', 'linus', ['elon', 'jobs', 'linus', 'turing'], 'guide', 'team/guides/lane-session-lifecycle-sop.md'),
   r('R-SESSION-2', 'commit path discipline；禁 bare commit/-a', 'linus', 'all', 'owner'),
   r('R-SESSION-3', '破坏性 git 禁令/正向修复/禁 force push', 'linus', 'all', 'owner'),
@@ -157,7 +158,7 @@ const SECTION_MAP = {
   '4': { rules: ['R-REPORT-1', 'R-REPORT-2'], disposition: 'split', reason: 'templates vs self-assertion verification' },
   '5': { rules: ['R-MSG-1'], disposition: 'moved', reason: 'message discipline owner-canonical' },
   '5.1': { rules: ['R-PUB-1', 'R-PUB-2'], disposition: 'split', reason: 'approval vs channel/account registry' },
-  '6': { rules: ['R-TOOL-LINUS', 'R-TOOL-JOBS', 'R-TOOL-TURING', 'R-SESSION-1', 'R-SESSION-2', 'R-SESSION-3', 'R-SESSION-4'], disposition: 'split', reason: 'tool redlines split per owner; session/git rules split by mechanism' },
+  '6': { rules: ['R-TOOL-1', 'R-TOOL-2', 'R-TOOL-3', 'R-SESSION-1', 'R-SESSION-2', 'R-SESSION-3', 'R-SESSION-4'], disposition: 'split', reason: 'tool redlines split per owner; session/git rules split by mechanism' },
   '6.0': { rules: ['R-SEG-1'], disposition: 'guide', reason: 'body already in seg-continuity-sop; fix the conflicting sentence' },
   '6.1': { rules: ['R-ENG-1', 'R-ENG-2', 'R-ENG-3'], disposition: 'guide', reason: 'pointer section; body lives in engineering-standards-sop' },
   '6.2': { rules: ['R-MODEL-1'], disposition: 'guide', reason: 'body lives in spawn-lane-sop §10; fix duplicate heading' },
@@ -329,6 +330,21 @@ function bareRefsCensus() {
   return { total, unresolved };
 }
 
+
+/** 从实际 owner 块读取最终 carriers，保证 census 与 marker 一致。 */
+function actualCarriers() {
+  const out = new Map();
+  for (const role of ROLES) {
+    const p = path.join(REPO, 'roles', role, 'AGENTS.md');
+    if (!fs.existsSync(p)) continue;
+    for (const b of parseRuleBlocks(fs.readFileSync(p, 'utf8'))) {
+      if (b.kind !== 'owner') continue;
+      try { out.set(b.id, normalizeOwnerBlock(role, b).carriers); } catch { /* reported elsewhere */ }
+    }
+  }
+  return out;
+}
+
 export function buildCensus() {
   const sources = [
     ['team/PROTOCOL.md', 'PROTOCOL'],
@@ -356,6 +372,8 @@ export function buildCensus() {
     }
   }
 
+  const actual = actualCarriers();
+  for (const r of RULES) if (actual.has(r.id)) r.carriers = actual.get(r.id);
   const referenced = new Set(sections.flatMap((s) => s.ruleIds));
   for (const id of referenced) if (!RULE_IDS.has(id)) throw new Error(`unknown rule ${id}`);
   const orphanRules = RULES.filter((r) => !referenced.has(r.id)).map((r) => r.id);

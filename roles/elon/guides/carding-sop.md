@@ -125,3 +125,14 @@ A flow's chain **does not remove** the review participants the card's nature dem
 **Rolling sample (the statistical safety net)**: Turing machine-samples **20% per week** of the B/C cards that were accepted, and Jobs visual spot-checks **the same batch**; a drift found by the sample ⇒ defect ticket, and the finding tightens **the class**, not just the spot (never fix only the single occurrence). The sample is executed by Turing/Jobs; Elon **audits their reports** (he does not run it).
 
 **Sampling rule**: the weekly unit is the **B/C cards accepted during that week**, counted **by card**; the sample size is **20% of that count, rounded to the nearest integer and never below 1** (`max(1, round(0.2 × N))` — so a week with a single accepted B/C card still samples that one). **Turing** draws the cards and re-runs the **machine assertions**; **Jobs** visual-spot-checks **the same batch**; both reports go to Elon as **one batch**, which is the report set he audits for the sampled cards (never card by card, and never a substitute for the per-card delivery evidence).
+
+## 7.3 Jobs prerequisite task (`R-PREREQ-1`)
+
+> A flow-A card whose implementation baseline is not frozen needs a design contract first.
+
+1. **Trigger**: flow A whose baseline is an unfrozen design (in practice, every UI feature card sourced from Jobs). B/C reuse the frozen contract.
+2. **Form**: Elon creates the prerequisite card (`assignee: jobs`, own Acceptance); Jobs produces the design contract (PRD / `DESIGN.md` / prototype structural contract + ui-align block list + machine-check points) in `workspace/<task-id>/`. The product design document still passes the Jobs-authors → Elon-confirms dual-sign gate.
+3. **Dependency (hard)**: the development card carries `depends_on: [<prerequisite card>]`; while unmet it is `deps_unmet` and must not be claimed.
+4. **Iteration stays inside the prerequisite card**: operator-facing design rounds are its production/review loop, not development segs; only the frozen output is handed to Linus.
+5. **Re-entry**: if implementation proves the contract wrong or self-contradictory, Linus sets the card `blocked` and sends it back; Elon routes it to Jobs as a design change on the prerequisite, never a silent in-card deviation.
+6. **Reuse**: once frozen, the contract serves every B/C card on that surface; it is produced once per surface.

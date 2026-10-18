@@ -202,6 +202,8 @@ export function titleOf(meta, payload) {
   if (meta && meta.title) return meta.title;
   const line = String(payload || '').split('\n').find((l) => l.trim() && !l.trim().startsWith('<!--'));
   if (!line) return '';
+  const short = line.match(/—\s*(.+?);\s*normative body:/);
+  if (short) return short[1].trim();
   return line.replace(/^[>\s#*`-]+/, '').replace(/\*\*/g, '').replace(/[.:。]+$/, '').slice(0, 100);
 }
 

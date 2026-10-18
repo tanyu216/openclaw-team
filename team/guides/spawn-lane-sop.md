@@ -202,7 +202,7 @@ bash ~/.openclaw/team/scripts/spawn-lane.sh <card> turing --review backend=codex
 - Output JSON carries `role: "review"`, `branch`, `branch_source`, `review_sha`, and `review_readonly` (`settings` | `sandbox`) so a caller can tell the lanes apart and see what was pinned.
 ---
 
-## 10. Workspace settings preset (`settings: exists | created | would_create`)
+## 9.1 Workspace settings preset (`settings: exists | created | would_create`)
 
 `claude` is launched with `--settings workspace/<task-id>/.claude/settings.json`, and **the file is a preflight requirement**: if it is missing, the lane dies at once with `Settings file not found` (the spawn "succeeds" — a pid exists — but the session is dead on arrival, and the registry then holds a zombie). So the entry presets it **before** spawning:
 
