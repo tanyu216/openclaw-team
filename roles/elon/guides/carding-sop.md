@@ -96,12 +96,13 @@ A flow's chain **does not remove** the review participants the card's nature dem
 
 - **Criterion (one line)**: ask whether the two segs are the **same Acceptance**. Same Acceptance ⇒ a seg *may* be legitimate (and only if it fits the whitelist below); different Acceptance ⇒ **split the card**.
 - **The intuition, rewritten explicitly**: **"card is big ⇒ split the card"** (NOT "card is big ⇒ open a pile of segs"). Opening segs to cope with size uses an execution tool to hide "the breakdown was not done".
-- **seg whitelist (only these four; each must still share a single Acceptance)**:
+- **A seg is a session boundary, not a branch boundary**: all segments of one card share the same branch `<card-id>` and worktree, and run serially. There is no intra-card parallel lane.
+- **seg whitelist (only these three; each must still share a single Acceptance)**:
   1. **the current lane cannot reach the environment** (the run must continue in another window — deterministic UUIDv5 + resume, `§6`);
   2. **bounded retry** where reopening the whole card costs more than re-running the failing seg;
-  3. **≥2 mutually-exclusive file families + a single acceptance** run as parallel probes (splitting into cards would make each demand its own acceptance);
-  4. **independent verification isolated from the author** (fresh context, no anchoring — anti-confirmation-bias).
-- **Split triggers (any one ⇒ split the card; do not open a seg)**: ① a **second independent Acceptance** appears; ② **≥2 independently-acceptable deliverables**; ③ a different **phase / delivery surface**; ④ a fix touching **more than one Acceptance**; ⑤ **different roles** must accept separately.
+  3. **independent verification isolated from the author** (fresh context, no anchoring — anti-confirmation-bias).
+- **Parallelism is not a seg reason**: work that must proceed in parallel is **split into separate cards** (each with its own branch), or serialized. "≥2 mutually-exclusive file families + one acceptance" is a **split trigger**, not a seg reason — keeping them in one card would force them to run serially.
+- **Split triggers (any one ⇒ split the card; do not open a seg)**: ① a **second independent Acceptance** appears; ② **≥2 independently-acceptable deliverables**; ③ a different **phase / delivery surface**; ④ a fix touching **more than one Acceptance**; ⑤ **different roles** must accept separately; ⑥ the parts **must run in parallel** (or are mutually-exclusive file families under one acceptance).
 - **Anti-patterns (forbidden)**:
   ① opening a pile of segs because "the card is big" ⇒ the correct action is **split the card**;
   ② **phase / delivery-surface segmentation** ⇒ should be **epic child cards** (`§10.2`, each with its own Acceptance/claim/acceptance);

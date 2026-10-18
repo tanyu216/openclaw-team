@@ -19,11 +19,11 @@
 
 > **Normative clauses** delegated from `PROTOCOL §6.4` (`PROTOCOL §17` rule 6). The mechanics and the end-to-end sequence follow below.
 
-- **Development integrates on the long-lived branch `dev`; no role develops on `main`.** Every development task — **Linus, Jobs, Turing alike** — runs on its own **card branch** (`<card-id>`, or `<card-id>-<seg>` for a continuation segment), in a **dedicated git worktree**. `main` is the protected release branch and is **never a development base** — its only write is the explicit `dev → main` integration/release step. A card's product **merges into `dev`**.
+- **Development integrates on the long-lived branch `dev`; no role develops on `main`.** Every development **card** — **Linus, Jobs, Turing alike** — runs on its own **card branch `<card-id>`**, in a **dedicated git worktree**. **One card = one branch = one worktree**: every segment of that card is a new *session* on the same branch and tree, never a new branch. `main` is the protected release branch and is **never a development base** — its only write is the explicit `dev → main` integration/release step. A card's product **merges into `dev`**.
 - **The main checkout holds `dev`.** The tree a worker stands in *is* the integration tree. The `dev → main` step is therefore done from a **throwaway worktree**, not by flipping the main checkout's branch.
-- **Isolation is the lane's own act, not the spawner's.** `scripts/spawn-lane.sh` neither decides nor creates worktrees: cwd is always the repo root, and the lane follows the **`using-git-worktrees`** skill, whose git fallback places the tree at `<repo>/.worktrees/<branch>` (git-ignored). The lane prompt supplies the two things the skill cannot know — the **authorisation** and the **branch name**. The skill prefers a native worktree tool when the harness provides one, and falls back to `git worktree add`.
-- **The branch is based on `dev`.** Because the main checkout holds `dev`, the skill's implicit `HEAD` base **is** `dev`. Consequences: a **continuation** segment may only start once the previous segment's branch has been **merged into `dev`**, and **rework of an unmerged branch stays in the same worktree**.
-- **A card's product must be merged into `dev` before the card is closed.** The merge into `dev` is a **precondition of the terminal `done`**, not a cleanup step after it: the lane owner merges the card branch and the Report carries the **merged sha / the `dev` tip**; **Elon's acceptance confirms the merge landed and records it on the card** before setting `done`. An **unmerged branch is not evidence of delivery**, so a card whose product was never merged must **not** reach `done` — send it back to the owner to merge first. The closeout order is **merge → remove the worktree → delete the card branch** (`git branch -d`, never `-D`: the safe form refuses an unmerged branch). `scripts/check-merge.mjs` machine-checks the merge at the gate, and its residual limits are in `§20.2`.
+- **Isolation is the lane's own act, not the spawner's.** `scripts/spawn-lane.sh` neither decides nor creates worktrees: cwd is always the repo root, and the lane follows the **`using-git-worktrees`** skill, whose git fallback places the tree at `<repo>/.worktrees/<card-id>` (git-ignored). The lane prompt supplies what the skill cannot know — the **authorisation**, the **branch name**, and whether this is a **first entry** (create the branch/tree, `-b`) or a **continuation** (re-enter the existing branch/tree; never `-b`). A **review lane** creates no branch or tree: it re-enters the card worktree read-only at a pinned commit.
+- **The branch is based on `dev`.** Because the main checkout holds `dev`, the skill's implicit `HEAD` base **is** `dev` on first entry. After that the card branch is **reused as-is** by every later segment: a segment is a **session boundary, not a merge boundary**, so there is **no merge between segments** and no intermediate sync of `dev` into the card branch. **Rework of an unmerged branch stays in the same worktree.** (A card that lives long enough for the deferred merge to become painful should be split; the conflict is resolved once at closeout.)
+- **A card's product must be merged into `dev` before the card is closed.** The merge into `dev` is a **precondition of the terminal `done`**, not a cleanup step after it: because every segment shares one branch, the lane owner merges the card branch **once, at card level** (never per segment), and the Report carries the **merged sha / the `dev` tip**; **Elon's acceptance confirms the merge landed and records it on the card** before setting `done`. An **unmerged branch is not evidence of delivery**, so a card whose product was never merged must **not** reach `done` — send it back to the owner to merge first. The closeout order is **merge → remove the worktree → delete the card branch** (`git branch -d`, never `-D`: the safe form refuses an unmerged branch). `scripts/check-merge.mjs` machine-checks the merge at the gate, and its residual limits are in `§20.2`.
 - **Never commit on the protected branch; branch names are resolved, not assumed.** A direct commit on a protected branch is **refused** by `scripts/branch-guard.mjs`; run it before committing. Commits legitimately land on a card branch (and on `dev` for the integration step) — the rule is "not on the protected branch". The protected set is *the repo's own default branch* (detected locally from `refs/remotes/origin/HEAD`) **union** `main` and `master`; a detection failure does **not** shrink the set, and `OPENCLAW_PROTECTED_BRANCHES` / `--protected` pins it exactly (an explicit set is taken **as written**, never unioned). The `dev → main` step is the one sanctioned direct-to-protected action and must pass the guard's explicit `--allow-protected` escape, whose `overridden:true` is its trail. The integration branch is likewise configurable — `OPENCLAW_TEAM_INTEGRATION_BRANCH` (default `dev`), resolved in **one** place and read by **both** the merge gate and the lane prompt (disagreeing is a silent failure); with no resolvable integration branch the merge check is **skipped with a note**, never reddened. Bootstrapping such a repo: `guides/dev-worktree-flow-sop.md`.
 
 ---
@@ -47,10 +47,13 @@ asking"* — so the preference has to arrive **in the prompt**. That is the enti
 is why `buildPrompt` carries the authorisation and the branch name:
 
 - **authorisation** — "set one up before you start — you are authorised, do NOT ask for consent";
-- **branch name** — `<card>-<seg>`, which the merge gate later uses to attribute the tree to a card.
+- **branch name** — `<card-id>`, which the merge gate later uses to attribute the tree to a card; a legacy `<card-id>-<seg>` is tolerated only for in-flight trees created before this convention.
 
 A native worktree tool, when the harness provides one, takes precedence inside the skill (Step 1a);
-the framework supplies no such tool today, so lanes use the skill's git fallback (Step 1b).
+the framework supplies no such tool today, so lanes use the skill's git fallback (Step 1b). If a
+harness-native tool is ever used, it must land the tree at the **absolute path** supplied in the
+prompt (`.worktrees/<card-id>` under `git rev-parse --show-toplevel`); a tree anywhere else is
+invisible to `check-merge.mjs`.
 
 **Layer boundary worth restating**: the spawner used to decide *whether* to isolate and *where to
 branch from*. It no longer does either (`PROTOCOL §6.4`). What it still guarantees is that the lane
@@ -65,15 +68,20 @@ an owner for the terminal write.
 |---|---|---|---|
 | 1 | card dispatched (`todo`/`ready` → claimed) | Elon / poll | **machine** — claim is atomic (`lib.mjs#claimCard`) |
 | 2 | `spawn-lane.sh <card> <owner> [seg] [backend]` — claim → handoff → settings → spawn → `session-set` → arm reaper | spawner | **machine** — any failure refuses the spawn (zero side effects) |
-| 3 | lane reads its prompt: authorised to isolate · branch `<card>-<seg>` · base = the integration branch | spawner → lane | **machine** — the prompt is generated (`buildPrompt`) |
-| 4 | lane creates/enters `.worktrees/<branch>` | **lane** (`using-git-worktrees`) | **prose** — the skill instructs it; nothing verifies it happened |
+| 3 | lane reads its prompt: authorised to isolate · branch `<card-id>` · first entry (base = integration branch) **or** continuation (reuse existing branch/tree) | spawner → lane | **machine** — the prompt is generated (`buildPrompt`) |
+| 4 | lane creates `.worktrees/<card-id>` on first entry, then **re-enters** it on every later segment | **lane** (`using-git-worktrees`) | **prose** — the skill instructs it; nothing verifies it happened |
 | 5 | work; commits use **explicit paths** | lane | **prose** + `commit-guard.mjs` (SOP-invoked, not a git hook) |
 | 6 | Report written: conclusion · branch · commit sha · **merged sha** | lane | **machine (partial)** — `check-report.mjs` checks slot *presence* only; the merged sha is not a checked slot |
-| 7 | owner merges the card branch into the integration branch | lane owner | **prose** |
+| 7 | owner merges the **card branch once** into the integration branch | lane owner | **prose** |
 | 8 | Elon accepts: confirms the merge landed, records the merged sha, sets `done` | Elon | **prose** — the `done` write is *git-blind* (ACL requires only actor + non-terminal) |
 | 9 | gate re-checks: a `done` card's worktree must be an ancestor of the integration branch | gate | **machine** — `check-merge.mjs` (`PROTOCOL §20.1`) |
 | 10 | worktree removed | owner | **prose** — and only **after** the merge |
 | 11 | card branch deleted (`git branch -d`) | owner | **machine-safe** — `-d` (never `-D`) refuses an unmerged branch |
+
+A **review lane** (`role=review`) runs after the execution lane has ended and does not appear in this
+merge sequence: it creates no branch and no tree, re-enters the card worktree read-only at the
+spawn-time tip, and writes `workspace/<id>/review-report.md`. It is refused while any other lane on
+the card is live (`review_needs_quiet_card`).
 
 **The order in steps 7–11 is the load-bearing part.** "Merge, *then* remove" is not tidiness: a
 removed worktree is invisible to `check-merge.mjs`, so removing first silently converts step 9 from a
@@ -97,16 +105,24 @@ behaviour is the default and no judgement call is needed.
 
 ### 2.1 Continuation and rework
 
-Because the base is the skill's implicit `HEAD` and the main checkout holds the **integration branch**
-(`dev` by default — `OPENCLAW_TEAM_INTEGRATION_BRANCH`; `PROTOCOL §6.4`), `HEAD` **is** that branch.
-Two rules follow, and both replace machinery that used to exist:
+The card branch is created **once**, on the first segment, from the **integration branch** (`dev` by
+default — `OPENCLAW_TEAM_INTEGRATION_BRANCH`; `PROTOCOL §6.4`). Every later segment **re-enters the
+same branch and worktree**:
 
-- **A continuation segment may only start once the previous segment's branch is merged in.** Otherwise
-  its tree is built on an integration branch that lacks the earlier segment.
+- **A segment is a session boundary, not a merge boundary.** There is **no merge between segments**
+  and no intermediate sync of `dev` into the card branch; the branch is merged exactly once, before
+  `done`. This is deliberate: segment-level merges used to put unaccepted work on `dev`.
 - **Rework of an unmerged branch stays in the same worktree.** Sending a card back for changes is not
   a reason to build a second tree on a base that lacks the first one's commits.
+- **Legacy in-flight cards.** If the card already has a legacy execution branch (`<card-id>-segN`) and
+  no `<card-id>` branch, the spawner reuses that branch. Multiple legacy candidates, or a `<card-id>`
+  branch that does not contain the legacy tip, **refuse the spawn** (`legacy_branch_ambiguous` /
+  `legacy_not_ancestor`) — reconcile first; never silently start a second line of history.
 
-Both are prose, and step 9 is what makes them bite: an unmerged branch cannot reach `done`.
+The reuse rule is prose at the lane layer; the legacy ambiguity rules are **machine-refused by the
+spawner** before the claim (`legacy_branch_ambiguous` / `legacy_not_ancestor`), so a bad resolution
+never starts a lane. Step 9 (merge before `done`) is what makes the merge rule bite: an unmerged
+branch cannot reach `done`.
 
 **Why the release step uses a throwaway worktree.** The main checkout holds the integration branch, so
 `main` has no long-lived checkout. The `dev → main` step is therefore done from a throwaway worktree
@@ -128,7 +144,7 @@ integration target — create it once (`git branch dev <base>` and push), or poi
 
 | | location | created by | in this repo |
 |---|---|---|---|
-| **this flow** | `<repo>/.worktrees/<branch>` — **inside** the repo | the lane, via the skill's git fallback | ✅ the only sanctioned spot |
+| **this flow** | `<repo>/.worktrees/<card-id>` — **inside** the repo | the lane, via the skill's git fallback | ✅ the only sanctioned spot |
 | the skill's own default (Step 1b) | same path | same | ✅ — the flow and the skill **agree**; no reconciliation needed |
 | a harness-native tool (e.g. `EnterWorktree`) | `.claude/worktrees/` — elsewhere | the harness | ❌ not used; no lane has such a tool |
 
@@ -151,9 +167,11 @@ This table is the point of the guide. Read it before trusting any claim that a s
 | session终态 write happens even on crash | **machine** | `lane-reaper.mjs` (fail-closed arm) |
 | the Report carries its core slots | **machine** | `check-report.mjs` — **slot presence only**, not semantics |
 | the Report names the branch / merged sha | **prose** | slot A2 carries them as free text; no check reads them |
-| the lane actually created a worktree | **prose** | the skill instructs it; nothing verifies |
-| the branch was based on the integration branch | **prose** | follows from the main checkout's branch; unverified per lane |
-| the branch is merged into the integration branch before `done` | **machine (partial)** | `check-merge.mjs` — see the gaps below |
+| the lane created the card worktree on first entry | **prose** | the skill instructs it; nothing verifies |
+| a continuation segment **re-entered** the card branch/tree (no new branch, no `-b`) | **prose** | the prompt instructs it; nothing verifies |
+| the branch was based on the integration branch on first entry | **prose** | follows from the main checkout's branch; unverified per lane |
+| the card branch is merged into the integration branch before `done` | **machine (partial)** | `check-merge.mjs` — see the gaps below |
+| a review lane is read-only and creates no branch/tree | **machine (partial)** | claude: `settings.review.json` + `dontAsk`; codex: `--sandbox read-only`; the prompt's "do not write" rule is prose |
 | same-file write conflict ⇒ serialized | **machine (warn only)** | `samefile-guard.mjs` reports; nothing blocks a start |
 | no direct commit on the release branch | **prose** | `branch-guard.mjs` is SOP-invoked, not a git hook; it resolves the protected set per repo (default branch ∪ `main` ∪ `master`) |
 | the card branch is deleted after the merge (`PROTOCOL §6.4`) | **prose, safe by construction** | nothing checks it — but `git branch -d` (never `-D`) refuses an unmerged branch, so the failure mode is "the branch lingers", not "work is lost" |
@@ -172,7 +190,9 @@ note**, never reddened.
 worktree is invisible; a branch name that does not carry the card id escapes attribution; it covers
 only "not merged", not whether the merge was any good; and a merged result can be reverted afterwards.
 The invariant therefore remains **prose-enforced at the moment `done` is written** — the gate is the
-backstop for that discipline, not a replacement for it.
+backstop for that discipline, not a replacement for it. During migration a card may temporarily have
+**two** trees (`<card-id>` plus a legacy `<card-id>-segN`); each is checked independently, so removing
+one tree early hides only that branch — remove every tree only after its branch is merged.
 
 ---
 

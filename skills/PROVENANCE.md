@@ -56,17 +56,25 @@ lane runs `using-git-worktrees`, whose git fallback puts the tree at
 reconcile. `.worktrees/` is pre-ignored in `.gitignore`, which matters because the skill's
 Step 1b **mandates** that precondition before it will create a tree there.
 
-Two things the framework supplies that the skill cannot infer, both in the lane prompt
+What the framework supplies that the skill cannot infer, all in the lane prompt
 (`buildPrompt`):
 
 - **authorisation** — Step 0 otherwise asks *the user* for consent, and a lane is a headless
   `claude -p` process with no user to answer; the skill honours a declared preference, so
   the prompt declares one;
-- **the branch name** — `<card>-<seg>`, which `scripts/check-merge.mjs` later uses to
-  attribute the tree to a card at closeout.
+- **the branch name** — `<card-id>`, one branch for the whole card (all segments reuse it),
+  which `scripts/check-merge.mjs` later uses to attribute the tree to a card at closeout;
+- **first entry vs continuation** — create the branch/tree with `-b` on the first segment;
+  on every later segment **re-enter** the existing tree and never `-b` (the skill's fallback
+  always creates a branch, so the prompt must override it);
+- **the absolute worktree path** — `<show-toplevel>/.worktrees/<card-id>`, so the tree lands
+  where the merge gate scans;
+- **review lanes create no branch/tree** — they re-enter the card tree read-only at a pinned
+  commit.
 
-The base needs no machinery: the skill bases on implicit `HEAD`, and the main checkout holds
-`dev` (`PROTOCOL §6.4`), so `HEAD` *is* `dev`.
+On **first entry** the base needs no machinery: the skill bases on implicit `HEAD`, and the
+main checkout holds `dev` (`PROTOCOL §6.4`), so `HEAD` *is* `dev`. Later segments reuse the
+card branch; there is no merge between segments.
 
 Normative source: `PROTOCOL §6.4`; sequence and closure strength:
 `guides/dev-worktree-flow-sop.md`.

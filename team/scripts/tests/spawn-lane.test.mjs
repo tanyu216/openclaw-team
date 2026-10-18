@@ -64,7 +64,7 @@ const LAYOUT = PROVIDER ? (() => {
 // 这些名字在 live 版里是模块级常量；此处由受保护的 setup 赋值（无 provider ⇒ 保持 undefined，
 // 但那时所有 test 都 SKIP，回调不会执行）。
 let TASKS, WS, BIN, REG, STUB, CODEX_STUB;
-let spawnLane, parseArgs, buildCommand, buildPrompt, sessionIdFor, sessionSet, checkSessions, checkHandoff, anchorGaps, upsertSessionEntry;
+let spawnLane, parseArgs, buildCommand, buildPrompt, cardBranchName, resolveCardBranch, reviewSettings, sessionIdFor, sessionSet, checkSessions, checkHandoff, anchorGaps, upsertSessionEntry;
 let spawnRunningCount, pollRunningCount, pollClaimBudget;
 
 if (LAYOUT) {
@@ -75,7 +75,7 @@ if (LAYOUT) {
   process.env.OPENCLAW_TEAM_ROOT = LAYOUT;
 
   const staged = (rel) => import(pathToFileURL(path.join(LAYOUT, rel)).href);
-  ({ spawnLane, parseArgs, buildCommand, buildPrompt, runningCount: spawnRunningCount } = await staged('scripts/spawn-lane.mjs'));
+  ({ spawnLane, parseArgs, buildCommand, buildPrompt, cardBranchName, resolveCardBranch, reviewSettings, runningCount: spawnRunningCount } = await staged('scripts/spawn-lane.mjs'));
   ({ runningCount: pollRunningCount, claimBudget: pollClaimBudget } = await staged('scripts/poll.mjs'));
   ({ sessionIdFor, sessionSet } = await staged('skills/task-ops/lib/task.mjs'));
   ({ checkSessions } = await staged('scripts/check-sessions.mjs'));
@@ -157,6 +157,29 @@ const writeHandoff = (id, content) => {
   fs.mkdirSync(path.join(WS, id), { recursive: true });
   fs.writeFileSync(path.join(WS, id, 'handoff.md'), content);
 };
+
+/** 真 git 仓 fixture（`--show-toplevel` / 分支解析用）；每个调用独立目录。 */
+const GIT_ENV = {
+  ...process.env,
+  GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.com',
+  GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.com',
+};
+function mkRepo(id) {
+  const dir = path.join(LAYOUT, `repo-${id}`);
+  fs.mkdirSync(dir, { recursive: true });
+  const git = (...args) => {
+    const r = spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', env: GIT_ENV });
+    assert.equal(r.status, 0, `git ${args.join(' ')}: ${r.stderr || r.error}`);
+    return String(r.stdout || '').trim();
+  };
+  git('init', '-q', '-b', 'dev');
+  git('config', 'user.name', 't');
+  git('config', 'user.email', 't@example.com');
+  fs.writeFileSync(path.join(dir, 'a.txt'), 'a\n');
+  git('add', 'a.txt');
+  git('commit', '-q', '-m', 'base');
+  return { dir, git };
+}
 const cardRaw = (id) => fs.readFileSync(path.join(TASKS, `${id}.md`), 'utf8');
 const registryEntries = (id) => (fs.existsSync(REG) ? JSON.parse(fs.readFileSync(REG, 'utf8')).filter((e) => e.task_id === id) : []);
 
@@ -475,18 +498,19 @@ test('GREEN-6. 复核 lane：role=review 对 in_review ⇒ 卡+registry 同写�
   assert.equal(checkHandoff().ok, true, JSON.stringify(checkHandoff()));
 });
 
-test('GREEN-7. 复核 lane --dry-run：只校验+打印（settings/handoff=would_create，pid=null，零副作用）', { skip: SKIP }, () => {
+test('GREEN-7. 复核 lane --dry-run：只校验+打印（codex settings=n/a、handoff=would_create，pid=null，零副作用）', { skip: SKIP }, () => {
   const id = 'T-20260101-100018-review-dry';
   writeCard(id, { status: 'in_review', claimed: 'linus', segs: [] });
   const r = spawnLane({ card: id, owner: 'turing', backend: 'codex', role: 'review', dryRun: true });
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.equal(r.role, 'review');
   assert.equal(r.pid, null);
-  assert.equal(r.settings, 'would_create');
+  assert.equal(r.settings, 'n/a', 'codex 复核不消费 --settings（read-only + -o）');
   assert.equal(r.handoff, 'would_create');
   assert.equal(fs.existsSync(REG), false, 'dry-run 不得写 registry');
   assert.equal(cardRaw(id).includes('status: in_review'), true, 'dry-run 不得改卡');
   assert.equal(fs.existsSync(path.join(WS, id, '.claude', 'settings.json')), false, 'dry-run 不得落 settings');
+  assert.equal(fs.existsSync(path.join(WS, id, '.claude', 'settings.review.json')), false, 'codex 复核不生成 review settings');
   assert.equal(fs.existsSync(path.join(WS, id, 'handoff.md')), false, 'dry-run 不得生成 handoff');
 });
 
@@ -527,13 +551,13 @@ test('GREEN. 僵尸登记（pid 已死）⇒ 不占用，允许起会话（交 r
   assert.equal(r.seg, 'seg1');
 });
 
-test('GREEN. 同卡不同 seg（复核 lane segR1 对执行侧 seg1 在跑）⇒ 各跑各的，不误拒', { skip: SKIP }, () => {
+test('REJECT. 复核 lane 遇同卡活跃 lane ⇒ review_needs_quiet_card（执行 lane 必须先结束）', { skip: SKIP }, () => {
   const id = 'T-20260101-100022-diff-seg';
   const live = `- seg:seg1 · owner:linus · backend:claude · id:56565656-5656-5656-8656-565656565656 · phase:seg1 · status:running · pid:${process.pid} · 2026-01-01T00:00:00.000Z`;
   writeCard(id, { status: 'in_review', claimed: 'linus', segs: [live] });
   const r = spawnLane({ card: id, owner: 'turing', backend: 'codex', role: 'review', dryRun: true });
-  assert.equal(r.ok, true, JSON.stringify(r));
-  assert.equal(r.seg, 'segR1');
+  assert.equal(r.ok, false, JSON.stringify(r));
+  assert.match(r.reason, /^review_needs_quiet_card\(live=seg1\(pid=/, r.reason);
 });
 
 // ── 项3：codex lane 的报告落点写权（T-20261013-164816） ────────────────────────
@@ -570,18 +594,36 @@ test('RED-8. buildCommand：codex 分支须授予报告落点写权（--sandbox 
   assert.equal(got.args[got.args.length - 1], 'P', `prompt 须在末位（旗标前置），实际 ${JSON.stringify(got.args)}`);
 });
 
-test('RED-9. codex 复核 lane 经单一入口产出的 cmd 含等效写权参数（缺则红）', { skip: SKIP }, () => {
+test('RED-9. codex 复核 lane：--sandbox read-only + -o 报告，不授写权', { skip: SKIP }, () => {
   const id = 'T-20260101-100024-codex-write';
   writeCard(id, { status: 'in_review', claimed: 'linus', segs: [] });
   const r = spawnLane({ card: id, owner: 'turing', backend: 'codex', role: 'review', dryRun: true });
   assert.equal(r.ok, true, JSON.stringify(r));
 
   const wsDir = path.join(WS, id);
-  assert.equal(flagValue(r.cmd, '--sandbox'), 'workspace-write', `实际 argv=${JSON.stringify(r.cmd)}`);
-  assert.equal(flagValue(r.cmd, '--add-dir'), wsDir, `实际 argv=${JSON.stringify(r.cmd)}`);
-  assert.ok(r.cmd.includes(wsDir) && r.cmd.includes(LAYOUT), `实际 argv=${JSON.stringify(r.cmd)}`);
+  assert.equal(flagValue(r.cmd, '--sandbox') ?? flagValue(r.cmd, '-s'), 'read-only', `实际 argv=${JSON.stringify(r.cmd)}`);
+  assert.equal(flagValue(r.cmd, '-o') ?? flagValue(r.cmd, '--output-last-message'),
+    path.join(wsDir, 'review-report.md'), `实际 argv=${JSON.stringify(r.cmd)}`);
+  assert.equal(flagValue(r.cmd, '--add-dir'), null, 'read-only 复核不再授 --add-dir 写根');
+  assert.equal(r.review_readonly, 'sandbox');
   // prompt 末位：命令须能被 codex 解析（旗标在 prompt 前）
   assert.match(r.cmd[r.cmd.length - 1], /report\.md\.?$/, `prompt 须在末位，实际 ${JSON.stringify(r.cmd)}`);
+});
+
+test('GREEN-9. claude 复核 lane：settings.review.json + dontAsk + 不等待权限', { skip: SKIP }, () => {
+  const id = 'T-20260101-100024-claude-review';
+  writeCard(id, { status: 'in_review', claimed: 'linus', segs: [] });
+  const r = spawnLane({ card: id, owner: 'turing', backend: 'claude', role: 'review', dryRun: true });
+  assert.equal(r.ok, true, JSON.stringify(r));
+
+  const text = r.cmd.join(' ');
+  assert.match(text, /--permission-mode dontAsk/, text);
+  assert.match(text, /--permission-prompts none/, text);
+  assert.ok(r.cmd.includes(path.join(WS, id, '.claude', 'settings.review.json')), text);
+  assert.equal(r.settings, 'would_create');
+  assert.equal(r.review_readonly, 'settings');
+  const promptArg = r.cmd[r.cmd.indexOf('-p') + 1];
+  assert.match(promptArg || '', /report\.md\.?$/, text);
 });
 
 test('GREEN-8. buildCommand：claude 分支 argv 逐字节不变（本卡只动 codex 分支）', { skip: SKIP }, () => {
@@ -636,23 +678,19 @@ test('REJECT. ①b L1③ registry `phase` 标签 ≠ seg（phase=seg1-verify，s
   assert.equal(r.session.source, 'registry_session', '命中判据应为 session_id，而非 phase 标签');
 });
 
-test('GREEN. ①b2 越过：parallel=1 显式声明同一计划并行分段 ⇒ 放行；但 L1（同 lane 身份）不可越', { skip: SKIP }, () => {
+test('REJECT. parallel=1 已移除 ⇒ 程序化调用与 CLI 均明确拒绝（不是静默 no-op）', { skip: SKIP }, () => {
   const id = 'T-20260101-100025-parallel';
   const live = `- seg:seg1 · owner:linus · backend:claude · id:88888888-8888-5888-8888-888888888888 · phase:seg1 · status:running · pid:${process.pid} · 2026-01-01T00:00:00.000Z`;
   writeCard(id, { status: 'in_progress', claimed: 'linus', segs: [live] });
 
-  const ok = spawnLane({ card: id, owner: 'linus', seg: 'seg2', backend: 'claude', dryRun: true, parallel: '1' });
-  assert.equal(ok.ok, true, JSON.stringify(ok));
-  assert.equal(ok.seg, 'seg2');
+  const r = spawnLane({ card: id, owner: 'linus', seg: 'seg2', backend: 'claude', dryRun: true, parallel: '1' });
+  assert.equal(r.ok, false, JSON.stringify(r));
+  assert.equal(r.reason, 'removed_arg:parallel');
 
-  const dup = spawnLane({ card: id, owner: 'linus', seg: 'seg1', backend: 'claude', dryRun: true, parallel: '1' });
-  assert.equal(dup.ok, false, JSON.stringify(dup));
-  assert.match(dup.reason, /^session_running\(seg=seg1,/, dup.reason);
-});
-
-test('UNIT. parseArgs：parallel=1 透传；未声明 ⇒ 空（默认不越过 ①b2）', { skip: SKIP }, () => {
-  assert.equal(parseArgs(['C', 'linus', 'parallel=1']).parallel, '1');
-  assert.equal(parseArgs(['C', 'linus']).parallel, '', '默认不声明并行 ⇒ ①b2 生效');
+  const a = parseArgs(['C', 'linus', 'parallel=1']);
+  assert.equal(a.ok, false);
+  assert.equal(a.reason, 'removed_arg:parallel');
+  assert.equal(parseArgs(['C', 'linus']).parallel, undefined, '解析结果不再有 parallel 字段');
 });
 
 test('NEG-④ 并发两执行 turn ⇒ 仅一执行：首条真起 lane，第二条在 spawn 前被拦（不派生第二 lane）', { skip: SKIP }, () => {
@@ -682,48 +720,218 @@ test('NEG-④ 并发两执行 turn ⇒ 仅一执行：首条真起 lane，第二
 // ---------------------------------------------------------------------------
 
 const PROMPT_ARGS = { handoffPath: '/ws/handoff.md', cardPath: '/tasks/T.md', reportPath: '/ws/report.md' };
-// 这五例**结构上**需要 provider：`buildPrompt` 由 `scripts/spawn-lane.mjs` 导出，而后者**静态**
-// import `skills/task-ops/lib/task.mjs`（ACL）。无 provider ⇒ 模块根本 import 不进 ⇒ `buildPrompt`
-// 恒 undefined。故与本文件其余各例同口径带 `{ skip: SKIP }`（82adb81 加这五例时漏了，
-// 于是无 provider 的检出里 beforeEach 先炸、慢段读红）。
+// 这些例子结构上需要 provider：`buildPrompt` 由 `scripts/spawn-lane.mjs` 导出，而后者**静态**
+// import `skills/task-ops/lib/task.mjs`（ACL）。无 provider ⇒ 模块根本 import 不进。
 
-test('buildPrompt：未被隔离 ⇒ 明确授权、点名 skill 回退落点与分支名、以 dev 为基', { skip: SKIP }, () => {
-  const p = buildPrompt({ ...PROMPT_ARGS, lane: 'T-20261016-111111' });
+test('UNIT. cardBranchName：seg 不参与命名；非法字符清洗', { skip: SKIP }, () => {
+  assert.equal(cardBranchName('T-20261016-111111'), 'T-20261016-111111');
+  assert.equal(cardBranchName('T/1 x'), 'T-1-x');
+});
+
+test('UNIT. resolveCardBranch：<card> > 唯一 legacy > 新建；segR1 / 自定义段不算 legacy', { skip: SKIP }, () => {
+  const card = 'T-1';
+  const pick = (r) => ({ branch: r.branch, source: r.source });
+
+  assert.deepEqual(pick(resolveCardBranch({ taskId: card, branches: [card, `${card}-seg1`] })),
+    { branch: card, source: 'card' });
+  assert.deepEqual(pick(resolveCardBranch({ taskId: card, branches: [`${card}-seg2`] })),
+    { branch: `${card}-seg2`, source: 'legacy' });
+
+  const amb = resolveCardBranch({ taskId: card, branches: [`${card}-seg1`, `${card}-seg2`] });
+  assert.equal(amb.source, 'new');
+  assert.deepEqual(amb.candidates, [`${card}-seg1`, `${card}-seg2`]);
+
+  const reviewOnly = resolveCardBranch({ taskId: card, branches: [`${card}-segR1`, `${card}-seg2-container`] });
+  assert.deepEqual(reviewOnly.candidates, []);
+  assert.equal(reviewOnly.source, 'new');
+
+  assert.equal(resolveCardBranch({ taskId: card, branches: [], repoMode: 'nogit' }).source, 'nogit');
+  assert.equal(resolveCardBranch({ taskId: card, branches: [], repoMode: 'unresolved' }).source, 'unresolved');
+  assert.equal(resolveCardBranch({ taskId: 'T/1', branches: [] }).error, 'card_id_not_branch_safe');
+});
+
+test('UNIT. reviewSettings：只允许写 review-report.md（Edit 路径规则），禁写型 git 命令', { skip: SKIP }, () => {
+  const s = reviewSettings('/ws/T-1/review-report.md');
+  assert.ok(s.permissions.allow.includes('Edit(//ws/T-1/review-report.md)'));
+  assert.ok(!s.permissions.allow.includes('Write'));
+  assert.ok(s.permissions.deny.includes('Bash(git commit:*)'));
+  assert.ok(!s.permissions.deny.includes('Edit'), '裸 Edit deny 会连允许的报告路径一起禁掉');
+});
+
+// ── 卡分支解析（真 git 仓；dry-run 零副作用） ───────────────────────────────
+
+test('BRANCH-1. 真仓 + 无卡分支 ⇒ source=new，worktree 落在仓内 .worktrees/<card>', { skip: SKIP }, () => {
+  const id = 'T-20260101-200001-new';
+  const { dir } = mkRepo(id);
+  writeCard(id, { target: dir });
+  const r = spawnLane({ card: id, owner: 'linus', backend: 'claude', dryRun: true });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.branch_source, 'new');
+  assert.equal(r.branch, id);
+  // `git --show-toplevel` 返回真实路径（macOS 上 /var → /private/var）
+  assert.equal(r.worktree, path.join(fs.realpathSync(dir), '.worktrees', id));
+  assert.equal(r.worktree_exists, false);
+});
+
+test('BRANCH-2. 已存在 <card> ⇒ source=card', { skip: SKIP }, () => {
+  const id = 'T-20260101-200002-card';
+  const { dir, git } = mkRepo(id);
+  git('branch', id);
+  writeCard(id, { target: dir });
+  const r = spawnLane({ card: id, owner: 'linus', backend: 'claude', dryRun: true });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.branch_source, 'card');
+  assert.equal(r.branch, id);
+});
+
+test('BRANCH-3. 仅一条 legacy <card>-seg2 ⇒ 复用该分支', { skip: SKIP }, () => {
+  const id = 'T-20260101-200003-legacy';
+  const { dir, git } = mkRepo(id);
+  git('branch', `${id}-seg2`);
+  writeCard(id, { target: dir });
+  const r = spawnLane({ card: id, owner: 'linus', backend: 'claude', dryRun: true });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.branch_source, 'legacy');
+  assert.equal(r.branch, `${id}-seg2`);
+});
+
+test('BRANCH-4. 多条 legacy ⇒ 拒绝 legacy_branch_ambiguous（不静默新建）', { skip: SKIP }, () => {
+  const id = 'T-20260101-200004-ambiguous';
+  const { dir, git } = mkRepo(id);
+  git('branch', `${id}-seg1`);
+  git('branch', `${id}-seg2`);
+  writeCard(id, { status: 'todo', claimed: '', target: dir });
+  const r = spawnLane({ card: id, owner: 'linus', backend: 'claude', dryRun: false });
+  assert.equal(r.ok, false, JSON.stringify(r));
+  assert.match(r.reason, /^legacy_branch_ambiguous\(candidates=/, r.reason);
+  assert.match(cardRaw(id), /status: todo/, '拒绝必须发生在 claim 之前（零副作用）');
+});
+
+test('BRANCH-5. <card> 与 non-ancestor legacy 并存 ⇒ 拒绝 legacy_not_ancestor', { skip: SKIP }, () => {
+  const id = 'T-20260101-200005-not-ancestor';
+  const { dir, git } = mkRepo(id);
+  git('branch', id);
+  git('checkout', '-q', '-b', `${id}-seg1`);
+  fs.writeFileSync(path.join(dir, 'b.txt'), 'b\n');
+  git('add', 'b.txt');
+  git('commit', '-q', '-m', 'legacy');
+  git('checkout', '-q', 'dev');
+  writeCard(id, { target: dir });
+  const r = spawnLane({ card: id, owner: 'linus', backend: 'claude', dryRun: true });
+  assert.equal(r.ok, false, JSON.stringify(r));
+  assert.match(r.reason, /^legacy_not_ancestor\(branch=/, r.reason);
+});
+
+test('BRANCH-6. legacy 是 <card> 的祖先 ⇒ 放行', { skip: SKIP }, () => {
+  const id = 'T-20260101-200006-ancestor';
+  const { dir, git } = mkRepo(id);
+  git('checkout', '-q', '-b', `${id}-seg1`);
+  fs.writeFileSync(path.join(dir, 'b.txt'), 'b\n');
+  git('add', 'b.txt');
+  git('commit', '-q', '-m', 'legacy');
+  git('checkout', '-q', '-b', id);
+  writeCard(id, { target: dir });
+  const r = spawnLane({ card: id, owner: 'linus', backend: 'claude', dryRun: true });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.branch_source, 'card');
+});
+
+test('BRANCH-7. 复核 lane：真仓无卡分支 ⇒ review_branch_missing', { skip: SKIP }, () => {
+  const id = 'T-20260101-200007-review-missing';
+  const { dir } = mkRepo(id);
+  writeCard(id, { status: 'in_review', claimed: 'linus', target: dir });
+  const r = spawnLane({ card: id, owner: 'turing', backend: 'codex', role: 'review', dryRun: true });
+  assert.equal(r.ok, false, JSON.stringify(r));
+  assert.match(r.reason, /^review_branch_missing\(branch=/, r.reason);
+});
+
+test('BRANCH-8. 复核 lane：真仓有卡分支 ⇒ 放行并 pin tip sha', { skip: SKIP }, () => {
+  const id = 'T-20260101-200008-review-ok';
+  const { dir, git } = mkRepo(id);
+  git('branch', id);
+  const tip = git('rev-parse', `refs/heads/${id}`);
+  writeCard(id, { status: 'in_review', claimed: 'linus', target: dir });
+  const r = spawnLane({ card: id, owner: 'turing', backend: 'codex', role: 'review', dryRun: true });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal(r.branch_source, 'card');
+  assert.equal(r.review_sha, tip);
+});
+
+test('buildPrompt 首建：授权、skill 落点、卡分支名、以 dev 为基', { skip: SKIP }, () => {
+  const p = buildPrompt({ ...PROMPT_ARGS, branch: 'T-20261016-111111', branchSource: 'new',
+    worktreePath: '/repo/.worktrees/T-20261016-111111', worktreeExists: false });
   assert.match(p, /do NOT ask for consent/, '必须显式授权，否则 skill Step 0 的征求意见在无头下无法满足');
   assert.match(p, /using-git-worktrees/, '点名 skill（车道是 claude 后端，该 skill 装在 claude 目标上）');
   assert.match(p, /\.worktrees\//, '落点必须是 skill 1b 的默认值');
   assert.match(p, /T-20261016-111111/, '分支名必须写出——合并门禁靠分支名反推卡 id');
   assert.match(p, /base it on `dev`/);
+  assert.match(p, /git worktree add .* -b T-20261016-111111 dev/);
   assert.match(p, /Never commit directly on the protected release branch/, '发布分支只说角色，不写死名字');
   assert.doesNotMatch(p, /already in a lane worktree/, '未隔离时不得出现「你已在隔离树中」');
 });
 
-test('buildPrompt：隔离已不再是入口的事 —— 本入口永不渲染「你已在隔离树中」，也不再接受 isolation 参数', { skip: SKIP }, () => {
-  // P4 之前本函数是两态的（spawner 隔离 / 未隔离）。隔离改由车道按 skill 自建后只剩一态：
-  // 传给它的 `isolation` 一律被忽略（参数已从签名移除），提示语始终是「自建」那一支。
-  const p = buildPrompt({ ...PROMPT_ARGS, lane: 'T-20261016-111111', isolation: { mode: 'worktree', path: '/repo/-wt-x' } });
-  assert.doesNotMatch(p, /already isolated in a lane worktree/, '入口不再声称已隔离');
-  assert.doesNotMatch(p, /do NOT create another worktree/, '也就不再有「别再建」那一支');
-  assert.match(p, /do NOT ask for consent/, '唯一一态 = 授权自建');
+test('buildPrompt 续段：复用既有分支/树，禁止 -b，不段间合并', { skip: SKIP }, () => {
+  const p = buildPrompt({ ...PROMPT_ARGS, branch: 'T-1', branchSource: 'card',
+    worktreePath: '/repo/.worktrees/T-1', worktreeExists: true });
+  assert.match(p, /already exists/);
+  assert.match(p, /do NOT create a new branch/);
+  assert.match(p, /do NOT run the skill's `-b` fallback/);
+  assert.match(p, /do not merge between segments/);
+  assert.doesNotMatch(p, /base it on/);
 });
 
-test('buildPrompt：lane 缺省时不写出空反引号的「分支名」', { skip: SKIP }, () => {
-  const p = buildPrompt({ ...PROMPT_ARGS });
-  assert.doesNotMatch(p, /Name the branch ``/, '不得渲染出空的分支名');
-  assert.match(p, /\.worktrees\//, '落点与授权不依赖 lane 是否已知');
+test('buildPrompt legacy：使用旧分支名并标注 in-flight', { skip: SKIP }, () => {
+  const p = buildPrompt({ ...PROMPT_ARGS, branch: 'T-1-seg2', branchSource: 'legacy',
+    worktreePath: '/repo/.worktrees/T-1-seg2', worktreeExists: true });
+  assert.match(p, /T-1-seg2/);
+  assert.match(p, /legacy name for this in-flight card/);
+});
+
+test('buildPrompt 非 git / 环境不明：不建树，分别直接工作 / 报告 blocked', { skip: SKIP }, () => {
+  const nogit = buildPrompt({ ...PROMPT_ARGS, branchSource: 'nogit' });
+  assert.doesNotMatch(nogit, /using-git-worktrees/);
+  assert.doesNotMatch(nogit, /git worktree add/);
+
+  const unknown = buildPrompt({ ...PROMPT_ARGS, branchSource: 'unresolved' });
+  assert.match(unknown, /git rev-parse --is-inside-work-tree/);
+  assert.doesNotMatch(unknown, /git worktree add/);
+});
+
+test('buildPrompt 复核：只读 + pin + 不建分支；claude 写唯一报告路径', { skip: SKIP }, () => {
+  const p = buildPrompt({ ...PROMPT_ARGS, role: 'review', branch: 'T-1', branchSource: 'card',
+    worktreePath: '/repo/.worktrees/T-1', worktreeExists: true, pinSha: 'abc123',
+    reviewReportPath: '/ws/review-report.md', reviewReadonly: 'settings' });
+  assert.match(p, /review lane: read-only/);
+  assert.match(p, /Do NOT create a branch or worktree/);
+  assert.match(p, /abc123/);
+  assert.match(p, /Never commit/);
+  assert.match(p, /write your review report to \/ws\/review-report\.md/);
+});
+
+test('buildPrompt 复核 codex：最终消息即报告，由 -o 落盘', { skip: SKIP }, () => {
+  const p = buildPrompt({ ...PROMPT_ARGS, role: 'review', branch: 'T-1', branchSource: 'card',
+    worktreePath: '/repo/.worktrees/T-1', worktreeExists: true, pinSha: 'abc123',
+    reviewReportPath: '/ws/review-report.md', reviewReadonly: 'sandbox' });
+  assert.match(p, /final message/);
+  assert.match(p, /captures it to \/ws\/review-report\.md/);
 });
 
 test('buildPrompt：集成分支名可配（与门禁同源），受保护分支则**不点名**（它随仓而异）', { skip: SKIP }, () => {
-  // 集成分支名从 lib.mjs#integrationBranch() 来，与 check-merge 同一个出处；显式传入可覆盖。
-  const p = buildPrompt({ ...PROMPT_ARGS, lane: 'T-1', integration: 'develop' });
+  const p = buildPrompt({ ...PROMPT_ARGS, branch: 'T-1', branchSource: 'new',
+    worktreePath: '/repo/.worktrees/T-1', integration: 'develop' });
   assert.match(p, /base it on `develop`/, '须用传入的集成分支名');
   assert.doesNotMatch(p, /base it on `dev`/);
-  // 受保护分支**不写死名字**：可能是 main / master / trunk —— 写死一个会误导车道。
   assert.match(p, /protected release branch/, '说的是「发布分支」这个角色，不是一个具体名字');
   assert.doesNotMatch(p, /\(main\)/, '不得写死 (main)');
 });
 
-test('buildPrompt：报告行必须是**末句** —— codex 后端要求提示词落在 argv 末位，抽取端以「末句以 report.md 结尾」为判据', { skip: SKIP }, () => {
-  const p = buildPrompt({ ...PROMPT_ARGS, lane: 'T-1' });
-  assert.match(p, /report\.md\.?$/, `报告行须在末位：${p.slice(-120)}`);
+test('buildPrompt：报告行必须是末句（exec / review 两态）', { skip: SKIP }, () => {
+  const exec = buildPrompt({ ...PROMPT_ARGS, branch: 'T-1', branchSource: 'card',
+    worktreePath: '/repo/.worktrees/T-1', worktreeExists: true });
+  assert.match(exec, /report\.md\.?$/, `报告行须在末位：${exec.slice(-120)}`);
+
+  const review = buildPrompt({ ...PROMPT_ARGS, role: 'review', branch: 'T-1', branchSource: 'card',
+    worktreePath: '/repo/.worktrees/T-1', worktreeExists: true, pinSha: 'abc',
+    reviewReportPath: '/ws/review-report.md', reviewReadonly: 'settings' });
+  assert.match(review, /report\.md\.?$/, `复核报告行须在末位：${review.slice(-120)}`);
 });

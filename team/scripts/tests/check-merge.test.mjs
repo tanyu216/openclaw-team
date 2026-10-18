@@ -204,6 +204,31 @@ test('归属：<card-id>-<seg> 形状也能归到卡', () => {
   assert.equal(r.violations[0].branch, 'T-20261016-000007-seg2');
 });
 
+test('迁移期同卡两树：<card> 与 legacy 各自判定，任一未合并（done）⇒ 红', () => {
+  clearBoard();
+  const repo = mkRepo('multi');
+  const id = 'T-20261016-000011';
+  mkWorktree(repo, id, { merged: true });
+  mkWorktree(repo, `${id}-seg2`, { merged: false });
+  writeCard(id, { created: AFTER });
+  const r = scanMerges(TASKS, { repo, baseline: [] });
+  assert.equal(r.ok, false);
+  assert.equal(r.violations.length, 1);
+  assert.equal(r.violations[0].id, id);
+  assert.equal(r.violations[0].branch, `${id}-seg2`);
+});
+
+test('迁移期同卡两树：两分支都已并入 ⇒ 绿', () => {
+  clearBoard();
+  const repo = mkRepo('multi-ok');
+  const id = 'T-20261016-000012';
+  mkWorktree(repo, id, { merged: true });
+  mkWorktree(repo, `${id}-seg2`, { merged: true });
+  writeCard(id, { created: AFTER });
+  const r = scanMerges(TASKS, { repo, baseline: [] });
+  assert.equal(r.ok, true, JSON.stringify(r.violations));
+});
+
 test('归属不到（分支名不含卡 id）⇒ 只出 unattributed 提示，不转红', () => {
   clearBoard();
   const repo = mkRepo('unattr');

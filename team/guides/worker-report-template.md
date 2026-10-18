@@ -96,7 +96,7 @@ Report states what it is.
   (Historically the weakest slot of the whole core — §4 states the criterion that makes that
   true, and why no rate is quoted.)
 - **Minimal example**:
-  `- **A2 Delivery coordinates** — card: tasks/T-20261015-010749-2.md · commit: a1b2c3d · branch: lane/T-20261015-010749-2-seg1 (base 1c54cec) · pushed: no (see A8).`
+  `- **A2 Delivery coordinates** — card: tasks/T-20261015-010749-2.md · commit: a1b2c3d · branch: T-20261015-010749-2 (base 1c54cec) · pushed: no (see A8).`
 
 ### A3 Change surface
 
@@ -175,7 +175,7 @@ Report states what it is.
   state that the worktree can be reclaimed.
 - **Why acceptance needs it**: unpushed work is invisible to everyone else; the
   integration leg needs to know exactly what to fetch and whether it is safe to delete.
-- **Minimal example**: `- **A8 Not pushed** — no push; branch lane/T-…-seg1 @ a1b2c3d; worktree clean, reclaimable after merge.`
+- **Minimal example**: `- **A8 Not pushed** — no push; branch <card-id> @ a1b2c3d; worktree clean, reclaimable after merge.`
 
 ---
 
@@ -251,7 +251,7 @@ replace every value with yours. Three rules for filling it in:
 - **A0 Report origin** — delivery.
 - **A1 Conclusion** — acceptable; all Acceptance items met, live gate exit 0.
 - **A2 Delivery coordinates** — card: tasks/T-20261015-010749-2.md · commit: a1b2c3d ·
-  branch: lane/T-20261015-010749-2-seg1 (base 1c54cec) · pushed: no (A8).
+  branch: T-20261015-010749-2 (base 1c54cec) · pushed: no (A8).
 - **A3 Change surface** — 6 files; 1 new script + 1 new test + 1 new guide + 3 wired docs;
   no implementation; no out-of-bounds.
 - **A4 Acceptance item-by-item**

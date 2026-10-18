@@ -66,7 +66,7 @@
 > 1. **Intake**: Goal / Acceptance (≥3 checkable items) / Background → `project` → flow A/B/C (`PROTOCOL §10.5`) → create the card (sole creator) → dispatch.
 > 2. **Unfrozen design in flow A** ⇒ Jobs prerequisite card first (`PROTOCOL §10.6`).
 > 3. **Dispatch**: sole dispatcher; check `status`/`claimed_by` before direct dispatch; parallel by default, serialize only on write-resource conflict; never `pkill -f <task-id>`.
-> 4. **Acceptance = report audit, not re-execution**: audit every involved worker's report; unmerged branch ⇒ not done (`PROTOCOL §6.4`).
+> 4. **Acceptance = report audit, not re-execution**: audit every involved worker's report; the card's single branch `<card-id>` (all segments share it) unmerged ⇒ not done (`PROTOCOL §6.4`).
 > 5. **Reporting / team health / daily gate patrol / material triage**: see the guide.
 
 ## General Execution Flow (PROTOCOL §10 routing + PROTOCOL §1 board)

@@ -36,8 +36,9 @@
  *   · **归属卡找不到**（缓存树、手工树、卡已被归档）⇒ **skip + warn**：无从判断「该不该合并」，
  *     不得凭猜测转红。这是已知上限，见 (vi)。
  *
- *   归属判定（`cardOfBranch`）：分支名即卡 id（新流程的提示语固定了该命名）；亦接受
- *   `<card-id>-<seg>` 形状（分段交付），逐级去掉尾部 `-<段>` 直到命中板上某张卡。
+ *   归属判定（`cardOfBranch`）：**新流程的分支名恒为卡 id**（一张卡一条分支，所有 seg 复用）。
+ *   仍接受 `<card-id>-<seg>` 形状，但仅作为**迁移期 legacy**（旧 per-seg 分支）的容忍；
+ *   逐级去掉尾部 `-<段>` 直到命中板上某张卡。
  *
  * ── (iv) 生效截止 + 历史卡降 warn（no retro-reddening）──────────────────────────
  *   与 `check-report.mjs` 同口径：卡面 `created_at < EFFECTIVE_AT`（默认常量，可用
@@ -214,8 +215,8 @@ export function listWorktrees(repo) {
 // ---------- 归属判定 ----------
 
 /**
- * 分支名 → 卡 id。新流程固定「分支名即卡 id」（可带 `-<seg>` 后缀）⇒ 逐级剥掉尾部段位，
- * 第一个命中板上的 id 即归属。命中不了 ⇒ `null`（无从判断「该不该合并」，调用方 skip + warn）。
+ * 分支名 → 卡 id。新流程「分支名即卡 id」；`-<seg>` 仅作为迁移期 legacy 形状容忍 ⇒
+ * 逐级剥掉尾部段位，第一个命中板上的 id 即归属。命中不了 ⇒ `null`（调用方 skip + warn）。
  */
 export function cardOfBranch(branch, ids) {
   if (!branch) return null;

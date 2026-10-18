@@ -119,6 +119,13 @@ test('parseIntervalSeconds: <n><s|m|h|d> 解析，非法 ⇒ null', () => {
 
 // ---- ③ payload：短跑移交，不是「就地执行」 --------------------------------
 
+test('HANDOFF_DIRECTIVE: 一张卡一条分支，seg 复用；parallel=1 已移除', () => {
+  assert.match(HANDOFF_DIRECTIVE, /一张卡一条分支/, HANDOFF_DIRECTIVE);
+  assert.match(HANDOFF_DIRECTIVE, /所有 seg 复用同一分支与树/, HANDOFF_DIRECTIVE);
+  assert.match(HANDOFF_DIRECTIVE, /parallel=1`? 也已移除/, HANDOFF_DIRECTIVE);
+  assert.doesNotMatch(HANDOFF_DIRECTIVE, /分支名 = `<card>-<seg>`/, HANDOFF_DIRECTIVE);
+});
+
 test('pollRunMessage: 只做移交（spawn-lane detached / 不等待 lane），不再要求就地执行', () => {
   const msg = pollRunMessage('turing', ['/t/tasks/T-1.md', '/t/tasks/T-2.md']);
   assert.ok(msg.includes(HANDOFF_DIRECTIVE), 'payload 必须携带单一真源的移交指令');
