@@ -135,7 +135,7 @@
 <!-- END SHARED-RULE:R-BOARD-3 -->
 
 <!-- BEGIN SHARED-RULE:R-BOARD-4 v1 generated=1 source=owner:elon -->
-> `R-BOARD-4` — Claim, heartbeat and execution uniqueness — `team/guides/task-interface.md §7`.
+> `R-BOARD-4` — Claim, heartbeat and execution uniqueness — `team/guides/task-interface.md §6`.
 <!-- END SHARED-RULE:R-BOARD-4 -->
 
 <!-- BEGIN SHARED-RULE:R-BOARD-5 v1 generated=1 source=owner:elon -->
@@ -214,10 +214,10 @@
 > 1. **No change history in a rule body** — no dated one-off records or card ids; those belong to L3 memory. A permanent convention may carry one `> **Effective**: YYYY-MM-DD` line.
 > 2. **Layers** — role `AGENTS.md` is the rule layer; `team/guides/` and `roles/<role>/guides/` are the method layer; `SOUL.md`/`USER.md` are creed/communication; `memory/`, `workspace/`, evidence are L3. There is no central protocol volume.
 > 3. **One canonical position per rule** — the owner block or its `detail` guide; carrier blocks are generated copies, byte-checked and never hand-edited.
-> 4. **Constraint carriage** — deliberate duplication (redline digest, generated carriers, subsession prompts) is allowed; removing it is a convention change requiring owner sign-off.
-> 5. **Reference transmission** — before spawning a subsession, transcribe the referenced rule constraints into its prompt/`CLAUDE.md`.
+> 4. **Constraint carriage** — see `R-LAYER-2` (deliberate carriage is allowed; removing it needs owner sign-off).
+> 5. **Reference transmission** — see `R-LAYER-3` (transcribe rule constraints into a subsession prompt/`CLAUDE.md`).
 > 6. **Guide-canonical / pointer sections** — when the `detail` guide carries the normative body, the owner block is a short rule plus a pointer and must not copy the guide's clause list; when the owner block carries the body, the guide must not restate it.
-> 7. **Reference notation** — cross-role rules are backticked `R-<DOMAIN>-<n>`; guide sections are `<guide>.md §N`; a bare `§N` means the current file. Guides are leaf documents and never reference the retired protocol volumes.
+> 7. **Reference notation** — see `R-LAYER-4`; guides are leaf documents (`R-LAYER-5`).
 <!-- END SHARED-RULE:R-LAYER-1 -->
 
 <!-- BEGIN SHARED-RULE:R-LAYER-2 v1 generated=1 source=owner:elon -->

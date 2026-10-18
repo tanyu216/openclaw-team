@@ -15,7 +15,7 @@ registry)". Companion to `guides/spawn-lane-sop.md` (the spawn half). Owner: fra
 5. **Output stream.** Use `--output-format stream-json --verbose` (NDJSON); a single JSON written only at the end is easily misjudged as stalled.
 6. **Resume, do not duplicate.** The same task/segment resumes the existing session in the host's exact form (claude `--resume <id>`; codex `codex exec resume <id>`, `--last` for the most recent); never start a second lane for the same `seg`.
 7. **Liveness.** `kill -0` on the registered pid; a plugin lane is live when its **pid is alive OR its native thread is reachable**. The registry pid is the long-lived gateway pid and is not by itself the lane's liveness.
-8. **Deterministic identity.** `session_id = UUIDv5(card, owner, seg)` for claude (`--session-id`); codex self-assigns at spawn. A new segment uses `task.handoff` to generate `handoff.md`, and the sub-session reads it first.
+8. **Deterministic identity.** `session_id = UUIDv5(card, owner, seg)` for claude (`--session-id`); codex self-assigns at spawn. The background pack / `handoff.md` rule is `R-SESSION-4`, not this clause.
 
 ## 1. The invariant (and why it needed a mechanism, not a rule)
 

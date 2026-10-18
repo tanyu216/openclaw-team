@@ -88,15 +88,17 @@ function knownRuleIds(repo) {
   return ids;
 }
 
-function atomAccounted(rel, axis, atom, allow, repo = REPO) {
+function atomAccounted(rel, axis, atom, allow, repo = REPO, afterText = null) {
   if (allow.files[rel] && allow.files[rel][axis]) return true;
   if (axis === 'refs' && allow.refMap && allow.refMap[rel]) {
     const target = allow.refMap[rel][atom];
     if (target) {
       const ids = Array.isArray(target) ? target : [target];
       const known = knownRuleIds(repo);
-      // 规则确实存在（全局 registry），且该文件现在不再留下旧的 `§N`。
-      return ids.every((id) => known.has(id));
+      // 规则必须存在，且该文件现在确实引用了它（不能只凭「目标规则全局存在」销账）。
+      if (!ids.every((id) => known.has(id))) return false;
+      if (afterText === null) return true;
+      return ids.every((id) => String(afterText).includes(id));
     }
   }
   const entry = allow.atoms[`${rel}:${axis}:${atom}`];
@@ -226,7 +228,7 @@ export function compareFile(rel, beforeText, afterText, allow, repo = REPO) {
     if (!missing.length) continue;
     entry.missing[axis] = missing;
     if (!AXES.includes(axis)) continue;                                // 软轴只报告
-    const un = missing.filter((x) => !atomAccounted(rel, axis, x, allow, repo));
+    const un = missing.filter((x) => !atomAccounted(rel, axis, x, allow, repo, afterText));
     if (un.length) entry.unaccounted[axis] = un;
     missingTotal += missing.length;
     unaccountedTotal += un.length;

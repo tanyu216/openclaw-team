@@ -127,6 +127,9 @@ test('refMap：旧 §N 改写成存在的 R-* 即销账；规则不存在或未�
     assert.equal(compareFile('f.md', before, after, good, root).unaccountedTotal, 0, '改名到存在的规则应销账');
     const bad = { files: {}, atoms: {}, refMap: { 'f.md': { '§1': 'R-NOPE-9' } } };
     assert.equal(compareFile('f.md', before, after, bad, root).unaccountedTotal, 1, '目标规则不存在必须仍红');
+    const uncited = { files: {}, atoms: {}, refMap: { 'f.md': { '§1': 'R-BOARD-1' } } };
+    assert.equal(compareFile('f.md', before, '- see nothing.\n', uncited, root).unaccountedTotal, 1,
+      '改后文件未引用目标规则时不得销账（refMap 不能只凭规则全局存在放行）');
     assert.equal(compareFile('f.md', before, after, EMPTY, root).unaccountedTotal, 1, '未登记的 § 引用必须仍红');
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

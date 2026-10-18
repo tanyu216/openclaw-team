@@ -1001,8 +1001,8 @@
       "reason": "迁移：task.claim 仍在该文件中，原位置退役。"
     },
     "team/PROTOCOL.md:tokens:task.handoff": {
-      "to": "team/guides/lane-session-lifecycle-sop.md",
-      "reason": "迁移：task.handoff 仍在该文件中，原位置退役。"
+      "to": "team/guides/task-interface.md",
+      "reason": "迁移：`task.handoff` 的规范正文在 `R-SESSION-4` / `task-interface.md` §9（handoff/background pack）。"
     },
     "team/PROTOCOL.md:tokens:task.rollup": {
       "to": "roles/elon/AGENTS.md",
@@ -1128,7 +1128,12 @@
     "roles/assistant/AGENTS.md:refs:§2.1": "该指南指针为控制 AGENTS 体积从 Method guides 移除；规则 `R-UI-1` 仍携带，guide 可经索引按名查阅。",
     "roles/assistant/AGENTS.md:refs:§4": "该指南指针为控制 AGENTS 体积从 Method guides 移除；规则 `R-UI-1` 仍携带，guide 可经索引按名查阅。",
     "roles/assistant/AGENTS.md:refs:§11": "该指南指针为控制 AGENTS 体积从 Method guides 移除；规则 `R-UI-1` 仍携带，guide 可经索引按名查阅。",
-    "roles/assistant/AGENTS.md:refs:§12": "该指南指针为控制 AGENTS 体积从 Method guides 移除；规则 `R-UI-1` 仍携带，guide 可经索引按名查阅。"
+    "roles/assistant/AGENTS.md:refs:§12": "该指南指针为控制 AGENTS 体积从 Method guides 移除；规则 `R-UI-1` 仍携带，guide 可经索引按名查阅。",
+    "roles/elon/SOUL.md:refs:§19": "旧的 §19 信条指针改为指向本角色 AGENTS；信条正文由 R-CREED-1 承载（carriers=elon，其他角色不再复制正文）。",
+    "roles/jobs/SOUL.md:refs:§19": "旧的 §19 信条指针改为指向本角色 AGENTS；信条正文由 R-CREED-1 承载（carriers=elon，其他角色不再复制正文）。",
+    "roles/linus/SOUL.md:refs:§19": "旧的 §19 信条指针改为指向本角色 AGENTS；信条正文由 R-CREED-1 承载（carriers=elon，其他角色不再复制正文）。",
+    "roles/turing/SOUL.md:refs:§19": "旧的 §19 信条指针改为指向本角色 AGENTS；信条正文由 R-CREED-1 承载（carriers=elon，其他角色不再复制正文）。",
+    "roles/assistant/SOUL.md:refs:§19": "旧的 §19 信条指针改为指向本角色 AGENTS；信条正文由 R-CREED-1 承载（carriers=elon，其他角色不再复制正文）。"
   },
   "refMap": {
     "roles/assistant/AGENTS.md": {
@@ -1145,11 +1150,10 @@
       "§20.2": "R-GATE-2",
       "§23": "R-INCIDENT-1",
       "§5.1": "R-PUB-1",
-      "§9": "R-DEFECT-1"
+      "§9": "R-DEFECT-1",
+      "§7": "R-BOARD-4"
     },
-    "roles/assistant/SOUL.md": {
-      "§19": "R-CREED-1"
-    },
+    "roles/assistant/SOUL.md": {},
     "roles/assistant/guides/research-and-data-repo-conventions.md": {
       "§13.5": "R-DISC-5",
       "§18": "R-RESEARCH-1"
@@ -1176,9 +1180,7 @@
       "§5.1": "R-PUB-1",
       "§9": "R-DEFECT-1"
     },
-    "roles/elon/SOUL.md": {
-      "§19": "R-CREED-1"
-    },
+    "roles/elon/SOUL.md": {},
     "roles/elon/guides/carding-sop.md": {
       "§10.1": "R-REVIEW-1",
       "§10.2": "R-DAG-1",
@@ -1229,7 +1231,6 @@
       "§6.3": "R-PARALLEL-1"
     },
     "roles/jobs/SOUL.md": {
-      "§19": "R-CREED-1",
       "§6.2": "R-MODEL-1"
     },
     "roles/jobs/guides/duties-sop.md": {
@@ -1274,7 +1275,6 @@
       "§9.3": "R-CONTAINER-1"
     },
     "roles/linus/SOUL.md": {
-      "§19": "R-CREED-1",
       "§6.2": "R-MODEL-1"
     },
     "roles/linus/guides/development-process-sop.md": {
@@ -1333,7 +1333,6 @@
       "§9.3": "R-CONTAINER-1"
     },
     "roles/turing/SOUL.md": {
-      "§19": "R-CREED-1",
       "§6.2": "R-MODEL-1"
     },
     "roles/turing/guides/duties-sop.md": {
