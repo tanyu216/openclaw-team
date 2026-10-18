@@ -5,7 +5,7 @@
 > **Maintainer**: the contract's *mechanism* is owned by the two implementations; **Elon** owns the normative rule and adjudicates every value that lands in `guides/sla-thresholds.json`. **Integrator / dual-sign**: Elon (`R-CONFIRM-1`).
 > **Depends on**: `R-SLA-1`; `guides/task-interface.md` (ACL — §2 data model, §4 `task.setStatus`, §11 serialization invariants, §15 label taxonomy); `guides/performance-sla-sop.md` and `guides/runtime-observability-sop.md` (**different objects**, see §0).
 > **Sibling guides (reference, do not copy)**: `performance-sla-sop.md` · `runtime-observability-sop.md` · `incident-response-sop.md` · `task-interface.md`.
-> **Reference convention**: always write "`R-SLA-1`" / "`guides/<file>.md` §<section>" — **no line-number anchors, no `file:line`** (`R-ENG-1` #11, `R-DOCSYNC-1` clause 4).
+> **Reference convention**: always write "`R-SLA-1`" / "`guides/<file>.md` §<section>" — **no line-number anchors, no `file:line`** (`R-ENG-1` clause 11, `R-DOCSYNC-1` clause 4).
 
 ---
 
@@ -111,7 +111,7 @@ One alert = one **(card, `R-SLA-1` row)** pair at its highest newly-crossed tier
 | 22 | `mechanism_host` | string | ✅ | opaque host/agent id of the observer (diagnostics only, never used for routing) |
 | 23 | `first_seen` / `last_seen` | ISO-8601 UTC ms | **ledger** | maintained by the shared de-duplication ledger (§8.3) and therefore **never a field of the emitted tuple** (§4.1); read from the ledger entry of the `dedup_key`. Identical for both mechanisms *because* it is that ledger's record, never a per-mechanism re-derivation |
 | 24 | `observed_by` | string[] | **ledger** | mechanisms that have *seen* this `dedup_key` — **ledger metadata, never a field of the emitted tuple** (§4.1), so a suppressed duplicate stays auditable in the ledger |
-| 25 | `evidence` | object | ✅ | machine-checkable keys only (no line anchors, `R-ENG-1` #11): `{ status, status_changed_at, has_sessions, has_workspace, threshold_ref, open_predicate }` |
+| 25 | `evidence` | object | ✅ | machine-checkable keys only (no line anchors, `R-ENG-1` clause 11): `{ status, status_changed_at, has_sessions, has_workspace, threshold_ref, open_predicate }` |
 
 **The `Req.` column has two values.** `✅` = a field of the **emitted** tuple. **`ledger`** = a field of the **de-duplication ledger's** record (§4.1): it is part of the wait's machine record, but **not** published in `alerts[]`. Rows #23/#24 are the only two below that line; every other row is emitted.
 
@@ -197,7 +197,7 @@ in the ledger, since a suppressed duplicate is by definition the alert that is *
 
 `T` = elapsed on the row's measurement basis · `L` = the row's `normalMin` in `guides/sla-thresholds.json` · `F` = the row's `furtherMin` there · `P` = the inspecting mechanism's own period · **no numeric SLA value is written here on purpose** (§2).
 
-Rows are identified by **name, never by index or position** — `R-SLA-1`'s table order may drift; the `sla_row` enum value is the stable identifier and the rule row name (quoted) is the human anchor (`R-ENG-1` #11: no positional anchors). `L`/`F` in the table are per-row references to that row's `R-SLA-N` columns.
+Rows are identified by **name, never by index or position** — `R-SLA-1`'s table order may drift; the `sla_row` enum value is the stable identifier and the rule row name (quoted) is the human anchor (`R-ENG-1` clause 11: no positional anchors). `L`/`F` in the table are per-row references to that row's `R-SLA-N` columns.
 
 | `sla_row` (contract) | `R-SLA-1` row (quoted name) | Measurement origin (§6) | Trigger condition | Threshold (source) | Tier ladder (§5.2) | Action (reminder only) | Target |
 |---|---|---|---|---|---|---|---|
