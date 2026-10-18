@@ -93,7 +93,7 @@ flowchart TB
 
 - **任务卡看板**：工作活在**任务卡看板**上，而非聊天里；一张卡承载 Goal / Acceptance / Background，并走状态机 `backlog | todo → in_progress → in_review → done`（`blocked` / `canceled` 为旁路与终态）。卡是持久化内容的唯一载体。`R-BOARD-1`。
 - **claim · 心跳 · 段收尾三件**：worker 以**原子领取**（`task.claim`）接卡，执行期间**每 ≤10min 刷新心跳**。每个段结束都要做**三件收尾**：① 刷新心跳 → ② 落终态（`in_review` / `done` / `canceled` / `blocked`）→ ③ 给 Elon 发 Report（结论 + 卡路径 + commit hash）。`in_progress` 且心跳新鲜 = "已有人在跑，勿重复执行"。`R-BOARD-4` 与 `R-DISC-2`。
-- **依赖与父子（DAG）**：一大块需求 = 一张 **`kind: epic`** 父卡（容器，**不可领取**）+ 若干**子卡**（`parent=<epic>`）。先后关系用 **`depends_on`** 表达（依赖未满足的子卡不被领取）。父卡只有在**所有子卡完成且集成验收通过**后才 `done`（epic rollup 汇总）。`R-DAG-1`。
+- **依赖与父子（DAG）**：一大块需求 = 一张 **`kind: epic`** 父卡（容器，**不可领取**）+ 若干**子卡**（`parent=<epic>`）。先后关系用 **`depends_on`** 表达（依赖未满足的子卡不被领取）。子卡**全部终态且至少一张 `done`**时由系统自动把父卡推进到 **`in_review`**（`canceled` 不阻塞；无 `done` 子卡或空 epic 不收口）；`done` 仍须 **Elon 验收**（epic rollup 汇总）。`R-DAG-1`。
 - **唯一派单人 Elon**：**建卡与派单只有 Elon**；Jobs / Linus / Turing / Assistant **互不派单 —— 只向 Elon 提要求**（说明需求或发现的缺口）。决策单一 owner、入口单一通路。`R-TRIAGE-1` 与 `R-GRANULARITY-1`。
 - **缺陷回环**：QA 发现的缺陷写成缺陷单 → **Elon 建修复卡**派给 Linus → 修复回到 Elon 验收 → Turing 做**回归复测**；回归完全通过，原卡才 `done`。`R-DEFECT-1`。
 - **交付门禁**：任何东西被标 `done` 前必须过门禁：工程质量（TDD、覆盖率 ≥80%、集成测试、自证）、UI 保真（原型即契约）、文档同步，以及 CI / `check-all` 跑的**机器可检门禁**。`R-ENG-1` 与 `R-GATE-1`。

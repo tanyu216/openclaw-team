@@ -131,9 +131,10 @@ maintenance index:
   `R-BOARD-4` and `R-DISC-2`.
 - **Dependencies & parent/child (DAG).** A large job is one **`kind: epic`** parent —
   a container, **not claimable** — with **child cards** (`parent=<epic>`). Ordering
-  uses **`depends_on`** (a child with unmet deps is not claimed). The epic reaches
-  `done` only when **all its children are done and integration acceptance passes**
-  (epic rollup). `R-DAG-1`.
+  uses **`depends_on`** (a child with unmet deps is not claimed). When every child is
+  terminal with **at least one `done`** (`canceled` does not block; no `done` child or
+  no children ⇒ it never closes), the system advances the epic to **`in_review`**;
+  `done` still requires **Elon's acceptance** (epic rollup). `R-DAG-1`.
 - **One dispatcher: Elon.** **Elon alone creates cards and dispatches**; Jobs /
   Linus / Turing / Assistant **do not hand work to each other — they only request a
   card from Elon** (stating the need or the gap found). One owner per decision, one
