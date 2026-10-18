@@ -34,7 +34,13 @@ entry arms): `spawn-lane.sh`/`spawn-lane.mjs`
 start a lane, `lane-reaper.mjs` is the detached **session-terminal watchdog** that
 `spawn-lane` arms for every lane, `session-lifecycle.mjs` holds the shared criterion +
 two-sided close, and `session-reconcile.mjs` sweeps the historical card↔registry drift
-(`team/guides/lane-session-lifecycle-sop.md`).
+(`team/guides/lane-session-lifecycle-sop.md`). The interactive-lane group
+(`lane-host.mjs`, `lane-policy.mjs`, `lane-backend.mjs`, `lane-escalate.mjs`,
+`lane-host-state.mjs`, `lane-policy.default.json`) is **inert unless** a lane is started with
+`interactive=1` / `--interactive`; its contract is `team/guides/interactive-lane-sop.md`.
+Interactive tests: `tests/lane-policy.test.mjs`, `tests/lane-backend.test.mjs`,
+`tests/lane-host.test.mjs`, `tests/lane-reaper-interactive.test.mjs`, and
+`tests/spawn-lane-interactive.test.mjs` (the last needs the provider and SKIPs without it).
 
 `status.mjs` is the **single source for the status vocabulary** (T-20261015-status): the
 card axis (canonical 7 values of `PROTOCOL §16` + the `ready`/`failed` legacy aliases) and
@@ -67,7 +73,7 @@ and documented under `team/guides/` or `CLAUDE.md`; **(data)** = deployed litera
 | `check-sessions.mjs` | card ↔ registry session consistency | **(gate)** |
 | `check-epic-completeness.mjs` | epic roadmap × card ledger + the dangling-roadmap sweep | **(gate)** |
 | `check-report.mjs` | `## Report` common core (`A1…A8`) for `in_review` cards | **(gate)** |
-| `check-merge.mjs` | every `.worktrees/` checkout whose card is `done` must be an ancestor of `dev` (`PROTOCOL §6.4`) | **(gate)** |
+| `check-merge.mjs` | every `.worktrees/` checkout whose card is `done` must be an ancestor of `dev` (`PROTOCOL §6.4`); branch = `<card>`, `-<seg>` tolerated for legacy trees only | **(gate)** |
 | `scan-deps.mjs` | dependency CVE scan (warn-only unless `SCAN_STRICT=1`) | **(gate)** |
 | `archive.mjs` | archive terminal cards to `tasks/archive/YYYY-MM` (`--dry-run` inside the gate) | **(gate)** |
 | `prototype-guard.sh` | a prototype dir must not contain real-implementation tokens | **(gate)**, only when `PROTOTYPE_DIR` is set |
@@ -77,6 +83,11 @@ and documented under `team/guides/` or `CLAUDE.md`; **(data)** = deployed litera
 | `sla-scan.mjs` | board SLA inspection over the `PROTOCOL §15` rows + the threshold-drift check | **(job)** `sla-scan`; **(gate)** `--check-thresholds` |
 | `tmp-gc.mjs` | scratch GC of `workspace-*/.tmp` + `$OPENCLAW_HOME/tmp` + `team/tmp` (entry reads the last verdict; `--sweep` does the work) | **(job)** `tmp-gc` |
 | `spawn-lane.sh` / `spawn-lane.mjs` | the single mandatory lane entry (claim → handoff → spawn → `session-set`) | `PROTOCOL §6`; humans |
+| `lane-host.mjs` | interactive-lane supervisor: owns the backend and its pipes, speaks Claude stream-json / Codex app-server, applies `lane-policy`, escalates questions | **(lib)** `spawn-lane.mjs`; `guides/interactive-lane-sop.md` |
+| `lane-policy.mjs` + `lane-policy.default.json` | fail-closed policy engine (allow/deny/escalate) + shipped default | **(lib)** `lane-host.mjs` |
+| `lane-backend.mjs` | pure argv builders for interactive Claude / Codex app-server and the host command | **(lib)** `spawn-lane.mjs`, `lane-host.mjs` |
+| `lane-escalate.mjs` | question artifact + board escalation (`comment` / `setStatus` / `appendProgress`, lazy provider import) | **(lib)** `lane-host.mjs` |
+| `lane-host-state.mjs` | interactive sidecar (`*.host.json`) read/write | **(lib)** `lane-host.mjs`, `lane-reaper.mjs` |
 | `lane-reaper.mjs` | detached session-terminal watchdog, armed per lane | **(lib)** `spawn-lane.mjs` |
 | `session-lifecycle.mjs` | shared session-terminal criterion + two-sided close | **(lib)** `poll.mjs`, `lane-reaper.mjs`, `session-reconcile.mjs` |
 | `session-reconcile.mjs` | historical card↔registry drift sweep | **(cli)** `lane-session-lifecycle-sop.md` |

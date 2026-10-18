@@ -110,8 +110,16 @@ interrupted. `--dry-run` never arms anything (it prints `reaper: "would_arm"`).
 
 `spawn-lane` step ⑨ (after `session-set`). The output JSON carries
 `reaper: {state:"armed", pid:<reaper pid>}` (or `"disabled"`). Nothing else in the spawn path
-changes: the watch is a separate detached process, the registered lane pid is still the **lane's**
-pid (not a wrapper's — that would break poll's liveness guard), and `--dry-run` stays zero-side-effect.
+changes: the watch is a separate detached process, the registered lane pid is the **lane process**
+itself, and `--dry-run` stays zero-side-effect.
+
+For a non-interactive lane that process is the backend (`claude -p` / `codex exec`). For an
+**interactive** lane (`interactive=1`) it is the long-lived `lane-host.mjs` supervisor, which
+lives for the whole turn and owns the backend and its pipes — registering a transient wrapper
+would still break poll's liveness guard, but the supervisor is not transient. The interactive
+reaper is additionally armed with `state=<sidecar>`; when the host pid dies it verifies
+`state.host_pid` and the backend's parent, then terminates the recorded backend/process group
+before closing the session (`guides/interactive-lane-sop.md` §9).
 ---
 
 ## 6. Lever 3 — the reconciliation sweep (historical backlog)

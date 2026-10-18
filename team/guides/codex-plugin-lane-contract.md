@@ -28,7 +28,7 @@
 | 术语 | 定义 |
 |---|---|
 | **lane** | 一次独立的子会话执行单元；由 `scripts/spawn-lane.sh`（薄包装）→ `scripts/spawn-lane.mjs`（核心）单一入口起。归属 = 卡 `claimed_by` 的 owner。 |
-| **seg** | lane 在卡内的分段键，形如 `seg1` / `seg2` / `segR1`（复核 lane 默认 `segR1`）。卡 `## Sessions` 的 upsert 键 = `seg:<seg> ·`（**非** owner 域）。 |
+| **seg** | lane 在卡内的**会话**分段键，形如 `seg1` / `seg2` / `segR1`（复核 lane 默认 `segR1`）。卡 `## Sessions` 的 upsert 键 = `seg:<seg> ·`（**非** owner 域）。**seg 不是分支名**：一张卡一条分支 `<card-id>`，所有 seg 复用它。 |
 | **native thread** | Codex app-server 侧的原生会话线程（thread id 由 Codex 自赋）。插件 lane 的底层会话载体；不暴露 `--session-id`。 |
 | **harness** | 执行引擎形态。`harness=cli`（现状：`codex exec <prompt>` 子进程）vs `harness=plugin`（本卡对象：`@openclaw/codex` app-server embedded turn）。 |
 | **卡↔thread 映射** | 卡（`## Sessions` 行 `id`）↔ 插件 native thread id ↔ 团队 registry 条目三者的一致绑定。 |
@@ -51,7 +51,7 @@
 
 ### 2.1 归属模型（R-1）
 
-**1 张卡: N 个 lane（seg）: 每 lane = 1 个 codex 插件 native thread。**
+**1 张卡: N 个串行 seg（lane）: 每 lane = 1 个 codex 插件 native thread；所有 seg 共用同一条卡分支与 worktree。** 复核 lane 不建分支/树、只读复用卡树，且要求卡上无其他活跃 lane；插件 harness 暂不支持复核 lane（`review_plugin_unsupported`）。
 
 执行归属在插件路径下改为**双坐标**：
 
@@ -66,7 +66,7 @@
 
 `PROTOCOL §6` 的执行唯一性纪律（卡已 `in_progress` 的新回合只报状态、不重复执行；`heartbeat_at` 新鲜 ≤10min 且 `in_progress` ⇒ poll 返回 `fire:false`）在插件路径下**保持不变，并加一条**：
 
-**同一卡同一时刻至多 1 个 running lane**，由**双条件**守住：
+**同一卡同一时刻至多 1 个 running 执行 lane**（复核 lane 另有更严格的 quiet-card 门：卡上不得有任何其他活跃 lane），由**双条件**守住：
 1. **registry 活跃判定**：`claude-sessions.json` 中该卡存在 `status=running` 且可达（pid 存活 **或** thread 可达，见 §5 G7）的条目 ⇒ 不重复起 lane；
 2. **卡状态双条件**：`status=in_progress` 且 `claimed_by=owner`（`spawn-lane` step ① 既有断言）。
 
@@ -75,6 +75,8 @@
 ### 2.3 G9 的前置约束（审批不阻塞）
 
 无人值守 lane 的审批旁路是**会话归属的前置条件**：若插件审批层会挂起无人应答的 turn，则 lane 事实上无法在 owner 回合内完成，归属契约失效。契约要求（细节见 §8「审批」行）：CCD lane 作用域内 `approvalPolicy=never`（无人值守旁路），或退化为 **fail-fast**（lane 立即判 `blocked` 并回报，不静默挂起）。禁止在无人值守 lane 上使用 `approvalsReviewer=user`。
+
+> **范围限定**：本节只约束**未开启 `interactive=1`** 的 lane。交互 lane（目前仅 `harness=cli` + `codex app-server --stdio`）**显式**使用 `approvalsReviewer=user`，由 `lane-host.mjs` 在有界时间内按本地策略作答或停止；它仍然禁止把 `user` 交给一个无人应答的无人值守 lane。完整时序与策略边界：`guides/interactive-lane-sop.md` §6。
 
 ---
 
@@ -362,6 +364,7 @@ bash scripts/spawn-lane.sh <card> <owner> seg=<seg> backend=codex harness=plugin
 
 - 无人值守 lane 作用域：`appServer.approvalPolicy=never`（**旁路**）；若策略不可旁路 ⇒ **fail-fast**（lane 立即判 `blocked` 并回报，不静默挂起）。
 - 禁止无人值守 lane 使用 `approvalsReviewer=user`；`auto_review` / `guardian_subagent` 视为需额外裁决（§11 G-4）。
+- **交互 lane（`interactive=1`，仅 `harness=cli`）**：走 `codex app-server --stdio`，不使用本节的插件配置。`thread/start` 传 `approvalPolicy:"on-request"`、`approvalsReviewer:"user"`、`sandbox:"workspace-write"`；`turn/start` 传 `sandboxPolicy:{type:"workspaceWrite", writableRoots:[<ws>, <team>/workspace/<task-id>], networkAccess:false}`。server→client 请求由 host 按 `lane-policy` 回复 `accept|decline|cancel`；`item/tool/requestUserInput` 与 MCP elicitation **永远升级**（空答案/decline + `turn/interrupt` + 写问题产物 + `blocked`）。字段以 0.161.0 的 `codex app-server generate-json-schema` 为准；完整时序：`guides/interactive-lane-sop.md` §6。
 
 ---
 

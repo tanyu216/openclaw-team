@@ -10,6 +10,10 @@ Session memory is not shared between segments. Aligning by scattered files by ha
 loss, decision drift and inconsistent conventions. A single mandatory contract file keeps the
 benefits of segment isolation while guaranteeing cross-segment consistency.
 
+**Segment isolation is session/context isolation, not git isolation.** All segments of one card share
+the same card branch `<card-id>` and the same worktree; the `seg` key remains the session/registration
+identity (`## Sessions` upsert key, deterministic session id, log name), never a branch name.
+
 ## 2. Carriers (two layers; information does not enter the task card)
 
 - **Task card `## Progress`**: records segment-level **milestones/results** ("Segment N complete,
@@ -40,6 +44,10 @@ At the end of each segment, `state.md` appends a section with at least:
   clause 8 (card Goal/Acceptance/Background + `## Report` + `## Comments` + `state.md`).
 - **Overturning a previous segment's decision must be declared explicitly** ("overturning
   segment N's decision X, for reason Y"); silent drift is not allowed.
+- **A segment resumed after an interactive escalation must read the pending question artifacts**
+  (`workspace/<task-id>/questions/*.json`) together with the operator/Elon answer on the card.
+  The artifact is the machine-readable question; the card comment is the decision. Do not guess
+  an answer that is not on the card (`guides/interactive-lane-sop.md` §7–§8).
 
 ## 5. Consistency check
 

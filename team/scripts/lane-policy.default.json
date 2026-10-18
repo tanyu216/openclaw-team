@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "default": "deny",
+  "control_timeout_ms": 5000,
+  "_comment": "交互 lane 的默认策略：default=deny；escalate=拒绝并升级到看板（停止 lane）。操作者可在 <TEAM>/lane-policy.json 覆盖。",
+  "rules": [
+    {
+      "id": "allow-read-tools",
+      "kind": "tool",
+      "tool": ["Read", "Glob", "Grep", "TodoWrite"],
+      "action": "allow",
+      "reason": "只读工具，无副作用"
+    },
+    {
+      "id": "deny-subagents",
+      "kind": "tool",
+      "tool": ["Agent", "Task"],
+      "action": "deny",
+      "reason": "子代理会绕过本策略的逐调用裁决"
+    },
+    {
+      "id": "deny-web",
+      "kind": "tool",
+      "tool": ["WebFetch", "WebSearch"],
+      "action": "deny",
+      "reason": "默认禁止网络访问；需要时由操作者在策略里显式放行"
+    },
+    {
+      "id": "deny-secret-paths",
+      "kind": "file",
+      "pathPrefix": ["{team}/.secrets.env", "{home}/.ssh", "{home}/.aws", "{home}/.config"],
+      "action": "deny",
+      "reason": "凭据目录"
+    },
+    {
+      "id": "allow-write-workspace",
+      "kind": "file",
+      "tool": ["Write", "Edit", "NotebookEdit"],
+      "pathPrefix": ["{ws}", "{team}/workspace/{task_id}", "{cwd}/.worktrees"],
+      "action": "allow",
+      "reason": "报告、工作区与车道自己的 worktree"
+    },
+    {
+      "id": "escalate-shell-meta",
+      "kind": "command",
+      "shellMeta": true,
+      "action": "escalate",
+      "reason": "复合命令/重定向/命令替换不得靠前缀白名单绕过"
+    },
+    {
+      "id": "deny-destructive",
+      "kind": "command",
+      "commandRegex": [
+        "(^|\\s)(rm\\s+-rf|rm\\s+-fr|sudo|dd|mkfs|chmod\\s+777)(\\s|$)",
+        "(^|\\s)find\\s+.*(-delete|-exec\\s+(rm|shred))(\\s|$)",
+        "(^|\\s)git\\s+(reset|clean|rebase|restore|checkout|switch|stash|merge|cherry-pick|apply|am)(\\s|$)"
+      ],
+      "action": "deny",
+      "reason": "破坏性/改写历史的命令"
+    },
+    {
+      "id": "escalate-network",
+      "kind": "command",
+      "commandPrefix": [
+        "git push", "git pull", "git fetch", "git clone",
+        "npm install", "npm publish", "pnpm install", "yarn install",
+        "pip install", "pip3 install", "brew ", "curl ", "wget ", "ssh ", "scp ", "rsync "
+      ],
+      "action": "escalate",
+      "reason": "网络/依赖变更需要决策"
+    },
+    {
+      "id": "allow-readonly-bash",
+      "kind": "command",
+      "commandPrefix": [
+        "git status", "git diff", "git log", "git show", "git rev-parse",
+        "git merge-base", "git ls-files", "git worktree list", "git branch --list",
+        "git branch --show-current", "git branch -a",
+        "ls", "pwd", "cat", "grep", "find", "rg", "wc", "head", "tail",
+        "sort", "uniq", "cut", "tr", "basename", "dirname", "realpath",
+        "shasum", "date", "true", "test", "mkdir", "touch", "which", "type"
+      ],
+      "action": "allow",
+      "reason": "只读或低风险本地命令"
+    },
+    {
+      "id": "allow-test-bash",
+      "kind": "command",
+      "commandPrefix": [
+        "node --test", "npm test", "npm run test", "npm run build", "npm run lint",
+        "pnpm test", "pnpm run test", "npx vitest", "npx tsc",
+        "python3 -m pytest", "python3 -m unittest", "pytest",
+        "make test", "go test", "cargo test"
+      ],
+      "action": "allow",
+      "reason": "卡 Acceptance 常用的测试/构建命令"
+    },
+    {
+      "id": "allow-local-git",
+      "kind": "command",
+      "commandPrefix": [
+        "git add ", "git commit ", "git worktree add ", "git worktree remove ",
+        "git status ", "git branch --set-upstream-to"
+      ],
+      "action": "allow",
+      "reason": "本地提交与车道 worktree 管理；不含 push/reset/clean"
+    },
+    {
+      "id": "escalate-everything-else",
+      "kind": "*",
+      "action": "escalate",
+      "reason": "未显式放行的请求一律升级，不猜测"
+    }
+  ]
+}

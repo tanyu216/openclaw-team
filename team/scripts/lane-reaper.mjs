@@ -39,10 +39,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawn as spawnChild } from 'node:child_process';
+import { spawn as spawnChild, spawnSync } from 'node:child_process';
 import { TEAM_ROOT } from './lib.mjs';
 import { closeLaneSession, cardStatusOf, laneProcessAlive, rowStateOf, appendAudit } from './session-lifecycle.mjs';
 import { sessionTerminalForCard } from './status.mjs';
+import { readState } from './lane-host-state.mjs';
 
 /** 默认轮询间隔（ms）：看守是空闲进程，2s 的判活粒度远小于任何 lane 的收口时延。 */
 export const REAPER_INTERVAL_MS = 2000;
@@ -63,7 +64,7 @@ export function parseReaperArgs(argv = []) {
   let once = false;
   let dryRun = false;
   let help = false;
-  const takesValue = { '--pid': 'pid', '--owner': 'owner', '--interval': 'interval', '--grace': 'grace', '--max-wait': 'maxwait', '--status': 'status' };
+  const takesValue = { '--pid': 'pid', '--owner': 'owner', '--interval': 'interval', '--grace': 'grace', '--max-wait': 'maxwait', '--status': 'status', '--state': 'state' };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--once') { once = true; continue; }
@@ -101,6 +102,8 @@ export function parseReaperArgs(argv = []) {
     graceMs: num(kv.grace, REAPER_GRACE_MS),
     maxWaitMs: num(kv.maxwait, 0),
     status: kv.status || '',
+    // 交互 lane 的 sidecar：host pid 死后据此清理残留后端（无此参数 ⇒ 行为不变）
+    state: kv.state || '',
   };
 }
 
@@ -110,7 +113,7 @@ export function parseReaperArgs(argv = []) {
  * cwd 固定为团队根：lane 的 cwd 可能是稍后被清理的隔离 worktree，看守不得依赖它。
  * @returns {{ok:boolean, pid?:number, reason?:string, argv:string[]}}
  */
-export function armLaneReaper({ card, seg, pid, owner = '', intervalMs = REAPER_INTERVAL_MS, graceMs = REAPER_GRACE_MS, env = process.env }) {
+export function armLaneReaper({ card, seg, pid, owner = '', intervalMs = REAPER_INTERVAL_MS, graceMs = REAPER_GRACE_MS, stateFile = '', env = process.env }) {
   const self = fileURLToPath(import.meta.url);
   // node 可执行文件可注入（`OPENCLAW_TEAM_REAPER_NODE`）：与 `OPENCLAW_CLAUDE_BIN`/`OPENCLAW_CODEX_BIN`
   // 同款测试缝——单测需要一条「看守起不来」的真实路径来验 fail-closed 分支（指向不存在的 bin ⇒
@@ -120,6 +123,7 @@ export function armLaneReaper({ card, seg, pid, owner = '', intervalMs = REAPER_
   if (owner) argv.push(`owner=${owner}`);
   if (intervalMs !== REAPER_INTERVAL_MS) argv.push(`interval=${intervalMs}`);
   if (graceMs !== REAPER_GRACE_MS) argv.push(`grace=${graceMs}`);
+  if (stateFile) argv.push(`state=${stateFile}`);
   let child;
   try {
     child = spawnChild(bin, [self, ...argv], { cwd: TEAM_ROOT, detached: true, stdio: 'ignore', env });
@@ -132,8 +136,48 @@ export function armLaneReaper({ card, seg, pid, owner = '', intervalMs = REAPER_
   return { ok: true, pid: child.pid, argv };
 }
 
+/** `ps` 取父 pid；失败 ⇒ NaN（调用方按“不匹配”处理，绝不误杀）。 */
+function parentOf(pid) {
+  try {
+    const r = spawnSync('ps', ['-o', 'ppid=', '-p', String(pid)], { encoding: 'utf8' });
+    return Number(String(r.stdout || '').trim());
+  } catch {
+    return NaN;
+  }
+}
+
+function killPid(pid, signal) {
+  try { process.kill(-pid, signal); return true; } catch { /* 非组长/已退出 */ }
+  try { process.kill(pid, signal); return true; } catch { return false; }
+}
+
+/**
+ * host 已死 ⇒ 按 sidecar 清理残留后端。
+ * 只认 `state.host_pid === 登记 pid`，且后端父进程是 host 或 1（防 pid 复用误杀）。
+ * 无 sidecar / 不匹配 ⇒ noop（绝不猜）。
+ */
+export async function cleanupOrphanBackend({ stateFile = '', hostPid = null, dryRun = false } = {}) {
+  const st = readState(stateFile);
+  if (!st) return { ok: true, action: 'noop', reason: 'state_missing' };
+  if (hostPid != null && Number(st.host_pid) !== Number(hostPid)) {
+    return { ok: true, action: 'noop', reason: 'host_pid_mismatch' };
+  }
+  const bpid = Number(st.backend_pid);
+  if (!Number.isInteger(bpid) || bpid <= 0) return { ok: true, action: 'noop', reason: 'no_backend_pid' };
+  if (!laneProcessAlive(bpid)) return { ok: true, action: 'noop', reason: 'backend_dead' };
+  const ppid = parentOf(bpid);
+  if (ppid !== Number(hostPid) && ppid !== 1) {
+    return { ok: true, action: 'noop', reason: `parent_mismatch(${ppid})` };
+  }
+  if (dryRun) return { ok: true, action: 'would_kill', backend_pid: bpid };
+  killPid(bpid, 'SIGTERM');
+  await sleep(1500);
+  if (laneProcessAlive(bpid)) killPid(bpid, 'SIGKILL');
+  return { ok: true, action: 'killed', backend_pid: bpid };
+}
+
 /** 一次收口尝试（pid 已死时调用）：状态由 `--status` 或卡面推导；`dryRun` 只报不做。 */
-export async function reapOnce({ card, seg, pid = null, status = '', source = 'lane-reaper', dryRun = false }) {
+export async function reapOnce({ card, seg, pid = null, status = '', source = 'lane-reaper', dryRun = false, stateFile = '' }) {
   const cardStatus = cardStatusOf(card);
   const st = status || sessionTerminalForCard(cardStatus);
   const before = rowStateOf(card, seg);
@@ -145,8 +189,10 @@ export async function reapOnce({ card, seg, pid = null, status = '', source = 'l
     return { ok: true, action: 'noop', reason: `row_taken_by_live_pid(${before.pid})`, seg, sessionId: before.id, cardStatus };
   }
   if (dryRun) return { ok: true, action: 'would_close', seg, status: st, sessionId: before.id, cardStatus, pid };
+  // 交互 lane：host 已死，先把残留后端清掉，再收口会话（顺序不能反：收口会释放卡）。
+  const cleanup = stateFile ? await cleanupOrphanBackend({ stateFile, hostPid: pid, dryRun }) : null;
   const r = await closeLaneSession({ card, seg, status: st, expectPid: pid, source });
-  return { ...r, action: r.ok ? (r.changed ? 'closed' : 'noop') : 'error', seg, cardStatus, pid };
+  return { ...r, action: r.ok ? (r.changed ? 'closed' : 'noop') : 'error', seg, cardStatus, pid, cleanup };
 }
 
 /**
@@ -154,7 +200,7 @@ export async function reapOnce({ card, seg, pid = null, status = '', source = 'l
  * @param {{card:string, seg:string, pid:number, intervalMs?:number, graceMs?:number, maxWaitMs?:number,
  *          status?:string, once?:boolean, dryRun?:boolean, source?:string}} o
  */
-export async function watchAndReap({ card, seg, pid, intervalMs = REAPER_INTERVAL_MS, graceMs = REAPER_GRACE_MS, maxWaitMs = 0, status = '', once = false, dryRun = false, source = 'lane-reaper' }) {
+export async function watchAndReap({ card, seg, pid, intervalMs = REAPER_INTERVAL_MS, graceMs = REAPER_GRACE_MS, maxWaitMs = 0, status = '', once = false, dryRun = false, source = 'lane-reaper', stateFile = '' }) {
   const t0 = Date.now();
   // 循环看守必须有可判活的 pid：缺 pid（或 `pid=` 空值）⇒ 显式报错，绝不空转等待、也绝不立即收口
   // （后者会把「pid 未知」误读成「pid 已死」）——`--once` 只判一次，允许无 pid。
@@ -167,7 +213,7 @@ export async function watchAndReap({ card, seg, pid, intervalMs = REAPER_INTERVA
     if (row.status !== 'running') return { ok: true, action: 'noop', reason: 'already_terminal', seg, status: row.status, sessionId: row.id };
     if (pid != null && !laneProcessAlive(Number(pid))) {
       if (graceMs > 0 && !dryRun) await sleep(graceMs);
-      return reapOnce({ card, seg, pid, status, dryRun, source });
+      return reapOnce({ card, seg, pid, status, dryRun, source, stateFile });
     }
     if (once) return { ok: true, action: 'noop', reason: 'still_running', seg, pid };
     if (maxWaitMs > 0 && Date.now() - t0 >= maxWaitMs) {
@@ -177,8 +223,10 @@ export async function watchAndReap({ card, seg, pid, intervalMs = REAPER_INTERVA
   }
 }
 
-const HELP = `用法: node lane-reaper.mjs <card> <seg> [pid=N] [owner=O] [interval=ms] [grace=ms] [max-wait=ms] [status=done|closed|failed]
-       node lane-reaper.mjs <card> <seg> [--pid N] [--interval MS] [--grace MS] [--max-wait MS] [--status S] [--once] [--dry-run]
+const HELP = `用法: node lane-reaper.mjs <card> <seg> [pid=N] [owner=O] [interval=ms] [grace=ms] [max-wait=ms] [status=done|closed|failed] [state=<sidecar>]
+       node lane-reaper.mjs <card> <seg> [--pid N] [--interval MS] [--grace MS] [--max-wait MS] [--status S] [--state <sidecar>] [--once] [--dry-run]
+
+交互 lane：追加 state=<host.json>。host pid 死后按 sidecar 校验 host_pid 与父进程，再清理残留后端。
 
 lane 会话终态看守（单入口 spawn-lane 自动起）：等 lane pid 死 ⇒ 经 ACL session-close 一次写完
 卡 ## Sessions 行 status + 清 active_session_id + registry 终态（含 endedAt），并追加 endedAt 审计字段 +
@@ -194,7 +242,7 @@ function main() {
   if (!a.card) { console.error(HELP); console.log(JSON.stringify({ ok: false, reason: 'missing_card' })); process.exit(2); }
   watchAndReap({
     card: a.card, seg: a.seg, pid: a.pid, intervalMs: a.intervalMs, graceMs: a.graceMs,
-    maxWaitMs: a.maxWaitMs, status: a.status, once: a.once, dryRun: a.dryRun,
+    maxWaitMs: a.maxWaitMs, status: a.status, once: a.once, dryRun: a.dryRun, stateFile: a.state,
   }).then((r) => {
     if (!r.ok && r.action === 'error') appendAudit(r.taskId || a.card, { source: 'lane-reaper', action: 'error', seg: a.seg, pid: a.pid, reason: r.reason });
     console.log(JSON.stringify({ ok: r.ok !== false, card: a.card, ...r }));

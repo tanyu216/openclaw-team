@@ -9,7 +9,7 @@
  * 任一步失败即拒绝起会话（绝不半登记）。
  *
  * 语义（契约）：
- *   入参：<card> <owner> [seg=seg1] [backend=claude|codex] [phase=<p>] [role=exec|review] [parallel=1]
+ *   入参：<card> <owner> [seg=seg1] [backend=claude|codex] [phase=<p>] [role=exec|review]
  *         [--review] [--dry-run] [--no-reaper] [--help]
  *   ① 解析卡（ACL `task.read`）；**按 role 分派状态口径**：
  *      - role=exec（默认）：断言 status=in_progress && claimed_by=owner（status=ready/todo 时自动 claim）；
@@ -24,11 +24,11 @@
  *      （实测有 `seg1-verify` / `seg2-browser`），拿它当身份会让同 seg 二次 spawn 漏放。
  *   ①b2 同卡并发**执行 lane** 防双跑（本卡 ①）：`role=exec` 且该卡**已有任意活跃 lane（任意 seg）**
  *      ⇒ 拒绝（`card_busy(...):second_exec_lane`）——「同卡并发执行 turn」的第二条 lane 必须在 spawn
- *      前拦下（而非事后按 PROTOCOL §6 回滚）。同一计划内**有意**并行多分段时显式声明 `parallel=1` 越过本层。
+ *      前拦下（而非事后按 PROTOCOL §6 回滚）。**没有并行旁路**：`parallel=1` 已移除；需要并行 ⇒ 拆卡或串行。
  *   ①c **隔离由车道自己按 skill 建立**（T-20261016-：新 dev 工作流）：
  *      本入口**不再**判定/创建 worktree。cwd 恒为 project 解析出的仓根；隔离改由子会话按
- *      `using-git-worktrees` skill 自建（落点 `.worktrees/<branch>`，分支名 = `laneNameFor(card, seg)`，
- *      基于**集成分支**（缺省 `dev`，`OPENCLAW_TEAM_INTEGRATION_BRANCH` 可改））。理由与代价见
+ *      `using-git-worktrees` skill 自建（落点 `.worktrees/<branch>`，分支名 = `cardBranchName(card)`，
+ *      **一张卡一条分支，所有 seg 复用**；基于**集成分支**（缺省 `dev`，`OPENCLAW_TEAM_INTEGRATION_BRANCH` 可改））。理由与代价见
  *      `guides/dev-worktree-flow-sop.md`：skill 的 Step 0 在未隔离时会
  *      **向用户征求同意**，而车道是无头 `claude -p` ⇒ 授权与分支名必须由 `buildPrompt` 声明。
  *      随之移除的是整条 bespoke 判定链：`lane-isolation.mjs` / `lane-worktree.mjs`（同文件串行拒绝、
@@ -61,7 +61,10 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawn as spawnChild, spawnSync } from 'node:child_process';
+import { buildInteractiveCommand, buildLaneHostCommand, INTERACTIVE_SETTINGS_JSON } from './lane-backend.mjs';
+import { loadPolicy } from './lane-policy.mjs';
 import { TEAM_ROOT, AGENTS, getProject, readCardById, parseDeps, integrationBranch } from './lib.mjs';
 import { anchorGaps } from './check-handoff.mjs';
 import { loadRegistry, isPidAlive, isEntryAlive, closePendingEntries } from './registry.mjs';
@@ -69,13 +72,104 @@ import { read as aclRead, claim as aclClaim, sessionSet, sessionClose, sessionId
 import { armLaneReaper, reaperEnabled } from './lane-reaper.mjs';
 
 /**
- * lane 名 = `<card>-<seg>`（单段、路径安全）。分段的身份投影，也是车道默认的**分支名**
- * ——合并门禁 `check-merge.mjs` 靠分支名反推卡 id，故这里与提示语里的分支名必须同源。
- * （原为 `lane-isolation.mjs` 的导出；该模块已随隔离机制一并移除。）
+ * 卡分支名 = 卡 id（路径安全）。**seg 不参与命名**：一张卡一条分支，所有 seg 复用它。
+ * 合并门禁 `check-merge.mjs` 靠分支名反推卡 id，故分支名必须保留卡 id；清洗改变 id 时拒绝。
  */
-export function laneNameFor(taskId, seg) {
-  const s = String(seg == null ? '' : seg).replace(/[^A-Za-z0-9._-]/g, '-').replace(/^[.-]+/, '');
-  return s ? `${taskId}-${s}` : String(taskId);
+export function cardBranchName(taskId) {
+  return String(taskId == null ? '' : taskId).replace(/[^A-Za-z0-9._-]/g, '-').replace(/^[.-]+/, '');
+}
+
+const GIT_QUERY_TIMEOUT_MS = 5000;
+
+/** 只读 git 查询（不写盘、不交互）。 */
+function gitRead(cwd, args) {
+  const r = spawnSync('git', ['-C', cwd, ...args], {
+    encoding: 'utf8',
+    timeout: GIT_QUERY_TIMEOUT_MS,
+    env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+  });
+  return {
+    ok: !r.error && r.status === 0,
+    out: String(r.stdout || '').trim(),
+    err: String(r.stderr || (r.error && r.error.message) || '').trim(),
+  };
+}
+
+/**
+ * cwd 的 git 环境三态：
+ * - `repo` + 仓根（`--show-toplevel` 归一，保证 `.worktrees/` 与 check-merge 扫描面一致）
+ * - `nogit`（明确不是仓：docs/vault/非仓目标）⇒ 不建分支/树
+ * - `unresolved`（git 不可用/出错）⇒ 不猜，lane 报告 blocked
+ */
+export function resolveRepo(cwd) {
+  const inside = gitRead(cwd, ['rev-parse', '--is-inside-work-tree']);
+  if (inside.ok && inside.out === 'true') {
+    const top = gitRead(cwd, ['rev-parse', '--show-toplevel']);
+    if (top.ok && top.out) return { mode: 'repo', root: top.out };
+    return { mode: 'unresolved', reason: top.err || 'show_toplevel_failed' };
+  }
+  if (!inside.ok && /not a git repository/i.test(inside.err)) return { mode: 'nogit' };
+  return { mode: 'unresolved', reason: inside.err || 'git_unavailable' };
+}
+
+/** 本地分支列表（只读）。 */
+export function listCardBranches(root) {
+  const r = gitRead(root, ['for-each-ref', '--format=%(refname:short)', 'refs/heads']);
+  return r.ok
+    ? { ok: true, branches: r.out.split('\n').map((s) => s.trim()).filter(Boolean) }
+    : { ok: false, branches: [], reason: r.err || 'git_unavailable' };
+}
+
+/** 分支 tip sha（只读）；不存在 ⇒ 空串。 */
+export function branchTipSha(root, branch) {
+  if (!branch) return '';
+  const r = gitRead(root, ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`]);
+  return r.ok ? r.out : '';
+}
+
+/** ancestor 是否为 descendant 的祖先（只读）。 */
+export function isAncestor(root, ancestor, descendant) {
+  if (!ancestor || !descendant) return false;
+  return gitRead(root, ['merge-base', '--is-ancestor', ancestor, descendant]).ok;
+}
+
+/**
+ * legacy 执行分支候选：`<card>-seg<digits>`。
+ * `-segR1`（旧复核默认名）与 `-seg2-container` 等非纯数字段自动排除。
+ */
+function legacyCandidate(branch, want) {
+  const prefix = `${want}-seg`;
+  if (!branch.startsWith(prefix)) return false;
+  return /^\d+$/.test(branch.slice(prefix.length));
+}
+
+/**
+ * 卡分支解析（纯函数；git 探测在调用方）。
+ * 顺序：`<card>` > 唯一 legacy > 新建 `<card>`。
+ * 歧义不由本函数决定：调用方按 `candidates` 拒绝，绝不静默回落。
+ */
+export function resolveCardBranch({ taskId, branches = [], repoMode = 'repo', reason = '' }) {
+  const want = cardBranchName(taskId);
+  const raw = String(taskId == null ? '' : taskId);
+  if (want !== raw) {
+    return { error: 'card_id_not_branch_safe', branch: want, source: 'invalid', exists: false, candidates: [], repoMode, reason };
+  }
+  if (repoMode === 'nogit') {
+    return { branch: '', source: 'nogit', exists: false, candidates: [], repoMode, reason };
+  }
+  if (repoMode !== 'repo') {
+    return { branch: '', source: 'unresolved', exists: false, candidates: [], repoMode, reason };
+  }
+  const set = new Set(branches);
+  if (set.has(want)) {
+    const candidates = branches.filter((b) => b !== want && legacyCandidate(b, want));
+    return { branch: want, source: 'card', exists: true, candidates, repoMode };
+  }
+  const candidates = branches.filter((b) => legacyCandidate(b, want));
+  if (candidates.length === 1) {
+    return { branch: candidates[0], source: 'legacy', exists: true, candidates, repoMode };
+  }
+  return { branch: want, source: 'new', exists: false, candidates, repoMode };
 }
 
 /** 并发额度（PROTOCOL §6 clause 2）：linus/jobs < 8；turing < 3；其余默认 8 */
@@ -250,16 +344,16 @@ export function liveLanes(taskId, cardBody = '', registry = null) {
  *  L2 同卡并发**执行 lane**（本卡 ①，`role=exec`）。该卡已有任意活跃 lane（**任意 seg**）⇒ 拒绝
  *    「第二条执行 lane」。理由：framework 在 spawn 期看不到 turn 边界，「同卡已有执行 lane 在跑」
  *    正是「同卡并发执行 turn」的可观测形态；事后按 PROTOCOL §6 回滚等于白起一条 lane（实证 turing segR1）。
- *    同一计划内**有意**并行多分段时，调用方显式声明 `allowParallel`（CLI `parallel=1`）越过本层。
- *    只读角色（`role=review`）不加 L2：复核 lane 靠 pin commit、与执行 lane 并跑是既有契约
- *    （SOP §Review lanes）；L1 对复核 lane 照常生效（复核不得复用执行侧 seg）。
+ *    **没有并行旁路**：`parallel=1` 已移除；需要并行 ⇒ 拆卡或串行。
+ *    只读角色（`role=review`）不加 L2；复核的「卡上无其他活跃 lane」由 `spawnLane` 单独把关。
+ *    L1 对复核 lane 照常生效（复核不得复用执行侧 seg）。
  *
  * @param {{taskId:string, seg:string, cardBody?:string, registry?:object[]|null,
- *          sid?:string, role?:'exec'|'review', allowParallel?:boolean}} input
+ *          sid?:string, role?:'exec'|'review'}} input
  *   `sid` = 本 seg 的确定性 session id（`sessionIdFor(card, owner, seg)`）；缺省 ⇒ 跳过 L1③。
  * @returns {{blocked:boolean, session?:object, live?:object[]}}
  */
-export function runningLaneBlocker({ taskId, seg, cardBody = '', registry = null, sid = '', role = 'exec', allowParallel = false, ...opts }) {
+export function runningLaneBlocker({ taskId, seg, cardBody = '', registry = null, sid = '', role = 'exec', ...opts }) {
   const reg = registry == null ? loadRegistry() : registry;
   const byCard = sessionsBySeg(cardBody).find(
     (s) => s.seg === seg && s.status === 'running' && cardRowLive(s),
@@ -276,7 +370,7 @@ export function runningLaneBlocker({ taskId, seg, cardBody = '', registry = null
     : null;
   if (bySid) return { blocked: true, session: { ...bySid, seg, source: 'registry_session' } };
 
-  if (role !== 'exec' || allowParallel) return { blocked: false };
+  if (role !== 'exec') return { blocked: false };
   const live = liveLanes(taskId, cardBody, reg);
   if (live.length) return { blocked: true, session: { ...live[0], seg, source: 'card_busy' }, live };
   return { blocked: false };
@@ -294,6 +388,58 @@ export function ensureWorkspaceSettings(wsDir, { dryRun = false } = {}) {
   if (dryRun) return { state: 'would_create', path: settingsPath };
   fs.mkdirSync(settingsDir, { recursive: true });
   fs.writeFileSync(settingsPath, DEFAULT_SETTINGS_JSON);
+  return { state: 'created', path: settingsPath };
+}
+
+/**
+ * 复核 lane 的只读 settings（dontAsk 模式下 = 只放行列表内工具/命令）。
+ * Claude Code 的文件规则只认 `Edit(path)`（同时覆盖 Write）；绝对路径必须用 `//` 前缀。
+ * **不要**写裸 `Edit` deny：deny 优先于 allow，会把唯一允许的复核报告也一起禁掉。
+ */
+export function reviewSettings(reportPath) {
+  const abs = String(reportPath || '').replace(/^\/+/, '');
+  return {
+    permissions: {
+      allow: [
+        'Read', 'Glob', 'Grep', 'TodoWrite',
+        'Bash(git status:*)', 'Bash(git diff:*)', 'Bash(git log:*)', 'Bash(git show:*)',
+        'Bash(git rev-parse:*)', 'Bash(git merge-base:*)', 'Bash(git branch:*)',
+        'Bash(git ls-files:*)', 'Bash(git worktree list:*)',
+        'Bash(node --test:*)', 'Bash(npm test:*)', 'Bash(pnpm test:*)', 'Bash(npx vitest:*)',
+        `Edit(//${abs})`,
+      ],
+      deny: [
+        'Bash(git commit:*)', 'Bash(git checkout:*)', 'Bash(git switch:*)',
+        'Bash(git reset:*)', 'Bash(git restore:*)', 'Bash(git stash:*)',
+        'Bash(git clean:*)', 'Bash(git merge:*)', 'Bash(git rebase:*)',
+        'Bash(git cherry-pick:*)', 'Bash(git apply:*)', 'Bash(git am:*)',
+      ],
+    },
+  };
+}
+
+/** 幂等预置 `workspace/<id>/.claude/settings.review.json`；已存在 ⇒ 绝不覆盖。 */
+export function ensureReviewSettings(wsDir, reportPath, { dryRun = false } = {}) {
+  const settingsDir = path.join(wsDir, '.claude');
+  const settingsPath = path.join(settingsDir, 'settings.review.json');
+  if (fs.existsSync(settingsPath)) return { state: 'exists', path: settingsPath };
+  if (dryRun) return { state: 'would_create', path: settingsPath };
+  fs.mkdirSync(settingsDir, { recursive: true });
+  fs.writeFileSync(settingsPath, `${JSON.stringify(reviewSettings(reportPath), null, 2)}\n`);
+  return { state: 'created', path: settingsPath };
+}
+
+/**
+ * 幂等预置 `workspace/<id>/.claude/settings.interactive.json`；已存在 ⇒ 绝不覆盖。
+ * 刻意比 `DEFAULT_SETTINGS` 窄：只 allow 只读工具，Write/Edit/Bash 全部落到 host 策略。
+ */
+export function ensureInteractiveSettings(wsDir, { dryRun = false } = {}) {
+  const settingsDir = path.join(wsDir, '.claude');
+  const settingsPath = path.join(settingsDir, 'settings.interactive.json');
+  if (fs.existsSync(settingsPath)) return { state: 'exists', path: settingsPath };
+  if (dryRun) return { state: 'would_create', path: settingsPath };
+  fs.mkdirSync(settingsDir, { recursive: true });
+  fs.writeFileSync(settingsPath, INTERACTIVE_SETTINGS_JSON);
   return { state: 'created', path: settingsPath };
 }
 
@@ -317,10 +463,17 @@ export function parseArgs(argv) {
     if (a === '--no-reaper') { reaper = false; continue; } // 回退开关（等价 OPENCLAW_TEAM_REAPER=0）
     if (a === '--review') { kv.role = 'review'; continue; } // 等价 role=review
     if (a === '--plugin') { kv.harness = 'plugin'; continue; } // 等价 harness=plugin（契约 §8.1）
+    if (a === '--interactive') { kv.interactive = '1'; continue; } // 等价 interactive=1
     if (a === '--help' || a === '-h') { help = true; continue; }
     if (a.startsWith('--')) return { ok: false, reason: `unknown_flag:${a}` };
     const i2 = a.indexOf('=');
-    if (i2 > 0 && !a.startsWith('=')) { kv[a.slice(0, i2)] = a.slice(i2 + 1); continue; }
+    if (i2 > 0 && !a.startsWith('=')) {
+      const key = a.slice(0, i2);
+      // 已移除能力必须显式拒绝，不能因为「未知 k=v 被吞掉」变成静默 no-op
+      if (key === 'parallel') return { ok: false, reason: 'removed_arg:parallel' };
+      kv[key] = a.slice(i2 + 1);
+      continue;
+    }
     pos.push(a);
   }
   // 位置参数只有 `card owner` 两个；**多余的裸位置参数一律用法错误**，绝不静默忽略
@@ -342,13 +495,13 @@ export function parseArgs(argv) {
     harness: kv.harness || 'cli',
     role: kv.role || 'exec',
     phase: kv.phase || kv.seg || '',
-    // 同一计划内**有意**并行多分段：显式声明越过 ①b2（见 runningLaneBlocker L2）
-    parallel: kv.parallel || '',
+    // 交互 lane：显式 opt-in；空/其它值 ⇒ 关闭（保持现有无人值守默认）
+    interactive: kv.interactive || '',
   };
 }
 
-/** `parallel=1|true|yes|on` ⇒ 越过 ①b2（同卡并发执行 lane 守卫）；其它值（含空）⇒ 不越过 */
-export function parallelDeclared(value) {
+/** `interactive=1|true|yes|on` ⇒ 启用宿主控制通道；其它值（含空）⇒ 关闭 */
+export function interactiveDeclared(value) {
   return /^(1|true|yes|on)$/i.test(String(value == null ? '' : value).trim());
 }
 
@@ -359,14 +512,40 @@ const backendBin = (backend) =>
     : process.env.OPENCLAW_CLAUDE_BIN || 'claude');
 
 /**
+ * 交互 lane 的 CLI 能力预检（**claim 之前**，零副作用）。
+ * 不做静默降级：旗标/子命令缺失 ⇒ 拒绝起 lane，而不是起一个永远不会产生控制请求的进程。
+ * 测试用假后端时设 `OPENCLAW_LANE_SKIP_PREFLIGHT=1`。
+ */
+export function preflightInteractive({ backend, bin, env = process.env } = {}) {
+  if (String((env && env.OPENCLAW_LANE_SKIP_PREFLIGHT) || '').trim() === '1') return { ok: true, skipped: true };
+  const argv = backend === 'codex' ? ['app-server', '--help'] : ['--help'];
+  const r = spawnSync(bin, argv, { encoding: 'utf8', timeout: 10000 });
+  if (r.error || r.status !== 0) {
+    return { ok: false, reason: `interactive_unsupported_cli(${backend}):help_failed:${r.error ? r.error.message : `exit=${r.status}`}` };
+  }
+  const text = `${r.stdout || ''}\n${r.stderr || ''}`;
+  if (backend === 'codex') {
+    if (!/app-server/.test(text) || !/--stdio/.test(text)) {
+      return { ok: false, reason: 'interactive_unsupported_cli(codex):app-server_stdio_missing' };
+    }
+  } else if (!/--permission-prompts/.test(text) && !/--permission-prompt-tool/.test(text)) {
+    return { ok: false, reason: 'interactive_unsupported_cli(claude):permission_prompt_flag_missing' };
+  }
+  return { ok: true };
+}
+
+/**
  * 子会话提示词：先读背景包（handoff），再执行卡。子会话不读牌面（PROTOCOL §6 clause 7）。
  * 追加一段工作树纪律：本车道在**自己的 worktree** 上，提交落在**卡分支**，收尾须回报
  * branch + sha 供整合（否则隔离树的产物无人知道；收口口径见 `guides/dev-worktree-flow-sop.md`）。
  *
- * 隔离段落**只有一态**（T-20261016-：集成分支开发流）：
- *   · 本入口不再隔离任何车道（见文件头 ①c）⇒ 唯一一态：**明确授权车道自建**，并点名 skill 的
- *     1b 回退（`git worktree add` → `.worktrees/<branch>`，基于集成分支）。
- *   · 分支名 = `lane` 参数（`laneNameFor(card, seg)`），与合并门禁 `check-merge.mjs` 的
+ * 隔离段落按 `branchSource` 分派（T-20261016-：集成分支开发流）：
+ *   · `new`：明确授权车道自建，并点名 skill 的 1b 回退（`git worktree add` → `.worktrees/<branch>`，
+ *     基于集成分支）。
+ *   · `card`/`legacy`：分支已存在，**禁止 `-b`**，进入既有树或重新 attach；seg 之间不合并。
+ *   · `nogit`：非 git 项目，跳过隔离；`unresolved`：不猜，要求车道确认环境或报告 blocked。
+ *   · `role=review`：只读复用卡树，pin 住 spawn 时的提交，不建分支/树。
+ *   · 分支名 = `cardBranchName(card)`（**seg 不参与命名**），与合并门禁 `check-merge.mjs` 的
  *     「分支名反推卡 id」口径同源 —— 两处必须一致，否则门禁认不出这棵树属于哪张卡。
  *     集成分支名同理由 `lib.mjs#integrationBranch()` 提供：门禁与提示语**必须**是同一个名字。
  *
@@ -375,30 +554,94 @@ const backendBin = (backend) =>
  * `claude -p`，没有人能回答那个问题；skill 同时写着 "Honor any existing declared preference
  * without asking" ⇒ 偏好必须由**本提示语**声明，否则该步结构性不可满足。
  */
-export function buildPrompt({ handoffPath, cardPath, reportPath, lane = '', integration = integrationBranch() }) {
-  const workspace = `Isolated workspace: set one up before you start — you are authorised, do NOT ask for consent. `
-    + `Prefer a native worktree tool if the harness provides one; otherwise use the \`using-git-worktrees\` skill's git fallback `
-    + `(\`git worktree add\`), which places the tree at \`.worktrees/<branch>\` inside this repo. `
-    + (lane
-      ? `Name the branch \`${lane}\` — the merge gate derives the card from the branch name — and base it on \`${integration}\`. `
-      : `Name the branch after this card and base it on \`${integration}\`. `);
+export function buildPrompt({
+  handoffPath, cardPath, reportPath,
+  reviewReportPath = '',
+  role = 'exec',
+  branch = '',
+  branchSource = 'new', // card | legacy | new | nogit | unresolved
+  integration = integrationBranch(),
+  pinSha = '',
+  worktreePath = '',
+  worktreeExists = false,
+  reviewReadonly = 'n/a', // settings | sandbox | stdout | n/a
+  interactive = false,
+}) {
+  const isReview = role === 'review';
+  const inRepo = branchSource === 'card' || branchSource === 'legacy' || branchSource === 'new';
+  const branchLabel = branch ? `\`${branch}\`` : 'the card branch';
+  const pathLabel = worktreePath ? `\`${worktreePath}\`` : 'the card worktree';
+  let workspace;
+
+  if (isReview) {
+    if (inRepo) {
+      workspace = `This is a review lane: read-only. Do NOT create a branch or worktree and do NOT run the \`using-git-worktrees\` skill. `
+        + (worktreeExists
+          ? `Enter the existing worktree at ${pathLabel} and verify its HEAD is ${branchLabel}. `
+          : `The card worktree is missing; re-attach it with \`git worktree add ${worktreePath} ${branch}\` (no \`-b\`). `)
+        + `The review target is the commit pinned at spawn: \`${pinSha || '(unresolved)'}\` (tip of ${branchLabel}). `
+        + `Never commit and never modify tracked files; do not run checkout/reset/restore/stash/clean. `
+        + `If the tree is dirty or HEAD differs from the pin, read files with \`git show <pin>:<path>\`; do not review a moving tree. `
+        + `If the pin is unresolved, report the card blocked instead of reviewing another tree. `;
+    } else if (branchSource === 'nogit') {
+      workspace = `This is a review lane and the project is not a git repository: do NOT create a branch or worktree. `
+        + `Read the project directly and review the card's Acceptance. `;
+    } else {
+      workspace = `This is a review lane, but git could not be queried before spawn: do NOT create a branch or worktree blindly. `
+        + `Run \`git rev-parse --is-inside-work-tree\`: if it is not a repository, review directly; otherwise report blocked with the command output. `;
+    }
+  } else if (branchSource === 'new') {
+    workspace = `Isolated workspace: set one up before you start — you are authorised, do NOT ask for consent. `
+      + `Use the \`using-git-worktrees\` skill's git fallback (\`git worktree add\`), which places the tree at \`.worktrees/<branch>\` inside this repo. `
+      + `The branch is ${branchLabel} — one branch for the whole card; a seg is a session boundary, not a branch. `
+      + `base it on \`${integration}\`: \`git worktree add ${worktreePath} -b ${branch} ${integration}\`. `
+      + `Commit with explicit paths, and report the branch + commit sha in your Report so the work can be integrated. `;
+  } else if (branchSource === 'card' || branchSource === 'legacy') {
+    workspace = `The card branch ${branchLabel} already exists${branchSource === 'legacy' ? ' (legacy name for this in-flight card)' : ''}. `
+      + `Re-enter the existing worktree at ${pathLabel}; do NOT create a new branch and do NOT run the skill's \`-b\` fallback. `
+      + (worktreeExists
+        ? `Enter it and verify HEAD is ${branchLabel}. `
+        : `It is missing; re-attach with \`git worktree add ${worktreePath} ${branch}\` (no \`-b\`). `)
+      + `A new segment is a new session, not a new branch; do not merge between segments. Continue committing on ${branchLabel}. `
+      + `Commit with explicit paths, and report the branch + commit sha in your Report so the work can be integrated. `;
+  } else if (branchSource === 'nogit') {
+    workspace = `This project is not a git repository: do NOT create a branch or worktree. `
+      + `Work directly in the project root and follow the card's rules; report that no git isolation applies. `;
+  } else {
+    workspace = `Git could not be queried before spawn. First run \`git rev-parse --is-inside-work-tree\`: `
+      + `if it is not a repository, proceed without git isolation; if it is a repository but the query failed, report blocked with the command output. `
+      + `Do NOT guess a branch or create a worktree blindly. `;
+  }
+
+  // 交互 lane 没有 `codex exec -o` 的最终消息落盘；复核报告也改为显式写文件。
+  const reportLine = isReview
+    ? (interactive || reviewReadonly !== 'sandbox'
+      ? `Review the card's Acceptance at the pinned revision and write your review report to ${reviewReportPath || reportPath}.`
+      : `Review the card's Acceptance at the pinned revision and finish with the complete review report as your final message; the lane runner captures it to ${reviewReportPath || reportPath}.`)
+    : `Execute the card's Acceptance and write your report to ${reportPath}.`;
+
   return [
     `Read your background pack first: ${handoffPath}`,
     `Task card: ${cardPath}`,
-    // 隔离段落**排在 report 行之前**：报告行必须是本提示的**末句**。codex 后端要求提示词落在
-    // argv 末位，抽取端以「末句以 report.md 结尾」为判据（spawn-lane.test.mjs RED-9）——
-    // 把别的句子缀在报告行之后就同时破坏了这个判据。落在末位也更合提示词顺序：最后一句是行动项。
+    // 报告行必须是**末句**：codex 后端要求提示词落在 argv 末位，抽取端以「末句以 report.md 结尾」为判据
     workspace
-      + `Commit with explicit paths, and report the branch + commit sha in your Report so the work can be integrated. `
-      // 受保护分支**不点名**：它是哪个随仓而异（main / master / trunk …），由 `branch-guard.mjs`
-      // 按仓默认分支 ∪ {main, master} 判定。此处写出「发布分支」这个**角色**，写死一个名字反而会误导。
-      + `Never commit directly on the protected release branch — integration happens on \`${integration}\`, which is what the main checkout sits on.`,
-    `Execute the card's Acceptance and write your report to ${reportPath}.`,
+      + (isReview ? '' : `Never commit directly on the protected release branch — integration happens on \`${integration}\`, which is what the main checkout sits on.`)
+      // 交互 lane 的“提问协议”：必须用结构化工具、不得散文提问/猜测；文件用 Write 工具写，
+      // 否则 shell 重定向会被策略的 shellMeta 规则升级，白白停一次。
+      + (interactive
+        ? `If you need a decision you cannot make, call your structured question tool once (AskUserQuestion on Claude, request_user_input on Codex); do not guess and do not ask in prose. The lane will stop and escalate to the board. Write files with the Write tool; do not use shell redirection or compound shell commands. `
+        : ''),
+    reportLine,
   ].join('\n');
 }
 
 /** 组装子进程命令（argv 数组；claude 参数照 PROTOCOL §6 模板） */
-export function buildCommand({ backend, harness = 'cli', bin, prompt, wsDir, sid, name, cwd = '', team = TEAM_ROOT }) {
+export function buildCommand({
+  backend, harness = 'cli', bin, prompt, wsDir, sid, name, cwd = '', team = TEAM_ROOT,
+  settingsPath = path.join(wsDir, '.claude', 'settings.json'),
+  permissionMode = 'acceptEdits',
+  outputLastMessage = '',
+}) {
   // --- 插件分支（契约 §8.2）：网关中介的 codex app-server harness turn ---
   // 与 CLI 分支的关键差异：**句柄 = native thread id（非 pid）**；沙箱/审批经调度参数绑定
   // （§8.5 映射表 / §8.9，G-4 裁定：审批姿态与 CLI lane 等价，不开旁路）。
@@ -415,9 +658,16 @@ export function buildCommand({ backend, harness = 'cli', bin, prompt, wsDir, sid
   }
   // --- CLI 分支（现状，保留可回退；契约 §8.2）---
   if (backend === 'codex') {
-    // T-20261013-164816：codex 分支原仅发 `exec <prompt>` ⇒ 沙箱可写根只有 cwd（主 workspace），
-    // 复核报告落点 {team}/workspace/<id>/ 在 cwd 之外 ⇒ lane 写 report.md 得 EPERM，须父回合手工回迁。
-    // 等效写权（机制可与 claude 不同形；codex 0.161.0 实测语义）：
+    // 复核 lane：read-only 沙箱 + `-o` 由 codex CLI 自身落盘（不受 agent 写权限影响）。
+    // 不再需要 --add-dir（read-only 下它也被忽略），agent 无法写主 checkout 或卡树。
+    if (outputLastMessage) {
+      return {
+        bin,
+        harness: 'cli',
+        args: ['exec', '--sandbox', 'read-only', '-o', outputLastMessage, prompt],
+      };
+    }
+    // 执行 lane：T-20261013-164816 的可写根口径不变
     //   · `--sandbox workspace-write`：**必须显式**。cwd 非 git / 未受信时默认沙箱是 read-only，而
     //     `--add-dir` 只**追加可写根**且**仅在 workspace-write 下生效**（read-only 下被静默忽略）⇒
     //     缺此旗标则 --add-dir 形同虚设。
@@ -437,8 +687,10 @@ export function buildCommand({ backend, harness = 'cli', bin, prompt, wsDir, sid
       '-p', prompt,
       '--output-format', 'stream-json',
       '--verbose',
-      '--permission-mode', 'acceptEdits',
-      '--settings', path.join(wsDir, '.claude', 'settings.json'),
+      '--permission-mode', permissionMode,
+      // 无头复核：拒绝而不是等待/重试未列入 allow 的调用
+      ...(permissionMode === 'dontAsk' ? ['--permission-prompts', 'none'] : []),
+      '--settings', settingsPath,
       '--add-dir', wsDir,
       '--add-dir', team,
       '--session-id', sid,
@@ -495,6 +747,37 @@ function busySleep(ms) {
   if (ms <= 0) return;
   const sab = new SharedArrayBuffer(4);
   Atomics.wait(new Int32Array(sab), 0, 0, ms);
+}
+
+/**
+ * 读 host 在 out.jsonl 里的状态行：
+ *   · `{"type":"lane-host","event":"ready"}` ⇒ 握手完成；
+ *   · `{"type":"lane-host","event":"failed"}` ⇒ 提前失败（不等满超时）。
+ * 返回 `{ready:true}` / `{failed:true,event}` / `null`。
+ */
+export function parseHostEvent(text) {
+  for (const line of String(text || '').split('\n')) {
+    const s = line.trim();
+    if (!s || s[0] !== '{') continue;
+    let o;
+    try { o = JSON.parse(s); } catch { continue; }
+    if (o && o.type === 'lane-host' && o.event === 'ready') return { ready: true, event: o };
+    if (o && o.type === 'lane-host' && o.event === 'failed') return { failed: true, event: o };
+  }
+  return null;
+}
+
+/** 同步等待 host ready（与 `awaitThreadId` 同款轮询；超时由调用方收口）。 */
+export function awaitHostReady(logPath, { timeoutMs = 30000, pollMs = 250, sleepSync = busySleep } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    let text = '';
+    try { text = fs.readFileSync(logPath, 'utf8'); } catch { /* 文件尚未创建 */ }
+    const ev = parseHostEvent(text);
+    if (ev) return ev;
+    if (Date.now() >= deadline) return { timeout: true, ms: timeoutMs };
+    sleepSync(Math.min(pollMs, Math.max(0, deadline - Date.now())));
+  }
 }
 
 /**
@@ -563,14 +846,19 @@ const usage = (reason) => ({ ok: false, code: 2, reason });
 /**
  * 执行入口（dry-run 与真实起会话共用同一条校验链）。
  * @param {{card:string,owner:string,seg:string,backend:string,phase:string,role:'exec'|'review',
- *          dryRun:boolean,parallel?:string}} opts `parallel='1'` = 同一计划内有意并行多分段
- *   （越过 ①b2，见上）。**无隔离/定基选项**：隔离由车道按 `using-git-worktrees` skill 自建
- *   （见文件头 ①c），本入口既不判定也不定基。
+ *          dryRun:boolean}} opts **无隔离/定基/并行选项**：隔离由车道按 `using-git-worktrees` skill
+ *   自建或复用卡树（见文件头 ①c），本入口既不判定也不定基；`parallel` 已移除，传入即 `removed_arg`。
  */
 export function spawnLane(opts = {}) {
   const { card = '', owner = '', seg: segArg = '', backend = 'claude', harness = 'cli', dryRun = false } = opts;
   const role = opts.role || 'exec';
-  const allowParallel = parallelDeclared(opts.parallel);
+  const interactive = interactiveDeclared(opts.interactive);
+  // 应急总闸：显式 `OPENCLAW_TEAM_LANE_INTERACTIVE=0` 时拒绝交互 lane（不静默忽略 --interactive）。
+  if (interactive && String(process.env.OPENCLAW_TEAM_LANE_INTERACTIVE ?? '').trim() === '0') {
+    return usage('interactive_disabled_by_env');
+  }
+  // 已移除能力：程序化调用也不得静默忽略
+  if (opts.parallel !== undefined) return usage('removed_arg:parallel');
   // 显式 seg= 优先；否则按 role 取默认（复核 lane 用 segR1，避开执行侧 seg1 的 Sessions 行撞名）
   const seg = segArg || (role === 'review' ? REVIEW_SEG : 'seg1');
   const phase = opts.phase || seg;
@@ -585,6 +873,25 @@ export function spawnLane(opts = {}) {
   if (!HARNESSES.includes(harness)) return usage(`unknown_harness:${harness}`);
   // 插件天然只有 Codex 腿（契约 §6 / §1.2：claude 与 pi 无官方 embedded harness）
   if (harness === 'plugin' && backend !== 'codex') return usage(`harness_plugin_requires_codex(backend=${backend})`);
+  // 复核只读依赖 CLI 的 settings/sandbox/‑o；插件与交互宿主尚未提供等价只读约束
+  if (role === 'review' && harness === 'plugin') return usage('review_plugin_unsupported');
+  if (role === 'review' && interactive) return usage('review_interactive_unsupported');
+  // 交互 lane 只支持 CLI 后端；插件 lane 的审批姿态由网关契约管理，v1 不开交互
+  if (interactive && harness === 'plugin') return usage('interactive_unsupported_harness(plugin):use_harness=cli');
+  // 复核 lane 的只读保证依赖 settings.review.json + dontAsk/read-only；交互 host 目前用
+  // settings.interactive.json + default 模式，无法保证“只读”。v1 明确拒绝，不静默放宽。
+  if (interactive && role === 'review') return usage('review_interactive_unsupported');
+
+  // ---- ⓪ 交互 lane 预检（claim 之前，零副作用）----
+  // 旗标/子命令缺失或策略非法 ⇒ 拒绝起 lane，不静默降级成“永远没有控制请求”的进程。
+  let interactivePolicy = null;
+  if (interactive) {
+    const pre = preflightInteractive({ backend, bin: backendBin(backend), env: process.env });
+    if (!pre.ok) return reject(pre.reason);
+    const loaded = loadPolicy({ teamRoot: TEAM_ROOT, env: process.env });
+    if (!loaded.ok) return reject(`policy_load_failed:${loaded.reason}`);
+    interactivePolicy = loaded;
+  }
 
   // ---- ① 解析卡（ACL）----
   let c;
@@ -609,7 +916,7 @@ export function spawnLane(opts = {}) {
     // 本 seg 的确定性 session id（= 该 lane 的身份投影）；读卡失败 ⇒ 空串（跳过 L1③，其余判据照跑）
     let sid = '';
     try { sid = sessionIdFor(card, owner, seg).session_id; } catch { sid = ''; }
-    const hit = runningLaneBlocker({ taskId, seg, cardBody: c.body, sid, role, allowParallel });
+    const hit = runningLaneBlocker({ taskId, seg, cardBody: c.body, sid, role });
     if (hit.blocked) {
       const s = hit.session || {};
       const session = { seg, pid: s.pid ?? null, id: s.id || s.session_id || null, owner: s.owner || null, source: s.source };
@@ -633,6 +940,35 @@ export function spawnLane(opts = {}) {
     return reject(`project_unresolved:${String(e && e.message ? e.message : e)}`);
   }
 
+  // ---- ①c2 卡分支解析（只读；必须在 claim 之前 ⇒ 拒绝路径零副作用）------------------
+  const repo = resolveRepo(baseCwd);
+  const listed = repo.mode === 'repo' ? listCardBranches(repo.root) : { ok: false, branches: [], reason: repo.reason };
+  const branchInfo = resolveCardBranch({
+    taskId,
+    branches: listed.branches || [],
+    repoMode: repo.mode,
+    reason: listed.reason || repo.reason || '',
+  });
+  if (branchInfo.error) return reject(branchInfo.error);
+  // 歧义一律拒绝：多条 legacy，或 <card> 与不是其祖先的 legacy 并存
+  if (branchInfo.source === 'new' && branchInfo.candidates.length > 1) {
+    return reject(`legacy_branch_ambiguous(candidates=${branchInfo.candidates.join(',')})`, { candidates: branchInfo.candidates });
+  }
+  if (branchInfo.source === 'card') {
+    for (const legacy of branchInfo.candidates) {
+      if (!isAncestor(repo.root, legacy, branchInfo.branch)) {
+        return reject(`legacy_not_ancestor(branch=${legacy})`, { branch: branchInfo.branch, legacy });
+      }
+    }
+  }
+  const worktreePath = repo.mode === 'repo'
+    ? path.join(repo.root, '.worktrees', branchInfo.branch)
+    : '';
+  const worktreeExists = worktreePath ? fs.existsSync(worktreePath) : false;
+  const reviewSha = role === 'review' && repo.mode === 'repo'
+    ? branchTipSha(repo.root, branchInfo.branch)
+    : '';
+
   // ---- status / claim 断言（按 role 分派）----
   if (role === 'review') {
     // 复核 lane：只认在审卡；不 claim、不改/不校验 claimed_by（复核人 ≠ 实施人）
@@ -640,6 +976,16 @@ export function spawnLane(opts = {}) {
     // seg 撞名守卫：`## Sessions` 以 `seg:<seg> ·` 为 upsert 键，复用他人 seg 会覆盖其登记行
     const clash = sessionsBySeg(c.body).find((s) => s.seg === seg && s.owner && s.owner !== owner);
     if (clash) return reject(`review_seg_taken(seg=${seg},owner=${clash.owner}):use_seg=${REVIEW_SEG}`);
+    // 真仓中卡分支必须已存在（有提交才可 pin）；非仓/环境不明交给提示语处置
+    if (branchInfo.repoMode === 'repo' && !branchInfo.exists) {
+      return reject(`review_branch_missing(branch=${branchInfo.branch}):commit_first`);
+    }
+    // 复核要求卡上无其他活跃 lane：执行 lane 已结束，pin 才是最终代码
+    const live = liveLanes(taskId, c.body);
+    if (live.length) {
+      const tag = live.map((l) => `${l.seg || '?'}(pid=${l.pid},owner=${l.owner || ''})`).join(';');
+      return reject(`review_needs_quiet_card(live=${tag})`, { live });
+    }
   } else {
     const claimable = status === 'ready' || status === 'todo';
     if (claimable) {
@@ -675,7 +1021,7 @@ export function spawnLane(opts = {}) {
   // ---- ④ handoff 自检 ----
   const wsDir = path.join(TEAM_ROOT, 'workspace', taskId);
   const handoffPath = path.join(wsDir, 'handoff.md');
-  const reportPath = path.join(wsDir, 'report.md');
+  const reportPath = path.join(wsDir, role === 'review' ? 'review-report.md' : 'report.md');
   let handoffState;
   if (fs.existsSync(handoffPath)) {
     const miss = anchorGaps(fs.readFileSync(handoffPath, 'utf8'));
@@ -697,8 +1043,26 @@ export function spawnLane(opts = {}) {
 
   // ---- ④b settings 预置（幂等；--settings 的目标，缺则 claude 起会话秒退「Settings file not found」）----
   let settings;
+  let settingsPath = '';
   try {
-    settings = ensureWorkspaceSettings(wsDir, { dryRun }).state;
+    if (interactive) {
+      // 交互 lane 用窄基线：只 allow 只读工具，Write/Edit/Bash 全部交给 host 策略。
+      const r = ensureInteractiveSettings(wsDir, { dryRun });
+      settings = r.state;
+      settingsPath = r.path;
+    } else if (role === 'review' && backend === 'claude') {
+      const r = ensureReviewSettings(wsDir, reportPath, { dryRun });
+      settings = r.state;
+      settingsPath = r.path;
+    } else if (role === 'review') {
+      // codex 复核不消费 --settings（read-only 沙箱 + -o 已足够），不生成无用文件
+      settings = 'n/a';
+      settingsPath = '';
+    } else {
+      const r = ensureWorkspaceSettings(wsDir, { dryRun });
+      settings = r.state;
+      settingsPath = r.path;
+    }
   } catch (e) {
     return reject(`settings_preset_failed:${String(e && e.message ? e.message : e)}`);
   }
@@ -727,9 +1091,69 @@ export function spawnLane(opts = {}) {
   }
 
   // ---- ⑥ 组装命令 ----
-  const prompt = buildPrompt({ handoffPath, cardPath, reportPath, lane: laneNameFor(taskId, seg) });
+  const reviewReadonly = role === 'review' ? (backend === 'codex' ? 'sandbox' : 'settings') : 'n/a';
+  const prompt = buildPrompt({
+    handoffPath,
+    cardPath,
+    reportPath,
+    reviewReportPath: reportPath,
+    role,
+    branch: branchInfo.branch,
+    branchSource: branchInfo.source,
+    integration: integrationBranch(),
+    pinSha: reviewSha,
+    worktreePath,
+    worktreeExists,
+    reviewReadonly,
+    interactive,
+  });
   const bin = harness === 'plugin' ? pluginBin() : backendBin(backend);
-  const built = buildCommand({ backend, harness, bin, prompt, wsDir, sid, name: `${owner}-${seg}`, cwd });
+  // 交互 lane：不直接起后端，而是起 `lane-host.mjs`（登记 pid = host）。
+  const hostPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'lane-host.mjs');
+  const hostMeta = interactive ? {
+    controlLog: path.join(wsDir, `${owner}-${n}.control.jsonl`),
+    stateFile: path.join(wsDir, `${owner}-${n}.host.json`),
+    promptFile: path.join(wsDir, `${owner}-${n}.prompt.txt`),
+    questionDir: path.join(wsDir, 'questions'),
+    backendCmd: buildInteractiveCommand({ backend, bin, wsDir, team: TEAM_ROOT, sid, name: `${owner}-${seg}` }),
+  } : null;
+  const built = interactive
+    ? buildLaneHostCommand({
+      hostPath,
+      backend,
+      bin,
+      card: cardPath,
+      taskId,
+      seg,
+      owner,
+      role,
+      wsDir,
+      teamRoot: TEAM_ROOT,
+      cwd,
+      sid,
+      name: `${owner}-${seg}`,
+      controlLog: hostMeta.controlLog,
+      stateFile: hostMeta.stateFile,
+      questionDir: hostMeta.questionDir,
+      policyPath: interactivePolicy.path,
+      promptFile: hostMeta.promptFile,
+      controlTimeoutMs: Number(process.env.OPENCLAW_LANE_CONTROL_TIMEOUT_MS) || interactivePolicy.policy.control_timeout_ms || 5000,
+      handshakeTimeoutMs: Number(process.env.OPENCLAW_LANE_HANDSHAKE_TIMEOUT_MS) || 30000,
+      postResultWaitMs: Number(process.env.OPENCLAW_LANE_POST_RESULT_WAIT_MS) || 10000,
+    })
+    : buildCommand({
+      backend,
+      harness,
+      bin,
+      prompt,
+      wsDir,
+      sid,
+      name: `${owner}-${seg}`,
+      cwd,
+      settingsPath,
+      permissionMode: role === 'review' ? 'dontAsk' : 'acceptEdits',
+      outputLastMessage: role === 'review' && backend === 'codex' ? reportPath : '',
+    });
   const args = built.args;
   const plan = {
     ok: true,
@@ -738,7 +1162,7 @@ export function spawnLane(opts = {}) {
     session_id: harness === 'plugin' ? null : sid,
     thread_id: null,
     id_state: harness === 'plugin' ? 'pending' : '',
-    harness,
+    harness: interactive ? built.harness : harness,
     pid: null,
     role,
     settings,
@@ -750,12 +1174,108 @@ export function spawnLane(opts = {}) {
     seg,
     owner,
     task_id: taskId,
+    branch: branchInfo.branch || null,
+    branch_source: branchInfo.source,
+    branch_candidates: branchInfo.candidates || [],
+    branch_reason: branchInfo.reason || undefined,
+    worktree: worktreePath || null,
+    worktree_exists: worktreeExists,
+    review_sha: role === 'review' ? (reviewSha || null) : null,
+    review_readonly: reviewReadonly,
+    settings_path: settingsPath,
     reaper: opts.reaper !== false && reaperEnabled() ? 'would_arm' : 'disabled',
     ...(claims.length ? { claims } : {}),
-    cmd: [bin, ...args],
-    cmdline: [bin, ...args].map((s) => (/[\s"'$]/.test(s) ? JSON.stringify(s) : s)).join(' '),
+    ...(interactive ? {
+      interactive: true,
+      backend_cmd: [hostMeta.backendCmd.bin, ...hostMeta.backendCmd.args],
+      control_log: hostMeta.controlLog,
+      state_file: hostMeta.stateFile,
+      prompt_file: hostMeta.promptFile,
+      question_dir: hostMeta.questionDir,
+      policy: { path: interactivePolicy.path, source: interactivePolicy.source, digest: interactivePolicy.digest },
+    } : {}),
+    cmd: [built.bin, ...args],
+    cmdline: [built.bin, ...args].map((s) => (/[\s"'$]/.test(s) ? JSON.stringify(s) : s)).join(' '),
   };
   if (dryRun) return plan;
+
+  // ---- ⑦-i 交互 lane：写 prompt、起 host、等 ready、登记 + 看守 ----
+  // host 是本 lane 的登记 pid（活到 turn 结束），所以 liveness/runningCount/check-sessions
+  // 全部沿用现有口径；后端由 host 自己 spawn 并持有管道。
+  if (interactive) {
+    try {
+      fs.mkdirSync(wsDir, { recursive: true });
+      fs.writeFileSync(hostMeta.promptFile, prompt, { mode: 0o600 });
+    } catch (e) {
+      return reject(`interactive_prompt_unwritable:${String(e && e.message ? e.message : e)}`);
+    }
+    const outFd = fs.openSync(outLog, 'a');
+    const errFd = fs.openSync(errLog, 'a');
+    let child;
+    try {
+      child = spawnChild(built.bin, args, {
+        cwd,
+        detached: true,
+        stdio: ['ignore', outFd, errFd],
+        env: process.env,
+      });
+    } finally {
+      fs.closeSync(outFd);
+      fs.closeSync(errFd);
+    }
+    child.on('error', () => { /* 起失败在 pid/ready 判定处收口 */ });
+    if (child.pid == null) return reject(`spawn_failed(bin=${built.bin})`);
+    child.unref();
+    const dispatchPid = child.pid;
+
+    const reg = sessionSet(card, { seg, owner, backend, phase, pid: dispatchPid, log: outLog, status: 'running', id: sid });
+    if (!reg.ok) {
+      try { process.kill(dispatchPid, 'SIGTERM'); } catch { /* 已退出/无权限：忽略 */ }
+      return reject(`session_set_failed:${reg.reason || 'unknown'}`, { detail: reg, dispatch_pid: dispatchPid });
+    }
+
+    // 等 host 与后端握手完成（Claude system/init；Codex thread/start + turn/start）。
+    const ready = awaitHostReady(outLog, {
+      timeoutMs: opts.readyTimeoutMs ?? (Number(process.env.OPENCLAW_LANE_READY_TIMEOUT_MS) || 30000),
+      pollMs: opts.readyPollMs ?? 250,
+    });
+    if (!ready.ready) {
+      const closed = (() => {
+        try { return sessionClose(card, seg, 'failed'); } catch (e) { return { ok: false, reason: String(e && e.message ? e.message : e) }; }
+      })();
+      try { process.kill(dispatchPid, 'SIGTERM'); } catch { /* 已退出/无权限：忽略 */ }
+      const reason = ready.failed
+        ? `interactive_host_failed:${(ready.event && ready.event.reason) || 'unknown'}`
+        : `host_ready_timeout(seg=${seg},ms=${ready.ms})`;
+      return reject(reason, { seg, dispatch_pid: dispatchPid, session_close: closed });
+    }
+
+    const reaperOn = opts.reaper !== false && reaperEnabled();
+    let reaperState = { state: reaperOn ? 'armed' : 'disabled' };
+    if (reaperOn) {
+      const armed = armLaneReaper({ card, seg, pid: dispatchPid, owner, stateFile: hostMeta.stateFile, env: process.env });
+      if (!armed.ok) {
+        const closed = (() => {
+          try { return sessionClose(card, seg, 'closed'); } catch (e) { return { ok: false, reason: String(e && e.message ? e.message : e) }; }
+        })();
+        try { process.kill(dispatchPid, 'SIGTERM'); } catch { /* 已退出/无权限：忽略 */ }
+        return reject(`lane_reaper_failed(${armed.reason})`, {
+          detail: armed, dispatch_pid: dispatchPid, session_close: closed, session: { seg, pid: dispatchPid, id: sid },
+        });
+      }
+      reaperState = { state: 'armed', pid: armed.pid };
+    }
+
+    return {
+      ...plan,
+      pid: dispatchPid,
+      handoff: reg.handoff === 'created' ? 'created' : handoffState,
+      card: reg.cardPath || cardPath,
+      registry: reg.registry,
+      reaper: reaperState,
+      ...(reg.warnings ? { warnings: reg.warnings } : {}),
+    };
+  }
 
   // ---- ⑥b G8：lane 启动即导出网关日志（契约 §8.7；**放在 spawn 之前** ⇒ 导出失败则零副作用拒绝，
   //        不在无证据的情况下起 lane —— 契约 R3「不静默丢证据」）----
@@ -880,22 +1400,29 @@ export function gatewayPid() {
   return p && /^\d+$/.test(String(p).trim()) ? String(p).trim() : '-';
 }
 
-const HELP = `用法: bash scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [harness=cli|plugin] [phase=<p>] [role=exec|review] [parallel=1] [--review] [--plugin] [--dry-run] [--no-reaper]
+const HELP = `用法: bash scripts/spawn-lane.sh <card> <owner> [seg=seg1] [backend=claude|codex] [harness=cli|plugin] [phase=<p>] [role=exec|review] [--review] [--plugin] [--interactive] [--dry-run] [--no-reaper]
 
 新 lane 起会话的单一强制入口（claim → handoff 自检 → settings 预置 → spawn → session-set 卡+registry 同写
 → 起会话终态看守）。
 role=exec（默认）起执行 lane（in_progress 卡）；role=review（--review 等价）起复核 lane（in_review 卡，
-不 claim、不校验 claimed_by，未给 seg= 时默认 segR1）。
+不 claim、不校验 claimed_by，未给 seg= 时默认 segR1；**要求卡上无其他活跃 lane**）。
 同卡防双跑（spawn 前，零副作用）：同 seg 已有活跃 lane（卡行 / registry phase=seg / registry session_id
 = 本 seg 确定性 id 任一命中）⇒ 拒绝复用既有 session；执行 lane 遇该卡**已有任意活跃 lane** ⇒ 拒绝第二条
-执行 lane（card_busy）。同一计划内有意并行多分段须显式声明 parallel=1。
+执行 lane（card_busy）。**没有并行旁路**：parallel=1 已移除；需要并行 ⇒ 拆卡或串行。
 harness=cli（默认）走现状 \`codex exec\` 子进程；harness=plugin（--plugin 等价，**仅 backend=codex**）
 走官方 codex 插件 app-server embedded harness turn（句柄 = native thread id，非 pid）：
+**interactive=1 / --interactive（默认关）** 起 \`lane-host.mjs\`：Claude 走 stream-json 控制通道，
+Codex 走 \`codex app-server --stdio\`；权限请求按 \`lane-policy\` fail-closed 裁决，澄清/决策写问题产物
++ \`blocked\` 并停止 lane（答案由新分段承接）。\`harness=plugin\` 与 \`role=review\` 不支持交互。
+契约：guides/interactive-lane-sop.md。
 spawn 先写 id:pending（卡+registry 同写），读回 thread id 后覆盖同一 seg 行写 id:<thread_id>（id_state=bound）；
 绑定超时 THREAD_BIND_TIMEOUT_MS（默认 120000ms）⇒ lane 判 failed 并回报，不静默挂起。
 **隔离不由本入口负责**：cwd 恒为 project 解析出的仓根，隔离树由子会话按 \`using-git-worktrees\` skill
-自建（\`.worktrees/<branch>\`，分支名 = <card>-<seg>，基于 dev）；提示语里已显式授权（无头车道没有人能
-回答 skill 的征求同意）。同文件并发冲突由 samefile-guard.mjs 在 patrol 侧**告警**。
+自建（\`.worktrees/<branch>\`，分支名 = <card>，**一张卡一条分支、所有 seg 复用**；首建基于 dev 集成分支，
+续段直接复用既有分支/树）；提示语里已显式授权（无头车道没有人能回答 skill 的征求同意）。
+非 git 项目（docs/vault）跳过隔离；git 环境不明时提示语要求车道报告 blocked。
+复核 lane 只读复用卡树：claude 用 settings.review.json（dontAsk + 仅允许写 review-report.md），
+codex 用 --sandbox read-only -o review-report.md。同文件并发冲突由 samefile-guard.mjs 在 patrol 侧**告警**。
 起会话成功后自动起**会话终态看守**（lane-reaper.mjs，detached）：lane 进程一死（正常/被杀/超时/崩溃）
 即经 ACL session-close 写完卡行 status + 清 active_session_id + registry 终态；起看守失败即拒绝起会话
 （fail-closed，且会先把已登记的行收口）。--no-reaper（或 OPENCLAW_TEAM_REAPER=0）关闭该自动化。
@@ -905,7 +1432,7 @@ guides/codex-plugin-lane-contract.md、guides/dev-worktree-flow-sop.md 与 PROTO
 示例:
   bash scripts/spawn-lane.sh T-20261010-052210 linus --dry-run
   bash scripts/spawn-lane.sh T-20261010-052210 linus seg=seg1 backend=claude
-  bash scripts/spawn-lane.sh T-20261010-052210 linus seg=seg2            # 车道的隔离分支名 = <card>-seg2
+  bash scripts/spawn-lane.sh T-20261010-052210 linus seg=seg2            # 续段复用卡分支 <card>，不开新分支
   bash scripts/spawn-lane.sh T-20261010-052210 turing --review backend=codex
   bash scripts/spawn-lane.sh T-20261010-052210 turing backend=codex harness=plugin --dry-run
   OPENCLAW_TEAM_REAPER=0 bash scripts/spawn-lane.sh T-20261010-052210 linus      # 关闭会话终态看守

@@ -91,8 +91,10 @@ node skills/update.mjs --apply
 
 # Branch / worktree discipline (dev is the integration base, and the main checkout sits on it)
 node team/scripts/branch-guard.mjs                    # refuse a direct commit on the protected branch
-# Lanes make their own worktree via the using-git-worktrees skill:
-#   git worktree add .worktrees/<card-id> -b <card-id>    # from the repo root, on dev
+# Lanes make/re-enter their own worktree via the using-git-worktrees skill.
+# One branch per card, reused by every segment:
+#   git worktree add .worktrees/<card-id> -b <card-id> dev   # first segment only
+#   # later segments: enter .worktrees/<card-id>; never `-b`, never rebase
 ```
 
 CI (`.github/workflows/verify.yml`) runs exactly `docker/verify-in-container.sh`,
@@ -206,11 +208,20 @@ refreshes that cache out of band.
   `<sandbox>/` too, so a sandbox can never silently read the real `~/.openclaw`.
 - **Worktree isolation is the lane's own act** — [team/scripts/spawn-lane.mjs](team/scripts/spawn-lane.mjs)
   starts a lane in the repo root and no longer decides or creates worktrees; the lane follows the
-  `using-git-worktrees` skill, which puts its tree at `<repo>/.worktrees/<branch>`. The branch is
-  based on `dev`, which works because the main checkout holds `dev`. Branch rules:
+  `using-git-worktrees` skill, which puts its tree at `<repo>/.worktrees/<card-id>`. **One card =
+  one branch `<card-id>` = one worktree**: the first segment creates it from `dev` (the main
+  checkout holds `dev`), every later segment re-enters it (never `-b`). A review lane creates no
+  branch/tree and reads the card tree read-only at a pinned commit. Branch rules:
   [Branch and worktree discipline](#branch-and-worktree-discipline). Contract:
   [team/guides/dev-worktree-flow-sop.md](team/guides/dev-worktree-flow-sop.md),
   [team/guides/spawn-lane-sop.md](team/guides/spawn-lane-sop.md).
+- **Interactive lanes are opt-in** — `spawn-lane.sh … --interactive` starts
+  [lane-host.mjs](team/scripts/lane-host.mjs) as the registered pid; it answers Claude
+  stream-json / Codex app-server permission requests through the fail-closed
+  [lane-policy.mjs](team/scripts/lane-policy.mjs), and escalates clarifications/decisions to
+  the board (`blocked` + question artifact) instead of letting the model guess. Default lanes
+  are byte-for-byte unchanged. Contract:
+  [team/guides/interactive-lane-sop.md](team/guides/interactive-lane-sop.md).
 
 ### Content layers
 
@@ -242,17 +253,17 @@ refreshes that cache out of band.
 
 ## Branch and worktree discipline
 
-Development **integrates on one long-lived integration branch** (`dev` by default) and every task
-runs on its own **card branch** in its own worktree; a card's product merges into the integration
-branch before the card is closed, and that branch reaches the **release branch** only through the
-explicit integration/release step. **Neither branch name is baked in** — this repository happens to
+Development **integrates on one long-lived integration branch** (`dev` by default) and every **card**
+runs on its own **card branch** in its own worktree; all segments of that card reuse the same branch
+and tree, and the card branch merges into the integration branch **once**, before the card is closed.
+That branch reaches the **release branch** only through the explicit integration/release step. **Neither branch name is baked in** — this repository happens to
 use `dev` and `main`, another repo may use `develop` and `master`.
 
 | Branch | Role |
 |---|---|
 | the **release branch** | protected; its only write is the `dev → main` step. **Not assumed to be named `main`** — see below |
 | the **integration branch** | **and what the main checkout sits on**; `OPENCLAW_TEAM_INTEGRATION_BRANCH`, default `dev` |
-| `<card-id>` | one task / one segment, in `<repo>/.worktrees/<card-id>` until it merges |
+| `<card-id>` | one **card** (all its segments), in `<repo>/.worktrees/<card-id>` until it merges |
 
 - **Branch names are resolved, not assumed.** A repo's release branch may be `main`, `master` or
   `trunk`, and its integration branch may be `dev` or `develop` — so neither is hardcoded:
@@ -274,14 +285,17 @@ use `dev` and `main`, another repo may use `develop` and `master`.
 - **Isolation is the lane's own act.** [spawn-lane.mjs](team/scripts/spawn-lane.mjs) puts
   a lane in the repo root and stops there — it neither decides nor creates worktrees. The
   lane follows the `using-git-worktrees` skill, whose git fallback places the tree at
-  `<repo>/.worktrees/<branch>`. The prompt supplies the authorisation and the branch name
-  because the skill's Step 0 would otherwise ask the *user* for consent, which a headless
-  `claude -p` lane can never give. `.worktrees/` is git-ignored already, so the skill's
-  "add to .gitignore" precondition never fires.
-- **The base is `HEAD`, which *is* the integration branch.** The skill bases on `HEAD` and the main
-  checkout holds the integration branch, so no bespoke base derivation exists. Two rules follow: a
-  **continuation** segment may only start once the previous segment's branch is **merged in**, and
-  **rework of an unmerged branch stays in the same worktree**.
+  `<repo>/.worktrees/<card-id>`. The prompt supplies the authorisation, the branch name, and
+  whether this is a **first entry** (create with `-b`) or a **continuation** (enter the
+  existing tree; never `-b`) because the skill cannot infer them and its Step 0 would otherwise
+  ask the *user* for consent, which a headless `claude -p` lane can never give. `.worktrees/`
+  is git-ignored already, so the skill's "add to .gitignore" precondition never fires. A
+  **review lane** creates no branch/tree; it re-enters the card tree read-only at a pinned commit.
+- **The base is `HEAD`, which *is* the integration branch on first entry.** The skill bases on
+  `HEAD` and the main checkout holds the integration branch, so no bespoke base derivation exists.
+  Every later segment **reuses the card branch as-is**: a segment is a session boundary, not a
+  merge boundary, so there is no merge between segments and no intermediate sync of `dev`.
+  **Rework of an unmerged branch stays in the same worktree.**
 - **No role develops on the release branch.** It is never a development base; the only write to it is
   the explicit release step.
 - **Never commit on the protected branch.** [branch-guard.mjs](team/scripts/branch-guard.mjs)
@@ -291,9 +305,10 @@ use `dev` and `main`, another repo may use `develop` and `master`.
   **invoked by SOP, not wired as a git hook** (`.git/hooks/` is empty) — run it yourself;
   nothing blocks a bare `git commit`.
 - **A card's product merges into the integration branch before the card is closed.** The merge is a
-  **precondition of the terminal `done`**, not a step after it: the owner merges the card branch and
-  reports the merged sha, and Elon records it on the card before closing. An unmerged branch is **not**
-  delivery. Remove the worktree only **after** the merge — a removed worktree is invisible to the gate.
+  **precondition of the terminal `done`**, not a step after it: the owner merges the card branch
+  **once, at card level** (there is no per-segment merge), reports the merged sha, and Elon records
+  it on the card before closing. An unmerged branch is **not** delivery. Remove the worktree only
+  **after** the merge — a removed worktree is invisible to the gate.
 - **Bootstrapping:** a repo with no integration branch has no integration target — create it once
   (`git branch dev <base>`), or point `OPENCLAW_TEAM_INTEGRATION_BRANCH` at the branch it already has.
 
