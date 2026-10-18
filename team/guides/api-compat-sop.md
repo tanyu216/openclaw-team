@@ -1,7 +1,7 @@
 # API Compatibility and Deprecation SOP (api-compat-sop.md)
 
 > **Ownership / Maintainer**: **Linus** (engineering) owns and maintains this SOP. The normative mechanism lives in **`R-API-1` (API compatibility & deprecation)**, the normative mechanism **Linus** owns (with approval in `R-API-2` shared with Elon); this file references that clause and **never copies its text** (`R-LAYER-1`).
-> **Depends on**: `R-SESSION-1` (git discipline) · `R-ENG-1` (engineering quality standards — **clause 8** owns the consumer-impact tracing this SOP completes) · `R-DEFECT-1` (defect loop) · `R-DOCSYNC-1` (two-way document sync) · `R-CONFIRM-1` (confirmation gate) · `R-LAYER-1` (doc layering / no verbatim copying) · `R-GATE-1` (machine-checkable gates) · `R-VERSION-1` (release & versioning — owns semver) · `R-MIGRATE-1` (data/DB migration) · `R-API-1` (the rule this SOP details).
+> **Depends on**: `R-SESSION-2` / `R-SESSION-3` (git discipline) · `R-ENG-1` (engineering quality standards — **clause 8** owns the consumer-impact tracing this SOP completes) · `R-DEFECT-1` (defect loop) · `R-DOCSYNC-1` (two-way document sync) · `R-CONFIRM-1` (confirmation gate) · `R-LAYER-1` (doc layering / no verbatim copying) · `R-GATE-1` (machine-checkable gates) · `R-VERSION-1` (release & versioning — owns semver) · `R-MIGRATE-1` (data/DB migration) · `R-API-1` (the rule this SOP details).
 > **Sibling guides**: `release-versioning-sop.md`, `data-migration-sop.md`, `incident-response-sop.md`, `ci-release-sop.md`.
 > **Scope**: this file is the **method library** — the executable detail for API-contract compatibility, versioning and deprecation. Cross-role mechanism is owned by the rule `R-API-1` and is referenced, not restated.
 > **Reference convention**: always write `R-<DOMAIN>-<n>` or `guide-name §<section>`. **No line-number anchors, no card-number anchors** (`R-ENG-1` clause 11).
@@ -150,7 +150,7 @@
 
 ### 5.2 Hard Rules
 
-- **No caller proof ⇒ no deletion**: before deleting a field/endpoint there must be reproducible evidence of "zero consumers" (search command + result + telemetry usage, in the single-source-of-truth spirit of `R-SESSION-1`). **Deleting without tracing = violating `R-ENG-1` clause 8**.
+- **No caller proof ⇒ no deletion**: before deleting a field/endpoint there must be reproducible evidence of "zero consumers" (search command + result + telemetry usage, in the single-source-of-truth spirit of `R-ENG-1` clause 8). **Deleting without tracing = violating `R-ENG-1` clause 8**.
 - **The impact list is input to deprecation/removal**: the "no active consumers" criterion in §4 "removal at expiry" is taken from this list + §4.1 ③ telemetry.
 - **Cross-segment consistency**: if the change crosses segment/worker boundaries, register the affected surface in the segment-completion snapshot per the cross-segment consistency contract.
 

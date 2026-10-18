@@ -535,7 +535,7 @@ export function preflightInteractive({ backend, bin, env = process.env } = {}) {
 }
 
 /**
- * 子会话提示词：先读背景包（handoff），再执行卡。子会话不读牌面（`R-SESSION-1` clause 7）。
+ * 子会话提示词：先读背景包（handoff），再执行卡。子会话不读牌面（`R-SESSION-4`）。
  * 追加一段工作树纪律：本车道在**自己的 worktree** 上，提交落在**卡分支**，收尾须回报
  * branch + sha 供整合（否则隔离树的产物无人知道；收口口径见 `guides/dev-worktree-flow-sop.md`）。
  *
