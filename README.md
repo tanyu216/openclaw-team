@@ -39,7 +39,7 @@ You  ──►  Elon (main, coordinator)  ──►  Jobs (design) · Linus (dev
 ## Team architecture
 
 The team is **one human user plus five AI agents**. In the diagram below the top
-layer — **operator — is the human user (you)**, *not* an agent; **every layer below is
+layer — **the operator — is the human user (you)**, *not* an agent; **every layer below is
 AI**.
 
 ```mermaid
