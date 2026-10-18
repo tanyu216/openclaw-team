@@ -66,7 +66,7 @@ import { resolveMode, UsageError, ROLES } from './host-paths.mjs';
 
 // ── 引用提取 ────────────────────────────────────────────────────────────────
 
-/** 视为「文件路径候选」的扩展名（与 `lint-refs.mjs` 的 fence 处理保持一致）。 */
+/** 视为「文件路径候选」的扩展名（与 `lint-rule-refs.mjs` 的 fence 处理保持一致）。 */
 const EXT = /\.(md|mjs|sh|json|json5|yml|yaml)$/;
 
 /** 只从这两种载体取引用：反引号片段、markdown 链接目标。散文里的裸路径**不取**（误报源）。 */

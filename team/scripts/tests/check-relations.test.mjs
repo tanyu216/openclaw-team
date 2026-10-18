@@ -217,7 +217,7 @@ test('缺省 kind / 无 frontmatter 兜底分支（覆盖 kind||task 与 fm&&fm.
   assert.ok(r.ids.includes('nofm'), '无 frontmatter 卡应按文件名入 ids');
 });
 
-// ---- PROTOCOL §10.2 分批登记软护栏（T-20261013-010610）：epic 已放行一批 + 长期占位子卡 ⇒ 软告警（不改退出码）----
+// ---- `R-DAG-1` 分批登记软护栏（T-20261013-010610）：epic 已放行一批 + 长期占位子卡 ⇒ 软告警（不改退出码）----
 
 const HOUR = 3600 * 1000;
 const DAY = 24 * HOUR;

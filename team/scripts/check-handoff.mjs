@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * check-handoff.mjs — 「新 seg 背景包」门禁（PROTOCOL §6#8）
+ * check-handoff.mjs — 「新 seg 背景包」门禁（`R-SESSION-1` clause 8）
  *
  * 两类校验（同一四锚口径，ANCHORS 为单一来源；spawn 入口复用 anchorGaps）：
  *   A. 已登记 seg（原口径）：卡内 `## Sessions` 的每个 running|closed seg ⇒

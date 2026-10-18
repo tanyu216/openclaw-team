@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-all.sh — 日常巡检门禁聚合（PROTOCOL §20.1）
+# check-all.sh — 日常巡检门禁聚合（`R-GATE-1`）
 # 用法：bash check-all.sh [--segment fast|slow|all] [--report <path>] [--repo <R> | --live]
 #   --segment fast  只跑「快门禁」（秒级）：红线一致 / 术语抽象 / §引用可解析 / 文档路径引用 / 依赖 CVE 扫描 /
 #                   卡 schema / handoff / 关系不变量 / 幂等 / 会话一致性 /
@@ -23,9 +23,9 @@
 # （真红被遮蔽）。快段可稳稳落进预算，慢套件走 check-all-gate.mjs 的带外刷新 + 缓存判定。
 # provider ACL 全量放慢段（T-20261014-034118）：实测这五套缺失套件 ≈6.1s，而快段的在带内上界
 # OPENCLAW_TEAM_CHECKALL_FAST_TIMEOUT_MS=6000ms（快段自身实测 warm 2.4-3.7s / cold ≈6.1s，余量已薄）
-# ⇒ 若加快段必 fast-timeout（UNCONFIRMED），那正是 PROTOCOL §20.1 要消除的「真红被超时/降级掩盖」。
+# ⇒ 若加快段必 fast-timeout（UNCONFIRMED），那正是 `R-GATE-1` 要消除的「真红被超时/降级掩盖」。
 # 本脚本为「只读巡检门禁」：任何步骤都不得写 tasks/。归档步骤必须带 --dry-run（真只读，不移动文件）；
-# 真实归档由 meerkat-taskpanel(taskctl)/Elon 例行巡检执行（PROTOCOL §20.3），不由此门禁代劳。
+# 真实归档由 meerkat-taskpanel(taskctl)/Elon 例行巡检执行（`R-ARCHIVE-1`），不由此门禁代劳。
 # 输出信封：末行 JSON {"ok":true|false,"mode":...,...} —— dispatcher 按 ok 归一（ok:false ⇒ fire:true，
 # 失败才唤醒模型）；红时信封另带 message（失败项摘要，dispatcher 直接转发给模型）与 failed[]（失败步骤标签）。
 set -u
@@ -180,7 +180,7 @@ if [ "$provider_missing" = 0 ]; then
   run "关系不变量 check-relations"         node "$S/check-relations.mjs"
   run "建卡幂等(同 idem 非终态>1)"          node "$S/check-idem.mjs"
   run "卡↔registry session 一致性 check-sessions" node "$S/check-sessions.mjs"
-  # 建卡完备性门禁（epic 子卡完整性 + 「路线图 × 卡」对账；悬空路线图巡检为软告警，PROTOCOL §10.2/PROTOCOL §10.3/PROTOCOL §20.1）。
+  # 建卡完备性门禁（epic 子卡完整性 + 「路线图 × 卡」对账；悬空路线图巡检为软告警，`R-DAG-1`/`R-GRANULARITY-1`/`R-GATE-1`）。
   # 只在脚本已部署时跑（部署前显式 skip，与 sla-scan 同款口径：避免「仓里已修 ≠ 线上已修」制造既存红）。
   if [ -f "$S/check-epic-completeness.mjs" ]; then
     run "建卡完备性 check-epic-completeness" node "$S/check-epic-completeness.mjs"
@@ -200,12 +200,12 @@ if [ "$provider_missing" = 0 ]; then
     echo "── 卡面 Report 完备性 check-report"
     echo "   (skip) $S/check-report.mjs 未部署（install.sh 部署后本步生效）"
   fi
-  # 交付合并巡检：已 done 的卡，其 worktree 检出必须已并入 dev（PROTOCOL §6.4 的前置条件）。
+  # 交付合并巡检：已 done 的卡，其 worktree 检出必须已并入 dev（`R-WORKTREE-1` 的前置条件）。
   # 在本次落地前，这条不变量**全库无任何代码校验**（写卡层 git-blind）⇒ 本步是把它变成机检。
   # 触发面**只有 `done`**：作业中的卡天然持有未合并的隔离树，无条件判会令每条在跑的 lane 转红。
   # 仓根由脚本自己按 dispatch.mjs 的既有约定解析（$OPENCLAW_TEAM_REPO → .install-state.json
   # repoPath）——live 模式下 shell 里没有 REPO_DIR，不能靠传参。生效截止 + 豁免登记见脚本头注 (iv)/(v)：
-  # 三条都是为**上线即零既存红**；已知上限（树被移除后无法复查、分支名不合规即漏检）记入 PROTOCOL §20.2。
+  # 三条都是为**上线即零既存红**；已知上限（树被移除后无法复查、分支名不合规即漏检）记入 `R-GATE-2`。
   # 与 check-report 同款部署口：脚本未部署时显式 skip（避免「仓里已修 ≠ 线上已修」制造既存红）。
   if [ -f "$S/check-merge.mjs" ]; then
     run "交付合并巡检 check-merge" node "$S/check-merge.mjs"

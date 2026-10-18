@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * check-idem.mjs — 建卡幂等巡检（同 idem 键的非终态卡 >1 ⇒ 报警；纳入 check-all）
- * 依据：PROTOCOL §29 clause 8「巡检加『重复 key』校验」；guides/task-interface.md §14。
+ * 依据：`R-IDEM-1` clause 8「巡检加『重复 key』校验」；guides/task-interface.md §14。
  *
  * 口径：按 `idem = <kind> | <assignee> | <source> | <target>`（source = review_of ‖ parent）
  * 对**非终态**卡分组（判据 = `scripts/status.mjs#isNonTerminal`：todo/ready/in_progress/blocked/

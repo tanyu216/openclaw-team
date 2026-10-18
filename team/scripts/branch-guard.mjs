@@ -3,7 +3,7 @@
  * branch-guard.mjs — 提交侧**分支守卫**（T-20261015-devbranch）
  *
  * 背景：开发统一集成在长期**集成分支**上（缺省 `dev`，`OPENCLAW_TEAM_INTEGRATION_BRANCH` 可改；
- * `PROTOCOL §6.4`）——每个开发任务在自己的**卡分支** `<card-id>` 上跑（配独立 worktree），产物并入
+ * `R-WORKTREE-1`）——每个开发任务在自己的**卡分支** `<card-id>` 上跑（配独立 worktree），产物并入
  * 集成分支，集成分支仅在显式集成/发布步骤并入**受保护分支**。**卡分支的提交不在集成分支上**，故本守卫
  * **不是**「只许集成分支」，而是「不许直接提交受保护分支」——直译前者会把全部正常工作拦掉。
  *
@@ -113,7 +113,7 @@ export function runCheck(o) {
       branch: b,
       repo,
       protected: protectedBranches,
-      message: `分支守卫拒绝：不得直接提交受保护分支 ${b}——开发落在你的卡分支（\`<card-id>\`）上，产物并入集成分支（PROTOCOL §6.4）。确需集成为发布步骤时用 --allow-protected（留痕）。`,
+      message: `分支守卫拒绝：不得直接提交受保护分支 ${b}——开发落在你的卡分支（\`<card-id>\`）上，产物并入集成分支（\`R-WORKTREE-1\`）。确需集成为发布步骤时用 --allow-protected（留痕）。`,
     };
   }
   return {
@@ -123,7 +123,7 @@ export function runCheck(o) {
     protected: protectedBranches,
     overridden: isProtected && o.allowProtected,
     message: isProtected
-      ? `分支守卫告警（--allow-protected 放行）：直接落在受保护分支 ${b}——仅限显式集成/发布步骤（PROTOCOL §6.4）。`
+      ? `分支守卫告警（--allow-protected 放行）：直接落在受保护分支 ${b}——仅限显式集成/发布步骤（\`R-WORKTREE-1\`）。`
       : `分支守卫通过：${b} 非受保护分支。`,
   };
 }

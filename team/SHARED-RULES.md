@@ -6,7 +6,7 @@
 
 | Rule ID | Title | Owner | Carriers | Canonical | Detail | Redline | Status |
 |---|---|---|---|---|---|---|---|
-| `R-AMBIG-1` | Ambiguous requirement ⇒ set the card `blocked` and send it back to Elon; do not speculate. Only Elon | elon | elon | owner | - | 8 | active |
+| `R-AMBIG-1` | Ambiguous requirement ⇒ set the card `blocked` and send it back to Elon; do not speculate. Only Elon | elon | all | owner | - | 8 | active |
 | `R-API-1` | API compatibility | linus | linus,turing | guide | `team/guides/api-compat-sop.md` | - | active |
 | `R-API-2` | Deprecation window and approval | elon | elon,turing | guide | `team/guides/api-compat-sop.md` | - | active |
 | `R-ARCHIVE-1` | Cards `done`/`canceled` for 7 full days are archived to `tasks/archive/YYYY-MM/` by the provider; th | elon | elon | owner | - | - | active |
@@ -49,7 +49,7 @@
 | `R-LAYER-2` | Verbatim copying is forbidden except deliberate carriage (redline digest, generated carrier blocks,  | elon | all | owner | - | - | active |
 | `R-LAYER-3` | Before spawning a subsession, transcribe the referenced rule constraints into its prompt/CLAUDE.md | elon | all | owner | - | - | active |
 | `R-LAYER-4` | Cross-role rules are `R-DOMAIN-N` (backticked); guide sections are `<guide>.md §N`; a bare `§N` mean | elon | all | owner | - | - | active |
-| `R-LAYER-5` | Files under `team/guides/` and `roles/*/guides/` must never reference the retired PROTOCOL volumes;  | elon | all | owner | - | - | active |
+| `R-LAYER-5` | Files under `team/guides/` and `roles/*/guides/` must never reference the the retired protocol docum | elon | all | owner | - | - | active |
 | `R-MIGRATE-1` | Data/DB migration mechanics | linus | linus,turing | guide | `team/guides/data-migration-sop.md` | - | active |
 | `R-MIGRATE-2` | Destructive migration approval | elon | elon,linus,turing | guide | `team/guides/data-migration-sop.md` | - | active |
 | `R-MODEL-1` | Model and effort selection | elon | jobs,linus,turing | guide | `team/guides/spawn-lane-sop.md §10` | - | active |
@@ -92,7 +92,7 @@
 | `R-TOOL-1` | All code writing goes through a Claude Code sub-session; native exec/edit/apply_patch must not write | linus | linus | owner | - | - | active |
 | `R-TOOL-2` | Jobs tool paths | jobs | jobs | guide | `roles/jobs/guides/tool-discipline-sop.md` | - | active |
 | `R-TOOL-3` | Turing tool discipline | turing | turing | guide | `roles/turing/guides/tool-discipline-sop.md` | - | active |
-| `R-TRIAGE-1` | Task routing and role boundaries | elon | elon | guide | `team/ROLES.md` | - | active |
+| `R-TRIAGE-1` | Task routing and role boundaries | elon | all | guide | `team/ROLES.md` | - | active |
 | `R-UI-1` | UI fidelity | jobs | all | guide | `team/guides/ui-align-sop.md §9.1` | 10,11,12 | active |
 | `R-UXACCEPT-1` | Product/UX acceptance trigger | elon | elon,jobs,turing | guide | `team/guides/flow-triage-sop.md §9.4` | - | active |
 | `R-VERSION-1` | Release and versioning mechanics | linus | linus,turing | guide | `team/guides/release-versioning-sop.md` | - | active |

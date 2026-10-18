@@ -5,7 +5,7 @@
  * 重点（红→绿负例）：**同 parent + 同 assignee + 同 target 的兄弟卡**在旧口径下机械键相同 ⇒ 被误判
  * duplicates；新口径判红依据收窄为「组内是否有非空 review_of」单一判据 ⇒ parent 派生组（含共享非空 target）
  * 降级为非阻断 hints（退出码 0）。真重复（组内有非空 review_of）仍判红。
- * 口径依据：scripts/check-idem.mjs 头部注释；PROTOCOL §29 clause 8；guides/task-interface.md §14。
+ * 口径依据：scripts/check-idem.mjs 头部注释；`R-IDEM-1` clause 8；guides/task-interface.md §14。
  *
  * 风格：核心逻辑直接 import `scanIdem(dir)`（注入 mkdtemp 隔离目录）取行/分支覆盖；退出码/输出另
  * spawn 子进程验证（OPENCLAW_TEAM_ROOT 指向隔离 root，**绝不碰真实看板**）。

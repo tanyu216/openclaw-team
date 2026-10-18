@@ -23,7 +23,7 @@ import path from 'node:path';
 
 import { parseFrontmatter, parseIso, TASKS_DIR, TEAM_ROOT } from './lib.mjs';
 
-const STALE = 30 * 60 * 1000; // 30min：与 PROTOCOL.md 看板协议一致，勿改
+const STALE = 30 * 60 * 1000; // 30min：与 `R-BOARD-1` 看板规则一致，勿改
 const WORKSPACE_DIR = path.join(TEAM_ROOT, 'workspace');
 
 /**

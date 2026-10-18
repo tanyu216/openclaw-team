@@ -349,7 +349,7 @@ export function resolveProject(code, opts = {}) {
   const entry = readFallback(opts.fallbackFile, code);
   if (entry) return { metadata: { name: code, ...entry }, source: 'fallback' };
 
-  throw new Error(`项目未注册: ${code}（请 Elon 按 PROTOCOL ⑧ 登记后再建卡）`);
+  throw new Error(`项目未注册: ${code}（请 Elon 按 the rules ⑧ 登记后再建卡）`);
 }
 
 /** resolveProject 的 metadata 快捷式（未注册 ⇒ 抛错）。 */

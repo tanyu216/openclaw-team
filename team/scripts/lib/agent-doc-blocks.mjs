@@ -288,7 +288,7 @@ export function resolveDetailPath(detail, mode) {
   const raw = String(detail || '').trim();
   if (!raw || raw === '-') return null;
   const p = raw.split(/\s+§/)[0].trim();
-  if (!p || /^PROTOCOL/.test(p)) return null;
+  if (!p || /^the rules/.test(p)) return null;
   if (mode.mode === 'repo') return path.join(mode.repo, p);
   if (p.startsWith('team/')) return path.join(mode.team, p.slice('team/'.length));
   const m = p.match(/^roles\/([^/]+)\/(.*)$/);

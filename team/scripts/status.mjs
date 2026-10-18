@@ -13,7 +13,7 @@
  *
  * ── 两条轴，词汇**故意不同** ────────────────────────────────────────────────
  * · **卡面轴**（`status:` frontmatter）：`backlog | todo | in_progress | in_review | blocked |
- *   done | canceled`（PROTOCOL §16 规范 7 值）。终态写 `canceled`。
+ *   done | canceled`（`R-TERM-1` 规范 7 值）。终态写 `canceled`。
  * · **会话轴**（registry `status:`）：`running | done | closed | failed`（凭证在 `registry.mjs`
  *   `VALID_STATUS`，provider `lib/task.mjs` 亦 import 它作写入门）。终态写 `closed`。
  * 两轴用词不同**不是漂移而是设计**（会话没有 `blocked`，卡面没有 `closed`）；两轴之间**只有一处**
@@ -34,7 +34,7 @@
 
 // ─────────────────────────────── ① 卡面轴 · 词表 ───────────────────────────────
 
-/** 规范 7 值（PROTOCOL §16；顺序即规范顺序）。 */
+/** 规范 7 值（`R-TERM-1`；顺序即规范顺序）。 */
 export const CANONICAL_STATUSES = ['backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done', 'canceled'];
 
 /** 兼容别名 / 容忍拼写：仅在**边界解析**时归一，绝不回写（旧卡保持原词 ⇒ byte-stable）。 */

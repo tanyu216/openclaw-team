@@ -20,7 +20,7 @@
 //   sla-scan         every 15m  board SLA inspection (OPENCLAW_TEAM_SLA_INTERVAL)
 //   team-check-all   hourly     cron "0 * * * *" @ Asia/Shanghai (gate patrol)
 //   skills-update    weekly     cron "0 5 * * 0" @ Asia/Shanghai (upstream drift detect)
-//   tmp-gc           daily      cron "20 2 * * *" @ Asia/Shanghai (scratch GC, PROTOCOL §⑬.9)
+//   tmp-gc           daily      cron "20 2 * * *" @ Asia/Shanghai (scratch GC, `R-DISC-9`)
 //
 // Poll interval is configurable: OPENCLAW_TEAM_POLL_INTERVAL (default 5m, cron-slimmed
 // from the former 2m/1m). Every job carries --light-context so the scheduler polls are cheap.
@@ -35,10 +35,10 @@
   //   { name: "task-patrol", agentId: "main", schedule: "every 15m",
   //     target: "isolated",
   //     trigger: "<inline JS → team/automations/dispatch.mjs patrol>",
-  //     prompt: "[openclaw-team] Recover stale in_progress cards (PROTOCOL recovery rules)." },
+  //     prompt: "[openclaw-team] Recover stale in_progress cards (`R-BOARD-4` recovery rules)." },
   //   { name: "team-check-all", agentId: "main", schedule: "cron 0 * * * * @ Asia/Shanghai",
   //     target: "isolated",
   //     trigger: "<inline JS → team/automations/dispatch.mjs check-all>",
-  //     prompt: "[openclaw-team] Gate patrol failed — handle per PROTOCOL gates/archiving." },
+  //     prompt: "[openclaw-team] Gate patrol failed — handle per `R-GATE-1` / `R-ARCHIVE-1`." },
   // ],
 }

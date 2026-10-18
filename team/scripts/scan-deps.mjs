@@ -4,7 +4,7 @@
  *
  * Mechanism: `team/guides/dependency-cve-gate.md` §3.2 (check-all: default warn,
  * optional block) + §4.1 (block threshold: Critical/High, CVSS >= 7.0).
- * Normative clause: `PROTOCOL §㉖ Dependency CVE Gate`.
+ * Normative clause: `the rules §㉖ Dependency CVE Gate`.
  *
  * Semantics (deliberately conservative — check-all must never go red just because
  * this host has no scanner or no network):

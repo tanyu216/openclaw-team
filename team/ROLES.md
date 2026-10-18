@@ -1,8 +1,8 @@
 # ROLES.md — Role Duties / Boundaries / Handoffs (reconciliation table)
 
-> Ownership: **team responsibilities** (authorization layer, consuming the task-management base). Mechanisms and the dispatch matrix are in `PROTOCOL §10`; this table only does **boundary and handoff reconciliation** (to prevent GAPs / multiple owners).
+> Ownership: **team responsibilities** (authorization layer, consuming the task-management base). Mechanisms and the dispatch matrix are in `R-TRIAGE-1`; this table only does **boundary and handoff reconciliation** (to prevent GAPs / multiple owners).
 > Maintainer: Elon. **No column in any row may be empty**; vacancies/multiple-owners/TBD are recorded in the `## GAP log` at the end.
-> **On conflict, `PROTOCOL §10` wins** — this table is a reconciliation view, not a second dispatch matrix.
+> **On conflict, `R-TRIAGE-1` wins** — this table is a reconciliation view, not a second dispatch matrix.
 
 | Role | Does (scope) | Does not (excluded) | Key inputs | Key outputs | Handoff to |
 |---|---|---|---|---|---|
@@ -16,7 +16,7 @@
 ## Reconciliation Rules
 - **Complementarity**: each role's "does" and "does not" are complementary, **with no vacancies** (an item claimed by no role = a GAP).
 - **No multiple owners**: an item should not be "done" by two roles at once (multiple owners ⇒ clarify the primary owner + collaboration boundary).
-- **Consistent with `PROTOCOL §10`**: this table's "does/does not" must agree with PROTOCOL §10's triage matrix/boundaries (machine-checked keywords by `check-roles`).
+- **Consistent with `R-TRIAGE-1`**: this table's "does/does not" must agree with `R-TRIAGE-1`'s triage matrix/boundaries.
 ---
 
 ## GAP Log

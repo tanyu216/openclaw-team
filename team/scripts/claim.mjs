@@ -4,7 +4,7 @@
  * 用法：node claim.mjs <cardId|绝对路径> <assignee>
  * 输出：JSON { ok, reason?, mode?, card?, cardPath? }
  *
- * 语义（PROTOCOL 看板协议，经 claim-guard.mjs 统一领取守卫）：
+ * 语义（`R-BOARD-1` 看板规则，经 claim-guard.mjs 统一领取守卫）：
  * - 领取时机归属 poll：poll 在触发求值期完成原子领取（fire:true ⇔ 卡已 in_progress、claimed_by=自己）
  * - run 回合通常跳过 claim 直接执行；仅当回合内发现卡仍 ready（如 sessions_send 直派未经 poll）才补执行本脚本
  * - 直派路径先查活跃子会话 registry：有 ⇒ 不领（active_session，防双跑）；再走 lib.claimCard

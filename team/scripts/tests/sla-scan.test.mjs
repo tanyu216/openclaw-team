@@ -191,7 +191,7 @@ test('§5.2 升档梯：warn=L−P（钳 0）/ overdue=L / escalate=F；最高�
   assert.equal(S.verdictFor({ normalMin: null, furtherMin: null }, 99999, 15).severity, 'warn');
 });
 
-test('§12 G-6 cadence 口径对齐：注册周期 P 必须小于最紧的 PROTOCOL §15 行 L（否则 warn 界塌到 0）', () => {
+test('§12 G-6 cadence 口径对齐：注册周期 P 必须小于最紧的 `R-SLA-1` 行 L（否则 warn 界塌到 0）', () => {
   const tightest = Math.min(...S.SLA_ROWS.map((r) => r.normalMin));
   assert.ok(
     S.CADENCE_PERIOD_MIN < tightest,
@@ -235,7 +235,7 @@ test('① blocked_clarification：blocked_at 为起点，T≥L ⇒ overdue；元
   assert.equal(a.ageMin, a.elapsed_working_min);
 });
 
-test('① heartbeat_stale：心跳起点 + 30min 界（PROTOCOL §15 Worker heartbeat stale）', () => {
+test('① heartbeat_stale：心跳起点 + 30min 界（`R-SLA-1` Worker heartbeat stale）', () => {
   const root = newRoot();
   writeCard(root, progressCard({ heartbeat_at: '2026-01-05T02:30:00.000Z' })); // T=30
   const a = S.decide(OPTS(root)).envelope.alerts.find((x) => x.sla_row === 'heartbeat_stale');
@@ -246,7 +246,7 @@ test('① heartbeat_stale：心跳起点 + 30min 界（PROTOCOL §15 Worker hear
   assert.equal(a.measure_start_kind, 'heartbeat_at');
 });
 
-test('① confirmation_gate：PROTOCOL §14 请求为起点，且被后续确认收口后不再告警', () => {
+test('① confirmation_gate：`R-CONFIRM-1` 请求为起点，且被后续确认收口后不再告警', () => {
   const root = newRoot();
   const body = [
     '## Progress',
@@ -314,7 +314,7 @@ test('① acceptance_card_creation：in_review + flow A（缺省视为 A）+ 无
     S.decide(OPTS(root2)).envelope.alerts.filter((x) => x.sla_row === 'acceptance_card_creation').length,
     0,
   );
-  // flow B ⇒ 不开逐卡 Jobs 卡（PROTOCOL §10.5）
+  // flow B ⇒ 不开逐卡 Jobs 卡（`R-FLOW-1`）
   const root3 = newRoot();
   writeCard(root3, progressCard({ status: 'in_review', status_changed_at: '2026-01-01T01:00:00.000Z', flow: 'B' }));
   assert.equal(
@@ -323,7 +323,7 @@ test('① acceptance_card_creation：in_review + flow A（缺省视为 A）+ 无
   );
 });
 
-test('① defect_card_creation：PROTOCOL §9 kind=defect 留痕 + 无修复卡 ⇒ 告警；有 category:bug 回指卡 ⇒ 收口', () => {
+test('① defect_card_creation：`R-DEFECT-1` kind=defect 留痕 + 无修复卡 ⇒ 告警；有 category:bug 回指卡 ⇒ 收口', () => {
   const root = newRoot();
   const body = '## Comments\n- 2025-12-31T01:00:00.000Z · defect · turing — 缺陷票（复现/期望/实际）\n';
   writeCard(root, progressCard({ status: 'blocked', blocked_at: '2026-01-05T00:30:00.000Z' }), body);
@@ -439,7 +439,7 @@ test('①/F1 measure_start_source 恒取 §4 #9 枚举；kind 与来源自洽（
     progressCard({ status: 'blocked', blocked_at: '2026-01-05T00:30:00.000Z', blocked_reason: 'defect' }),
     '## Progress\n- 2025-12-31T01:00:00.000Z · defect · turing — 缺陷票\n',
   );
-  // 确认门（Comments 里的 PROTOCOL §14 请求）+ 验收等待（in_review，起点足够老 ⇒ 跨档）
+  // 确认门（Comments 里的 `R-CONFIRM-1` 请求）+ 验收等待（in_review，起点足够老 ⇒ 跨档）
   writeCard(
     root,
     progressCard({ id: 'T-20260105-000004', status: 'in_review', status_changed_at: '2026-01-01T01:00:00.000Z' }),
@@ -577,7 +577,7 @@ test('① inspector_liveness：对端标记缺失 ⇒ 可见注记不告警；�
   assert.equal(env.alerts.filter((x) => x.sla_row === 'inspector_liveness').length, 0);
   assert.equal(env.state.peer.status, 'absent');
   assert.ok(env.state.notes.some((n) => n.includes('last_ok')));
-  // 标记存在但超界（> k×P_peer = 90min）⇒ warn 且 threshold_min=null（§5.3：无 PROTOCOL §15 阈值）
+  // 标记存在但超界（> k×P_peer = 90min）⇒ warn 且 threshold_min=null（§5.3：无 `R-SLA-1` 阈值）
   const env2 = S.decide(
     OPTS(root, { peerState: { mechanism: 'loop-patrol', last_ok: '2026-01-05T01:00:00.000Z' } }),
   ).envelope;
@@ -585,7 +585,7 @@ test('① inspector_liveness：对端标记缺失 ⇒ 可见注记不告警；�
   assert.ok(a, '对端超界必须告警（否则巡检自身失联成为静默绿）');
   assert.equal(a.severity, 'warn');
   assert.equal(a.threshold_min, null);
-  assert.equal(a.sla_ref.startsWith('PROTOCOL §15'), false); // 非 PROTOCOL §15 行，引用契约 §5.3
+  assert.equal(a.sla_ref.startsWith('`R-SLA-1`'), false); // 非 `R-SLA-1` 行，引用契约 §5.3
   assert.equal(a.target, 'leader');
 });
 
@@ -718,7 +718,7 @@ test('⑤ §7.4 blocked_reason：dependency/external/resource ⇒ 只可见性�
   writeCard(root, progressCard({ status: 'blocked', blocked_at: '2026-01-05T00:30:00.000Z', blocked_reason: 'dependency' }));
   const a = S.decide(OPTS(root)).envelope.alerts.find((x) => x.sla_row === 'blocked_clarification');
   assert.ok(a);
-  assert.equal(a.threshold_min, null, 'PROTOCOL §15 无对应行 ⇒ 不造阈值');
+  assert.equal(a.threshold_min, null, '`R-SLA-1` 无对应行 ⇒ 不造阈值');
   assert.equal(a.severity, 'warn');
   assert.equal(a.due_at, null);
   assert.equal(a.blocked_reason, 'dependency');

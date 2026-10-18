@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * check-report.mjs — 卡面 Report 完备性巡检（公共核心 8 项；纳入 check-all fast 段）
- * 依据：guides/worker-report-template.md（Report 规范）；PROTOCOL §20.1（机检门禁登记）；
+ * 依据：guides/worker-report-template.md（Report 规范）；`R-GATE-1`（机检门禁登记）；
  *       AUTOMATIONS.md §3.5.1/§6（快段接线与巡检指标）。卡 T-20261015-010749-2（父 T-20261015-010749）。
  *
  * 口径：只校验**公共核心 8 项**（A1…A8）的**槽位存在性**——即 Report 段内每个必需项是否都有其
@@ -53,10 +53,10 @@
  *   豁免**只对硬触发行之下的违规生效**（draft 提示与 grandfather warn 本身即非阻断，无需登记）。
  *   `--no-baseline` 忽略**两者**（用于核查「真实违规」或登记是否已过期）。
  *
- * ── (iv) 触发条件 + 豁免开关（可执行面变更，同 PROTOCOL §10 口径）──────────────────────
+ * ── (iv) 触发条件 + 豁免开关（可执行面变更，同 `R-TRIAGE-1` 口径）──────────────────────
  *   本脚本是**可执行面变更**：随 `team/scripts/**` 部署进实例、由 `check-all.sh` **fast 段**调用
- *   （快段预算 6000ms；本步实测 ≈0.05s / 581 卡，余量充足）。故按 PROTOCOL §10 口径同步登记：
- *     · `PROTOCOL §20.1` 机检门禁表新增一行（规则 → 脚本 → 落点）；
+ *   （快段预算 6000ms；本步实测 ≈0.05s / 581 卡，余量充足）。故按 `R-TRIAGE-1` 口径同步登记：
+ *     · `R-GATE-1` 机检门禁表新增一行（规则 → 脚本 → 落点）；
  *     · `AUTOMATIONS.md §3.5.1`（快段接线）+ §6（巡检指标）各记一条。
  *   触发条件：`in_review` 且已过生效截止 且缺槽/空 Report ⇒ **exit 1**（check-all 红）。
  *   豁免开关：① 生效截止 `OPENCLAW_TEAM_REPORT_EFFECTIVE_AT`（把截止前移 ⇒ 更多卡降 warn）；

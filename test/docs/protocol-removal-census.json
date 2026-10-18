@@ -417,7 +417,11 @@
       "title": "blocked 退回/不猜/只有 Elon 退回/回归路径",
       "owner": "elon",
       "carriers": [
-        "elon"
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
       ],
       "canonical": "owner",
       "detail": "-",
@@ -504,7 +508,11 @@
       "title": "任务类型路由/角色边界",
       "owner": "elon",
       "carriers": [
-        "elon"
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
       ],
       "canonical": "guide",
       "detail": "team/ROLES.md",

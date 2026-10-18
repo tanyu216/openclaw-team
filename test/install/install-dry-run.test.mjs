@@ -256,7 +256,7 @@ test("an already-registered skills-update job previews a skip — re-running ins
   assert.ok(out.includes("automations add task-patrol"), "the other (missing) jobs still preview an add");
 });
 
-// ---- tmp-gc (PROTOCOL §⑬.9) --------------------------------------------------
+// ---- tmp-gc (`R-DISC-9`) --------------------------------------------------
 
 /** byte-exact expected tmp-gc trigger for an isolated OPENCLAW_HOME. */
 function expectedTmpGcTrigger(openclawHome) {

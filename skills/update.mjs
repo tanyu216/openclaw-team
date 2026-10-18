@@ -182,7 +182,7 @@ function shortSha(sha) { return String(sha || "").slice(0, 12); }
 /**
  * Render the change list for the fired `message`. The message is delivered INTO an agent
  * turn, so it is capped: a first upstream bump after a quiet month can move dozens of refs
- * at once and the full list belongs in the report, not in the wake payload (PROTOCOL §⑬.4).
+ * at once and the full list belongs in the report, not in the wake payload (`R-DISC-4`).
  */
 function changeList(changes, limit = 8) {
   const shown = changes.slice(0, limit).map((c) => `${c.name} ${shortSha(c.old)}→${shortSha(c.new)}`);

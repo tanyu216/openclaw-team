@@ -4,7 +4,7 @@
  * 校验（对齐基座 meerkat-taskpanel）：自指/父子环/父存在/父须 epic/依赖存在/禁祖先/扇入/依赖环/
  * 依赖链长≤8/父链长≤8/空 epic。**不再设单层/嵌套 epic 限制**（支持多层，中间节点须为 epic）。
  * 深链（父链长 ≥5）为软告警：打印告警但**不改退出码**。
- * 分批登记软告警（PROTOCOL §10.2，T-20261013-010610）：epic 已放行过一批却仍有长期停留在占位态
+ * 分批登记软告警（`R-DAG-1`，T-20261013-010610）：epic 已放行过一批却仍有长期停留在占位态
  * （todo/backlog）的子卡 ⇒ 告警（不改退出码）。
  * 退出码：0 通过；1 有 hard 违例。
  * 测试：核心逻辑抽为 `checkRelations(tasksDir)`（可注入目录），CLI 走 main-guard（被 import 不执行）。
@@ -15,12 +15,12 @@ import { parseFrontmatter, parseIso, TASKS_DIR } from './lib.mjs';
 import { isTerminal } from './status.mjs';
 
 const MAX_CHAIN = 8, MAX_FANIN = 8, DEEP_CHAIN_WARN = 5;
-// PROTOCOL §10.2「登记一次到位、放行可分批」软护栏（T-20261013-010610）。
+// `R-DAG-1`「登记一次到位、放行可分批」软护栏（T-20261013-010610）。
 // 占位态 = 已登记、尚未放行的子卡状态；阈值默认 48h，可由 OPENCLAW_TEAM_EPIC_TODO_WARN_MS 覆盖
-// （阈值裁定归人，PROTOCOL §20.2）。本项只告警、不改退出码——与 PROTOCOL §10.3 深链软护栏同款。
+// （阈值裁定归人，`R-GATE-2`）。本项只告警、不改退出码——与 `R-GRANULARITY-1` 深链软护栏同款。
 const PLACEHOLDER_STATUS = new Set(['todo', 'backlog']);
 // 终态判据来自 `scripts/status.mjs#isTerminal`。**行为变更**：修前本处写死 `{done, canceled}`，
-// 漏了旧词 `failed`（PROTOCOL §16：`failed` = `canceled` 的别名）⇒ 交付失败的 epic 仍会被按「第二批遗漏」
+// 漏了旧词 `failed`（`R-TERM-1`：`failed` = `canceled` 的别名）⇒ 交付失败的 epic 仍会被按「第二批遗漏」
 // 扫描并告警。改用单一真源后 `failed` 与 `canceled` 同判（终态 epic 不再产生该软告警）。
 export const EPIC_CHILD_WARN_TAG = 'epic_child_todo_stale';
 export function defaultEpicTodoWarnMs() {
@@ -99,12 +99,12 @@ export function checkRelations(tasksDir = TASKS_DIR, { now = Date.now(), epicTod
   // I12 空 epic
   for (const id of ids) if ((cards[id].kind || 'task') === 'epic' && !ids.some((x) => parentOf(x) === id)) bad.push(`${id} empty_epic`);
 
-  // PROTOCOL §10.2「登记一次到位、放行可分批」软护栏（T-20261013-010610）：
+  // `R-DAG-1`「登记一次到位、放行可分批」软护栏（T-20261013-010610）：
   // 分批需求应「先建 epic + 一次性登记全部批次为子卡」，放行（dispatch）可分批。若某 epic 未终结、
   // 且确实已放行过至少一批（epic 自身 in_progress，或已有子卡离开占位态），却仍有**登记后长期停留在
   // 占位态（todo/backlog）**的子卡 ⇒ 告警，暴露「第一批建了、第二批没人管」。
   // 注：判据不写死 epic.status==='in_progress' —— 本团队看板上 epic 常年停在 ready（rollup 不把它
-  // 停到 in_progress），写死会成死码、假绿（PROTOCOL §20.2）。故以「已放行过一批」等价刻画 in_progress 语义。
+  // 停到 in_progress），写死会成死码、假绿（`R-GATE-2`）。故以「已放行过一批」等价刻画 in_progress 语义。
   const childOf = {};
   for (const id of ids) { const p = parentOf(id); if (p) (childOf[p] || (childOf[p] = [])).push(id); }
   const isDispatched = (s) => !PLACEHOLDER_STATUS.has(String(s == null ? '' : s).trim());
@@ -135,7 +135,7 @@ function main() {
   if (deepWarn.length) console.log(`\n⚠ 深链告警：${deepWarn.join('、')}（父链长 ≥${DEEP_CHAIN_WARN}；软护栏，不阻断）`);
   if (epicWarn.length) {
     const h = Math.round(defaultEpicTodoWarnMs() / 3600000);
-    console.log(`\n⚠ 分批登记告警：${epicWarn.join('、')}（epic 已放行一批、仍有占位态子卡停留 >${h}h；软护栏，不阻断，PROTOCOL §10.2）`);
+    console.log(`\n⚠ 分批登记告警：${epicWarn.join('、')}（epic 已放行一批、仍有占位态子卡停留 >${h}h；软护栏，不阻断，\`R-DAG-1\`）`);
   }
   console.log(bad.length ? `\n违例：${bad.length}` : '');
   process.exit(bad.length ? 1 : 0);
