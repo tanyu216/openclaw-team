@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "rules": {
+    "R-SESSION-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-SESSION-3": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    }
+  }
+}

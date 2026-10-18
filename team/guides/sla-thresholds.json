@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "workingWindow": {
+    "tz": "Asia/Shanghai",
+    "start": "09:00",
+    "end": "23:00"
+  },
+  "rows": [
+    {
+      "row": "blocked_clarification",
+      "slaRef": "R-SLA-1",
+      "thresholdRef": "R-SLA-1 clause 1",
+      "normalMin": 120,
+      "furtherMin": 1440,
+      "action": "Elon must clarify, revise or reassign",
+      "furtherAction": "> 24h: escalate to the operator"
+    },
+    {
+      "row": "confirmation_gate",
+      "slaRef": "R-SLA-2",
+      "thresholdRef": "R-SLA-2 clause 1",
+      "normalMin": 240,
+      "furtherMin": 1440,
+      "action": "Elon must review",
+      "furtherAction": "> 24h: escalate to the operator"
+    },
+    {
+      "row": "defect_card_creation",
+      "slaRef": "R-SLA-3",
+      "thresholdRef": "R-SLA-3 clause 1",
+      "normalMin": 1440,
+      "furtherMin": 2880,
+      "action": "Elon must create and dispatch a fix card to Linus",
+      "furtherAction": "> 48h: escalate to the operator"
+    },
+    {
+      "row": "acceptance_card_creation",
+      "slaRef": "R-SLA-4",
+      "thresholdRef": "R-SLA-4 clause 1",
+      "normalMin": 1440,
+      "furtherMin": 2880,
+      "action": "Elon must create a review card and dispatch Jobs",
+      "furtherAction": "> 48h: escalate to the operator"
+    },
+    {
+      "row": "heartbeat_stale",
+      "slaRef": "R-SLA-5",
+      "thresholdRef": "R-SLA-5 clause 1",
+      "normalMin": 30,
+      "furtherMin": 360,
+      "action": "Same assignee re-claims",
+      "furtherAction": "> 6h: any agent may claim and report"
+    },
+    {
+      "row": "leader_stalled",
+      "slaRef": "R-SLA-6",
+      "thresholdRef": "R-SLA-6 clause 1",
+      "normalMin": 60,
+      "furtherMin": 360,
+      "furtherRef": "R-SLA-7",
+      "action": "No action; the leader is stalled",
+      "furtherAction": "Per the worker-to-operator exception channel; the operator appoints a proxy"
+    }
+  ],
+  "liveness": {
+    "row": "inspector_liveness",
+    "slaRef": "guides/sla-inspection-contract.md §5.3",
+    "thresholdRef": null,
+    "normalMin": null,
+    "furtherMin": null,
+    "action": "warn only; this is not a protocol SLA row"
+  }
+}
