@@ -9,4 +9,3 @@
 3. **Reverse backfill** — when code leads the docs, the implementer syncs what the card touched after acceptance; cross-card accumulated lag becomes a doc-sync card. Record the result in `memory/YYYY-MM-DD.md`.
 4. **Reference convention** — follow `R-ENG-2`; no line-number anchors.
 5. **Ownership** — design docs belong to their repo (`R-PROJECT-1`); other projects follow their own repo rules.
-
