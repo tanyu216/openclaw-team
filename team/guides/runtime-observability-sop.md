@@ -1,11 +1,11 @@
 # Runtime Observability SOP (runtime-observability-sop.md)
 
-> **Ownership**: `PROTOCOL §22` (runtime observability). This file is the **L2.5 method library** that details that clause; the clause holds the normative mechanism and this file **references it, does not copy it** (`PROTOCOL §17`).
-> **Maintainer**: **Linus** (engineering — lands the runtime-observability implementation). **Elon is the sole writer of L1** (the `PROTOCOL` text); convention changes flow through him.
-> **Depends on / referenced clauses**: `PROTOCOL §6.1` (engineering quality standards) · `PROTOCOL §9.3` (container-form acceptance) · `PROTOCOL §12` (two-way document sync) · `PROTOCOL §15` (SLA/timeout) · `PROTOCOL §15.1` (team-stalled exception channel) · `PROTOCOL §17` (document layering / no verbatim copying) · `PROTOCOL §20.1` (machine-checkable gates) · `PROTOCOL §20.2` (not machine-checkable) · `PROTOCOL §22` (runtime observability — the L1 clause this SOP details) · `PROTOCOL §23` (product incident response — the alert→incident handoff) · `PROTOCOL §27` (performance/SLA).
+> **Ownership**: `R-OBS-1` (runtime observability). This file is the **method library** that details that clause; the clause holds the normative mechanism and this file **references it, does not copy it** (`R-LAYER-1`).
+> **Maintainer**: **Linus** (engineering — lands the runtime-observability implementation). **Elon** owns `R-OBS-1` (the normative rule); convention changes flow through him.
+> **Depends on / referenced clauses**: `R-ENG-1` (engineering quality standards) · `R-CONTAINER-1` (container-form acceptance) · `R-DOCSYNC-1` (two-way document sync) · `R-SLA-1` (SLA/timeout) · `R-SLA-7` (team-stalled exception channel) · `R-LAYER-1` (document layering / no verbatim copying) · `R-GATE-1` (machine-checkable gates) · `R-GATE-2` (not machine-checkable) · `R-OBS-1` (runtime observability — the rule this SOP details) · `R-INCIDENT-1` (product incident response — the alert→incident handoff) · `R-PERF-1` (performance/SLA).
 > **Sibling guides (reference, do not copy)**: `incident-response-sop.md` (product incident response) · `release-versioning-sop.md` (release / rollback) · `performance-sla-sop.md` (SLO / thresholds) · `ci-release-sop.md` (CI gate / build / release / deploy).
-> **Scope**: the **runtime observability of the delivered product/service** — logging / metrics / alerting / health checks / inspection. Cross-role mechanisms are referenced from L1, never copied.
-> **Reference convention**: always write "`document name §section name`" or "`PROTOCOL §<n> <name>`"; **no line-number anchors and no card-number anchors**.
+> **Scope**: the **runtime observability of the delivered product/service** — logging / metrics / alerting / health checks / inspection. Cross-role mechanisms are referenced from the rules, never copied.
+> **Reference convention**: always write "`document name §section name`" or "`R-<DOMAIN>-<n>`"; **no line-number anchors and no card-number anchors**.
 
 ---
 
@@ -18,10 +18,18 @@
 |---|---|---|
 | **Object** | The **product/service runtime** delivered to users (e.g. a long-running service, a batch/strategy job) | The team's own **gateway / worker / session** runtime |
 | **Goal** | Make the product's **logs / metrics / alerts / health** observable/reviewable | Let **team collaboration** recover from stuck / restart / config corruption |
-| **Owner** | The product **on-call** (see `incident-response-sop.md`) | Team worker self-healing + operator patrol + the team-stalled exception channel (`PROTOCOL §15.1`) |
+| **Owner** | The product **on-call** (see `incident-response-sop.md`) | Team worker self-healing + operator patrol + the team-stalled exception channel (`R-SLA-7`) |
 | **Failure signal** | Silent alerts, distorted metrics, false-positive health probes | Stale heartbeat, double-run, poll stalled |
 
-Likewise, **product incident** response is governed by `incident-response-sop.md`; it is a **different object** from `PROTOCOL §15.1` (the team-stalled exception channel) and the two **must not substitute for each other**.
+Likewise, **product incident** response is governed by `incident-response-sop.md`; it is a **different object** from `R-SLA-7` (the team-stalled exception channel) and the two **must not substitute for each other**.
+
+**Normative clauses (`R-OBS-1`)**:
+1. **JSON logs + redaction** — structured logs; secrets and personal data are redacted before they are written.
+2. **Metrics** — the minimal set with stable names and units; dashboards are derived, not hand-maintained.
+3. **Alerts** — every alert is executable: a concrete action, an owner and a due point; silence windows and dedup are explicit.
+4. **Health** — separate health / liveness / readiness probes; a probe must not report green when the dependency it checks is unavailable.
+5. **Inspection** — a documented read-only inspection convention for the on-call.
+6. **Object separation** — product runtime observability is not the team's own gateway handbook and not `R-SLA-7`.
 
 ---
 
@@ -31,7 +39,7 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
 |---|---|
 | **Do** | Define the minimal convention and landing points for product-level **logging / metrics / alerting / health checks / inspection**; give the applicable convention for both **long-running services** and **batch/strategy jobs** |
 | **Do not** | Do not define the team's own gateway recovery (`team/README.md §4 Recovery Handbook`); do not define product release/rollback (`release-versioning-sop.md`); do not define incident grading / on-call rota / retro (`incident-response-sop.md` — this file only **hands off** to it) |
-| **Handoff** | Alert fires → incident response (`incident-response-sop.md`); metric thresholds and monitoring-stack selection → decision owner (**to be decided**, §9); machine-checkable gate landing points follow `PROTOCOL §20.1` |
+| **Handoff** | Alert fires → incident response (`incident-response-sop.md`); metric thresholds and monitoring-stack selection → decision owner (**to be decided**, §8); machine-checkable gate landing points follow `R-GATE-1` |
 
 ### 1.1 Convention / ownership / landing point (file-level)
 
@@ -40,10 +48,10 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
 | § | Convention | Ownership | Landing point |
 |---|---|---|---|
 | §2 Logging | Structured JSON lines; unified fields; unified wrapper; redaction | Product owner (engineering lands the implementation); on-call readability | CI (schema lint, §2.4) + hooks (no bare `print`) + manual (inspection spot-check) |
-| §3 Metrics | Minimal metric set + naming convention (prefix + unit) | Product owner; metric convention maintained by Linus | CI (naming lint, optional) + manual (dashboards / inspection); collection stack **to be decided** (§9) |
-| §4 Alerting | Grading + executable + inhibition/dedup + silence windows / on-call | On-call (hands off to `incident-response-sop.md`); rules maintained by Linus | Monitoring stack (**to be decided**, §9) + manual (silence-window approval, on-call handover) |
+| §3 Metrics | Minimal metric set + naming convention (prefix + unit) | Product owner; metric convention maintained by Linus | CI (naming lint, optional) + manual (dashboards / inspection); collection stack **to be decided** (§8) |
+| §4 Alerting | Grading + executable + inhibition/dedup + silence windows / on-call | On-call (hands off to `incident-response-sop.md`); rules maintained by Linus | Monitoring stack (**to be decided**, §8) + manual (silence-window approval, on-call handover) |
 | §5 Health Checks | Separate `/health` (liveness) from `/ready` (readiness) | Product owner (engineering) | CI (container verification — the sole source of truth) + hooks/orchestrator (compose healthcheck) + manual |
-| §6 Inspection | Routine checklist: period / item / criterion / owner / trail | Product on-call (executes) + operator patrol (spot-checks) | Mostly manual; items that can be machine-checked are folded into CI/hooks (`PROTOCOL §20.1`) |
+| §6 Inspection | Routine checklist: period / item / criterion / owner / trail | Product on-call (executes) + operator patrol (spot-checks) | Mostly manual; items that can be machine-checked are folded into CI/hooks (`R-GATE-1`) |
 
 ---
 
@@ -82,7 +90,7 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
 ### 2.4 No bare `print` / temporary formats (unified logging wrapper)
 
 - **Forbidden** to call `print()` / `console.log()` / build ad-hoc strings directly in code — all output goes through the **unified logging wrapper** (a per-service logger).
-- **Reference**: `PROTOCOL §6.1` (engineering quality standards) sets the delivery hard gate; raising "unified logging wrapper" to normative text is an L1 mechanism — L1 owns it, this file only points at it (`PROTOCOL §17`).
+- **Reference**: `R-ENG-1` (engineering quality standards) sets the delivery hard gate; raising "unified logging wrapper" to normative text is a normative mechanism — `R-OBS-1` owns it, this file only points at it (`R-LAYER-1`).
 - **Pre-submit self-check** (may be merged into the code-review checklist):
   - [ ] **Wrapper**: all output goes through the unified logger — no bare `print` / `console.log`
   - [ ] **Fields**: contains all required fields (§2.3)
@@ -91,7 +99,7 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
 ### 2.5 Rotation and retention
 
 - **Rotation**: trigger on **both size and time** (a single file cannot fill the disk); rotated files may be compressed/archived.
-- **Retention**: **to be decided** (per product data volume and compliance requirements; §9). Until decided, apply the floor: **cover at least one review/retro window**.
+- **Retention**: **to be decided** (per product data volume and compliance requirements; §8). Until decided, apply the floor: **cover at least one review/retro window**.
 - **Landing point**: rotation config ships with the product deployment; the retention policy is a **to-be-decided** item.
 
 ### 2.6 Redaction of sensitive information (hard rule)
@@ -125,7 +133,7 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
 
 ### 3.3 Collection and exposure
 
-- **Method**: **to be decided** (e.g. Prometheus / OpenTelemetry / …; §9).
+- **Method**: **to be decided** (e.g. Prometheus / OpenTelemetry / …; §8).
 - **Tool-independent convention**: metrics must be **programmatically scrapeable** (e.g. a `/metrics` endpoint or OTLP export) — they must **not** exist only as log text.
 
 ---
@@ -140,7 +148,7 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
 | **P2 / warn** | Degradation / approaching threshold / partial failure | Respond in working hours | On-call or product owner |
 | **P3 / info** | Informational / deferrable | Handled in the inspection roll-up | Inspection checklist (§6) |
 
-> Thresholds and specific routing targets: **to be decided** (must combine SLO and capacity baselines; §9).
+> Thresholds and specific routing targets: **to be decided** (must combine SLO and capacity baselines; §8).
 
 ### 4.2 Alerts must be executable (hard requirement)
 
@@ -149,7 +157,7 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
 | Element | Description |
 |---|---|
 | **Trigger condition** | An explicit decision expression (e.g. "5xx share > X% within 5 min") |
-| **Threshold** | A concrete value/range (**to be decided** where not yet set — use a placeholder until then; §9) |
+| **Threshold** | A concrete value/range (**to be decided** where not yet set — use a placeholder until then; §8) |
 | **Impact** | What it will cause (user-visible / internal) |
 | **First action** | The on-call's first handling step (runbook pointer) |
 | **Escalation target** | When and to whom it escalates (the escalation chain in `incident-response-sop.md`) |
@@ -166,7 +174,7 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
 
 - **Silence window**: during planned maintenance / known changes, silence the corresponding alerts for the window; **a trail is mandatory** (who opened it, why, when it closed) — never let "silence" mask a real fault.
 - **On-call**: the on-call rota and handover convention **belong to `incident-response-sop.md`** (this file only hands off; it does not redefine them).
-- **Distinct from the team's own**: this on-call is **product** production on-call; it is **not** the team's worker heartbeat/poll patrol (the latter is `team/README.md §4 Recovery Handbook` and `PROTOCOL §15`).
+- **Distinct from the team's own**: this on-call is **product** production on-call; it is **not** the team's worker heartbeat/poll patrol (the latter is `team/README.md §4 Recovery Handbook` and `R-SLA-1`).
 
 ---
 
@@ -187,7 +195,7 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
 |---|---|
 | DB | Connection alive + a simple query round-trip |
 | Queue | Can produce / can consume |
-| Upstream dependency | Key upstream reachable (mind **in-container address semantics**, `PROTOCOL §9.3`) |
+| Upstream dependency | Key upstream reachable (mind **in-container address semantics**, `R-CONTAINER-1`) |
 | Disk | Free space ≥ threshold |
 | Clock | Clock skew within tolerance |
 
@@ -199,13 +207,13 @@ Likewise, **product incident** response is governed by `incident-response-sop.md
 
 ### 5.4 Example landing points (generic, reusable)
 
-- **Landing point A — CI (sole source of truth)**: the repo's container verification entry (`docker/verify.sh` / `docker/verify-in-container.sh`) is the **sole source of truth** for the repo's "healthy". CI and the local verification call **the same script** ⇒ local green = CI green. It is reusable as a pre-/post-release health check (`PROTOCOL §9.3`).
+- **Landing point A — CI (sole source of truth)**: the repo's container verification entry (`docker/verify.sh` / `docker/verify-in-container.sh`) is the **sole source of truth** for the repo's "healthy". CI and the local verification call **the same script** ⇒ local green = CI green. It is reusable as a pre-/post-release health check (`R-CONTAINER-1`).
 - **Landing point B — hook / orchestrator**: a compose `healthcheck` on the long-running service:
-  - `test` = an in-container `fetch('http://127.0.0.1:<port>/health')` (**in-container loopback**, matching `PROTOCOL §9.3` address semantics);
+  - `test` = an in-container `fetch('http://127.0.0.1:<port>/health')` (**in-container loopback**, matching `R-CONTAINER-1` address semantics);
   - `interval` / `timeout` / `retries` / `start_period` ⇒ the service should turn `healthy` within a bounded window;
   - the healthcheck is a **contract**: it must keep passing from the skeleton all the way to the real implementation (not relaxed because the implementation changed).
 - **Task-completion criterion**: after bringing the stack up (`docker compose up -d --build`, or equivalent), the long-running service reaches `healthy`.
-- **Metrics / alerts**: **to be decided** (a monitoring stack may not exist yet — health probes only; §9).
+- **Metrics / alerts**: **to be decided** (a monitoring stack may not exist yet — health probes only; §8).
 
 ---
 
@@ -233,7 +241,7 @@ Reusable checklist form:
 
 ### 6.2 Relationship to the team check-all gate (★ stated explicitly — different objects)
 
-> The **team check-all gate** = the **team-side gate aggregator**; its object is **shared-area and protocol consistency** (redline-block consistency / terminology abstraction / §-reference resolvability / card schema / contract tests / prototype gate / archive dry-run), landing point `PROTOCOL §20.1`.
+> The **team check-all gate** = the **team-side gate aggregator**; its object is **shared-area and protocol consistency** (redline-block consistency / terminology abstraction / §-reference resolvability / card schema / contract tests / prototype gate / archive dry-run), landing point `R-GATE-1`.
 > **Product inspection ≠ team check-all**:
 
 | | Object | Content | Executor |
@@ -247,7 +255,7 @@ Reusable checklist form:
 
 ## 7. Applicability and Landing Points by Runtime Shape
 
-> Ownership summary: the product owner lands the engineering; convention decisions go through the L1 writer.
+> Ownership summary: the product owner lands the engineering; convention decisions go through the rule owner (Elon).
 
 | Runtime shape | Applicability | Landing point (CI / team check-all / hooks / manual) | Notes |
 |---|---|---|---|

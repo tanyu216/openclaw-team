@@ -1,7 +1,7 @@
 # AUTOMATIONS.md — Scheduled Jobs / Patrol List
 
 > Overview and decision record of all scheduled jobs (cron / every / trigger) on the team Gateway. Maintainer: Elon.
-> Related: `PROTOCOL §20` (gates and archiving), `PROTOCOL §6.4` (poll to terminal state), `README §3` (operations commands), `guides/task-interface.md` (task-provider ACL).
+> Related: `R-GATE-1` (gates) and `R-ARCHIVE-1` (archiving), `R-WORKTREE-1` (poll to terminal state), `README §3` (operations commands), `guides/task-interface.md` (task-provider ACL).
 ---
 
 ## 0. Boundary — framework owns scheduling; provider is only a callee (ACL)
@@ -33,10 +33,10 @@
 | `turing-poll` | turing | every 5m | ✅ | none | Same (turing) |
 | `assistant-poll` | assistant | every 5m | ✅ | none | Same (assistant) |
 | `task-patrol` | main | every 15m | ✅ | none | in_progress cards with stale heartbeat (>30min) → wake/recover |
-| `sla-scan` | main | every **15m** (`OPENCLAW_TEAM_SLA_INTERVAL`) | ✅ | none | Board SLA inspection (`PROTOCOL §15` rows the heartbeat patrol does not cover: blocked / confirmation gate / defect-card creation / acceptance-card creation / leader stalled, + the contract's `inspector_liveness`); **notify-only to the leader**, wakes the model only on a tier crossing — see §3.8 |
+| `sla-scan` | main | every **15m** (`OPENCLAW_TEAM_SLA_INTERVAL`) | ✅ | none | Board SLA inspection (`R-SLA-1`…`R-SLA-6` rows the heartbeat patrol does not cover: blocked / confirmation gate / defect-card creation / acceptance-card creation / leader stalled, + the contract's `inspector_liveness`); **notify-only to the leader**, wakes the model only on a tier crossing — see §3.8 |
 | `team-check-all` | main | **hourly** | ✅ | none | Gate patrol; wakes the model only on failure |
 | `skills-update` | main | **Sundays 05:00 (Asia/Shanghai)** | ✅ | none | Upstream skill-ref drift DETECT (`skills/manifest.json` vs `git ls-remote`); wakes the model only on drift/failure. Detect-only — `--apply` is a manual, reviewed step (see [`skills/README.md`](../skills/README.md)) |
-| `tmp-gc` | main | **daily 02:20 (Asia/Shanghai)** | ✅ | none | Scratch GC (`PROTOCOL §13.9`, `scripts/tmp-gc.mjs`): delete files older than **14 days** under every `workspace-*/.tmp/` + `$OPENCLAW_HOME/tmp/` + `$OPENCLAW_HOME/team/tmp/`; wakes the model only when the sweep could not be confirmed (unreadable root / failed delete) — see §3.9 |
+| `tmp-gc` | main | **daily 02:20 (Asia/Shanghai)** | ✅ | none | Scratch GC (`R-DISC-9`, `scripts/tmp-gc.mjs`): delete files older than **14 days** under every `workspace-*/.tmp/` + `$OPENCLAW_HOME/tmp/` + `$OPENCLAW_HOME/team/tmp/`; wakes the model only when the sweep could not be confirmed (unreadable root / failed delete) — see §3.9 |
 | `heartbeat-main` | main | every 30m | — | none | Main-session heartbeat |
 | `memory-dreaming-promotion` | main | 03:00 (Asia/Shanghai) | — | none | memory-core short-term memory promotion (managed) |
 | `token-hygiene` | main | 04:00 (Asia/Shanghai) | — | none | Large-log compaction/memory indexing |
@@ -46,7 +46,7 @@
 
 ## 2. Cost Model (important)
 - **An idle trigger job = zero cost**: `fire:false` only writes state, produces no run, and consumes no model. So all poll / task-patrol / team-check-all / skills-update / sla-scan / tmp-gc jobs are **near zero cost when there is no anomaly**. (`skills-update` still costs a few seconds of *network* every Sunday — it must ask 15 upstreams for their current HEAD — but it wakes no model.)
-- Only **`fire:true` wakes a model turn** (poll = a card was claimed; task-patrol = a stale card exists; check-all = the gate failed; skills-update = an upstream skill ref moved, or the check could not be confirmed; sla-scan = a board wait newly crossed a `PROTOCOL §15` tier, or the inspection could not be confirmed; tmp-gc = the sweep could not be confirmed). **`tmp-gc` firing is never "it deleted a lot"** — that is the job working; only an unreadable root or a failed delete wakes anyone.
+- Only **`fire:true` wakes a model turn** (poll = a card was claimed; task-patrol = a stale card exists; check-all = the gate failed; skills-update = an upstream skill ref moved, or the check could not be confirmed; sla-scan = a board wait newly crossed a `R-SLA-*` tier, or the inspection could not be confirmed; tmp-gc = the sweep could not be confirmed). **`tmp-gc` firing is never "it deleted a lot"** — that is the job working; only an unreadable root or a failed delete wakes anyone.
 - Non-trigger jobs (heartbeat/maintenance/skill) produce runs at a fixed frequency.
 ---
 
@@ -140,7 +140,7 @@ the second is genuinely platform-free**:
    source for the run payload: the run **claims → hands off** (`scripts/spawn-lane.sh`,
    detached) **→ returns**; it does **not** execute the card and does **not** poll the
    spawned lane to its terminal state inside the run. Lane supervision moves to the
-   **next cron turn + `task-patrol`**, which `PROTOCOL §6` already sanctions ("if the
+   **next cron turn + `task-patrol`**, which `R-SESSION-1` already sanctions ("if the
    worker's turn is interrupted/ends before the subsession finishes, arrange for a
    subsequent turn to take over polling"). This retires the previous payload
    (`直接执行不再 claim`, i.e. execute-in-place) as the poll-run default.
@@ -213,14 +213,14 @@ slow sweep, which is the authoritative one; the overlap costs ~2 s and lands out
 slow segment and not the fast one**: the five missing suites measure **~6.1 s**, while the fast
 segment's in-band bound is 6000 ms and the fast segment itself already measures **~2.4–3.7 s warm
 (≈6 s on a cold first run)** on a live-shaped board (485 cards) — adding them there would produce
-`fast-timeout` → `unconfirmed` every period, i.e. exactly the PROTOCOL §20.1 masking this segmentation exists
+`fast-timeout` → `unconfirmed` every period, i.e. exactly the `R-GATE-1` masking this segmentation exists
 to remove. A provider red therefore lands in `failed[]` / `slowFailedFiles` and reaches the operator
 through `message` (directly under `--segment all`, and via the cached verdict under the scheduled gate).
 
 **Epic completeness in the fast segment.** `check-all.sh` also runs
 `scripts/check-epic-completeness.mjs` in the **fast** segment (~0.2 s on a live-shaped board,
 485+ cards, so it stays well inside the 6000 ms bound): it reconciles an epic's **roadmap ledger**
-against the board (`PROTOCOL §10.2/§10.3`, `AUTOMATIONS §6`). It fires **hard** only where the
+against the board (`R-DAG-1` / `R-GRANULARITY-1`, `AUTOMATIONS §6`). It fires **hard** only where the
 ledger is already in use — a card named in the ledger that does not exist or is not a child of that
 epic, or a phase with neither a card nor a reason — and only for **non-terminal** epics (terminal
 epics are grandfathered, their violations surfaced as warnings instead). A **missing** ledger is a
@@ -233,7 +233,7 @@ card", **soft and exit-code-neutral** by contract.
 `scripts/check-report.mjs` in the **fast** segment (~0.05 s on a live-shaped board, 580+ cards):
 it checks that a card's `## Report` section carries the **common core** slots `A1…A8` defined by
 `team/guides/worker-report-template.md`. Its trigger surface is deliberately narrow so that landing
-it cannot redden the existing board: **only `in_review` is a hard trigger** (`PROTOCOL §20.1`) —
+it cannot redden the existing board: **only `in_review` is a hard trigger** (`R-GATE-1`) —
 cards still being worked report at most a warning, and **terminal cards are never checked at all**
 (not even a warning). Two further bounds keep history out of it: an **effective cutoff**
 (`created_at` earlier than the gate's landing instant ⇒ *grandfathered*, warning only — the
@@ -318,7 +318,7 @@ decisive: manually dispatched cards in the same window were delayed **38–108 m
 Consequence: by the time a true alert reaches the worker the card often already looks
 "closed", so the worker is forced to re-verify live.
 
-**Root cause is 归口 the gateway platform layer (待 Terry 裁定).** The team side cannot
+**Root cause is 归口 the gateway platform layer (待 operator 裁定).** The team side cannot
 bound transport latency from inside `team/scripts/**`. Three candidate mitigations,
 recorded for that decision:
 
@@ -339,11 +339,11 @@ superseded nudge without a new round-trip**. That narrows the window; it does **
 close it — the residual is the Gateway transport backlog above.
 ---
 
-## 3.8 `sla-scan` — board SLA inspection (the PROTOCOL §15 rows patrol does not cover)
+## 3.8 `sla-scan` — board SLA inspection (the `R-SLA-1`…`R-SLA-6` rows patrol does not cover)
 
-`task-patrol` covers **one** `PROTOCOL §15` row (`in_progress` + stale heartbeat). Every other
-row — *blocked awaiting clarification*, *confirmation gate awaiting review* (PROTOCOL §14), *defect fix
-card creation* (PROTOCOL §9), *product/UX acceptance queued* (PROTOCOL §9.1), *leader patrol stalled* — was
+`task-patrol` covers **one** `R-SLA-*` row (`in_progress` + stale heartbeat). Every other
+row — *blocked awaiting clarification*, *confirmation gate awaiting review* (`R-CONFIRM-1`), *defect fix
+card creation* (`R-DEFECT-1`), *product/UX acceptance queued* (`R-UI-1`), *leader patrol stalled* — was
 **zero-coverage**, on a board whose waits are the team's own. `sla-scan` closes that gap on the
 openclaw side; the loop side does the same under `guides/sla-inspection-contract.md` (C4), and the
 contract fixes **one semantics** both implement.
@@ -359,19 +359,19 @@ contract fixes **one semantics** both implement.
   nothing is ever dropped silently.
 - **契约**: `guides/sla-inspection-contract.md` §4 (alert tuple: `sla_row` / `severity` / tier /
   `measure_start_*` / `threshold_min` / `target:"leader"` / `evidence` …; §4.1 — rows #23/#24 are
-  **ledger metadata and are not published in `alerts[]`**), §5 (six `PROTOCOL §15` rows +
+  **ledger metadata and are not published in `alerts[]`**), §5 (six `R-SLA-*` rows +
   the contract's `inspector_liveness`), §9 (read-only / notify-only / fail-safe / zero-cost idle /
   working hours / pre-emit re-check), §8.3 (de-duplication ledger).
 - **Never changes a card.** The inspector's only writes are its own host-local runtime artefacts in
   `<team>/` (`.sla-scan-ledger.json`, `.sla-scan-state.json`), both excluded from the repo↔instance
   drift patrol. The releasability hint (`releasable` / `releasable_basis`) is a **hint**: releasing a
   blocked card, re-claiming a stale one, creating a fix/acceptance card and escalating all stay
-  leader actions (`PROTOCOL §7 / §9 / §9.1 / §15.1` is a *worker* channel this job never uses).
+  leader actions (`R-AMBIG-1` / `R-DEFECT-1` / `R-UI-1` / `R-SLA-7` is a *worker* channel this job never uses).
 - **Working hours**: Asia/Shanghai 09:00–23:00, **accumulated** (the clock stops off-hours) — computed
   in UTC with a fixed +08:00 offset, so an observer on another host gets the same elapsed minutes.
 
-**Cadence — the `PROTOCOL §15`-row reconciliation (contract §12 G-6, owed by this wiring card).** The contract's
-tier ladder puts `warn` at `L − P` (clamped at 0), where `P` is *this mechanism's own period*. `PROTOCOL §15`'s
+**Cadence — the `R-SLA-*`-row reconciliation (contract §12 G-6, owed by this wiring card).** The contract's
+tier ladder puts `warn` at `L − P` (clamped at 0), where `P` is *this mechanism's own period*. `R-SLA-5`'s
 tightest row is *Worker heartbeat stale* (`L = 30 min`), so `P ≥ 30` makes that row's warn boundary
 `T ≥ 0` — every in-flight card would alarm on every tick, which is exactly the zero-cost idle the
 contract forbids. The registered cadence is therefore **`every 15m`** (`OPENCLAW_TEAM_SLA_INTERVAL`,
@@ -381,9 +381,8 @@ magnitude as the operator ruling's "~30 min". The runtime `P`
 a machine check (`scripts/tests/sla-scan.test.mjs`), so the two cannot drift apart silently.
 
 **Thresholds are never re-typed.** `scripts/sla-scan.mjs` carries a runtime mapping table whose
-every value sits next to its `PROTOCOL §15` reference; `node scripts/sla-scan.mjs --check-thresholds` re-parses
-`PROTOCOL §15` and fails loudly on drift (contract §11 hook H6). Same idea for the *contract* prose:
-this section references the guide, it does not restate it (`PROTOCOL §17`).
+every value sits in `guides/sla-thresholds.json` under its `R-SLA-*` row; `node scripts/check-sla-thresholds.mjs` fails loudly on a malformed or missing file (contract §11 hook H6). Same idea for the *contract* prose:
+this section references the guide, it does not restate it (`R-LAYER-1`).
 
 **Known deviations / limits (deliberate, recorded — not discovered as defects):**
 1. **De-duplication backend is a host-local file, not a card-trail marker.** The contract's default
@@ -399,7 +398,7 @@ this section references the guide, it does not restate it (`PROTOCOL §17`).
    block always reports `peer.status`, so the gap is visible; `OPENCLAW_TEAM_SLA_PEER_REQUIRED=1`
    switches to alarm-on-absence once C4 lands.
 3. **`acceptance_card_creation` covers the delivery state (`in_review`) with `flow` absent read as A**
-   (the contract's fail-safe default). `PROTOCOL §9.1`'s UI-scope condition ("touches product/UI/UX") is not
+   (the contract's fail-safe default). `R-UI-1`'s UI-scope condition ("touches product/UI/UX") is not
    machine-decidable from the board, and adding a filter that guesses would risk silencing a real
    acceptance wait. Consequence: a board where many `in_review` cards are older than the row's limit
    produces one alert per such card (de-duplicated thereafter) — the measured first-run shape is in
@@ -416,7 +415,7 @@ this section references the guide, it does not restate it (`PROTOCOL §17`).
 
 **Contract-v1.1 conformance fixes (F1 / F5 / F8).** Three deviations the design
 confirmation  found in this landing (registered as §12 **G-10 ⑤⑥⑦**) are fixed;
-`PROTOCOL §15` thresholds, the tier ladder and the coverage set are untouched:
+`sla-thresholds.json` thresholds, the tier ladder and the coverage set are untouched:
 
 - **F1 — `measure_start_source` is the read location only.** The field had been fed the
   `measure_start_kind` vocabulary (`trail_event` / `created_at` / `status_changed_at`), which is
@@ -441,12 +440,12 @@ confirmation  found in this landing (registered as §12 **G-10 ⑤⑥⑦**) are 
 
 ## 3.9 `tmp-gc` — scratch-file GC (the placement discipline's enforcement arm)
 
-**Why it exists.** `PROTOCOL §13.9` gives every role ONE place for the scratch files it produces
+**Why it exists.** `R-DISC-9` gives every role ONE place for the scratch files it produces
 (`$OPENCLAW_HOME/workspace-<role>/.tmp/`) and declares that placement **not durable**. A rule about
 where scratch goes is only credible if the other end of it — the collector — is real, and the host
 shows why: the shared `~/.openclaw/tmp/` had grown to **~320k files across ~103k directories**, and
 `<team>/tmp/` held loose agent scripts, with no retention policy anywhere in the framework (the only
-day-based mechanism was card archiving, `PROTOCOL §20.3`).
+day-based mechanism was card archiving, `R-ARCHIVE-1`).
 
 - **Entry / dispatch**: `providers.json` `tmpGc` = `node {team}/scripts/tmp-gc.mjs --json`;
   `dispatch.mjs tmp-gc` (a **fail-closed janitor**, §3 above). Trigger body from the same template.
@@ -495,10 +494,10 @@ day-based mechanism was card archiving, `PROTOCOL §20.3`).
 ---
 
 ## 4. Decision Record
-- **Keep per-worker poll; do not do a "single board scan → dispatch"**: per-worker `*-poll` is an **independent fallback** (each worker atomically claims, so cards already created can still be claimed when Elon/main is stalled). Merging into "main scans → dispatch" would converge to a single Elon point and change the `PROTOCOL §1` "claim timing belongs to poll" semantics; the only gain is a few zero-cost config lines ⇒ not adopted.
+- **Keep per-worker poll; do not do a "single board scan → dispatch"**: per-worker `*-poll` is an **independent fallback** (each worker atomically claims, so cards already created can still be claimed when Elon/main is stalled). Merging into "main scans → dispatch" would converge to a single Elon point and change the `R-BOARD-1` "claim timing belongs to poll" semantics; the only gain is a few zero-cost config lines ⇒ not adopted.
 - **Patrol frequency**: the gate patrol `team-check-all` is set to **hourly**; because it triggers the model only on failure, a higher frequency adds no cost.
-- **Cron slimming **: per-worker poll was thinned **1m → 2m → 5m** (override `OPENCLAW_TEAM_POLL_INTERVAL`, default `5m`) and `task-patrol` widened to **15m**, and every framework job now runs with **`--light-context`** so scheduler triggers stay cheap. The trigger decision is still an atomic claim check — 5m keeps the "claim timing belongs to poll" fallback (PROTOCOL §1) while cutting scheduler wake-ups (worst-case claim latency ≤5m; worker crash recovery window ≈ patrol 15m + poll 5m).
-- **Fallback cadence widened**: per-worker poll **2m → 5m** (`OPENCLAW_TEAM_POLL_INTERVAL`) and `task-patrol` **5m → 15m**. The dispatch mainline is Elon assigning via `sessions_send` (push); poll only fires when that push did not land, so the accepted worst-case claim latency is now ≤5m and the accepted worker crash recovery window ≈ patrol 15m + poll 5m. Nothing else moves: the trigger decision stays an atomic claim check (PROTOCOL §1), `task-patrol` stays **light-context only**, and its stale threshold (>30min) is unchanged. **The ≤5m figure is a claim about the CADENCE, not about any single run**: it holds only while a poll run is not resident across the boundary, which is why  pins the run contract to a short hand-off turn and the run bound to one interval (§3.5).
+- **Cron slimming **: per-worker poll was thinned **1m → 2m → 5m** (override `OPENCLAW_TEAM_POLL_INTERVAL`, default `5m`) and `task-patrol` widened to **15m**, and every framework job now runs with **`--light-context`** so scheduler triggers stay cheap. The trigger decision is still an atomic claim check — 5m keeps the "claim timing belongs to poll" fallback (`R-BOARD-1`) while cutting scheduler wake-ups (worst-case claim latency ≤5m; worker crash recovery window ≈ patrol 15m + poll 5m).
+- **Fallback cadence widened**: per-worker poll **2m → 5m** (`OPENCLAW_TEAM_POLL_INTERVAL`) and `task-patrol` **5m → 15m**. The dispatch mainline is Elon assigning via `sessions_send` (push); poll only fires when that push did not land, so the accepted worst-case claim latency is now ≤5m and the accepted worker crash recovery window ≈ patrol 15m + poll 5m. Nothing else moves: the trigger decision stays an atomic claim check (`R-BOARD-1`), `task-patrol` stays **light-context only**, and its stale threshold (>30min) is unchanged. **The ≤5m figure is a claim about the CADENCE, not about any single run**: it holds only while a poll run is not resident across the boundary, which is why  pins the run contract to a short hand-off turn and the run bound to one interval (§3.5).
 ---
 
 ## 5. Management
@@ -515,8 +514,8 @@ day-based mechanism was card archiving, `PROTOCOL §20.3`).
 ## 6. Patrol Metrics (attached to check-all)
 - **Trigger-script placeholder incident fix (historical)**: the trigger inline JS **does not do brace template substitution**, so a placeholder literal passed to shell fails (`bash: {{HOME}}/...: No such file or directory`) ⇒ the gate patrol falsely reports failure and burns a model turn (poll-type jobs silently fail instead). **Fix**: switch trigger scripts to **absolute paths** and write back each job via `openclaw automations edit <id> --trigger-script <file>`; verify `automations list` has no placeholders and the gate is all green ⇒ trigger evaluation is `fire:false`. **Convention**: trigger script paths are always absolute; placeholders are forbidden.
 - Redline-block drift = 0 | terminology-abstraction violations = 0 | §reference broken links = 0 | card-schema violations = 0 | contract tests all green.
-- **Epic completeness / roadmap × card reconciliation = 0 hard violations** (`scripts/check-epic-completeness.mjs`, `PROTOCOL §10.2/§10.3/§20.1`): every card named in an epic's roadmap ledger must exist **and** be a child of that epic, and every phase with no card must state a reason (hard domain = non-terminal epics — terminal ones are grandfathered and reported as warnings). The **dangling-roadmap sweep** (`workspace/<task>/plan.md`, `design/`, epic cards → "phase without a card") is **soft**: it reports, never sets the exit code.
+- **Epic completeness / roadmap × card reconciliation = 0 hard violations** (`scripts/check-epic-completeness.mjs`, `R-DAG-1` / `R-GRANULARITY-1` / `R-GATE-1`): every card named in an epic's roadmap ledger must exist **and** be a child of that epic, and every phase with no card must state a reason (hard domain = non-terminal epics — terminal ones are grandfathered and reported as warnings). The **dangling-roadmap sweep** (`workspace/<task>/plan.md`, `design/`, epic cards → "phase without a card") is **soft**: it reports, never sets the exit code.
 - **New-seg background-pack rate**: the gate verifies that "all running/closed segs in the card have `workspace/<task-id>/handoff.md` containing the four anchors" — target 100%; gaps are handled (generated/carded).
-- **Card-face Report completeness = 0 hard violations** (`scripts/check-report.mjs`, `PROTOCOL §20.1`; standard = `team/guides/worker-report-template.md`): an `in_review` card must have a non-blank `## Report` carrying the common-core slots `A1…A8`. Hard domain = **`in_review` created at/after the gate's effective cutoff**; terminal cards are never checked, earlier cards are grandfathered to warnings (12 at landing — no retro-reddening), and the register (`scripts/report-baseline.json` ∪ `<tasks>/.report-baseline.json`) can exempt a benign case when its gap set matches exactly.
+- **Card-face Report completeness = 0 hard violations** (`scripts/check-report.mjs`, `R-GATE-1`; standard = `team/guides/worker-report-template.md`): an `in_review` card must have a non-blank `## Report` carrying the common-core slots `A1…A8`. Hard domain = **`in_review` created at/after the gate's effective cutoff**; terminal cards are never checked, earlier cards are grandfathered to warnings (12 at landing — no retro-reddening), and the register (`scripts/report-baseline.json` ∪ `<tasks>/.report-baseline.json`) can exempt a benign case when its gap set matches exactly.
   Measured motivation: the historical board drops the **card path** slot hardest on every role (criterion-bound — see guide §4, whose absolute numbers were **withdrawn** as unreproducible on 2026-10-15, defect  §T6 D6; current readings: `scripts/report-census.mjs`), Jobs is the weakest role on "command + exit code" by a wide margin, and four cards reached `in_review` with a blank Report on the night of 2026-10-14.
   Beyond slot presence the script declares two semantics, tracked here one-to-one with the script header and the guide: **(v) A0 report origin** (header (v); guide §1 A0) — the optional `A0` line reads `delivery` (the deliverer's own Report, the default when absent) or `import` (proxy-collected: a migration, or a pick-up for a dead session); an `import` Report is **not** delivery evidence and can never clear an `in_review` card on its own, and an unreadable `A0` token fails closed; and the **A4 → A6 coupling** (guide §5 row `A4 → A6 coupling`, script Δ1) — a `partial`/`not_met` Acceptance row must reappear in A6 with an owner, so a `partial` row beside an A6 that says "none" is flagged. That coupling, like the sent-back-round hint of header step (vi), is a **non-blocking hint**, never a violation.

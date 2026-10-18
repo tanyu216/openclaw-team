@@ -1,10 +1,10 @@
 # Spawn-Lane SOP (`spawn-lane-sop.md`)
 
-> **Ownership / Maintainer**: **Linus** (engineering) owns the entry and this SOP; **Elon** owns the L1 normative clause in `PROTOCOL §6` and approves exceptions.
-> **Status**: method library (`L2.5`). The **normative clause** lives in `PROTOCOL §6` (session orchestration); this file **references** it and does not copy its text (`PROTOCOL §17`).
-> **Depends on**: `PROTOCOL §1 board` · `PROTOCOL §6 session orchestration` · `guides/task-interface.md` · `guides/incident-response-sop.md`.
+> **Ownership / Maintainer**: **Linus** (engineering) owns the entry and this SOP; **Elon** owns the normative rule `R-SESSION-1` and approves exceptions.
+> **Status**: method library. The **normative clause** lives in `R-SESSION-1` (session orchestration); this file **references** it and does not copy its text (`R-LAYER-1`).
+> **Depends on**: `R-BOARD-1` · `R-SESSION-1` · `guides/task-interface.md` · `guides/incident-response-sop.md`.
 > **Applies to**: **every newly started lane** (a `claude -p` or `codex exec` sub-session) for Linus / Jobs / Turing.
-> **Reference convention**: always write `PROTOCOL §<n> <name>` or `<guide-name> §<section>` — never line-number anchors, never card-number anchors (`PROTOCOL §17`).
+> **Reference convention**: always write `R-<DOMAIN>-<n>` or `<guide-name> §<section>` — never line-number anchors, never card-number anchors (`R-LAYER-1`).
 
 ---
 
@@ -27,7 +27,7 @@
 Both were observed on 2026-10-10 (`check-all` red) on lanes started by a direct `claude -p` — the card claim was fine, but the session was never registered through the ACL.
 
 1. **`registry_only`** — the team-level registry (`claude-sessions.json`) held a **`running`** entry whose **pid was alive**, while the card's `## Sessions` section was **empty**. The gate `check-sessions` treats "active on one side, missing on the other" as a **hard failure**, so `check-all` went red. Root cause: registration wrote only the registry, never the card (the ACL writes both in one step).
-2. **Non-canonical handoff** — `workspace/<task-id>/handoff.md` was **hand-written**, missing the four anchors (`HANDOFF:v1` / `## 任务卡` / `## 上段结论` / `## 讨论/决策` / `state.md`). Once a seg was registered, `check-handoff` failed; the file is what the next segment is supposed to read first, so a non-canonical one silently breaks cross-segment consistency (`PROTOCOL §6.0`).
+2. **Non-canonical handoff** — `workspace/<task-id>/handoff.md` was **hand-written**, missing the four anchors (`HANDOFF:v1` / `## 任务卡` / `## 上段结论` / `## 讨论/决策` / `state.md`). Once a seg was registered, `check-handoff` failed; the file is what the next segment is supposed to read first, so a non-canonical one silently breaks cross-segment consistency (`R-SEG-1`).
 
 ⇒ The entry makes both **impossible by construction**, and the gates catch any lane that still bypasses it.
 ---
@@ -43,18 +43,18 @@ claim → handoff self-check → resolve cwd/session-id → spawn → session-se
    - `role=exec` (default): assert `status=in_progress && claimed_by=<owner>`; if the card is `ready`/`todo`, the entry claims it first. A card that is `in_review`/`done`/`failed`, or claimed by someone else, is refused. `in_review` is refused with an actionable hint — `status_not_spawnable(in_review):use_role=review` (a review lane is what you want: §9).
    - `role=review`: accept **only** `status=in_review` (otherwise `review_needs_in_review(status=…)`); **never claims and never asserts `claimed_by`** — the reviewer is not the implementer (§9).
 2. **same-card double-run guard (two layers)** — runs **before** the claim, so every refusal has **zero side effects** (no claim, no card write, no registry row, no log, no second lane):
-   - **L1 — same lane identity.** A lane's identity is `(card, owner, seg)`; its deterministic projection is the `session_id` (`UUIDv5(card, owner, seg)`, `PROTOCOL §6` clause 8). The entry refuses when any registration source carries a **live** lane for this `seg` (`status=running` **and a live pid**): ① the card's `## Sessions` row for this `seg`; ② a registry entry with `phase=<seg>`; ③ a registry entry whose `session_id` equals this seg's deterministic id. ③ is load-bearing: `phase` is a free-form **display label** (real lanes register `seg1-verify`, `seg2-browser`), *not* an identity — keying on `phase` alone let a same-seg second spawn through. Refusal: `session_running(seg=…,pid=…,id=…):reuse_existing`. Reuse the existing session — resume it in the host's exact form (§4 / step 7) — never force a second spawn. The freshness proxy is the same as the poll double-run guard, and a dead-pid zombie row does **not** block (that is reconcile's job).
-   - **L2 — same-card concurrent execution lane** (`role=exec` only). If the card already has **any** live lane (any seg), a second *execution* lane is refused: `card_busy(seg=…,live=seg1(pid=…,owner=…)):second_exec_lane`. This is the spawn-time shape of "two concurrent execution turns on one card" (`PROTOCOL §6` execution uniqueness); catching it here is what keeps the second lane from being derived at all — the alternative (spawn it, then roll it back per PROTOCOL §6) burns a whole lane. **There is no parallel bypass**: `parallel=1` was removed; work that must run in parallel is split into separate cards or serialized.
+   - **L1 — same lane identity.** A lane's identity is `(card, owner, seg)`; its deterministic projection is the `session_id` (`UUIDv5(card, owner, seg)`, `R-SESSION-1` clause 8). The entry refuses when any registration source carries a **live** lane for this `seg` (`status=running` **and a live pid**): ① the card's `## Sessions` row for this `seg`; ② a registry entry with `phase=<seg>`; ③ a registry entry whose `session_id` equals this seg's deterministic id. ③ is load-bearing: `phase` is a free-form **display label** (real lanes register `seg1-verify`, `seg2-browser`), *not* an identity — keying on `phase` alone let a same-seg second spawn through. Refusal: `session_running(seg=…,pid=…,id=…):reuse_existing`. Reuse the existing session — resume it in the host's exact form (§4 / step 7) — never force a second spawn. The freshness proxy is the same as the poll double-run guard, and a dead-pid zombie row does **not** block (that is reconcile's job).
+   - **L2 — same-card concurrent execution lane** (`role=exec` only). If the card already has **any** live lane (any seg), a second *execution* lane is refused: `card_busy(seg=…,live=seg1(pid=…,owner=…)):second_exec_lane`. This is the spawn-time shape of "two concurrent execution turns on one card" (`R-SESSION-1` execution uniqueness); catching it here is what keeps the second lane from being derived at all — the alternative (spawn it, then roll it back per `R-SESSION-1`) burns a whole lane. **There is no parallel bypass**: `parallel=1` was removed; work that must run in parallel is split into separate cards or serialized.
    `role=review` lanes skip L2, but `spawnLane` applies a stricter review gate: the card must have **no other live lane** (`review_needs_quiet_card`). A reviewer therefore starts only after the execution lane has ended; L1 still applies (a review lane must not reuse the execution lane's `seg`).
-3. **concurrency cap** — refuse when `running(owner) >= 8` (linus/jobs) or `>= 3` (turing) (`PROTOCOL §6` clause 2). Counting uses live pids, so a dead-pid zombie row does not consume a slot (that is reconcile's job).
+3. **concurrency cap** — refuse when `running(owner) >= 8` (linus/jobs) or `>= 3` (turing) (`R-SESSION-1` clause 2). Counting uses live pids, so a dead-pid zombie row does not consume a slot (that is reconcile's job).
    - **Counting source = the unique source of truth = the canonical registry `claude-sessions.json`** (team-level; `scripts/registry.mjs` `REGISTRY_PATH`), **for every owner including `turing`**. It is the **same surface the lane is registered on** (step 9), so the count can never drift from the registration. Both entries share one criterion — `owner===<owner> && status==='running' && pid alive`:
      - the entry: `scripts/spawn-lane.mjs` `runningCount` / `capFor`;
      - the poll gate: `scripts/poll.mjs` `runningCount` / `claimBudget` (its claim budget = `quota − running`, so a lane that holds a slot is not over-claimed by the next poll round).
    - **`turing-runs.json` is NOT a counting or registration surface** (consistent with §9's ruling that a registry-only surface reproduces the `registry_only`/`card_only` breakage). Reading the count there while lanes register in the canonical registry made `running(turing)` read 0 with live lanes present, so the cap 3 did not bind (over-claim). Turing lanes register through this same single entry and are counted from the canonical registry like every other owner.
-4. **cwd** — resolved from the card's `project` through the ACL (`__team__` ⇒ the team root), then overlaid with `target`; business code is never spawned inside the task workspace (`PROTOCOL §6`).
+4. **cwd** — resolved from the card's `project` through the ACL (`__team__` ⇒ the team root), then overlaid with `target`; business code is never spawned inside the task workspace (`R-SESSION-1`).
 5. **handoff self-check (key gate)** — ensure `workspace/<task-id>/` exists; if `handoff.md` is missing, generate it with the ACL handoff command (**never overwrite** an existing one); if it **exists but misses any of the four anchors, refuse to start** (exit ≠ 0, naming the missing anchor).
 6. **workspace settings preset (idempotent)** — execution lanes ensure `workspace/<task-id>/.claude/settings.json` exists (the target of `--settings` in step 8); review lanes ensure `workspace/<task-id>/.claude/settings.review.json` instead. **Never overwrite** an existing file (§10). The review file is a `dontAsk` allowlist: read-only tools plus **only** `Edit(//<abs>/review-report.md)`; it must not carry a bare `Edit` deny (deny beats allow and would also block the report).
-7. **session id** — for **claude**, a deterministic UUIDv5 via the ACL (`<card> <owner> <seg>`) ⇒ predictable, and passed at spawn via `--session-id` (**claude only** — **codex has no `--session-id`** and self-assigns its session id at spawn, so the UUIDv5 is not a codex spawn parameter) — resume in the host's exact form: claude `--resume <id>`, codex `codex exec resume <id>` (continue most recent `--last`), pi `pi --print --session <id>` (`PROTOCOL §6` clause 8; basis).
+7. **session id** — for **claude**, a deterministic UUIDv5 via the ACL (`<card> <owner> <seg>`) ⇒ predictable, and passed at spawn via `--session-id` (**claude only** — **codex has no `--session-id`** and self-assigns its session id at spawn, so the UUIDv5 is not a codex spawn parameter) — resume in the host's exact form: claude `--resume <id>`, codex `codex exec resume <id>` (continue most recent `--last`), pi `pi --print --session <id>` (`R-SESSION-1` clause 8; basis).
 8. **spawn** — execution lane: `claude -p <prompt> --output-format stream-json --verbose --permission-mode acceptEdits --settings <ws>/.claude/settings.json --add-dir <ws> --add-dir <team> --session-id <uuid> --name <owner>-<seg>`; or `codex exec --sandbox workspace-write --add-dir <ws> --add-dir <team> <prompt>`. Review lane: claude uses `--permission-mode dontAsk --permission-prompts none --settings <ws>/.claude/settings.review.json`; codex uses `codex exec --sandbox read-only -o <ws>/review-report.md <prompt>`. Every form is started as a **new session detached from the parent process group** (see §5), `stdin`=DEVNULL, stdout → `workspace/<task-id>/<owner>-<n>.out.jsonl`, stderr → `<owner>-<n>.err.log`, cwd = project root.
    **Interactive lanes** (`interactive=1`) are the exception to “spawn the backend directly”: the spawned process is `node lane-host.mjs …`, which owns the backend and its stdin/stdout pipes. The **registered pid is the host**; the actual backend argv is printed as `backend_cmd` in the plan. The host waits for the backend handshake and writes `{"type":"lane-host","event":"ready"}` before the entry returns; a ready timeout closes the session and refuses (`host_ready_timeout`). The Claude form uses `--input-format stream-json --permission-mode default --permission-prompt-tool stdio` with the narrow `settings.interactive.json`; the Codex form uses `codex app-server --stdio` instead of `codex exec`.
 9. **session-set (immediately after spawn)** — one ACL call writes **both** the card's `## Sessions` row (seg/owner/backend/id/phase/status/**pid**) **and** the team registry. Registration is never two half-writes.
@@ -70,7 +70,7 @@ A plugin lane diverges from step 7–9 above in exactly one way: **there is no `
 2. **step ② — `id:<thread_id>`** (as soon as the native thread id is read back): the **same `seg:` row** is overwritten (`id:<thread_id>`, `id_state:bound`, registry `thread_id` + `id_state:bound`). The upsert key is `seg:<seg> ·`, so the card never accumulates two rows; the registry's pending row for that `(task, seg)` is **closed** in the same step, so it never lingers as a second `running` entry (which would double-count the concurrency cap).
 3. **bind timeout** — `id_state=pending` past `THREAD_BIND_TIMEOUT_MS` (default **120 s**, aligned with the existing startup-probe window) ⇒ the lane is `failed` and reported (`thread_bind_timeout(seg=…,ms=…):reconcile`); the entry **never** parks silently.
 
-Liveness for a plugin lane is **`pid` alive OR native thread reachable** — the registry `pid` is the long-lived **gateway** pid and must **never** be read as the lane's own liveness (§12). cwd, sandbox domain and the approval posture are the **same** as the CLI path, not relaxed: the sandbox maps onto the same `read-only | workspace-write | danger-full-access` values and an unattended lane keeps the CLI-equivalent, non-bypass approval posture (no auto-approve weakening; a blocking approval ⇒ `blocked` + report). Gateway logs (24 h prune) are exported to `workspace/<task-id>/evidence/` at lane start.
+Liveness for a plugin lane is **`pid` alive OR native thread reachable** — the registry `pid` is the long-lived **gateway** pid and must **never** be read as the lane's own liveness (`R-SESSION-1`). cwd, sandbox domain and the approval posture are the **same** as the CLI path, not relaxed: the sandbox maps onto the same `read-only | workspace-write | danger-full-access` values and an unattended lane keeps the CLI-equivalent, non-bypass approval posture (no auto-approve weakening; a blocking approval ⇒ `blocked` + report). Gateway logs (24 h prune) are exported to `workspace/<task-id>/evidence/` at lane start.
 
 Mechanism contract + per-gate evidence commands: `guides/codex-plugin-lane-contract.md`. Test surface: `scripts/tests/spawn-lane-plugin.test.mjs`.
 ---
@@ -105,12 +105,12 @@ bash ~/.openclaw/team/scripts/spawn-lane.sh T-20261010-052210 linus --interactiv
 - The **last stdout line is JSON** `{ok, role, settings, session_id, pid, cwd, handoff, log, cmd, …}` for machine reading.
 - Exit codes: **0** started (or dry-run OK) · **1** refused (validation/handoff/claim/cap) · **2** usage error.
 - Refusal reasons are stable and greppable, e.g. `claimed_by_mismatch(…)`, `concurrency_cap(owner=…,running=…,cap=…)`, `handoff_anchor_missing:…`, `status_not_spawnable(…)`, `card_busy(…)`, `session_running(…)` (`§7`).
-- After starting a lane you **still own polling it to terminal state** (`PROTOCOL §6` clause 4); the entry does not take over polling. You do **not** own the session's terminal *registration* any more: step 10's reaper writes it when the lane's process ends (`lane-session-lifecycle-sop.md`).
+- After starting a lane you **still own polling it to terminal state** (`R-SESSION-1` clause 4); the entry does not take over polling. You do **not** own the session's terminal *registration* any more: step 10's reaper writes it when the lane's process ends (`lane-session-lifecycle-sop.md`).
 ---
 
 ## 5. Detach discipline (macOS)
 
-The entry starts the child as a **new session detached from the parent process group** — in Node that is `spawn(bin, args, { detached: true })` + `unref`, the portable equivalent of Python `subprocess.Popen(…, start_new_session=True)`. **Do not** use `nohup … &` (it gets reaped when the parent turn ends) and **there is no `setsid` on macOS** (`PROTOCOL §6` clause 3 note).
+The entry starts the child as a **new session detached from the parent process group** — in Node that is `spawn(bin, args, { detached: true })` + `unref`, the portable equivalent of Python `subprocess.Popen(…, start_new_session=True)`. **Do not** use `nohup … &` (it gets reaped when the parent turn ends) and **there is no `setsid` on macOS** (`R-SESSION-1` clause 3 note).
 ---
 
 ## 6. How the gates back this up
@@ -129,8 +129,8 @@ Both gates are aggregated by `scripts/check-all.sh`; a bypass lane therefore can
 - **`session_running(seg=…,pid=…,id=…):reuse_existing`** — the same card + same `seg` already has a **live** session. Do **not** start a second one: resume the existing session in the host's exact form (§4 / step 7), or wait for it to reach a terminal state. If the pid is genuinely a zombie, reconcile the registry first — the guard stops blocking once the pid is dead.
 - **`card_busy(seg=…,live=…):second_exec_lane`** — this card already has a **live** lane (any seg) and you asked for another **execution** lane: that is a second concurrent execution turn on one card. Do **not** reach for a different `seg` to get around it — a different seg is still the same card branch/worktree. Either **wait** for the running lane, or, if the work is genuinely parallel, **split it into separate cards** (or serialize). `parallel=1` no longer exists. If you merely intended to review, use `role=review` (§9).
 - **`duplicate_running_lane`** (registry write, not a spawn refusal) — a registration with **no pid** was refused because the same lane (`task_id`+`owner`+`session_id`) already has a **live** running row. The live row is kept untouched. Register with a real `pid=` (that is what `spawn-lane` always does), or close the lane instead of re-registering it.
-- **`concurrency_cap(…)`** — you are at your cap (`PROTOCOL §6` clause 2 / PROTOCOL §6.3 parallelism-first). Finish or reconcile an existing lane first; do not raise the cap.
-- **`claimed_by_mismatch` / `status_not_spawnable(…)`** — the card is not yours to run (or is not in a spawnable state); take it through the board flow in `PROTOCOL §1`.
+- **`concurrency_cap(…)`** — you are at your cap (`R-SESSION-1` clause 2 / `R-PARALLEL-1` parallelism-first). Finish or reconcile an existing lane first; do not raise the cap.
+- **`claimed_by_mismatch` / `status_not_spawnable(…)`** — the card is not yours to run (or is not in a spawnable state); take it through the board flow in `R-BOARD-1`.
 - **`status_not_spawnable(in_review):use_role=review`** — you ran an **execution** lane against an in-review card. If you meant to review it, re-run with `role=review` / `--review` (§9); otherwise wait for the reviewer.
 - **`review_needs_in_review(status=…)`** — a review lane (`role=review`) was pointed at a card that is not `in_review`.
 - **`review_seg_taken(seg=…,owner=…):use_seg=segR1`** — a review lane was given a `seg=` that already belongs to another owner on this card. Reusing it would **overwrite that owner's `## Sessions` row** (the card's upsert key is `seg:<seg> ·`); drop `seg=` (default `segR1`) or pass a fresh one (§9).
@@ -143,7 +143,7 @@ Both gates are aggregated by `scripts/check-all.sh`; a bypass lane therefore can
 - **`review_plugin_unsupported`** (usage, exit 2) — `role=review` with `harness=plugin`; the plugin harness has no equivalent read-only constraint yet. Use `harness=cli` for review lanes.
 - **`review_interactive_unsupported`** (usage, exit 2) — `role=review` with `interactive=1`; the interactive host does not yet carry the review settings/sandbox, so read-only cannot be guaranteed. Run the review as a non-interactive CLI lane.
 - **`interactive_unsupported_harness(plugin)`** (usage, exit 2) — `harness=plugin` cannot be combined with `interactive=1` in v1. Use `harness=cli`.
-- **`interactive_unsupported_cli(backend=…)`** (exit 1) — the installed CLI lacks the required flag/subcommand (`claude --permission-prompts`/`--permission-prompt-tool`, or `codex app-server --stdio`). Nothing was started; pin a supported CLI version (`PROTOCOL §6`) or use a non-interactive lane.
+- **`interactive_unsupported_cli(backend=…)`** (exit 1) — the installed CLI lacks the required flag/subcommand (`claude --permission-prompts`/`--permission-prompt-tool`, or `codex app-server --stdio`). Nothing was started; pin a supported CLI version (`R-SESSION-1`) or use a non-interactive lane.
 - **`policy_load_failed:<reason>`** (exit 1) — the interactive policy file is missing/invalid (`default` must be `deny`). Fix `OPENCLAW_LANE_POLICY` or `<TEAM>/lane-policy.json`; do not start with a permissive fallback.
 - **`interactive_prompt_unwritable:<path>`** (exit 1) — the 0600 prompt file could not be written. Check the workspace permissions; nothing was spawned.
 - **`host_ready_timeout(seg=…,ms=…)` / `interactive_host_failed:<reason>`** (exit 1) — the host never completed the backend handshake, or reported a failure before ready. The session row is already closed as `failed` and the host was terminated; inspect `<owner>-<n>.err.log` / `state_file`, reconcile the registry, then retry.
@@ -156,9 +156,9 @@ Both gates are aggregated by `scripts/check-all.sh`; a bypass lane therefore can
 
 ## 8. Same-repo concurrent lanes ⇒ the lane isolates itself
 
-Two lanes must never share one checkout: multiple writers in a shared working tree corrupt each other's verification (061638 O2: an external lane's `b359780` mixed into an `in_review` snapshot — detected by content forensics, 27,807 B ≠ 18,432 B) and can sweep foreign hunks into a commit (`PROTOCOL §6`).
+Two lanes must never share one checkout: multiple writers in a shared working tree corrupt each other's verification (061638 O2: an external lane's `b359780` mixed into an `in_review` snapshot — detected by content forensics, 27,807 B ≠ 18,432 B) and can sweep foreign hunks into a commit (`R-WORKTREE-1`).
 
-**The entry no longer performs the isolation** (`PROTOCOL §6.4`). It resolves cwd from the card's `project` + `target` (`§3` step 4), resolves the **git environment** (`repo` / `nogit` / `unresolved` via `git rev-parse --is-inside-work-tree` + `--show-toplevel`), and stops there — cwd is always the repo root. The **lane** sets up or re-enters its tree through the `using-git-worktrees` skill, and the prompt carries what the skill cannot know:
+**The entry no longer performs the isolation** (`R-WORKTREE-1`). It resolves cwd from the card's `project` + `target` (`§3` step 4), resolves the **git environment** (`repo` / `nogit` / `unresolved` via `git rev-parse --is-inside-work-tree` + `--show-toplevel`), and stops there — cwd is always the repo root. The **lane** sets up or re-enters its tree through the `using-git-worktrees` skill, and the prompt carries what the skill cannot know:
 
 - the **authorisation** (its Step 0 would otherwise ask the *user*, which a headless lane cannot answer);
 - the **branch name** — **`<card-id>`**, one branch for the whole card (all segments reuse it; `seg` is not part of the name);
@@ -173,9 +173,9 @@ bash ~/.openclaw/team/scripts/spawn-lane.sh <card> <owner> --dry-run
 ```
 The printed prompt's last line is the Report target; the workspace paragraph just above it names the branch and the base (the integration branch).
 
-**Why the base needs no derivation any more**: on **first entry** the base is the skill's implicit `HEAD`, and the main checkout sits on the **integration branch** (`dev` by default, `OPENCLAW_TEAM_INTEGRATION_BRANCH`; `PROTOCOL §6.4`) — so `HEAD` *is* that branch. After that, a **continuation** segment re-enters the same branch and tree; there is **no merge between segments** and no intermediate sync of `dev`. **Rework of an unmerged branch stays in the same worktree.** `scripts/check-merge.mjs` enforces the single card-level merge at closeout (`§7` of the companion guide).
+**Why the base needs no derivation any more**: on **first entry** the base is the skill's implicit `HEAD`, and the main checkout sits on the **integration branch** (`dev` by default, `OPENCLAW_TEAM_INTEGRATION_BRANCH`; `R-WORKTREE-1`) — so `HEAD` *is* that branch. After that, a **continuation** segment re-enters the same branch and tree; there is **no merge between segments** and no intermediate sync of `dev`. **Rework of an unmerged branch stays in the same worktree.** `scripts/check-merge.mjs` enforces the single card-level merge at closeout (`§7` of the companion guide).
 
-Same-file conflicts are no longer a spawn-time refusal: two lanes now work in separate trees and would collide at merge, so `scripts/samefile-guard.mjs` reports the overlap as a **warning** and the owner sequences the cards (`PROTOCOL §6.3` case ②). Serialize when the card says so or `depends_on` is unmet.
+Same-file conflicts are no longer a spawn-time refusal: two lanes now work in separate trees and would collide at merge, so `scripts/samefile-guard.mjs` reports the overlap as a **warning** and the owner sequences the cards (`R-PARALLEL-1` case ②). Serialize when the card says so or `depends_on` is unmet.
 
 **Sequence, naming, and cleanup**: `guides/dev-worktree-flow-sop.md`.
 ---
@@ -202,7 +202,7 @@ bash ~/.openclaw/team/scripts/spawn-lane.sh <card> turing --review backend=codex
 - Output JSON carries `role: "review"`, `branch`, `branch_source`, `review_sha`, and `review_readonly` (`settings` | `sandbox`) so a caller can tell the lanes apart and see what was pinned.
 ---
 
-## 10. Workspace settings preset (`settings: exists | created | would_create`)
+## 9.1 Workspace settings preset (`settings: exists | created | would_create`)
 
 `claude` is launched with `--settings workspace/<task-id>/.claude/settings.json`, and **the file is a preflight requirement**: if it is missing, the lane dies at once with `Settings file not found` (the spawn "succeeds" — a pid exists — but the session is dead on arrival, and the registry then holds a zombie). So the entry presets it **before** spawning:
 
@@ -217,9 +217,9 @@ execution lane and a later review lane without either inheriting the other's per
 The preset is idempotent and side-effect-free under `--dry-run`, and it is done for every backend (for `codex`, which takes no `--settings`, the file is simply inert).
 ---
 
-## 10. Model and reasoning-effort selection (`PROTOCOL §6.2`)
+## 10. Model and reasoning-effort selection (`R-MODEL-1`)
 
-> Method home for `PROTOCOL §6.2`. L1 keeps the tier rule; this table carries the selection detail.
+> Method home for `R-MODEL-1`. `R-MODEL-1` keeps the tier rule; this table carries the selection detail.
 
 | Situation | Model | Reasoning effort (thinking) |
 |---|---|---|
@@ -237,7 +237,7 @@ Rules:
 
 > Scope: the table applies equally to Jobs/Linus/Turing, **with no role exceptions** (all workers default to flash, upgraded to pro by complexity). Elon (main) is the orchestrator and is not covered by the table; its agent default tier is likewise `deepseek-flash`, and when strong reasoning is needed it upgrades temporarily through the same session-level override / `--model` mechanism.
 
-## 11. Isolation is the lane's own act (`PROTOCOL §6.4`)
+## 11. Isolation is the lane's own act (`R-WORKTREE-1`)
 
 **There is no automatic isolation in this entry any more** (`T-20261016-`). The entry resolves cwd
 from the card's `project` + `target` (`§3` step 4) and stops there: **cwd is always the repo root**.
@@ -253,23 +253,23 @@ What this removed, and where it went:
 |---|---|
 | `lane-isolation.mjs` decision + `isolation.*` output | nothing — no decision to make; the lane always isolates itself |
 | `lane-worktree.mjs` create/reuse/remove | the lane's `using-git-worktrees` git fallback |
-| same-file ⇒ **refuse to start** (`lane_samefile_conflict`) | `scripts/samefile-guard.mjs` **warns**; the owner sequences the cards (`PROTOCOL §6.3` case ②) |
-| `--base` / `OPENCLAW_LANE_BASE` derivation, `base_*` refusals | on first entry the base is the skill's implicit `HEAD`, and the main checkout holds the integration branch ⇒ `HEAD` *is* it; later segments reuse the card branch (`PROTOCOL §6.4`) |
+| same-file ⇒ **refuse to start** (`lane_samefile_conflict`) | `scripts/samefile-guard.mjs` **warns**; the owner sequences the cards (`R-PARALLEL-1` case ②) |
+| `--base` / `OPENCLAW_LANE_BASE` derivation, `base_*` refusals | on first entry the base is the skill's implicit `HEAD`, and the main checkout holds the integration branch ⇒ `HEAD` *is* it; later segments reuse the card branch (`R-WORKTREE-1`) |
 | `--no-isolate` / `OPENCLAW_LANE_ISOLATION=0` | gone — there is no automation to switch off |
 
 **The obligation the derivation used to carry does not disappear, it moves to closeout**: every
 segment re-enters the **same** card branch and worktree — there is no merge between segments — and
 the card branch is merged **once** before `done`. Rework of an unmerged branch stays in the same
 worktree. `scripts/check-merge.mjs` enforces the card-level merge at closeout; its residual limits
-are in `PROTOCOL §20.2`.
+are in `R-GATE-2`.
 
 Sequence, naming, cleanup and the openclaw↔claude collaboration model: `guides/dev-worktree-flow-sop.md`.
 
 > **Implementation & deploy notes.** Most of the above is **method-library level**, but the
-> **one-branch-per-card rule** and the **removal of `parallel=1`** change `§6.4`'s normative body and
-> require L1 edits to `PROTOCOL §6` clause 8, `§6.3` case ②, `§10.4`, `§20.1` and `§20.2`; the
-> `§6.4` body itself lives in `guides/dev-worktree-flow-sop.md`. The Codex plugin leg (§3.1) also
-> touches `PROTOCOL §6` clauses 2/3/8, the board `## Sessions` schema comment and `PROTOCOL §13.2`. Sections touched: §1 (entry signature), §3 + §3.1 (double-run guard; plugin two-step backfill), §4, §6 (liveness in the gate), §7 (refusal codes), §8 + §11 (isolation / base). They implement `PROTOCOL §6` execution uniqueness, `PROTOCOL §6.3` (serialize vs isolate), `PROTOCOL §6.4` (base snapshot), `PROTOCOL §9.1` (single writer per file) and the registry single-source-of-truth.
+> **one-branch-per-card rule** and the **removal of `parallel=1`** change `R-WORKTREE-1`'s normative body and
+> require rule edits to `R-SESSION-1` clause 8, `R-PARALLEL-1` case ②, `R-SEGUSE-1`, `R-GATE-1` and `R-GATE-2`; the
+> `R-WORKTREE-1` body itself lives in `guides/dev-worktree-flow-sop.md`. The Codex plugin leg (§3.1) also
+> touches `R-SESSION-1` clauses 2/3/8, the board `## Sessions` schema comment and `R-DISC-2`. Sections touched: §1 (entry signature), §3 + §3.1 (double-run guard; plugin two-step backfill), §4, §6 (liveness in the gate), §7 (refusal codes), §8 + §11 (isolation / base). They implement `R-SESSION-1` execution uniqueness, `R-PARALLEL-1` (serialize vs isolate), `R-WORKTREE-1` (base snapshot), `R-UI-1` (single writer per file) and the registry single-source-of-truth.
 > - **Dispatch discipline**: every direct wake-up goes through `task.dispatch` — claim-first on the same lock/primitive as poll; a failed claim ⇒ `dispatched:false` ⇒ **no** `sessions_send`. The single enforcement point for "no second execution turn on a card" is **this entry** (a turn must not spawn a lane for a card another turn is already executing). This closes the "Elon direct dispatch vs poll claim" race; dispatch-side discipline (`task.dispatch`, never a bare `sessions_send` that bypasses the claim) is unchanged and remains the rule.
 > - **Deploy note**: `scripts/registry.mjs` is imported by the provider ACL (`task.sessionSet` / `sessionClose` write the registry **through this file**), so the lane-identity dedupe + `duplicate_running_lane` refusal (and the `check-sessions` soft `duplicate_lane` note) take effect only **after the changed files are deployed to the live team dir** (`install.sh`) — not by the repo commit alone.
-> - **Tests / response guides**: the contract suites `tests/spawn-lane.test.mjs` (including the `buildPrompt` isolation-contract cases), `tests/registry-lane-identity.test.mjs`, `tests/spawn-lane-plugin.test.mjs`; response for the worktree flow is `guides/dev-worktree-flow-sop.md`, for the merge invariant `scripts/check-merge.mjs` (`PROTOCOL §20.1`), for the plugin leg `guides/codex-plugin-lane-contract.md`.
+> - **Tests / response guides**: the contract suites `tests/spawn-lane.test.mjs` (including the `buildPrompt` isolation-contract cases), `tests/registry-lane-identity.test.mjs`, `tests/spawn-lane-plugin.test.mjs`; response for the worktree flow is `guides/dev-worktree-flow-sop.md`, for the merge invariant `scripts/check-merge.mjs` (`R-GATE-1`), for the plugin leg `guides/codex-plugin-lane-contract.md`.

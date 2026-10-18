@@ -1,6 +1,6 @@
 # Project Registration SOP (role-owned)
 
-> Method home for `PROTOCOL §8`. L1 keeps the four-step process; this guide carries the ACL and
+> Method home for `R-REGISTER-1`. `R-REGISTER-1` keeps the four-step process; this guide carries the ACL and
 > metadata detail. Load it when the operator announces a new project or data repo.
 
 ## 1. Registration process

@@ -2,15 +2,15 @@
 /**
  * seed-projects.mjs — 把现役 identity code 幂等登记进 meerkat-taskpanel 基座 board
  *
- * 契约：guides/task-interface.md §8；规范：PROTOCOL.md PROTOCOL §8。
+ * 契约：guides/task-interface.md §8；规范：the rule blocks `R-REGISTER-1`。
  * 来源：`~/.openclaw/team/projects.json`（过渡期权威快照，只读）；跳过保留名 `__team__`。
  * 基座：用 meerkat-taskpanel 官方引导 `openBoard()` 建/迁移 DB（**不手抄 SQL**）。
  * board 落盘与下方只读适配器（provider 拥有，见动态导入处）同源（resolveBoardDataDir/DbPath）。
  *
- * 登记期**存在性守卫**（PROTOCOL §8 步骤 2 的机械落地）：root 须为绝对路径 / 存在 / 为目录，
+ * 登记期**存在性守卫**（`R-REGISTER-1` 步骤 2 的机械落地）：root 须为绝对路径 / 存在 / 为目录，
  * 否则默认**拒绝整轮登记**（一条不写），绝不静默登记陈旧 root（事故链 R76→R79 的根因）。
- * 登记期**containment 守卫**（PROTOCOL §2.1）：每个 `repos[].rel_path` 须为项目内相对路径
- * （PROTOCOL §6 也是 cwd 锚点之一）⇒ 否则同样拒绝（见 invalidRepoReason）。
+ * 登记期**containment 守卫**（`R-PROJECT-2`）：每个 `repos[].rel_path` 须为项目内相对路径
+ * （`R-SESSION-1` 也是 cwd 锚点之一）⇒ 否则同样拒绝（见 invalidRepoReason）。
  * 不传惰性 `workspacePath`（O3 后 taskpanel 不读；基座 0012 已删该列）——目录锚点唯一经由 meta.root。
  *
  * 用法：node scripts/seed-projects.mjs   # 可重复执行（幂等）
@@ -45,7 +45,7 @@ function legacyRepoEnv(env) {
 }
 
 /**
- * root 存在性守卫（PROTOCOL §8 步骤 2「Elon 校验 root 存在」的机械落地点）。
+ * root 存在性守卫（`R-REGISTER-1` 步骤 2「Elon 校验 root 存在」的机械落地点）。
  *
  * 缺陷背景（事故链复盘 R76→R79）：登记期只校验「绝对路径」，缺 root 的目录**仍被静默登记**，
  * 于是陈旧 root 进了基座 meta，后续解析拿它当工作目录 ⇒ 一路静默失败。
@@ -69,9 +69,9 @@ export function invalidRootReason(root) {
 }
 
 /**
- * `repos[].rel_path` containment 守卫（PROTOCOL §2.1「Containment (project metadata)」）。
+ * `repos[].rel_path` containment 守卫（`R-PROJECT-2`「Containment (project metadata)」）。
  *
- * 缺陷背景：`invalidRootReason` 只管 `root` 自身；而 PROTOCOL §6 明写非 `__team__` 卡的 cwd = `root` +
+ * 缺陷背景：`invalidRootReason` 只管 `root` 自身；而 `R-SESSION-1` 明写非 `__team__` 卡的 cwd = `root` +
  * 卡片的 `target`/**`repos[].rel_path`** ⇒ 一个登记成 `../sibling` 的 rel_path 会把该项目的
  * **所有** lane 导出自身，而**卡片层看不出任何缺陷**（`scan-deps.mjs` 也直接
  * `path.resolve(root, rel_path)`，两侧都不校验）。
@@ -114,7 +114,7 @@ export function registerIdentityCodes(board, registry, opts = {}) {
   // 先整体校验（fail-fast）：默认模式下任一非法 ⇒ 一条都不写，绝不部分登记
   const invalid = [];
   for (const [code, entry] of entries) {
-    // root 自身 + 每个 repos[].rel_path 的 containment（PROTOCOL §2.1）：任一无理 ⇒ 该条整体非法
+    // root 自身 + 每个 repos[].rel_path 的 containment（`R-PROJECT-2`）：任一无理 ⇒ 该条整体非法
     const reasons = [invalidRootReason(entry?.root)];
     for (const r of Array.isArray(entry?.repos) ? entry.repos : []) reasons.push(invalidRepoReason(r?.rel_path));
     const reason = reasons.find((x) => x !== null) ?? null;
@@ -124,13 +124,13 @@ export function registerIdentityCodes(board, registry, opts = {}) {
   if (invalid.length && !allowInvalidRoot) {
     const lines = invalid.map((i) => `${i.code}: ${i.reason}`).join('\n  - ');
     throw new Error(
-      `项目 root/rel_path 校验未通过，登记中止（PROTOCOL §8 步骤 2 的机械落地面）：\n  - ${lines}`,
+      `项目 root/rel_path 校验未通过，登记中止（\`R-REGISTER-1\` 步骤 2 的机械落地面）：\n  - ${lines}`,
     );
   }
 
   const summary = [];
   for (const { code, root, reason } of invalid) {
-    logger.warn?.(`[seed-projects] 跳过 ${code}：root 非法（${reason}）— 未登记，请 Elon 按 PROTOCOL §8 修正 registry`);
+    logger.warn?.(`[seed-projects] 跳过 ${code}：root 非法（${reason}）— 未登记，请 Elon 按 \`R-REGISTER-1\` 修正 registry`);
     summary.push({ code, root, kind: undefined, action: 'skipped', reason });
   }
   for (const { code, src } of resolved) {

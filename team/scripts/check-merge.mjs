@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
  * check-merge.mjs — 交付合并巡检：已关闭卡的 worktree 检出必须已并入**集成分支**（纳入 check-all fast 段）
- * 依据：PROTOCOL §6.4（卡的产物必须先并入集成分支才算交付）；PROTOCOL §20.1（机检门禁登记）；
- *       PROTOCOL §20.2（明确不机器化的规则）；guides/dev-worktree-flow-sop.md（集成分支开发流）。
+ * 依据：`R-WORKTREE-1`（卡的产物必须先并入集成分支才算交付）；`R-GATE-1`（机检门禁登记）；
+ *       `R-GATE-2`（明确不机器化的规则）；guides/dev-worktree-flow-sop.md（集成分支开发流）。
  *
  * 口径一句话：`<repo>/.worktrees/` 下每一个**检出**，若其归属卡已 `done`，则该检出所在分支
  * **必须是**集成分支**的祖先**——缺省 `dev`，`OPENCLAW_TEAM_INTEGRATION_BRANCH` 可改
  * （`lib.mjs#integrationBranch()`，与车道提示语同源）；否则判红。
  *
  * ── (i) 为什么需要这个门禁：这是一条被声明了很久、却从无机检的不变量 ──────────────
- *   `PROTOCOL §6.4` 原文把「卡的产物必须先并入集成分支才算交付」定为**终态 `done` 的前置条件**，
+ *   `R-WORKTREE-1` 原文把「卡的产物必须先并入集成分支才算交付」定为**终态 `done` 的前置条件**，
  *   roles/elon 的验收纪律、worker-report-template 的 A2/A8 槽位都复述了它。但在本门禁落地前，
  *   **全库没有任何一行代码读过它**：`check-card.mjs` 只校验 frontmatter schema（读单卡、
  *   看不见上一次状态，结构上不可能校验转移）；`check-report.mjs` 只校验 Report 的**槽位存在性**，
@@ -66,7 +66,7 @@
  *     skip + warn（不转红，也不放行）。
  *   · **只覆盖「未并入集成分支」**，不覆盖「合并了但质量不合格」——后者是 Turing/Elon 的职责。
  *   · **归属卡找不到**的一律 skip（见 (iii)）。
- *   以上四条必须同步记入 `PROTOCOL §20.2`（Not Machine-Checkable），不得在别处声称已机检。
+ *   以上四条必须同步记入 `R-GATE-2`（Not Machine-Checkable），不得在别处声称已机检。
  *
  * ── (vii) repo 定位与「不敢判」的处置 ─────────────────────────────────────────
  *   `.worktrees/` 在**分发仓**里，不在实例里（live 模式下 `TASKS_DIR` 是 `<openclaw>/team/tasks`）。
@@ -338,7 +338,7 @@ function main() {
     console.error(`交付合并巡检**未判定**（未确认 ≠ 通过）：${r.notes.join(', ')}`);
   }
   if (r.violations.length) {
-    console.error(`交付合并违例：${r.violations.length} 张已 done 的卡，其 worktree 检出未并入 ${integrationBranch()} —— 按 guides/dev-worktree-flow-sop.md 收口：先合并分支入 ${integrationBranch()}，再移除 worktree（PROTOCOL §6.4：未合并的分支不是交付）`);
+    console.error(`交付合并违例：${r.violations.length} 张已 done 的卡，其 worktree 检出未并入 ${integrationBranch()} —— 按 guides/dev-worktree-flow-sop.md 收口：先合并分支入 ${integrationBranch()}，再移除 worktree（\`R-WORKTREE-1\`：未合并的分支不是交付）`);
     for (const v of r.violations) console.error(`  · ${v.id} [${v.status}] ${WORKTREES_DIRNAME}/${v.dir} → 分支 ${v.branch} 不是 ${integrationBranch()} 的祖先`);
   }
   if (r.grandfathered.length) {
@@ -346,7 +346,7 @@ function main() {
     for (const v of r.grandfathered) console.error(`  · warn ${v.id} created=${v.created_at} 分支 ${v.branch} 未并入 ${integrationBranch()}`);
   }
   if (r.unattributed.length) {
-    console.error(`交付合并提示（非阻断）：${r.unattributed.length} 个 worktree 检出无法归属到板上任何卡 —— 分支名不含卡 id 即无从判断该不该合并（PROTOCOL §20.2 已记上限）`);
+    console.error(`交付合并提示（非阻断）：${r.unattributed.length} 个 worktree 检出无法归属到板上任何卡 —— 分支名不含卡 id 即无从判断该不该合并（\`R-GATE-2\` 已记上限）`);
     for (const v of r.unattributed) console.error(`  · unattributed ${WORKTREES_DIRNAME}/${v.dir} → 分支 ${v.branch}`);
   }
   if (r.exempt.length) {

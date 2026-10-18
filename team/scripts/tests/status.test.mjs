@@ -45,7 +45,7 @@ test('0. 零依赖不变量：本模块不得 import 任何模块、不得读 en
 
 // ── ① 词表与谓词 ────────────────────────────────────────────────────────────────
 
-test('1. 规范 7 值 = PROTOCOL §16 顺序；别名 5 词；ACCEPTED = 规范 ∪ 别名', () => {
+test('1. 规范 7 值 = `R-TERM-1` 顺序；别名 5 词；ACCEPTED = 规范 ∪ 别名', () => {
   assert.deepEqual(S.CANONICAL_STATUSES, ['backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done', 'canceled']);
   assert.deepEqual(S.STATUS_ALIASES, ['ready', 'failed', 'in-review', 'in-progress', 'cancelled']);
   assert.deepEqual([...S.ACCEPTED_STATUSES].sort(), [...S.CANONICAL_STATUSES, ...S.STATUS_ALIASES].sort());

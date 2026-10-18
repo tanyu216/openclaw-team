@@ -1,12 +1,12 @@
 # Research & Data-Repo Conventions (Assistant role-owned)
 
-> Method home for `PROTOCOL §18` and the gates volume's Appendix A. L1 keeps the normative
+> Method home for `R-RESEARCH-1` and the gates volume's Appendix A. The owner AGENTS block keeps the normative
 > summaries; this guide carries the operational detail. Load it for research outputs and for
 > material organization in a data repo.
 
 ## 1. Research convention hard constraints
 
-- Do not speculate; if the convention is undecided, first follow `PROTOCOL §13.5` (decision fork first).
+- Do not speculate; if the convention is undecided, first follow `R-DISC-5` (decision fork first).
 - Any conclusion (metric/experiment/comparison) **must attach the convention + reproducible commands + output trail**; missing = considered incomplete.
 - Research items go through the **full lifecycle**: definition → single-item analysis → evaluation (out-of-sample/robustness) → conclusion and disposition; do not skip stages.
 - A research Report missing "reproducible commands / data convention" ⇒ check fails.

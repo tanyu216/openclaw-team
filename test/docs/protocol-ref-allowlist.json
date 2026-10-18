@@ -1,0 +1,26 @@
+{
+  "_comment": "lint-no-protocol-refs.mjs --all 的精确登记表：`files` 仅限迁移/测试夹具（它们必须点名退役卷才能验证退役或记录映射），`entries` 为 `<file>:<line>:<token>`。shipped docs 不做整文件豁免。",
+  "files": [
+    "test/docs/clause-allowlist.json",
+    "test/docs/protocol-removal-census.json",
+    "test/docs/protocol-removal-volumes.json",
+    "test/docs/protocol-removal-census.mjs",
+    "test/docs/lint-no-protocol-refs.test.mjs",
+    "test/docs/doc-clause-diff.test.mjs",
+    "test/docs/doc-clause-diff.mjs",
+    "test/install/protocol-retirement.test.mjs"
+  ],
+  "entries": [
+    "CLAUDE.md:302:PROTOCOL.md",
+    "CLAUDE.md:302:PROTOCOL-gates.md",
+    "install.sh:426:PROTOCOL.md",
+    "install.sh:426:PROTOCOL-gates.md",
+    "docker/verify-in-container.sh:86:PROTOCOL.md",
+    "docker/verify-in-container.sh:86:PROTOCOL-gates.md",
+    "docker/verify-in-container.sh:111:PROTOCOL.md",
+    "docker/verify-in-container.sh:111:PROTOCOL-gates.md",
+    "docker/verify-in-container.sh:115:PROTOCOL.md",
+    "docker/verify-in-container.sh:115:PROTOCOL-gates.md",
+    "docker/verify-in-container.sh:119:PROTOCOL.md"
+  ]
+}

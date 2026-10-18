@@ -39,12 +39,12 @@ You  ──►  Elon (main, coordinator)  ──►  Jobs (design) · Linus (dev
 ## Team architecture
 
 The team is **one human user plus five AI agents**. In the diagram below the top
-layer — **Terry — is the human user (you)**, *not* an agent; **every layer below is
+layer — **the operator — is the human user (you)**, *not* an agent; **every layer below is
 AI**.
 
 ```mermaid
 flowchart TB
-  Terry["Terry - the human user (you)"]
+  operator["operator - the human user (you)"]
   Elon["Elon - AI lead / coordinator (sole dispatcher)"]
   Jobs["Jobs - AI (design)"]
   Linus["Linus - AI (engineering)"]
@@ -55,7 +55,7 @@ flowchart TB
   Sched["Framework scheduler - poll / patrol / check-all (provider-agnostic)"]
   Subs["Subsessions - Claude Code (Jobs/Linus) / Codex (Turing)"]
 
-  Terry -->|"goal + acceptance criteria"| Elon
+  operator -->|"goal + acceptance criteria"| Elon
   Elon -->|"creates cards"| Board
   Elon -->|"sole dispatcher"| Jobs
   Elon -->|"sole dispatcher"| Linus
@@ -74,12 +74,12 @@ flowchart TB
   Linus -->|"implementation"| Subs
   Turing -->|"tests"| Subs
   Board -->|"in_review -> acceptance"| Elon
-  Elon -->|"progress + epic rollup"| Terry
+  Elon -->|"progress + epic rollup"| operator
 ```
 
 **Layers**
 
-1. **Terry — the human user (you).** Sets the goal and the acceptance criteria;
+1. **operator — the human user (you).** Sets the goal and the acceptance criteria;
    receives progress and epic rollups; makes the few decisions only a human can make.
 2. **Elon — AI lead / coordinator.** The **sole card creator and sole dispatcher**:
    breaks requirements into cards, dispatches, accepts, and reports.
@@ -106,12 +106,14 @@ reconciliation lives in `team/ROLES.md`.
 | 🧪 **Turing** (AI QA) | Functional testing · acceptance · regression · defect reproduction · security audit · requirement-conformance verification | Writing fixes/implementation · UI design | Test reports · defect tickets · traceability matrix | [`roles/turing/AGENTS.md`](roles/turing/AGENTS.md) |
 | 🧹 **Assistant** (AI ops) | Video download & text parsing · ASR · subtitle OCR · marketing · operations · support · unbounded misc | Business code · UX design · functional testing | Video text/alignments · marketing/ops/support content | [`roles/assistant/AGENTS.md`](roles/assistant/AGENTS.md) |
 
-Each role file holds that role's **standing orders (SOP)**. Cross-role rules are
-**referenced, not copied**:
+Each role file holds that role's **complete standing orders**. Cross-role rules are
+**carried in every role's `AGENTS.md`** — one owner block plus generated carrier
+blocks that are byte-checked against it; `team/SHARED-RULES.md` is the generated
+maintenance index:
 
-- **Routing / who gets what** — `team/PROTOCOL.md` **PROTOCOL §10 Task Triage Matrix**.
+- **Routing / who gets what** — `R-TRIAGE-1`.
 - **Boundaries & handoffs (reconciliation)** — `team/ROLES.md`.
-- **Universal hard discipline (all roles)** — `team/PROTOCOL.md` **PROTOCOL §13 Universal Hard Discipline**.
+- **Universal hard discipline (all roles)** — the redlines block + `R-DISC-1`…`R-DISC-9`.
 
 ## How the team collaborates
 
@@ -119,36 +121,35 @@ Each role file holds that role's **standing orders (SOP)**. Cross-role rules are
   carries Goal / Acceptance / Background and a state machine
   `backlog | todo → in_progress → in_review → done` (`blocked` / `canceled` are side
   and terminal states). The card is the single carrier of persisted content.
-  `team/PROTOCOL.md` **PROTOCOL §1 Board Protocol**.
+  `R-BOARD-1`.
 - **Claim · heartbeat · the three end-of-segment items.** A worker takes a card with
   an **atomic claim** (`task.claim`) and refreshes a **heartbeat every ≤10 min** while
   working. Every segment ends with **three closing items**: ① refresh the heartbeat →
   ② set the terminal state (`in_review` / `done` / `canceled` / `blocked`) → ③ send
   Elon a Report (conclusion + card path + commit hash). A fresh heartbeat on an
   `in_progress` card means "someone is already on it — do not re-run".
-  `team/PROTOCOL.md` **PROTOCOL §1** and **PROTOCOL §13.2 The Three End-of-Segment Closing Items**.
+  `R-BOARD-4` and `R-DISC-2`.
 - **Dependencies & parent/child (DAG).** A large job is one **`kind: epic`** parent —
   a container, **not claimable** — with **child cards** (`parent=<epic>`). Ordering
   uses **`depends_on`** (a child with unmet deps is not claimed). The epic reaches
   `done` only when **all its children are done and integration acceptance passes**
-  (epic rollup). `team/PROTOCOL.md` **PROTOCOL §10.2 Composite Task = Subtask Cards + Dependency Graph (DAG)**.
+  (epic rollup). `R-DAG-1`.
 - **One dispatcher: Elon.** **Elon alone creates cards and dispatches**; Jobs /
   Linus / Turing / Assistant **do not hand work to each other — they only request a
   card from Elon** (stating the need or the gap found). One owner per decision, one
-  intake path. `team/PROTOCOL.md` **PROTOCOL §10** and **PROTOCOL §10.3 Carding Granularity**.
+  intake path. `R-TRIAGE-1` and `R-GRANULARITY-1`.
 - **Defect loop.** A defect found in QA is written up as a defect ticket → **Elon
   creates a fix card** for Linus → the fix returns to Elon for acceptance → Turing
   runs a **regression retest**; the original card reaches `done` only when regression
-  fully passes. `team/PROTOCOL.md` **PROTOCOL §9 Defect Fix and Regression Loop**.
+  fully passes. `R-DEFECT-1`.
 - **Delivery gates.** Nothing is marked `done` before it passes its gates:
   engineering quality (TDD, coverage ≥80 %, integration tests, self-proof), UI
   fidelity (the prototype is the contract), documentation sync, and the
-  **machine-checkable gates** run by CI / `check-all`. `team/PROTOCOL.md`
-  **PROTOCOL §6.1 Engineering Quality Standards** and **PROTOCOL §20 Gates and Archiving**.
+  **machine-checkable gates** run by CI / `check-all`. `R-ENG-1` and `R-GATE-1`.
 - **Parallelism first.** Workers run **in parallel by default**; only a
   **write-resource conflict** (same file, non-isolatable resource), an unmet
   `depends_on`, or an explicit "must serialize" serialises them. Elon's patrol pushes
-  parallelism and chases stale cards. `team/PROTOCOL.md` **PROTOCOL §6.3 Worker Parallelism-First**.
+  parallelism and chases stale cards. `R-PARALLEL-1`.
 
 The scheduler that wakes workers (`poll-<agent>`, `task-patrol`, `sla-scan`,
 `team-check-all`, `skills-update`, `tmp-gc`) is described in
@@ -233,8 +234,9 @@ What the installer does (every stage is idempotent; existing items are skipped):
 
 1. **Preflight** — node / OpenClaw CLI; checks for `claude` and `codex` (warns with
    install hints if absent; never aborts).
-2. **Team docs** → `~/.openclaw/team/` (`PROTOCOL.md`, `PROTOCOL-gates.md`, `ROLES.md`,
-   `README.md`, `guides/`). Never touches runtime dirs `tasks/`, `workspace/`, `memory/`.
+2. **Team docs** → `~/.openclaw/team/` (`ROLES.md`, `SHARED-RULES.md`, `README.md`,
+   `guides/`, `scripts/`, `automations/`). Retires the former protocol volumes.
+   Never touches runtime dirs `tasks/`, `workspace/`, `memory/`.
 3. **Skills (declared sources)** — resolves every entry in `skills/manifest.json`
    from its upstream (ClawHub / GitHub / git) and installs it into the right
    target. Entries with no verified upstream (`needs_source`) are skipped with a
@@ -369,8 +371,7 @@ does not restate it.
   cards, backed by a mechanical key `idem = <kind>|<assignee>|<source>|<target>`;
   a same-key non-terminal card ⇒ **reject/reuse** (the repo bundles no create path,
   so the convention is **guaranteed by the connected provider** + the creator
-  carrying the `idem` key). See `team/PROTOCOL.md PROTOCOL §29` and
-  `team/guides/task-interface.md §14`.
+  carrying the `idem` key). See `R-IDEM-1` and `team/guides/task-interface.md §14`.
 
 ### Scheduling & team automations
 
@@ -382,10 +383,10 @@ delegated to the task provider. `install.sh` registers the jobs below
 |---|---|---|
 | `poll-<agent>` | every 5m | per-worker board poll (jobs/linus/turing/assistant); fires only when a card is claimed |
 | `task-patrol` | every 15m | stale `in_progress` heartbeat scan |
-| `sla-scan` | every 15m (`OPENCLAW_TEAM_SLA_INTERVAL`) | board SLA inspection of the `PROTOCOL §15` waits `task-patrol` does not cover; fires only on a tier crossing (`team/guides/sla-inspection-contract.md`, `team/AUTOMATIONS.md §3.8`) |
+| `sla-scan` | every 15m (`OPENCLAW_TEAM_SLA_INTERVAL`) | board SLA inspection of the `R-SLA-1`…`R-SLA-6` waits `task-patrol` does not cover; thresholds come from `team/guides/sla-thresholds.json`; fires only on a tier crossing (`team/guides/sla-inspection-contract.md`, `team/AUTOMATIONS.md §3.8`) |
 | `team-check-all` | hourly (`0 * * * *` @ Asia/Shanghai) | gate patrol; fires only on failure |
 | `skills-update` | Sundays 05:00 (Asia/Shanghai) | upstream skill-ref drift detect; fires only on drift/failure |
-| `tmp-gc` | daily 02:20 (Asia/Shanghai) | scratch GC (`PROTOCOL §13.9`): deletes files >14 days old under `workspace-*/.tmp/`, `~/.openclaw/tmp/` and `~/.openclaw/team/tmp/`; fires only when the sweep could not be confirmed (`team/AUTOMATIONS.md §3.9`) |
+| `tmp-gc` | daily 02:20 (Asia/Shanghai) | scratch GC (`R-DISC-9`): deletes files >14 days old under `workspace-*/.tmp/`, `~/.openclaw/tmp/` and `~/.openclaw/team/tmp/`; fires only when the sweep could not be confirmed (`team/AUTOMATIONS.md §3.9`) |
 
 Each trigger calls the framework dispatcher
 `team/automations/dispatch.mjs <poll|patrol|check-all|skills-update|sla-scan|tmp-gc> [agent]`, which resolves the
@@ -449,7 +450,7 @@ openclaw-team/
 │  ├─ agents/<agent>/        # per-agent workspace skills
 │  └─ PROVENANCE.md          # source + license manifest
 └─ team/                     # static docs deployed to ~/.openclaw/team/
-   ├─ PROTOCOL.md PROTOCOL-gates.md ROLES.md README.md AUTOMATIONS.md
+   ├─ ROLES.md SHARED-RULES.md README.md AUTOMATIONS.md
    ├─ automations/           # framework dispatcher + provider entries (scheduling)
    ├─ scripts/               # framework entry scripts (poll/patrol/check-all) + tests
    └─ guides/

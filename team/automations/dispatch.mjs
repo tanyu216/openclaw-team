@@ -138,14 +138,14 @@ export function entryTimeoutMs(bound) {
  *
  * `skills-update` and `sla-scan` are DETECTORS, not health gates, but they share the gate's
  * fail-safe leg for the same reason in different clothes: each is the ONLY signal of the thing
- * it observes (third-party skill bodies drifting; the board's own waits crossing a PROTOCOL §15 tier), so
+ * it observes (third-party skill bodies drifting; the board's own waits crossing a `R-SLA-*` tier), so
  * an evaluation it could not complete must alarm rather than pass silently — a job that degrades
  * to `fire:false` looks exactly like "nothing changed / nothing overdue" (①③⑤ of
  * T-20261013-025818; `guides/sla-inspection-contract.md` §10.2 for the SLA inspector). Their
  * NORMAL outcome is still `fire:false`, so the zero-cost idle path is preserved; only an
  * unconfirmed evaluation is treated as an alarm.
  *
- * `tmp-gc` (the daily scratch GC, `PROTOCOL §13.9`) is a JANITOR that shares the same leg for the
+ * `tmp-gc` (the daily scratch GC, `R-DISC-9`) is a JANITOR that shares the same leg for the
  * same reason: the thing it observes is free disk. Its normal outcome is `fire:false` even when
  * it deleted a lot — by itself that is the job working, not an event worth a model turn. But an
  * evaluation it could not complete (root unreadable, unlink failed) is the ONE failure mode that
@@ -176,7 +176,7 @@ function alarmMessage(job, reason, extra) {
   if (job === "sla-scan") {
     // The SLA inspector's leg: same "unknown ≠ green" rule, worded for a board inspector.
     return `[sla-scan] inspection UNCONFIRMED (${bits.join("; ")}) — unknown ≠ green: ` +
-      `the scheduled SLA inspection did not complete, so the board's PROTOCOL §15 waits are currently ` +
+      `the scheduled SLA inspection did not complete, so the board's \`R-SLA-*\` waits are currently ` +
       "UNVERIFIED; inspect by hand (`node team/scripts/sla-scan.mjs`) per guides/sla-inspection-contract.md.";
   }
   if (job !== "check-all") {
@@ -186,7 +186,7 @@ function alarmMessage(job, reason, extra) {
       `the scheduled ${job} check did not complete; inspect it by hand ` +
       "(`node skills/update.mjs`), see team/AUTOMATIONS.md §1.";
   }
-  return `[${job}] gate UNCONFIRMED (${bits.join("; ")}) — unknown ≠ green: run the team gate checks and handle per the PROTOCOL gates/archiving rules.`;
+  return `[${job}] gate UNCONFIRMED (${bits.join("; ")}) — unknown ≠ green: run the team gate checks and handle per the \`R-GATE-1\` / \`R-ARCHIVE-1\` rules.`;
 }
 
 function degrade(job, reason, extra) {

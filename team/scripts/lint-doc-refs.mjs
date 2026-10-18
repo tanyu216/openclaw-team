@@ -2,9 +2,8 @@
 /**
  * lint-doc-refs.mjs — 文档路径引用可解析（「方法库指针断了没人知道」的防复发门）。
  *
- * 为什么存在：`lint-refs.mjs` 只校验**节引用**（`PROTOCOL §6.1` 这类，看标题在不在）；而本仓另一类断引用是
- * **文件/目录路径**引用 —— 例如某角色 AGENTS.md 指向一个从未建立的方法库目录。
- * 历史实证（2026-10-16 侦察，三簇）：`PROTOCOL §6.1` clause 7/8 指向 `workspace-linus/skills/`
+ * 为什么存在：路径引用断了没有任何门禁看得见 —— 例如某角色 AGENTS.md 指向一个从未建立的
+ * 方法库目录。历史实证（2026-10-16 侦察，三簇）：某指南 clause 7/8 指向 `workspace-linus/skills/`
  * 的四个不存在的文件、`roles/turing/AGENTS.md` 指向从未存在的 `roles/turing/guides/`。
  * 这类断引用零成本复发、且没有任何门禁看得见 —— 本脚本是那道门。
  *
@@ -30,11 +29,9 @@
  *   · ALLOW 表逐条登记的例外
  *
  * **第二腿 —— 跨文件章节锚（`<name>.md §N` / `§N.M`）**：同一类断引用还有一半藏在这里。
- * 规范来源：**`PROTOCOL §6.1` clause 11**（文档引用约定）—— 该条同时规定「章节内条目/步骤」
+ * 规范来源：**`R-ENG-2`**（文档引用约定）—— 该条同时规定「章节内条目/步骤」
  * 的记法（`§N clause M` / `§N step M`），即本腿守的那条；改口径先改它。
- * `lint-refs.mjs` 只管**节的标题在不在**，而**章节内条目**（`§6 clause 3`）此前无人校验
- * 的跨文件锚（`guides/task-interface.md §6.3`）此前无人校验 —— 实测三簇（2026-10-16）：
- * `PROTOCOL.md`→`task-interface.md §6.3`、`README.md` 两处→`spawn-lane-sop.md §3.3`，
+ * 实测三簇（2026-10-16）：`task-interface.md §6.3`、`README.md` 两处→`spawn-lane-sop.md §3.3`，
  * 三条都是把「§N 里的第 M 条/步」写成了「子标题」记法（`§6.3` 在别的文件里**真是**子标题，
  * 例如 `sla-inspection-contract.md §6.3`），于是既断又不像断。
  * 判定：token 先按**与路径腿相同的基座**解析到具体文件；命中才查该文件有无对应的
@@ -44,15 +41,13 @@
  * 有意变动，风险高，留待记法约定落地后再谈。
  *
  * **第三腿 —— 节内条款号（`§N clause M` / `§N step M` / `§N.M #M`）**：引用还可能指向
- * **子节里的第 M 条**（有序列表项），而不是一个标题。`lint-refs.mjs` 只管节的**标题**是否存在，
- * 这类条目引用此前无人校验 ⇒ 重排条目编号会**静默断**，且断得很隐蔽（标题还在，
- * 只是第 11 条变成了别的条）。
+ * **子节里的第 M 条**（有序列表项），而不是一个标题。这类条目引用此前无人校验 ⇒ 重排条目编号
+ * 会**静默断**，且断得很隐蔽（标题还在，只是第 11 条变成了别的条）。
  * 记法（2026-10-16 阿拉伯化后）：判别符是**点名与否** ——
- *   ① `PROTOCOL §N` + `clause|step` + M ⇒ 指 L1；
- *   ② `PROTOCOL §N` + 可选词限定 + `#M`（`PROTOCOL §9.1 hard gate #1`）⇒ 同上；
- *   ③ `` `<file>.md` §N clause|step M `` ⇒ 指该文件；
- *   ④ **裸** `§N clause|step M` ⇒ 指**本文件自己**。
- * 节号与关键词之间允许夹反引号/括号（`` `PROTOCOL §6.1` clause 11 `` 是本仓常见写法）。
+ *   ① `` `<file>.md` §N clause|step M `` ⇒ 指该文件；
+ *   ② **裸** `§N clause|step M` ⇒ 指**本文件自己**。
+ * 规则 ID 的 `clause M` 不在这里数（`lint-rule-refs.mjs` 管），避免两套解析器口径漂移。
+ * 节号与关键词之间允许夹反引号/括号。
  * **不识别（一律 skip 计数，绝不判红）**：**裸 `#K`** —— 本仓该形状表示**表格行**
  * （如 "the contract §4 #9"；误判会误红写对的引用）；`rule` / `invariant` 等标记词；
  * 把 `§N.M` 读成「§N 的第 M 条」（会与真 `### N.M` 标题撞车 —— 正是第二腿存在的理由）。
@@ -60,11 +55,6 @@
  * 处停止，不会把子节的 1..3 串上来）；只数**顶层**有序项；**围栏内跳过**；顶层序号必须恰为
  * `1..n`（重启/跳号/重复 ⇒ `ambiguous` ⇒ skip）；体内无有序列表 ⇒ `no-list` ⇒ skip。
  * 只在「文件可解析 且 标题存在 且 体是 1..n 连续顶层列表 且 K > n」时判红 —— 所有守卫**朝 skip 收敛**。
- *
- * **指针节（`PROTOCOL §17` 规则 6）**：L1 的某个编号节可以只留一行
- * `> **Normative body**: `guides/x.md` §N`，正文在团队级 L2.5 指南的同名 `§N` 节里。第三腿
- * **跟随该指针**到指南再数条目，因此 `PROTOCOL §N clause M` 的语义不变；指针目标不存在/不含该节
- * ⇒ 按 `no-section`/`nofile` 记 skip（不误报），指针成环 ⇒ `pointer-loop`（也记 skip）。
  *
  * 模式：`host-paths.mjs#resolveMode`（repo = 仓内自证，无需实例；live = 巡检安装实例）。
  * 退出码：0 全解析；1 有断引用；2 用法错或模式不可判定。
@@ -76,7 +66,7 @@ import { resolveMode, UsageError, ROLES } from './host-paths.mjs';
 
 // ── 引用提取 ────────────────────────────────────────────────────────────────
 
-/** 视为「文件路径候选」的扩展名（与 `lint-refs.mjs` 的 fence 处理保持一致）。 */
+/** 视为「文件路径候选」的扩展名（与 `lint-rule-refs.mjs` 的 fence 处理保持一致）。 */
 const EXT = /\.(md|mjs|sh|json|json5|yml|yaml)$/;
 
 /** 只从这两种载体取引用：反引号片段、markdown 链接目标。散文里的裸路径**不取**（误报源）。 */
@@ -153,10 +143,10 @@ const ITEM_ALLOW = {};
 
 /**
  * 从一行取出节内条款号引用。
- * 记法（2026-10-16 阿拉伯化后）：判别符是**点名与否** ——
- *   · `PROTOCOL §N clause M` ⇒ 指 L1；
+ * 判别符是**点名与否** ——
  *   · `` `<file>.md` §N clause M `` ⇒ 指该文件；
  *   · **裸** `§N clause M` ⇒ 指**本文件自己**（`file: SELF`，由调用方补上路径）。
+ * 规则 ID 的 clause 计数不在这里（`lint-rule-refs.mjs` 管）。
  * 只收「目标可判定为有序列表」的形态；**不识别**裸 `#K`（本仓该形状表示表格行）。
  */
 export const SELF = '@self';
@@ -171,18 +161,11 @@ export function extractItemRefs(line) {
     if (Number.isInteger(k) && k >= 1) out.push({ file, sec, kind, item: k });
   };
   const spans = [];
-  // ① `PROTOCOL §N clause|step M` ② `PROTOCOL §N [words] #M`
-  for (const m of line.matchAll(new RegExp(`PROTOCOL\\s*§\\s*(\\d+(?:\\.\\d+)?)${GAP}(clause|step)${GAP}(\\d+)`, 'g'))) {
-    push(null, m[1], m[2], m[3]); spans.push([m.index, m.index + m[0].length]);
-  }
-  for (const m of line.matchAll(new RegExp(`PROTOCOL\\s*§\\s*(\\d+(?:\\.\\d+)?)${GAP}(?:[A-Za-z][A-Za-z-]*${GAP}){0,2}#(\\d+)`, 'g'))) {
-    push(null, m[1], '#', m[2]); spans.push([m.index, m.index + m[0].length]);
-  }
-  // ③ `` `<file>.md` §N clause|step M ``
+  // ① `` `<file>.md` §N clause|step M ``
   for (const m of line.matchAll(/`?([A-Za-z0-9][\w./-]*\.md)`?[ \t]*§[ \t]*(\d+(?:\.\d+)*)[ \t]*(clause|step)[ \t]*(\d+)/g)) {
     push(m[1], m[2], m[3], m[4]); spans.push([m.index, m.index + m[0].length]);
   }
-  // ④ 裸 `§N clause|step M` ⇒ 自引用；跳过已被 ①②③ 吃掉的位置
+  // ② 裸 `§N clause|step M` ⇒ 自引用；跳过已被 ① 吃掉的位置
   for (const m of line.matchAll(new RegExp(`§\\s*(\\d+(?:\\.\\d+)?)${GAP}(clause|step)${GAP}(\\d+)`, 'g'))) {
     if (spans.some(([a, b]) => m.index >= a && m.index < b)) continue;
     push(SELF, m[1], m[2], m[3]);
@@ -198,40 +181,14 @@ function headingNumberOf(l) {
 }
 
 /**
- * 指针节的目标：正文里的 `> **Normative body**: `guide.md` §N`。
- * 返回 `{target, sec}` 或 null。目标按「L1 所在层根」解析（repo: `<repo>/team`，live: `<team>`），
- * 再回退到上一级（兼容写成 `team/guides/…` 的指针）。
- */
-function pointerTarget(abs, body) {
-  for (const l of body) {
-    const m = l.match(/Normative body\**[^\n]*?`([^`\n]+\.md)`[^\n]*?§\s*(\d+(?:\.\d+)*)/i);
-    if (!m) continue;
-    const rel = m[1];
-    const sec = m[2];
-    const dir = path.dirname(abs);
-    const target = [
-      path.resolve(dir, rel),
-      path.resolve(dir, '..', rel),
-      path.resolve(dir, '..', '..', rel),
-    ].find((p) => p.endsWith('.md') && fs.existsSync(p));
-    if (target) return { target, sec };
-  }
-  return null;
-}
-
-/**
  * 「`sec` 这一节的顶层有序列表有几条」。
  * 体 = 该标题 → **下一个任意级标题**（子节条目不得串进父节）。
- * 体内无有序列表时，若该节是**指针节**（`PROTOCOL §17` 规则 6），跟随
- * `> **Normative body**: `guide.md` §N` 到指南的同名节再数。
- * 返回 `{ok:true,count}` 或 `{ok:false,why}`；`why ∈ no-section | no-list | ambiguous | nofile | pointer-loop`。
+ * 返回 `{ok:true,count}` 或 `{ok:false,why}`；`why ∈ no-section | no-list | ambiguous | nofile`。
  */
 const _itemCache = new Map();
 export function itemIndex(abs, sec, seen = new Set()) {
   const key = `${abs}\u0000${sec}`;
   if (_itemCache.has(key)) return _itemCache.get(key);
-  if (seen.has(key)) return { ok: false, why: 'pointer-loop' };
-  seen.add(key);
   let res;
   try {
     const lines = fs.readFileSync(abs, 'utf8').split('\n');
@@ -250,10 +207,8 @@ export function itemIndex(abs, sec, seen = new Set()) {
         const m = /^(\d{1,3})\.\s/.exec(l);           // 顶层：不允缩进 ⇒ 嵌套子列表不计入
         if (m) nums.push(Number(m[1]));
       }
-      if (!nums.length) {
-        const ptr = pointerTarget(abs, body);
-        res = ptr ? itemIndex(ptr.target, ptr.sec, seen) : { ok: false, why: 'no-list' };
-      } else if (nums.some((n, i) => n !== i + 1)) res = { ok: false, why: 'ambiguous' };
+      if (!nums.length) res = { ok: false, why: 'no-list' };
+      else if (nums.some((n, i) => n !== i + 1)) res = { ok: false, why: 'ambiguous' };
       else res = { ok: true, count: nums.length };
     }
   } catch { res = { ok: false, why: 'nofile' }; }
@@ -323,7 +278,7 @@ export function basesFor(file, M) {
 // ── 扫描 ────────────────────────────────────────────────────────────────────
 
 // 运行时 / 宿主本地目录，**不是文档面**：install.sh 从不部署它们（CLAUDE.md「runtime
-// directories」：tasks/ workspace/ memory/），tmp/·.tmp/ 是 PROTOCOL §13.9 的草稿区，
+// directories」：tasks/ workspace/ memory/），tmp/·.tmp/ 是 `R-DISC-9` 的草稿区，
 // .backups/ 是安装器自己的备份副本（扫它还会把同一份文档重复计入）。它们只存在于实例上，
 // 内容是卡的工作区证据与沙箱夹具 —— 例如 team/workspace/<卡>/ 里那些临时 mock。
 // 历史实证（2026-10-17）：live 模式走进这类沙箱，撞上一条**断链的** .md 符号链接 ⇒
@@ -393,19 +348,14 @@ export function lintDocRefs(M) {
 
       // ── 第三腿：节内条款号 ──
       for (const { file: tgt, sec, kind, item } of extractItemRefs(line)) {
-        // 裸 `§N clause M` = L1；L1 是两册同一编号空间 ⇒ 哪一册有该节就在哪一册数条目。
-        const l1 = ['PROTOCOL.md', 'PROTOCOL-gates.md']
-          .map((f) => path.join(M.mode === 'repo' ? path.join(M.repo, 'team') : M.team, f));
-        const abs = tgt === null
-          ? l1.find((p) => fs.existsSync(p) && itemIndex(p, sec).ok)
-          : tgt === SELF ? f
+        const abs = tgt === SELF ? f
           : bases.map((b) => path.resolve(b, tgt)).find((p) => fs.existsSync(p));
         if (!abs || !abs.endsWith('.md') || !fs.existsSync(abs)) {
           skipped['itemref-nofile'] = (skipped['itemref-nofile'] || 0) + 1; continue;
         }
         const r = itemIndex(abs, sec);
         if (!r.ok) { skipped[`itemref-${r.why}`] = (skipped[`itemref-${r.why}`] || 0) + 1; continue; }
-        const token = `${tgt === null ? 'PROTOCOL' : tgt === SELF ? 'this file' : tgt} §${sec} ${kind} ${item}`;
+        const token = `${tgt === SELF ? 'this file' : tgt} §${sec} ${kind} ${item}`;
         if (ITEM_ALLOW[`${keyPosix}:${token}`]) continue;
         itemChecked++;
         if (item <= r.count) continue;

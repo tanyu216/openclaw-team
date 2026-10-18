@@ -12,6 +12,12 @@
       "tokens": "同上：整文件删除。",
       "refs": "同上：整文件删除。",
       "numbers": "同上：整文件删除。"
+    },
+    "team/PROTOCOL.md": {
+      "refs": "整轴豁免：两册退役，§N 编号空间不再存在；每条规范正文已迁入 owner AGENTS 块或 detail guide（映射见表 protocol-removal-census.json）。"
+    },
+    "team/PROTOCOL-gates.md": {
+      "refs": "整轴豁免：两册退役，§N 编号空间不再存在；每条规范正文已迁入 owner AGENTS 块或 detail guide（映射见表 protocol-removal-census.json）。"
     }
   },
   "atoms": {
@@ -44,7 +50,7 @@
     "team/PROTOCOL.md:tokens:perf-baseline.json": "拆册：随 §27 性能基线移入 `PROTOCOL-gates.md`。",
     "team/PROTOCOL.md:tokens:task.create": "拆册：随 §29 建卡幂等移入 `PROTOCOL-gates.md`（§29 排在 §21 之后，故一并入第二册；Elon 的读法清单仍点名它）。",
     "team/PROTOCOL.md:tokens:vX.Y.Z": "拆册：随 §21 移入 `PROTOCOL-gates.md`。",
-    "team/PROTOCOL.md:refs:§12": "拆册：原为 §21 里的裸引用，随该节移入 `PROTOCOL-gates.md`。",
+    "team/PROTOCOL.md:refs:§12": "引用退役：§12 不再有对应节号（语义改指 R-DOCSYNC-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
     "team/PROTOCOL.md:refs:§22": "拆册：原为第二册内互引，随该节移入 `PROTOCOL-gates.md`。",
     "team/PROTOCOL.md:refs:§23": "拆册：原为 §28 里对 §21–§23 的引用，随该节移入 `PROTOCOL-gates.md`。",
     "team/PROTOCOL.md:refs:§24": "拆册：原为 §28 里对 §24–§27 的引用，随该节移入 `PROTOCOL-gates.md`。",
@@ -639,6 +645,975 @@
     "team/PROTOCOL.md:refs:§7.2": {
       "to": "team/guides/flow-triage-sop.md",
       "reason": "同上：§10.5 正文里指向 carding-sop §7.2（抽样算术）的引用随正文搬入 flow-triage-sop.md §10.5。"
+    },
+    "roles/assistant/AGENTS.md:refs:§10.4": "引用退役：§10.4 不再有对应节号（语义改指 R-SEGUSE-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/assistant/AGENTS.md:refs:§10.6": "引用退役：§10.6 不再有对应节号（语义改指 R-PREREQ-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/assistant/AGENTS.md:refs:§16": "引用退役：§16 不再有对应节号（语义改指 R-TERM-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/assistant/AGENTS.md:refs:§19": "引用退役：§19 不再有对应节号（语义改指 R-CREED-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/assistant/AGENTS.md:refs:§20.3": "引用退役：§20.3 不再有对应节号（语义改指 R-ARCHIVE-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/assistant/AGENTS.md:refs:§21": "引用退役：§21 不再有对应节号（语义改指 R-VERSION-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/assistant/AGENTS.md:refs:§22": "引用退役：§22 不再有对应节号（语义改指 R-OBS-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/assistant/AGENTS.md:refs:§5": "引用退役：§5 不再有对应节号（语义改指 R-MSG-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/assistant/SOUL.md:tokens:PROTOCOL.md": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "roles/elon/AGENTS.md:refs:§21": "引用退役：§21 不再有对应节号（语义改指 R-VERSION-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/elon/AGENTS.md:refs:§6.3": "引用退役：§6.3 不再有对应节号（语义改指 R-PARALLEL-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/elon/AGENTS.md:refs:§7⑨⑪": "引用退役：§7⑨⑪ 不再有对应节号。规则层改为 AGENTS 的 R-* 块。",
+    "roles/elon/AGENTS.md:refs:§9.2": "引用退役：§9.2 不再有对应节号（语义改指 R-PROTO-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/elon/AGENTS.md:refs:§9.3": "引用退役：§9.3 不再有对应节号（语义改指 R-CONTAINER-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/elon/SOUL.md:tokens:PROTOCOL.md": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "roles/elon/guides/duties-sop.md:numbers:15min": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "roles/jobs/AGENTS.md:refs:§16": "引用退役：§16 不再有对应节号（语义改指 R-TERM-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/jobs/AGENTS.md:refs:§19": "引用退役：§19 不再有对应节号（语义改指 R-CREED-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/jobs/AGENTS.md:refs:§20.3": "引用退役：§20.3 不再有对应节号（语义改指 R-ARCHIVE-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/jobs/AGENTS.md:refs:§21": "引用退役：§21 不再有对应节号（语义改指 R-VERSION-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/jobs/SOUL.md:tokens:PROTOCOL.md": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "roles/linus/AGENTS.md:refs:§16": "引用退役：§16 不再有对应节号（语义改指 R-TERM-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/linus/AGENTS.md:refs:§19": "引用退役：§19 不再有对应节号（语义改指 R-CREED-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/linus/AGENTS.md:refs:§20.3": "引用退役：§20.3 不再有对应节号（语义改指 R-ARCHIVE-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/linus/SOUL.md:tokens:PROTOCOL.md": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "roles/linus/guides/development-process-sop.md:refs:§6": "引用退役：§6 不再有对应节号（语义改指 R-SESSION-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/linus/guides/execute-guide.md:tokens:PROTOCOL": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "roles/linus/guides/execute-guide.md:refs:§6": "引用退役：§6 不再有对应节号（语义改指 R-SESSION-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/linus/guides/plan-guide.md:tokens:PROTOCOL": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "roles/linus/guides/testing-and-delivery-sop.md:refs:§6": "引用退役：§6 不再有对应节号（语义改指 R-SESSION-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/linus/guides/verify-guide.md:tokens:PROTOCOL": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "roles/turing/AGENTS.md:refs:§10.6": "引用退役：§10.6 不再有对应节号（语义改指 R-PREREQ-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/turing/AGENTS.md:refs:§16": "引用退役：§16 不再有对应节号（语义改指 R-TERM-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/turing/AGENTS.md:refs:§19": "引用退役：§19 不再有对应节号（语义改指 R-CREED-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/turing/AGENTS.md:refs:§20.3": "引用退役：§20.3 不再有对应节号（语义改指 R-ARCHIVE-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "roles/turing/SOUL.md:tokens:PROTOCOL.md": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/PROTOCOL-gates.md:codes:request_id": {
+      "to": "team/guides/interactive-lane-sop.md",
+      "reason": "迁移：request_id 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL-gates.md:codes:review_of": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：review_of 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL-gates.md:codes:task_id": {
+      "to": "team/guides/codex-plugin-lane-contract.md",
+      "reason": "迁移：task_id 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL-gates.md:codes:trace_id": {
+      "to": "team/guides/runtime-observability-sop.md",
+      "reason": "迁移：trace_id 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL-gates.md:tokens:BREAKING": {
+      "to": "team/guides/api-compat-sop.md",
+      "reason": "迁移：BREAKING 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL-gates.md:tokens:DELETE": {
+      "to": "team/guides/data-migration-sop.md",
+      "reason": "迁移：DELETE 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL-gates.md:tokens:DROP": {
+      "to": "team/guides/data-migration-sop.md",
+      "reason": "迁移：DROP 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL-gates.md:tokens:NNNN_lower_snake_name.sql": {
+      "to": "team/guides/data-migration-sop.md",
+      "reason": "迁移：NNNN_lower_snake_name.sql 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL-gates.md:tokens:PROTOCOL.md": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/PROTOCOL-gates.md:tokens:README.md": {
+      "to": "roles/jobs/AGENTS.md",
+      "reason": "迁移：README.md 仍在该文件中，协议卷退役后由规则层/指南承载。"
+    },
+    "team/PROTOCOL-gates.md:tokens:ROLLBACK": {
+      "to": "team/guides/data-migration-sop.md",
+      "reason": "迁移：ROLLBACK 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL-gates.md:tokens:console.log": {
+      "to": "team/guides/runtime-observability-sop.md",
+      "reason": "迁移：console.log 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL-gates.md:tokens:perf-baseline.json": {
+      "to": "team/guides/performance-sla-sop.md",
+      "reason": "迁移：perf-baseline.json 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL-gates.md:tokens:task.create": {
+      "to": "team/guides/task-interface.md",
+      "reason": "迁移：task.create 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL-gates.md:tokens:vX.Y.Z": {
+      "to": "team/guides/release-versioning-sop.md",
+      "reason": "迁移：vX.Y.Z 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL-gates.md:refs:§1": "引用退役：§1 不再有对应节号（语义改指 R-BOARD-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§12": "引用退役：§12 不再有对应节号（语义改指 R-DOCSYNC-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§13.4": "引用退役：§13.4 不再有对应节号（语义改指 R-DISC-4，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§14": "引用退役：§14 不再有对应节号（语义改指 R-CONFIRM-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§15": "引用退役：§15 不再有对应节号（语义改指 R-SLA-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§15.1": "引用退役：§15.1 不再有对应节号（语义改指 R-SLA-7，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§17": "引用退役：§17 不再有对应节号（语义改指 R-LAYER-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§19": "引用退役：§19 不再有对应节号（语义改指 R-CREED-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§2": "引用退役：§2 不再有对应节号（语义改指 R-PROJECT-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§20": "引用退役：§20 不再有对应节号（语义改指 R-GATE-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§20.1": "引用退役：§20.1 不再有对应节号（语义改指 R-GATE-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§20.2": "引用退役：§20.2 不再有对应节号（语义改指 R-GATE-2，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§21": "引用退役：§21 不再有对应节号（语义改指 R-VERSION-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§22": "引用退役：§22 不再有对应节号（语义改指 R-OBS-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§23": "引用退役：§23 不再有对应节号（语义改指 R-INCIDENT-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§24": "引用退役：§24 不再有对应节号（语义改指 R-MIGRATE-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§27": "引用退役：§27 不再有对应节号（语义改指 R-PERF-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§29": "引用退役：§29 不再有对应节号（语义改指 R-IDEM-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§3": "引用退役：§3 不再有对应节号（语义改指 R-STRUCT-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§4": "引用退役：§4 不再有对应节号（语义改指 R-REPORT-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§5": "引用退役：§5 不再有对应节号（语义改指 R-MSG-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§5.1": "引用退役：§5.1 不再有对应节号（语义改指 R-PUB-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§6": "引用退役：§6 不再有对应节号（语义改指 R-SESSION-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§6.1": "引用退役：§6.1 不再有对应节号（语义改指 R-ENG-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§9": "引用退役：§9 不再有对应节号（语义改指 R-DEFECT-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:refs:§9.3": "引用退役：§9.3 不再有对应节号（语义改指 R-CONTAINER-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL-gates.md:numbers:2hour": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/PROTOCOL-gates.md:numbers:30min": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：30min 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL-gates.md:numbers:90days": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/PROTOCOL.md:codes:blocked_at": {
+      "to": "team/guides/interactive-lane-sop.md",
+      "reason": "迁移：blocked_at 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:claimed_by": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：claimed_by 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:default_git_rules": {
+      "to": "team/guides/release-versioning-sop.md",
+      "reason": "迁移：default_git_rules 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:depends_on": {
+      "to": "roles/jobs/AGENTS.md",
+      "reason": "迁移：depends_on 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:deps_unmet": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：deps_unmet 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:get_project": {
+      "to": "roles/jobs/AGENTS.md",
+      "reason": "迁移：get_project 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:git_rules": {
+      "to": "roles/linus/AGENTS.md",
+      "reason": "迁移：git_rules 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:heartbeat_at": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：heartbeat_at 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:id_state": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：id_state 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:in_progress": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：in_progress 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:in_review": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：in_review 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:notify_leader": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：notify_leader 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:rel_path": {
+      "to": "team/guides/project-access-sop.md",
+      "reason": "迁移：rel_path 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:review_needs_quiet_card": {
+      "to": "team/guides/dev-worktree-flow-sop.md",
+      "reason": "迁移：review_needs_quiet_card 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:review_of": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：review_of 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:session_id": {
+      "to": "team/guides/codex-plugin-lane-contract.md",
+      "reason": "迁移：session_id 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:sessions_history": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：sessions_history 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:sessions_send": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：sessions_send 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:status_changed_at": {
+      "to": "team/guides/confirmation-gate-sop.md",
+      "reason": "迁移：status_changed_at 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:terminal_immutable": {
+      "to": "team/guides/codex-plugin-lane-contract.md",
+      "reason": "迁移：terminal_immutable 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:thread_id": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：thread_id 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:codes:tool_use": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：tool_use 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:AGENTS.md": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：AGENTS.md 仍在该文件中，协议卷退役后由规则层/指南承载。"
+    },
+    "team/PROTOCOL.md:tokens:CLAUDE.md": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：CLAUDE.md 仍在该文件中，协议卷退役后由规则层/指南承载。"
+    },
+    "team/PROTOCOL.md:tokens:DESIGN.md": {
+      "to": "team/guides/engineering-standards-sop.md",
+      "reason": "迁移：DESIGN.md 仍在该文件中，协议卷退役后由规则层/指南承载。"
+    },
+    "team/PROTOCOL.md:tokens:ISSUER": {
+      "to": "team/guides/container-form-acceptance-sop.md",
+      "reason": "迁移：ISSUER 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:KEYCLOAK_URL": {
+      "to": "team/guides/container-form-acceptance-sop.md",
+      "reason": "迁移：KEYCLOAK_URL 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:OPENCLAW_TEAM_EPIC_TODO_WARN_MS": {
+      "to": "roles/elon/guides/carding-sop.md",
+      "reason": "迁移：OPENCLAW_TEAM_EPIC_TODO_WARN_MS 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:OPENCLAW_TEAM_MERGE_EFFECTIVE_AT": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/PROTOCOL.md:tokens:OPENCLAW_TEAM_MODE": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/PROTOCOL.md:tokens:OPENCLAW_TEAM_REPORT_EFFECTIVE_AT": {
+      "to": "team/guides/worker-report-template.md",
+      "reason": "迁移：OPENCLAW_TEAM_REPORT_EFFECTIVE_AT 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:PROTOCOL-gates.md": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/PROTOCOL.md:tokens:PROTOCOL.md": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/PROTOCOL.md:tokens:README": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：README 仍在该文件中，协议卷退役后由规则层/指南承载。"
+    },
+    "team/PROTOCOL.md:tokens:README.md": {
+      "to": "roles/jobs/AGENTS.md",
+      "reason": "迁移：README.md 仍在该文件中，协议卷退役后由规则层/指南承载。"
+    },
+    "team/PROTOCOL.md:tokens:SOUL.md": {
+      "to": "team/guides/doc-style.md",
+      "reason": "迁移：SOUL.md 仍在该文件中，协议卷退役后由规则层/指南承载。"
+    },
+    "team/PROTOCOL.md:tokens:TERMINAL_STATUSES": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/PROTOCOL.md:tokens:XHR": {
+      "to": "team/guides/prototype-separation-sop.md",
+      "reason": "迁移：XHR 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:__team__": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：__team__ 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:canvas-design": {
+      "to": "roles/jobs/AGENTS.md",
+      "reason": "迁移：canvas-design 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:check-card.mjs": {
+      "to": "team/guides/project-access-sop.md",
+      "reason": "迁移：check-card.mjs 仍在该文件中，协议卷退役后由规则层/指南承载。"
+    },
+    "team/PROTOCOL.md:tokens:check-epic-completeness.mjs": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/PROTOCOL.md:tokens:check-merge.mjs": {
+      "to": "team/guides/dev-worktree-flow-sop.md",
+      "reason": "迁移：check-merge.mjs 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:check-relations.mjs": {
+      "to": "roles/elon/guides/carding-sop.md",
+      "reason": "迁移：check-relations.mjs 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:check-report": {
+      "to": "team/guides/dev-worktree-flow-sop.md",
+      "reason": "迁移：check-report 仍在该文件中，协议卷退役后由规则层/指南承载。"
+    },
+    "team/PROTOCOL.md:tokens:check-report.mjs": {
+      "to": "team/guides/dev-worktree-flow-sop.md",
+      "reason": "迁移：check-report.mjs 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:claude-sessions.json": {
+      "to": "roles/linus/AGENTS.md",
+      "reason": "迁移：claude-sessions.json 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:daisyUI": {
+      "to": "roles/jobs/AGENTS.md",
+      "reason": "迁移：daisyUI 仍在该文件中，协议卷退役后由规则层/指南承载。"
+    },
+    "team/PROTOCOL.md:tokens:deepseek-flash": {
+      "to": "team/guides/spawn-lane-sop.md",
+      "reason": "迁移：deepseek-flash 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:deepseek-v4-pro": {
+      "to": "team/guides/spawn-lane-sop.md",
+      "reason": "迁移：deepseek-v4-pro 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:example-app": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/PROTOCOL.md:tokens:lane-host.mjs": {
+      "to": "team/guides/codex-plugin-lane-contract.md",
+      "reason": "迁移：lane-host.mjs 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:lib.get_project": {
+      "to": "roles/jobs/AGENTS.md",
+      "reason": "迁移：lib.get_project 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:lint-doc-refs.mjs": {
+      "to": "roles/turing/AGENTS.md",
+      "reason": "迁移：lint-doc-refs.mjs 仍在该文件中，协议卷退役后由规则层/指南承载。"
+    },
+    "team/PROTOCOL.md:tokens:meerkat-taskpanel": {
+      "to": "team/AUTOMATIONS.md",
+      "reason": "迁移：meerkat-taskpanel 仍在该文件中，协议卷退役后由规则层/指南承载。"
+    },
+    "team/PROTOCOL.md:tokens:openclaw-team": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/PROTOCOL.md:tokens:openclaw.json": {
+      "to": "team/guides/codex-plugin-lane-contract.md",
+      "reason": "迁移：openclaw.json 仍在该文件中，协议卷退役后由规则层/指南承载。"
+    },
+    "team/PROTOCOL.md:tokens:review-report.md": {
+      "to": "team/guides/dev-worktree-flow-sop.md",
+      "reason": "迁移：review-report.md 仍在该文件中，协议卷退役后由规则层/指南承载。"
+    },
+    "team/PROTOCOL.md:tokens:set-status": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/PROTOCOL.md:tokens:settings.review.json": {
+      "to": "team/guides/dev-worktree-flow-sop.md",
+      "reason": "迁移：settings.review.json 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:spawn-lane": {
+      "to": "roles/linus/AGENTS.md",
+      "reason": "迁移：spawn-lane 仍在该文件中，协议卷退役后由规则层/指南承载。"
+    },
+    "team/PROTOCOL.md:tokens:state.md": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：state.md 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:task-interface": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：task-interface 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:task.claim": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：task.claim 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:task.handoff": {
+      "to": "team/guides/task-interface.md",
+      "reason": "迁移：`task.handoff` 的规范正文在 `R-SESSION-4` / `task-interface.md` §9（handoff/background pack）。"
+    },
+    "team/PROTOCOL.md:tokens:task.rollup": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：task.rollup 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:task.session-set": {
+      "to": "team/guides/codex-plugin-lane-contract.md",
+      "reason": "迁移：task.session-set 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:three.js": {
+      "to": "roles/jobs/AGENTS.md",
+      "reason": "迁移：three.js 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:tmp-gc": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：tmp-gc 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:token-hygiene": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：token-hygiene 仍在该文件中，协议卷退役后由规则层/指南承载。"
+    },
+    "team/PROTOCOL.md:tokens:turing-runs.json": {
+      "to": "roles/turing/AGENTS.md",
+      "reason": "迁移：turing-runs.json 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:tokens:ui-align": {
+      "to": "roles/linus/AGENTS.md",
+      "reason": "迁移：ui-align 仍在该文件中，协议卷退役后由规则层/指南承载。"
+    },
+    "team/PROTOCOL.md:refs:§1": "引用退役：§1 不再有对应节号（语义改指 R-BOARD-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§10": "引用退役：§10 不再有对应节号（语义改指 R-TRIAGE-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§10.1": "引用退役：§10.1 不再有对应节号（语义改指 R-REVIEW-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§10.2": "引用退役：§10.2 不再有对应节号（语义改指 R-DAG-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§10.3": "引用退役：§10.3 不再有对应节号（语义改指 R-GRANULARITY-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§10.4": "引用退役：§10.4 不再有对应节号（语义改指 R-SEGUSE-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§10.5": "引用退役：§10.5 不再有对应节号（语义改指 R-FLOW-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§11": "引用退役：§11 不再有对应节号（语义改指 R-OOB-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§13": "引用退役：§13 不再有对应节号（语义改指 R-DISC-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§13.2": "引用退役：§13.2 不再有对应节号（语义改指 R-DISC-2，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§13.4": "引用退役：§13.4 不再有对应节号（语义改指 R-DISC-4，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§13.5": "引用退役：§13.5 不再有对应节号（语义改指 R-DISC-5，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§13.7": "引用退役：§13.7 不再有对应节号（语义改指 R-DISC-7，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§13.8": "引用退役：§13.8 不再有对应节号（语义改指 R-DISC-8，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§14": "引用退役：§14 不再有对应节号（语义改指 R-CONFIRM-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§15": "引用退役：§15 不再有对应节号（语义改指 R-SLA-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§15.1": "引用退役：§15.1 不再有对应节号（语义改指 R-SLA-7，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§16": "引用退役：§16 不再有对应节号（语义改指 R-TERM-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§17": "引用退役：§17 不再有对应节号（语义改指 R-LAYER-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§18": "引用退役：§18 不再有对应节号（语义改指 R-RESEARCH-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§19": "引用退役：§19 不再有对应节号（语义改指 R-CREED-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§2": "引用退役：§2 不再有对应节号（语义改指 R-PROJECT-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§20": "引用退役：§20 不再有对应节号（语义改指 R-GATE-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§20.1": "引用退役：§20.1 不再有对应节号（语义改指 R-GATE-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§20.2": "引用退役：§20.2 不再有对应节号（语义改指 R-GATE-2，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§20.3": "引用退役：§20.3 不再有对应节号（语义改指 R-ARCHIVE-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§21": "引用退役：§21 不再有对应节号（语义改指 R-VERSION-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§29": "引用退役：§29 不再有对应节号（语义改指 R-IDEM-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§3": "引用退役：§3 不再有对应节号（语义改指 R-STRUCT-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§3.5": "引用退役：§3.5 不再有对应节号。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§4": "引用退役：§4 不再有对应节号（语义改指 R-REPORT-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§5": "引用退役：§5 不再有对应节号（语义改指 R-MSG-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§6": "引用退役：§6 不再有对应节号（语义改指 R-SESSION-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§6.1": "引用退役：§6.1 不再有对应节号（语义改指 R-ENG-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§6.2": "引用退役：§6.2 不再有对应节号（语义改指 R-MODEL-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§6.4": "引用退役：§6.4 不再有对应节号（语义改指 R-WORKTREE-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§7": "引用退役：§7 不再有对应节号（语义改指 R-AMBIG-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§7.1": "引用退役：§7.1 不再有对应节号。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§8": "引用退役：§8 不再有对应节号（语义改指 R-REGISTER-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§9": "引用退役：§9 不再有对应节号（语义改指 R-DEFECT-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§9.1": "引用退役：§9.1 不再有对应节号（语义改指 R-UI-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:refs:§9.2": "引用退役：§9.2 不再有对应节号（语义改指 R-PROTO-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/PROTOCOL.md:numbers:100KB": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：100KB 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:numbers:10min": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：10min 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:numbers:14days": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/PROTOCOL.md:numbers:30min": {
+      "to": "roles/elon/AGENTS.md",
+      "reason": "迁移：30min 仍在该文件中，原位置退役。"
+    },
+    "team/PROTOCOL.md:numbers:60min": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/README.md:tokens:PROTOCOL-gates.md": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/README.md:tokens:PROTOCOL.md": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/README.md:refs:§20": "引用退役：§20 不再有对应节号（语义改指 R-GATE-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/README.md:refs:§21": "引用退役：§21 不再有对应节号（语义改指 R-VERSION-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/README.md:refs:§29": "引用退役：§29 不再有对应节号（语义改指 R-IDEM-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/README.md:refs:§6": "引用退役：§6 不再有对应节号（语义改指 R-SESSION-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/ROLES.md:tokens:check-roles": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/automations/README.md:refs:§15": "引用退役：§15 不再有对应节号（语义改指 R-SLA-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/guides/ci-release-sop.md:refs:§6": "引用退役：§6 不再有对应节号（语义改指 R-SESSION-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/guides/codex-plugin-lane-contract.md:tokens:PROTOCOL.md": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/guides/data-migration-sop.md:tokens:PROTOCOL": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/guides/dependency-cve-gate.md:tokens:L2.5": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/guides/dev-worktree-flow-sop.md:tokens:L2.5": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/guides/dev-worktree-flow-sop.md:refs:§6.1": "引用退役：§6.1 不再有对应节号（语义改指 R-ENG-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/guides/doc-style.md:tokens:L2.5": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/guides/doc-style.md:tokens:PROTOCOL": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/guides/doc-style.md:tokens:PROTOCOL-gates.md": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/guides/doc-style.md:tokens:PROTOCOL.md": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/guides/doc-style.md:refs:§15": "引用退役：§15 不再有对应节号（语义改指 R-SLA-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/guides/doc-style.md:refs:§9.1": "引用退役：§9.1 不再有对应节号（语义改指 R-UI-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/guides/engineering-standards-sop.md:tokens:L2.5": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/guides/lane-session-lifecycle-sop.md:refs:§11": "引用退役：§11 不再有对应节号（语义改指 R-OOB-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/guides/performance-sla-sop.md:refs:§2.3": "引用退役：§2.3 不再有对应节号。规则层改为 AGENTS 的 R-* 块。",
+    "team/guides/performance-sla-sop.md:refs:§3.6": "引用退役：§3.6 不再有对应节号。规则层改为 AGENTS 的 R-* 块。",
+    "team/guides/performance-sla-sop.md:refs:§4.3": "引用退役：§4.3 不再有对应节号。规则层改为 AGENTS 的 R-* 块。",
+    "team/guides/performance-sla-sop.md:refs:§6.3": "引用退役：§6.3 不再有对应节号（语义改指 R-PARALLEL-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/guides/performance-sla-sop.md:refs:§9.4": "引用退役：§9.4 不再有对应节号（语义改指 R-UXACCEPT-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/guides/redlines.core.md:refs:§10.4": "引用退役：§10.4 不再有对应节号（语义改指 R-SEGUSE-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/guides/redlines.core.md:refs:§2": "引用退役：§2 不再有对应节号（语义改指 R-PROJECT-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/guides/runtime-observability-sop.md:tokens:PROTOCOL": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/guides/runtime-observability-sop.md:refs:§9": "引用退役：§9 不再有对应节号（语义改指 R-DEFECT-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/guides/spawn-lane-sop.md:tokens:L2.5": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/guides/spawn-lane-sop.md:refs:§12": "引用退役：§12 不再有对应节号（语义改指 R-DOCSYNC-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/guides/ui-align-assert-spec.md:refs:§6.1": "引用退役：§6.1 不再有对应节号（语义改指 R-ENG-1，但该文件未引用它）。规则层改为 AGENTS 的 R-* 块。",
+    "team/scripts/README.md:tokens:PROTOCOL-gates.md": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/scripts/README.md:tokens:PROTOCOL.md": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "team/scripts/README.md:tokens:lint-refs.mjs": "移除：协议卷/旧分层退役后该原子不再出现（规则由 R-* 块承载）。",
+    "roles/assistant/AGENTS.md:refs:§2.1": "该指南指针为控制 AGENTS 体积从 Method guides 移除；规则 `R-UI-1` 仍携带，guide 可经索引按名查阅。",
+    "roles/assistant/AGENTS.md:refs:§4": "该指南指针为控制 AGENTS 体积从 Method guides 移除；规则 `R-UI-1` 仍携带，guide 可经索引按名查阅。",
+    "roles/assistant/AGENTS.md:refs:§11": "该指南指针为控制 AGENTS 体积从 Method guides 移除；规则 `R-UI-1` 仍携带，guide 可经索引按名查阅。",
+    "roles/assistant/AGENTS.md:refs:§12": "该指南指针为控制 AGENTS 体积从 Method guides 移除；规则 `R-UI-1` 仍携带，guide 可经索引按名查阅。",
+    "roles/elon/SOUL.md:refs:§19": "旧的 §19 信条指针改为指向本角色 AGENTS；信条正文由 R-CREED-1 承载（carriers=elon，其他角色不再复制正文）。",
+    "roles/jobs/SOUL.md:refs:§19": "旧的 §19 信条指针改为指向本角色 AGENTS；信条正文由 R-CREED-1 承载（carriers=elon，其他角色不再复制正文）。",
+    "roles/linus/SOUL.md:refs:§19": "旧的 §19 信条指针改为指向本角色 AGENTS；信条正文由 R-CREED-1 承载（carriers=elon，其他角色不再复制正文）。",
+    "roles/turing/SOUL.md:refs:§19": "旧的 §19 信条指针改为指向本角色 AGENTS；信条正文由 R-CREED-1 承载（carriers=elon，其他角色不再复制正文）。",
+    "roles/assistant/SOUL.md:refs:§19": "旧的 §19 信条指针改为指向本角色 AGENTS；信条正文由 R-CREED-1 承载（carriers=elon，其他角色不再复制正文）。"
+  },
+  "refMap": {
+    "roles/assistant/AGENTS.md": {
+      "§10": "R-TRIAGE-1",
+      "§10.5": "R-FLOW-1",
+      "§13": "R-DISC-1",
+      "§13.8": "R-DISC-8",
+      "§13.9": "R-DISC-9",
+      "§15": "R-SLA-1",
+      "§17": "R-LAYER-1",
+      "§18": "R-RESEARCH-1",
+      "§20": "R-GATE-1",
+      "§20.1": "R-GATE-1",
+      "§20.2": "R-GATE-2",
+      "§23": "R-INCIDENT-1",
+      "§5.1": "R-PUB-1",
+      "§9": "R-DEFECT-1",
+      "§7": "R-BOARD-4"
+    },
+    "roles/assistant/SOUL.md": {},
+    "roles/assistant/guides/research-and-data-repo-conventions.md": {
+      "§13.5": "R-DISC-5",
+      "§18": "R-RESEARCH-1"
+    },
+    "roles/elon/AGENTS.md": {
+      "§10.1": "R-REVIEW-1",
+      "§10.2": "R-DAG-1",
+      "§10.4": "R-SEGUSE-1",
+      "§13": "R-DISC-1",
+      "§13.7": "R-DISC-7",
+      "§13.8": "R-DISC-8",
+      "§13.9": "R-DISC-9",
+      "§15": "R-SLA-1",
+      "§15.1": "R-SLA-7",
+      "§16": "R-TERM-1",
+      "§17": "R-LAYER-1",
+      "§19": "R-CREED-1",
+      "§20": "R-GATE-1",
+      "§20.1": "R-GATE-1",
+      "§20.2": "R-GATE-2",
+      "§20.3": "R-ARCHIVE-1",
+      "§29": "R-IDEM-1",
+      "§5": "R-MSG-1",
+      "§5.1": "R-PUB-1",
+      "§9": "R-DEFECT-1"
+    },
+    "roles/elon/SOUL.md": {},
+    "roles/elon/guides/carding-sop.md": {
+      "§10.1": "R-REVIEW-1",
+      "§10.2": "R-DAG-1",
+      "§10.3": "R-GRANULARITY-1",
+      "§10.4": "R-SEGUSE-1",
+      "§10.6": "R-PREREQ-1",
+      "§2.1": "R-PROJECT-2",
+      "§20.1": "R-GATE-1",
+      "§20.2": "R-GATE-2",
+      "§5": "R-MSG-1",
+      "§6.1": "R-ENG-1",
+      "§6.4": "R-WORKTREE-1",
+      "§9": "R-DEFECT-1",
+      "§6": "R-SESSION-1"
+    },
+    "roles/elon/guides/duties-sop.md": {
+      "§1": "R-BOARD-1",
+      "§10": "R-TRIAGE-1",
+      "§10.5": "R-FLOW-1",
+      "§10.6": "R-PREREQ-1",
+      "§20": "R-GATE-1",
+      "§20.2": "R-GATE-2",
+      "§6.4": "R-WORKTREE-1",
+      "§8": "R-REGISTER-1",
+      "§9": "R-DEFECT-1"
+    },
+    "roles/elon/guides/token-hygiene-sop.md": {
+      "§10.5": "R-FLOW-1",
+      "§12": "R-DOCSYNC-1"
+    },
+    "roles/jobs/AGENTS.md": {
+      "§1": "R-BOARD-1",
+      "§10.4": "R-SEGUSE-1",
+      "§10.6": "R-PREREQ-1",
+      "§13": "R-DISC-1",
+      "§13.5": "R-DISC-5",
+      "§13.8": "R-DISC-8",
+      "§13.9": "R-DISC-9",
+      "§14": "R-CONFIRM-1",
+      "§15": "R-SLA-1",
+      "§17": "R-LAYER-1",
+      "§2": "R-PROJECT-1",
+      "§20": "R-GATE-1",
+      "§20.1": "R-GATE-1",
+      "§20.2": "R-GATE-2",
+      "§6.0": "R-SEG-1",
+      "§6.2": "R-MODEL-1",
+      "§6.3": "R-PARALLEL-1"
+    },
+    "roles/jobs/SOUL.md": {
+      "§6.2": "R-MODEL-1"
+    },
+    "roles/jobs/guides/duties-sop.md": {
+      "§10.5": "R-FLOW-1",
+      "§10.6": "R-PREREQ-1",
+      "§11": "R-OOB-1",
+      "§13.5": "R-DISC-5",
+      "§20.1": "R-GATE-1",
+      "§4": "R-REPORT-1",
+      "§6.1": "R-ENG-1",
+      "§6.3": "R-PARALLEL-1",
+      "§6.4": "R-WORKTREE-1",
+      "§9": "R-DEFECT-1"
+    },
+    "roles/linus/AGENTS.md": {
+      "§1": "R-BOARD-1",
+      "§10.4": "R-SEGUSE-1",
+      "§11": "R-OOB-1",
+      "§12": "R-DOCSYNC-1",
+      "§13": "R-DISC-1",
+      "§13.8": "R-DISC-8",
+      "§13.9": "R-DISC-9",
+      "§14": "R-CONFIRM-1",
+      "§15": "R-SLA-1",
+      "§17": "R-LAYER-1",
+      "§2": "R-PROJECT-1",
+      "§2.1": "R-PROJECT-2",
+      "§20": "R-GATE-1",
+      "§20.1": "R-GATE-1",
+      "§20.2": "R-GATE-2",
+      "§21": "R-VERSION-1",
+      "§23": "R-INCIDENT-1",
+      "§24": "R-MIGRATE-1",
+      "§25": "R-API-1",
+      "§26": "R-CVE-1",
+      "§27": "R-PERF-1",
+      "§28": "R-CROSS-1",
+      "§6.0": "R-SEG-1",
+      "§6.2": "R-MODEL-1",
+      "§6.3": "R-PARALLEL-1",
+      "§9.2": "R-PROTO-1",
+      "§9.3": "R-CONTAINER-1"
+    },
+    "roles/linus/SOUL.md": {
+      "§6.2": "R-MODEL-1"
+    },
+    "roles/linus/guides/development-process-sop.md": {
+      "§17": "R-LAYER-1",
+      "§6.0": "R-SEG-1"
+    },
+    "roles/linus/guides/duties-sop.md": {
+      "§11": "R-OOB-1",
+      "§17": "R-LAYER-1",
+      "§2.1": "R-PROJECT-2",
+      "§20.1": "R-GATE-1",
+      "§4": "R-REPORT-1",
+      "§6": "R-SESSION-1",
+      "§6.3": "R-PARALLEL-1",
+      "§6.4": "R-WORKTREE-1",
+      "§7": "R-AMBIG-1",
+      "§9.1": "R-UI-1"
+    },
+    "roles/linus/guides/execute-guide.md": {
+      "§17": "R-LAYER-1",
+      "§6.0": "R-SEG-1"
+    },
+    "roles/linus/guides/plan-guide.md": {
+      "§17": "R-LAYER-1"
+    },
+    "roles/linus/guides/testing-and-delivery-sop.md": {
+      "§9.2": "R-PROTO-1"
+    },
+    "roles/linus/guides/verify-guide.md": {
+      "§12": "R-DOCSYNC-1",
+      "§17": "R-LAYER-1",
+      "§6.0": "R-SEG-1"
+    },
+    "roles/turing/AGENTS.md": {
+      "§1": "R-BOARD-1",
+      "§10.4": "R-SEGUSE-1",
+      "§13": "R-DISC-1",
+      "§13.8": "R-DISC-8",
+      "§13.9": "R-DISC-9",
+      "§14": "R-CONFIRM-1",
+      "§15": "R-SLA-1",
+      "§17": "R-LAYER-1",
+      "§2": "R-PROJECT-1",
+      "§20": "R-GATE-1",
+      "§20.1": "R-GATE-1",
+      "§20.2": "R-GATE-2",
+      "§21": "R-VERSION-1",
+      "§23": "R-INCIDENT-1",
+      "§24": "R-MIGRATE-1",
+      "§25": "R-API-1",
+      "§26": "R-CVE-1",
+      "§27": "R-PERF-1",
+      "§6.0": "R-SEG-1",
+      "§6.2": "R-MODEL-1",
+      "§6.3": "R-PARALLEL-1",
+      "§9.3": "R-CONTAINER-1"
+    },
+    "roles/turing/SOUL.md": {
+      "§6.2": "R-MODEL-1"
+    },
+    "roles/turing/guides/duties-sop.md": {
+      "§10.5": "R-FLOW-1",
+      "§10.6": "R-PREREQ-1",
+      "§13.5": "R-DISC-5",
+      "§2.1": "R-PROJECT-2",
+      "§4": "R-REPORT-1",
+      "§6": "R-SESSION-1",
+      "§6.1": "R-ENG-1",
+      "§6.2": "R-MODEL-1",
+      "§6.3": "R-PARALLEL-1",
+      "§6.4": "R-WORKTREE-1",
+      "§9": "R-DEFECT-1",
+      "§9.1": "R-UI-1"
+    },
+    "roles/turing/guides/tool-discipline-sop.md": {
+      "§6.0": "R-SEG-1"
+    },
+    "team/AUTOMATIONS.md": {
+      "§10.3": "R-GRANULARITY-1",
+      "§13.9": "R-DISC-9",
+      "§14": "R-CONFIRM-1",
+      "§15": "R-SLA-1",
+      "§15.1": "R-SLA-7",
+      "§17": "R-LAYER-1",
+      "§20": "R-GATE-1",
+      "§20.1": "R-GATE-1",
+      "§20.3": "R-ARCHIVE-1",
+      "§6.4": "R-WORKTREE-1",
+      "§7": "R-AMBIG-1",
+      "§9.1": "R-UI-1"
+    },
+    "team/README.md": {
+      "§1": "R-BOARD-1",
+      "§11": "R-OOB-1",
+      "§6.2": "R-MODEL-1"
+    },
+    "team/ROLES.md": {
+      "§10": "R-TRIAGE-1"
+    },
+    "team/automations/README.md": {
+      "§1": "R-BOARD-1",
+      "§6": "R-SESSION-1"
+    },
+    "team/guides/api-compat-sop.md": {
+      "§12": "R-DOCSYNC-1",
+      "§14": "R-CONFIRM-1",
+      "§15": "R-SLA-1",
+      "§17": "R-LAYER-1",
+      "§20.1": "R-GATE-1",
+      "§21": "R-VERSION-1",
+      "§24": "R-MIGRATE-1",
+      "§25": "R-API-1",
+      "§5.1": "R-PUB-1",
+      "§6.1": "R-ENG-1"
+    },
+    "team/guides/ci-release-sop.md": {
+      "§12": "R-DOCSYNC-1",
+      "§13": "R-DISC-1",
+      "§13.7": "R-DISC-7",
+      "§6.1": "R-ENG-1"
+    },
+    "team/guides/codex-plugin-lane-contract.md": {
+      "§12": "R-DOCSYNC-1",
+      "§13.2": "R-DISC-2",
+      "§13.3": "R-DISC-3",
+      "§6.1": "R-ENG-1"
+    },
+    "team/guides/cs-playbook.md": {
+      "§10": "R-TRIAGE-1",
+      "§15": "R-SLA-1",
+      "§15.1": "R-SLA-7",
+      "§9": "R-DEFECT-1"
+    },
+    "team/guides/data-migration-sop.md": {
+      "§12": "R-DOCSYNC-1",
+      "§14": "R-CONFIRM-1",
+      "§17": "R-LAYER-1",
+      "§20.1": "R-GATE-1",
+      "§21": "R-VERSION-1",
+      "§24": "R-MIGRATE-1",
+      "§6.1": "R-ENG-1",
+      "§9": "R-DEFECT-1",
+      "§9.3": "R-CONTAINER-1"
+    },
+    "team/guides/dependency-cve-gate.md": {
+      "§12": "R-DOCSYNC-1",
+      "§14": "R-CONFIRM-1",
+      "§17": "R-LAYER-1",
+      "§20.1": "R-GATE-1",
+      "§20.2": "R-GATE-2",
+      "§21": "R-VERSION-1",
+      "§26": "R-CVE-1",
+      "§9": "R-DEFECT-1"
+    },
+    "team/guides/dev-worktree-flow-sop.md": {
+      "§17": "R-LAYER-1",
+      "§20.1": "R-GATE-1",
+      "§20.2": "R-GATE-2",
+      "§6.3": "R-PARALLEL-1"
+    },
+    "team/guides/doc-style.md": {
+      "§1": "R-BOARD-1",
+      "§17": "R-LAYER-1",
+      "§6.1": "R-ENG-1"
+    },
+    "team/guides/elon-report-template.md": {
+      "§17": "R-LAYER-1",
+      "§4": "R-REPORT-1"
+    },
+    "team/guides/engineering-standards-sop.md": {
+      "§17": "R-LAYER-1"
+    },
+    "team/guides/flow-triage-sop.md": {
+      "§10.1": "R-REVIEW-1",
+      "§10.6": "R-PREREQ-1",
+      "§16": "R-TERM-1",
+      "§17": "R-LAYER-1",
+      "§9": "R-DEFECT-1"
+    },
+    "team/guides/incident-response-sop.md": {
+      "§12": "R-DOCSYNC-1",
+      "§14": "R-CONFIRM-1",
+      "§15": "R-SLA-1",
+      "§15.1": "R-SLA-7",
+      "§17": "R-LAYER-1",
+      "§20.1": "R-GATE-1",
+      "§20.2": "R-GATE-2",
+      "§21": "R-VERSION-1",
+      "§22": "R-OBS-1",
+      "§23": "R-INCIDENT-1",
+      "§5": "R-MSG-1",
+      "§5.1": "R-PUB-1",
+      "§6.1": "R-ENG-1",
+      "§9": "R-DEFECT-1",
+      "§9.3": "R-CONTAINER-1"
+    },
+    "team/guides/interactive-lane-sop.md": {
+      "§6": "R-SESSION-1"
+    },
+    "team/guides/ops-ledger-spec.md": {
+      "§10": "R-TRIAGE-1",
+      "§12": "R-DOCSYNC-1",
+      "§13.4": "R-DISC-4"
+    },
+    "team/guides/performance-sla-sop.md": {
+      "§12": "R-DOCSYNC-1",
+      "§15": "R-SLA-1",
+      "§17": "R-LAYER-1",
+      "§20.1": "R-GATE-1",
+      "§20.2": "R-GATE-2",
+      "§21": "R-VERSION-1",
+      "§22": "R-OBS-1",
+      "§27": "R-PERF-1",
+      "§6.1": "R-ENG-1",
+      "§9.3": "R-CONTAINER-1"
+    },
+    "team/guides/plan-quality.md": {
+      "§6.1": "R-ENG-1"
+    },
+    "team/guides/promo-ops-sop.md": {
+      "§10": "R-TRIAGE-1",
+      "§13.4": "R-DISC-4",
+      "§13.5": "R-DISC-5",
+      "§14": "R-CONFIRM-1",
+      "§5.1": "R-PUB-1"
+    },
+    "team/guides/redlines.core.md": {
+      "§1": "R-BOARD-1",
+      "§10.5": "R-FLOW-1",
+      "§13": "R-DISC-1",
+      "§13.8": "R-DISC-8",
+      "§13.9": "R-DISC-9",
+      "§2.1": "R-PROJECT-2",
+      "§4": "R-REPORT-1",
+      "§6": "R-SESSION-1",
+      "§9": "R-DEFECT-1",
+      "§9.1": "R-UI-1"
+    },
+    "team/guides/release-versioning-sop.md": {
+      "§12": "R-DOCSYNC-1",
+      "§13.4": "R-DISC-4",
+      "§14": "R-CONFIRM-1",
+      "§15": "R-SLA-1",
+      "§15.1": "R-SLA-7",
+      "§17": "R-LAYER-1",
+      "§20.1": "R-GATE-1",
+      "§21": "R-VERSION-1",
+      "§26": "R-CVE-1",
+      "§5.1": "R-PUB-1",
+      "§6.1": "R-ENG-1",
+      "§9": "R-DEFECT-1",
+      "§9.3": "R-CONTAINER-1"
+    },
+    "team/guides/runtime-observability-sop.md": {
+      "§12": "R-DOCSYNC-1",
+      "§15": "R-SLA-1",
+      "§15.1": "R-SLA-7",
+      "§17": "R-LAYER-1",
+      "§20.1": "R-GATE-1",
+      "§20.2": "R-GATE-2",
+      "§22": "R-OBS-1",
+      "§23": "R-INCIDENT-1",
+      "§27": "R-PERF-1",
+      "§6.1": "R-ENG-1",
+      "§9.3": "R-CONTAINER-1"
+    },
+    "team/guides/seg-continuity-sop.md": {
+      "§6": "R-SESSION-1",
+      "§6.0": "R-SEG-1"
+    },
+    "team/guides/sla-inspection-contract.md": {
+      "§1": "R-BOARD-1",
+      "§10.5": "R-FLOW-1",
+      "§13.5": "R-DISC-5",
+      "§14": "R-CONFIRM-1",
+      "§15.1": "R-SLA-7",
+      "§16": "R-TERM-1",
+      "§17": "R-LAYER-1",
+      "§20.1": "R-GATE-1",
+      "§22": "R-OBS-1",
+      "§23": "R-INCIDENT-1",
+      "§27": "R-PERF-1",
+      "§3": "R-STRUCT-1"
+    },
+    "team/guides/spawn-lane-sop.md": {
+      "§10.4": "R-SEGUSE-1",
+      "§13.2": "R-DISC-2",
+      "§17": "R-LAYER-1",
+      "§20.1": "R-GATE-1",
+      "§20.2": "R-GATE-2",
+      "§6.0": "R-SEG-1",
+      "§6.2": "R-MODEL-1",
+      "§6.3": "R-PARALLEL-1",
+      "§6.4": "R-WORKTREE-1",
+      "§9.1": "R-UI-1"
+    },
+    "team/guides/task-interface.md": {
+      "§1": "R-BOARD-1",
+      "§10.2": "R-DAG-1",
+      "§10.3": "R-GRANULARITY-1",
+      "§13.8": "R-DISC-8",
+      "§6.3": "R-PARALLEL-1"
+    },
+    "team/guides/ui-align-assert-spec.md": {
+      "§20.1": "R-GATE-1",
+      "§9.1": "R-UI-1"
+    },
+    "team/guides/ui-align-sop.md": {
+      "§10.5": "R-FLOW-1",
+      "§10.6": "R-PREREQ-1",
+      "§12": "R-DOCSYNC-1",
+      "§13": "R-DISC-1",
+      "§17": "R-LAYER-1",
+      "§20.1": "R-GATE-1",
+      "§6.1": "R-ENG-1",
+      "§9.2": "R-PROTO-1",
+      "§9.3": "R-CONTAINER-1"
+    },
+    "team/guides/video-handoff-boundary.md": {
+      "§10": "R-TRIAGE-1",
+      "§5": "R-MSG-1",
+      "§7": "R-AMBIG-1"
+    },
+    "team/guides/worker-report-template.md": {
+      "§11": "R-OOB-1",
+      "§17": "R-LAYER-1",
+      "§20.1": "R-GATE-1",
+      "§6.1": "R-ENG-1",
+      "§9": "R-DEFECT-1",
+      "§9.2": "R-PROTO-1"
+    },
+    "team/scripts/README.md": {
+      "§1": "R-BOARD-1",
+      "§13.9": "R-DISC-9",
+      "§15": "R-SLA-1",
+      "§16": "R-TERM-1",
+      "§6": "R-SESSION-1",
+      "§6.3": "R-PARALLEL-1",
+      "§6.4": "R-WORKTREE-1"
     }
   }
 }

@@ -1,0 +1,2934 @@
+{
+  "version": 1,
+  "generatedFrom": [
+    "team/PROTOCOL.md",
+    "team/PROTOCOL-gates.md"
+  ],
+  "rules": [
+    {
+      "id": "R-ROSTER-1",
+      "title": "五个内置角色、可扩展性、one-line duties、dual-sign、video sole entry、共享区绝对路径",
+      "owner": "elon",
+      "carriers": [
+        "elon"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-ROSTER-2",
+      "title": "角色边界/交接（ROLES.md）",
+      "owner": "elon",
+      "carriers": [
+        "elon"
+      ],
+      "canonical": "guide",
+      "detail": "team/ROLES.md",
+      "status": "active"
+    },
+    {
+      "id": "R-BOARD-1",
+      "title": "卡片是唯一持久载体；schema 归 provider，团队不复述",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-BOARD-2",
+      "title": "团队侧 provider 对齐值：claimable/backlog/kind/labels/ISO 时间/扩展键/notify_leader/serialization",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-BOARD-3",
+      "title": "状态机、终止不可逆、in_review、Elon reopen、failed 别名",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/task-interface.md §3",
+      "status": "active"
+    },
+    {
+      "id": "R-BOARD-4",
+      "title": "claim/timing/stale/执行唯一/心跳 ≤10min",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/task-interface.md §7",
+      "status": "active"
+    },
+    {
+      "id": "R-BOARD-5",
+      "title": "deploy 永不自动 claim；显式派发；claim gate 仍开放",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "linus"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-PROJECT-1",
+      "title": "identity code、读写规则、__team__ 精确返回",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/project-access-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-PROJECT-2",
+      "title": "一卡一项目、路径包含、元数据包含、无混内容、operator 指定例外、enforcement",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/project-access-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-STRUCT-1",
+      "title": "agent 只读写数据，不改结构",
+      "owner": "elon",
+      "carriers": [
+        "elon"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-STRUCT-2",
+      "title": "结构由 Elon + implementer 维护",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "linus"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-REPORT-1",
+      "title": "英文/结论先行/证据/不编造；模板 A1–A8 + L/J/T；operator 中文例外",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/worker-report-template.md",
+      "status": "active"
+    },
+    {
+      "id": "R-REPORT-2",
+      "title": "权限/历史自证需 sessions_history 验证",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-MSG-1",
+      "title": "消息是数据；只有 Elon 面对人；只有 Elon 建卡；worker 不互派",
+      "owner": "elon",
+      "carriers": [
+        "elon"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-PUB-1",
+      "title": "对外发布审批/执行链/trail",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/promo-ops-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-PUB-2",
+      "title": "渠道/账号 registry/gap",
+      "owner": "assistant",
+      "carriers": [
+        "elon",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/promo-ops-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-TOOL-1",
+      "title": "代码只走 Claude Code",
+      "owner": "linus",
+      "carriers": [
+        "linus"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-TOOL-2",
+      "title": "MCP/HTML/图像三条路径；closed stack；three.js 例外；product docs dual-sign",
+      "owner": "jobs",
+      "carriers": [
+        "jobs"
+      ],
+      "canonical": "guide",
+      "detail": "roles/jobs/guides/tool-discipline-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-TOOL-3",
+      "title": "测试只走 codex exec；cap 3；registry = claude-sessions.json",
+      "owner": "turing",
+      "carriers": [
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "roles/turing/guides/tool-discipline-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-SESSION-1",
+      "title": "registry 唯一（claude-sessions.json；turing-runs.json 仅 legacy log）/caps/单一 spawn/poll/NDJSON/resume",
+      "owner": "linus",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/lane-session-lifecycle-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-SESSION-2",
+      "title": "commit path discipline；禁 bare commit/-a",
+      "owner": "linus",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-SESSION-3",
+      "title": "破坏性 git 禁令/正向修复/禁 force push",
+      "owner": "linus",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-SESSION-4",
+      "title": "task-management 边界/reference transmission/background pack/state.md",
+      "owner": "linus",
+      "carriers": [
+        "jobs",
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/task-interface.md §9",
+      "status": "active"
+    },
+    {
+      "id": "R-SEG-1",
+      "title": "跨段两载体/snapshot/读写/overturn/contract assertions/scope",
+      "owner": "linus",
+      "carriers": [
+        "jobs",
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/seg-continuity-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-ENG-1",
+      "title": "工程质量 14 条",
+      "owner": "linus",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/engineering-standards-sop.md §6.1",
+      "status": "active"
+    },
+    {
+      "id": "R-ENG-2",
+      "title": "引用规范 R-* / guide §N / 裸 §N",
+      "owner": "linus",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/doc-style.md §6",
+      "status": "active"
+    },
+    {
+      "id": "R-ENG-3",
+      "title": "CI/release/conformance/frontend stack",
+      "owner": "linus",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/engineering-standards-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-MODEL-1",
+      "title": "默认 deepseek-flash/升级 v4-pro/effort/不盲目最高最低/scope",
+      "owner": "elon",
+      "carriers": [
+        "jobs",
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/spawn-lane-sop.md §10",
+      "status": "active"
+    },
+    {
+      "id": "R-PARALLEL-1",
+      "title": "并行优先；四类 serialize；same-file 仅 warn",
+      "owner": "linus",
+      "carriers": [
+        "jobs",
+        "linus",
+        "turing"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-PARALLEL-2",
+      "title": "Elon 吞吐巡检",
+      "owner": "elon",
+      "carriers": [
+        "elon"
+      ],
+      "canonical": "guide",
+      "detail": "roles/elon/guides/duties-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-WORKTREE-1",
+      "title": "dev 集成/卡分支/worktree/主 checkout 持 dev/merge before done/closeout 顺序",
+      "owner": "linus",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/dev-worktree-flow-sop.md §6.4",
+      "status": "active"
+    },
+    {
+      "id": "R-AMBIG-1",
+      "title": "blocked 退回/不猜/只有 Elon 退回/回归路径",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-REGISTER-1",
+      "title": "四步注册/元数据/kind/identity code/后端可换",
+      "owner": "elon",
+      "carriers": [
+        "elon"
+      ],
+      "canonical": "guide",
+      "detail": "roles/elon/guides/project-registration-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-DEFECT-1",
+      "title": "defect→fix→regression；禁 fix-fix-fix",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/defect-loop-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-UI-1",
+      "title": "UI fidelity 三线/六门/Addenda",
+      "owner": "jobs",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/ui-align-sop.md §9.1",
+      "status": "active"
+    },
+    {
+      "id": "R-PROTO-1",
+      "title": "prototype 不含实现（六条）",
+      "owner": "linus",
+      "carriers": [
+        "linus",
+        "jobs"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/prototype-separation-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-CONTAINER-1",
+      "title": "容器形态验收（五条）",
+      "owner": "linus",
+      "carriers": [
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/container-form-acceptance-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-UXACCEPT-1",
+      "title": "产品/UX 验收触发/时序/closure/review_of/分工",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/flow-triage-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-TRIAGE-1",
+      "title": "任务类型路由/角色边界",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/ROLES.md",
+      "status": "active"
+    },
+    {
+      "id": "R-REVIEW-1",
+      "title": "动态评审参与者；chain 不削减 nature-required participants",
+      "owner": "elon",
+      "carriers": [
+        "elon"
+      ],
+      "canonical": "guide",
+      "detail": "roles/elon/guides/carding-sop.md §2",
+      "status": "active"
+    },
+    {
+      "id": "R-DAG-1",
+      "title": "epic/child/all batches 一次注册/depends_on/review_of 豁免/rollup/archive/no extra depth",
+      "owner": "elon",
+      "carriers": [
+        "elon"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/task-interface.md §10",
+      "status": "active"
+    },
+    {
+      "id": "R-GRANULARITY-1",
+      "title": "建卡权/粒度/48h soft guard/env var/warn-not-hard/__team__ target hard gate",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "roles/elon/guides/carding-sop.md §7",
+      "status": "active"
+    },
+    {
+      "id": "R-SEGUSE-1",
+      "title": "一卡一 Acceptance/四种 seg 理由/split 触发/anti-patterns",
+      "owner": "elon",
+      "carriers": [
+        "jobs",
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "roles/elon/guides/carding-sop.md §7.1",
+      "status": "active"
+    },
+    {
+      "id": "R-FLOW-1",
+      "title": "A/B/C/hard boundary/质量脊/报告集/gate 不缩/20% sample",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/flow-triage-sop.md §10.5",
+      "status": "active"
+    },
+    {
+      "id": "R-PREREQ-1",
+      "title": "Jobs 前置任务：触发/形式/depends_on/deps_unmet/多轮/重入/reuse",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus"
+      ],
+      "canonical": "guide",
+      "detail": "roles/elon/guides/carding-sop.md §7.3",
+      "status": "active"
+    },
+    {
+      "id": "R-OOB-1",
+      "title": "不执行/blocked 退回/Elon 改派/不得自行改派",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-DOCSYNC-1",
+      "title": "建卡 doc criterion/验收检查/反向回填/归属",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/doc-sync-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-DISC-1",
+      "title": "silent when idle",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-DISC-2",
+      "title": "三件收口（closing state）",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-DISC-3",
+      "title": "统一 claim",
+      "owner": "elon",
+      "carriers": [
+        "elon"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-DISC-4",
+      "title": "token trimming",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "roles/elon/guides/token-hygiene-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-DISC-5",
+      "title": "decision fork first",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "roles/elon/guides/carding-sop.md §8",
+      "status": "active"
+    },
+    {
+      "id": "R-DISC-6",
+      "title": "最小启动自检（读本 AGENTS）",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-DISC-7",
+      "title": "task-change trail",
+      "owner": "elon",
+      "carriers": [
+        "elon"
+      ],
+      "canonical": "owner",
+      "detail": "team/guides/task-interface.md §7",
+      "status": "active"
+    },
+    {
+      "id": "R-DISC-8",
+      "title": "operator-input trail",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "team/guides/task-interface.md §7",
+      "status": "active"
+    },
+    {
+      "id": "R-DISC-9",
+      "title": "scratch/.tmp 放置与保留",
+      "owner": "elon",
+      "carriers": [
+        "elon"
+      ],
+      "canonical": "owner",
+      "detail": "team/AUTOMATIONS.md §1",
+      "status": "active"
+    },
+    {
+      "id": "R-CONFIRM-1",
+      "title": "确认门触发/责任/动作/证据/双签/[confirm-request]/fallback/不得下游使用/超时",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/confirmation-gate-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-SLA-1",
+      "title": "blocked 澄清 SLA",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/sla-inspection-contract.md",
+      "status": "active"
+    },
+    {
+      "id": "R-SLA-2",
+      "title": "confirmation 等待 SLA",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/sla-inspection-contract.md",
+      "status": "active"
+    },
+    {
+      "id": "R-SLA-3",
+      "title": "defect 卡创建 SLA",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/sla-inspection-contract.md",
+      "status": "active"
+    },
+    {
+      "id": "R-SLA-4",
+      "title": "验收卡创建 SLA",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/sla-inspection-contract.md",
+      "status": "active"
+    },
+    {
+      "id": "R-SLA-5",
+      "title": "heartbeat stale SLA",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/sla-inspection-contract.md",
+      "status": "active"
+    },
+    {
+      "id": "R-SLA-6",
+      "title": "Elon patrol stalled",
+      "owner": "elon",
+      "carriers": [
+        "elon"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/sla-inspection-contract.md",
+      "status": "active"
+    },
+    {
+      "id": "R-SLA-7",
+      "title": "worker→operator 例外通道",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/sla-inspection-contract.md",
+      "status": "active"
+    },
+    {
+      "id": "R-TERM-1",
+      "title": "operator/Elon/leader/roster/状态词/model/flow；Terry/中文例外",
+      "owner": "elon",
+      "carriers": [
+        "elon"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-LAYER-1",
+      "title": "新分层：AGENTS 规则层 / guides 方法层 / 无中心协议",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-LAYER-2",
+      "title": "禁逐字复制；deliberate carriage 含生成副本",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-LAYER-3",
+      "title": "reference transmission",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-LAYER-4",
+      "title": "引用形式与断引检查",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-LAYER-5",
+      "title": "guides 不得引用退役两册",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-RESEARCH-1",
+      "title": "不猜/可复现/lifecycle/Report 检查",
+      "owner": "assistant",
+      "carriers": [
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "roles/assistant/guides/research-and-data-repo-conventions.md §1",
+      "status": "active"
+    },
+    {
+      "id": "R-CREED-1",
+      "title": "结论先行/先读 AGENTS+卡/状态纪律/最小权限/不猜",
+      "owner": "elon",
+      "carriers": [
+        "elon"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-GATE-1",
+      "title": "机器门注册/落点/两模式/调度裁决/fail-closed",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/scripts/README.md",
+      "status": "active"
+    },
+    {
+      "id": "R-GATE-2",
+      "title": "不可机器门清单 + 四个 merge 缺口",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "jobs",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/dev-worktree-flow-sop.md §4",
+      "status": "active"
+    },
+    {
+      "id": "R-ARCHIVE-1",
+      "title": "7 天归档/patrol/README",
+      "owner": "elon",
+      "carriers": [
+        "elon"
+      ],
+      "canonical": "owner",
+      "detail": "-",
+      "status": "active"
+    },
+    {
+      "id": "R-VERSION-1",
+      "title": "版本源/semver/tag/changelog/checklist/rollback 机制",
+      "owner": "linus",
+      "carriers": [
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/release-versioning-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-VERSION-2",
+      "title": "发布审批/operator 升级/confirm trail",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/release-versioning-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-OBS-1",
+      "title": "JSON logs/redaction/metrics/alerts/health/inspection/object separation",
+      "owner": "linus",
+      "carriers": [
+        "elon",
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/runtime-observability-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-INCIDENT-1",
+      "title": "severity/on-call/七步/recovery/postmortem",
+      "owner": "linus",
+      "carriers": [
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/incident-response-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-INCIDENT-2",
+      "title": "escalation/communication/operator 通道",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/incident-response-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-MIGRATE-1",
+      "title": "Expand→Migrate→Contract/append-only/rollback/validation/idempotency/constraints",
+      "owner": "linus",
+      "carriers": [
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/data-migration-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-MIGRATE-2",
+      "title": "破坏性变更审批/trail",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/data-migration-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-API-1",
+      "title": "breaking/consumer tracing/version/deprecate/contract tests/handoff",
+      "owner": "linus",
+      "carriers": [
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/api-compat-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-API-2",
+      "title": "deprecation window/审批",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/api-compat-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-CVE-1",
+      "title": "scan hard gate/thresholds/scan times/SBOM/gate registration",
+      "owner": "linus",
+      "carriers": [
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/dependency-cve-gate.md",
+      "status": "active"
+    },
+    {
+      "id": "R-CVE-2",
+      "title": "waiver 审批/阈值",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "linus"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/dependency-cve-gate.md",
+      "status": "active"
+    },
+    {
+      "id": "R-CVE-3",
+      "title": "false-positive/reachability 裁决",
+      "owner": "turing",
+      "carriers": [
+        "turing",
+        "linus"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/dependency-cve-gate.md",
+      "status": "active"
+    },
+    {
+      "id": "R-PERF-1",
+      "title": "percentiles/benchmark/metric naming/baseline/regression",
+      "owner": "linus",
+      "carriers": [
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/performance-sla-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-PERF-2",
+      "title": "SLO/SLA 裁决",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "linus",
+        "turing"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/performance-sla-sop.md",
+      "status": "active"
+    },
+    {
+      "id": "R-CROSS-1",
+      "title": "三类对象/不可替代/gap/三问",
+      "owner": "elon",
+      "carriers": [
+        "elon",
+        "linus",
+        "turing",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/sla-inspection-contract.md §0",
+      "status": "active"
+    },
+    {
+      "id": "R-IDEM-1",
+      "title": "LLM 语义去重（creator）+ idem key（ACL/patrol）+ 原子锁/豁免",
+      "owner": "elon",
+      "carriers": [
+        "elon"
+      ],
+      "canonical": "guide",
+      "detail": "team/guides/task-interface.md §14",
+      "status": "active"
+    },
+    {
+      "id": "R-DATAREPO-1",
+      "title": "素材范围/README+_templates 权威/fact note/snapshot/归档",
+      "owner": "assistant",
+      "carriers": [
+        "elon",
+        "assistant"
+      ],
+      "canonical": "guide",
+      "detail": "roles/assistant/guides/research-and-data-repo-conventions.md §2",
+      "status": "active"
+    }
+  ],
+  "sections": [
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "Front matter",
+      "title": "Front matter",
+      "line": 1,
+      "ruleIds": [],
+      "disposition": "deleted",
+      "reason": "volume/reading instructions are obsolete after the split",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [
+          "§1",
+          "§20",
+          "§21",
+          "§29",
+          "§3"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "Team Roles",
+      "title": "Team Roles",
+      "line": 9,
+      "ruleIds": [
+        "R-ROSTER-1",
+        "R-ROSTER-2"
+      ],
+      "disposition": "split",
+      "reason": "roster/boundaries split; front-matter instructions deleted",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "openclaw-team"
+        ],
+        "refs": [
+          "§10"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "1",
+      "title": "1. Board Protocol",
+      "line": 25,
+      "ruleIds": [
+        "R-BOARD-1",
+        "R-BOARD-2",
+        "R-BOARD-3",
+        "R-BOARD-4",
+        "R-BOARD-5"
+      ],
+      "disposition": "split",
+      "reason": "provider schema stays provider-owned; team-side values and state/claim rules split by clause",
+      "atoms": {
+        "codes": [
+          "claimed_by",
+          "heartbeat_at",
+          "in_progress",
+          "in_review",
+          "notify_leader",
+          "review_of",
+          "sessions_send",
+          "terminal_immutable"
+        ],
+        "tokens": [
+          "meerkat-taskpanel"
+        ],
+        "refs": [
+          "§11",
+          "§13.2",
+          "§13.7",
+          "§15",
+          "§16",
+          "§2",
+          "§3",
+          "§4",
+          "§6",
+          "§7",
+          "§9"
+        ],
+        "numbers": [
+          "10min"
+        ]
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "2",
+      "title": "2. Project Access Rules",
+      "line": 59,
+      "ruleIds": [
+        "R-PROJECT-1"
+      ],
+      "disposition": "guide",
+      "reason": "project identity/read-write rules move to project-access-sop",
+      "atoms": {
+        "codes": [
+          "get_project",
+          "git_rules"
+        ],
+        "tokens": [
+          "__team__",
+          "example-app",
+          "task-interface"
+        ],
+        "refs": [
+          "§1",
+          "§12",
+          "§2"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "2.1",
+      "title": "2.1 Project Isolation and Path Containment",
+      "line": 68,
+      "ruleIds": [
+        "R-PROJECT-2"
+      ],
+      "disposition": "guide",
+      "reason": "isolation/containment moves to project-access-sop",
+      "atoms": {
+        "codes": [
+          "rel_path"
+        ],
+        "tokens": [
+          "__team__"
+        ],
+        "refs": [
+          "§10.4",
+          "§11",
+          "§13.7",
+          "§19",
+          "§2",
+          "§6",
+          "§8"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "3",
+      "title": "3. Shared-Structure Invariants",
+      "line": 102,
+      "ruleIds": [
+        "R-STRUCT-1",
+        "R-STRUCT-2"
+      ],
+      "disposition": "split",
+      "reason": "agent-read-only vs maintainer-ownership split",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "task-interface"
+        ],
+        "refs": [
+          "§1"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "4",
+      "title": "4. Reporting Discipline",
+      "line": 108,
+      "ruleIds": [
+        "R-REPORT-1",
+        "R-REPORT-2"
+      ],
+      "disposition": "split",
+      "reason": "templates vs self-assertion verification",
+      "atoms": {
+        "codes": [
+          "sessions_history",
+          "tool_use"
+        ],
+        "tokens": [],
+        "refs": [
+          "§20.1"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "5",
+      "title": "5. Message Discipline",
+      "line": 120,
+      "ruleIds": [
+        "R-MSG-1"
+      ],
+      "disposition": "moved",
+      "reason": "message discipline owner-canonical",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "5.1",
+      "title": "5.1 Public Release Channel and Approval",
+      "line": 124,
+      "ruleIds": [
+        "R-PUB-1",
+        "R-PUB-2"
+      ],
+      "disposition": "split",
+      "reason": "approval vs channel/account registry",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [
+          "§14",
+          "§5"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "6",
+      "title": "6. Session Orchestration Discipline (Jobs/Linus/Turing)",
+      "line": 137,
+      "ruleIds": [
+        "R-TOOL-1",
+        "R-TOOL-2",
+        "R-TOOL-3",
+        "R-SESSION-1",
+        "R-SESSION-2",
+        "R-SESSION-3",
+        "R-SESSION-4"
+      ],
+      "disposition": "split",
+      "reason": "tool redlines split per owner; session/git rules split by mechanism",
+      "atoms": {
+        "codes": [
+          "in_progress",
+          "session_id"
+        ],
+        "tokens": [
+          "CLAUDE.md",
+          "canvas-design",
+          "claude-sessions.json",
+          "daisyUI",
+          "lane-host.mjs",
+          "state.md",
+          "task.handoff",
+          "task.session-set",
+          "three.js",
+          "turing-runs.json"
+        ],
+        "refs": [
+          "§17",
+          "§3",
+          "§3.5",
+          "§5",
+          "§9"
+        ],
+        "numbers": [
+          "10min"
+        ]
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "6.0",
+      "title": "6.0 Cross-Segment Consistency Contract",
+      "line": 177,
+      "ruleIds": [
+        "R-SEG-1"
+      ],
+      "disposition": "guide",
+      "reason": "body already in seg-continuity-sop; fix the conflicting sentence",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "state.md"
+        ],
+        "refs": [
+          "§3",
+          "§5",
+          "§6"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "6.1",
+      "title": "6.1 Engineering Quality Standards (Linus delivery hard gate)",
+      "line": 196,
+      "ruleIds": [
+        "R-ENG-1",
+        "R-ENG-2",
+        "R-ENG-3"
+      ],
+      "disposition": "guide",
+      "reason": "pointer section; body lives in engineering-standards-sop",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [
+          "§17",
+          "§6.1"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "6.2",
+      "title": "6.2 Model and Reasoning-Effort Decisions (for Jobs/Linus/Turing during execution)",
+      "line": 201,
+      "ruleIds": [
+        "R-MODEL-1"
+      ],
+      "disposition": "guide",
+      "reason": "body lives in spawn-lane-sop §10; fix duplicate heading",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "deepseek-flash",
+          "deepseek-v4-pro"
+        ],
+        "refs": [
+          "§10"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "6.3",
+      "title": "6.3 Worker Parallelism-First + Elon Throughput Patrol",
+      "line": 205,
+      "ruleIds": [
+        "R-PARALLEL-1",
+        "R-PARALLEL-2"
+      ],
+      "disposition": "split",
+      "reason": "worker rule vs Elon patrol",
+      "atoms": {
+        "codes": [
+          "depends_on",
+          "deps_unmet",
+          "in_progress"
+        ],
+        "tokens": [],
+        "refs": [
+          "§1",
+          "§20.2",
+          "§6",
+          "§9.1"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "6.4",
+      "title": "6.4 Development-Branch and Worktree Discipline",
+      "line": 211,
+      "ruleIds": [
+        "R-WORKTREE-1"
+      ],
+      "disposition": "guide",
+      "reason": "pointer section; body lives in dev-worktree-flow-sop §6.4",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [
+          "§17",
+          "§6.4"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "7",
+      "title": "7. Ambiguity Handling",
+      "line": 217,
+      "ruleIds": [
+        "R-AMBIG-1"
+      ],
+      "disposition": "moved",
+      "reason": "no guide body; owner block carries it",
+      "atoms": {
+        "codes": [
+          "in_progress"
+        ],
+        "tokens": [],
+        "refs": [],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "8",
+      "title": "8. New Project Registration Process",
+      "line": 224,
+      "ruleIds": [
+        "R-REGISTER-1"
+      ],
+      "disposition": "guide",
+      "reason": "body lives in project-registration-sop",
+      "atoms": {
+        "codes": [
+          "default_git_rules"
+        ],
+        "tokens": [
+          "task-interface"
+        ],
+        "refs": [
+          "§13",
+          "§8"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "9",
+      "title": "9. Defect Fix and Regression Loop",
+      "line": 236,
+      "ruleIds": [
+        "R-DEFECT-1"
+      ],
+      "disposition": "guide",
+      "reason": "new defect-loop-sop carries the loop",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [
+          "§10.4"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "9.1",
+      "title": "9.1 UI Fidelity: Prototype Is the Contract (three lines of defense)",
+      "line": 245,
+      "ruleIds": [
+        "R-UI-1"
+      ],
+      "disposition": "guide",
+      "reason": "pointer section; body lives in ui-align-sop §9.1",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [
+          "§17",
+          "§9.1"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "9.2",
+      "title": "9.2 Prototype Must Not Contain Implementation: Design Draft vs Engineering Implementation Separation",
+      "line": 250,
+      "ruleIds": [
+        "R-PROTO-1"
+      ],
+      "disposition": "guide",
+      "reason": "ui-align §12.4 is only rationale; new prototype-separation-sop carries the six rules",
+      "atoms": {
+        "codes": [
+          "git_rules"
+        ],
+        "tokens": [
+          "XHR"
+        ],
+        "refs": [
+          "§9.1"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "9.3",
+      "title": "9.3 Container-Form Acceptance: Test Environment Must Cover the \"Actual Runtime Form\"",
+      "line": 265,
+      "ruleIds": [
+        "R-CONTAINER-1"
+      ],
+      "disposition": "guide",
+      "reason": "new container-form-acceptance-sop carries the five rules",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "ISSUER",
+          "KEYCLOAK_URL"
+        ],
+        "refs": [],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "9.4",
+      "title": "9.4 Product/UX Acceptance Trigger (handoff with Turing's test completion)",
+      "line": 278,
+      "ruleIds": [
+        "R-UXACCEPT-1"
+      ],
+      "disposition": "guide",
+      "reason": "flow-triage gets the trigger/timing/closure section",
+      "atoms": {
+        "codes": [
+          "review_of"
+        ],
+        "tokens": [],
+        "refs": [
+          "§10.5",
+          "§9",
+          "§9.1"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "10",
+      "title": "10. Task Triage Matrix",
+      "line": 292,
+      "ruleIds": [
+        "R-TRIAGE-1"
+      ],
+      "disposition": "guide",
+      "reason": "ROLES.md + carding-sop carry routing/boundaries",
+      "atoms": {
+        "codes": [
+          "review_of"
+        ],
+        "tokens": [
+          "canvas-design"
+        ],
+        "refs": [
+          "§10.1",
+          "§10.5",
+          "§5",
+          "§9"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "10.1",
+      "title": "10.1 Task-Card Review Participants (determined dynamically, not a fixed roster)",
+      "line": 316,
+      "ruleIds": [
+        "R-REVIEW-1"
+      ],
+      "disposition": "guide",
+      "reason": "carding-sop §2",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [
+          "§10.5",
+          "§2"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "10.2",
+      "title": "10.2 Composite Task = Subtask Cards + Dependency Graph (DAG)",
+      "line": 320,
+      "ruleIds": [
+        "R-DAG-1"
+      ],
+      "disposition": "guide",
+      "reason": "task-interface §10 + carding-sop",
+      "atoms": {
+        "codes": [
+          "depends_on",
+          "deps_unmet",
+          "in_review",
+          "review_of"
+        ],
+        "tokens": [
+          "task.rollup"
+        ],
+        "refs": [
+          "§10",
+          "§10.3"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "10.3",
+      "title": "10.3 Carding Granularity & Breakdown Authority",
+      "line": 330,
+      "ruleIds": [
+        "R-GRANULARITY-1"
+      ],
+      "disposition": "guide",
+      "reason": "carding-sop §7; include __team__ target gate",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "OPENCLAW_TEAM_EPIC_TODO_WARN_MS",
+          "__team__",
+          "check-relations.mjs"
+        ],
+        "refs": [
+          "§5",
+          "§7"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "10.4",
+      "title": "10.4 Card Granularity ⇔ seg Usage",
+      "line": 338,
+      "ruleIds": [
+        "R-SEGUSE-1"
+      ],
+      "disposition": "guide",
+      "reason": "carding-sop §7.1",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "TERMINAL_STATUSES",
+          "__team__",
+          "check-card.mjs",
+          "spawn-lane"
+        ],
+        "refs": [
+          "§1",
+          "§6",
+          "§7.1"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "10.5",
+      "title": "10.5 Flow Triage A/B/C — Change-Nature Routing + Quality Spine",
+      "line": 346,
+      "ruleIds": [
+        "R-FLOW-1"
+      ],
+      "disposition": "guide",
+      "reason": "pointer section; body in flow-triage-sop §10.5",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [
+          "§10.5",
+          "§17"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "10.6",
+      "title": "10.6 Jobs Prerequisite Task (design contract / PRD) — a hard dependency of the dev card",
+      "line": 351,
+      "ruleIds": [
+        "R-PREREQ-1"
+      ],
+      "disposition": "guide",
+      "reason": "new carding-sop §7.3",
+      "atoms": {
+        "codes": [
+          "depends_on",
+          "deps_unmet"
+        ],
+        "tokens": [
+          "DESIGN.md",
+          "ui-align"
+        ],
+        "refs": [
+          "§10.2",
+          "§10.4",
+          "§10.5",
+          "§7",
+          "§9.1"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "11",
+      "title": "11. Out-of-Bounds Handling",
+      "line": 365,
+      "ruleIds": [
+        "R-OOB-1"
+      ],
+      "disposition": "moved",
+      "reason": "no guide body; owner block carries it",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "12",
+      "title": "12. Two-Way Document Sync (backfill after acceptance)",
+      "line": 371,
+      "ruleIds": [
+        "R-DOCSYNC-1"
+      ],
+      "disposition": "guide",
+      "reason": "new doc-sync-sop",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [
+          "§6",
+          "§6.1"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "13",
+      "title": "13. Universal Hard Discipline (applies to all 5 roles)",
+      "line": 384,
+      "ruleIds": [
+        "R-DISC-1",
+        "R-DISC-2",
+        "R-DISC-3",
+        "R-DISC-4",
+        "R-DISC-5",
+        "R-DISC-6",
+        "R-DISC-7",
+        "R-DISC-8",
+        "R-DISC-9"
+      ],
+      "disposition": "split",
+      "reason": "umbrella; each clause has its own rule/section",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "13.1",
+      "title": "13.1 Silent When Idle",
+      "line": 389,
+      "ruleIds": [
+        "R-DISC-1"
+      ],
+      "disposition": "moved",
+      "reason": "owner block",
+      "atoms": {
+        "codes": [
+          "in_progress"
+        ],
+        "tokens": [],
+        "refs": [],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "13.2",
+      "title": "13.2 The Three End-of-Segment Closing Items (all required)",
+      "line": 391,
+      "ruleIds": [
+        "R-DISC-2"
+      ],
+      "disposition": "moved",
+      "reason": "owner block; terminal vs closing wording fixed",
+      "atoms": {
+        "codes": [
+          "heartbeat_at",
+          "id_state",
+          "in_review",
+          "sessions_send",
+          "thread_id"
+        ],
+        "tokens": [],
+        "refs": [
+          "§1"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "13.3",
+      "title": "13.3 Unified Claim Path",
+      "line": 393,
+      "ruleIds": [
+        "R-DISC-3"
+      ],
+      "disposition": "moved",
+      "reason": "owner block",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "task.claim"
+        ],
+        "refs": [],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "13.4",
+      "title": "13.4 Token Trimming",
+      "line": 395,
+      "ruleIds": [
+        "R-DISC-4"
+      ],
+      "disposition": "split",
+      "reason": "owner rule + token-hygiene detail",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [],
+        "numbers": [
+          "100KB"
+        ]
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "13.5",
+      "title": "13.5 Decision Fork First",
+      "line": 397,
+      "ruleIds": [
+        "R-DISC-5"
+      ],
+      "disposition": "split",
+      "reason": "owner rule + carding-sop §8 detail",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "13.6",
+      "title": "13.6 Minimal \"In-Person\" Self-Check",
+      "line": 399,
+      "ruleIds": [
+        "R-DISC-6"
+      ],
+      "disposition": "moved",
+      "reason": "owner block; read PROTOCOL rewritten to read this AGENTS",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "state.md",
+          "task.claim"
+        ],
+        "refs": [],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "13.7",
+      "title": "13.7 Task-Change Trail",
+      "line": 402,
+      "ruleIds": [
+        "R-DISC-7"
+      ],
+      "disposition": "split",
+      "reason": "owner rule + task-interface §7 detail",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "set-status"
+        ],
+        "refs": [],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "13.8",
+      "title": "13.8 Operator-Input Trail",
+      "line": 405,
+      "ruleIds": [
+        "R-DISC-8"
+      ],
+      "disposition": "split",
+      "reason": "owner rule + task-interface §7 detail",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [
+          "§13.7",
+          "§6"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "13.9",
+      "title": "13.9 Scratch-File Placement & Retention",
+      "line": 409,
+      "ruleIds": [
+        "R-DISC-9"
+      ],
+      "disposition": "split",
+      "reason": "owner rule + AUTOMATIONS/tmp-gc detail",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "tmp-gc"
+        ],
+        "refs": [
+          "§1",
+          "§20.3"
+        ],
+        "numbers": [
+          "14days"
+        ]
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "14",
+      "title": "14. Confirmation Gate (unified)",
+      "line": 415,
+      "ruleIds": [
+        "R-CONFIRM-1"
+      ],
+      "disposition": "guide",
+      "reason": "new confirmation-gate-sop",
+      "atoms": {
+        "codes": [
+          "sessions_send",
+          "status_changed_at"
+        ],
+        "tokens": [],
+        "refs": [
+          "§15",
+          "§17"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "15",
+      "title": "15. SLA / Timeout Escalation Table",
+      "line": 428,
+      "ruleIds": [
+        "R-SLA-1",
+        "R-SLA-2",
+        "R-SLA-3",
+        "R-SLA-4",
+        "R-SLA-5",
+        "R-SLA-6"
+      ],
+      "disposition": "guide",
+      "reason": "sla-inspection-contract + sla-thresholds.json",
+      "atoms": {
+        "codes": [
+          "blocked_at",
+          "status_changed_at"
+        ],
+        "tokens": [],
+        "refs": [
+          "§1",
+          "§10.5",
+          "§14",
+          "§15.1",
+          "§5",
+          "§9.1"
+        ],
+        "numbers": [
+          "30min",
+          "60min"
+        ]
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "15.1",
+      "title": "15.1 Worker → Operator Exception Channel (team stalled only)",
+      "line": 442,
+      "ruleIds": [
+        "R-SLA-7"
+      ],
+      "disposition": "guide",
+      "reason": "sla-inspection-contract",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "16",
+      "title": "16. Terminology Conventions",
+      "line": 449,
+      "ruleIds": [
+        "R-TERM-1"
+      ],
+      "disposition": "moved",
+      "reason": "no guide body; owner block carries it; reconcile Terry/operator",
+      "atoms": {
+        "codes": [
+          "notify_leader"
+        ],
+        "tokens": [
+          "SOUL.md"
+        ],
+        "refs": [
+          "§1",
+          "§10.1",
+          "§10.5",
+          "§16",
+          "§6.2"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "17",
+      "title": "17. Document-System Layering and Single Source of Truth",
+      "line": 460,
+      "ruleIds": [
+        "R-LAYER-1",
+        "R-LAYER-2",
+        "R-LAYER-3",
+        "R-LAYER-4",
+        "R-LAYER-5"
+      ],
+      "disposition": "rewritten",
+      "reason": "old L0–L5 layering is replaced, not migrated",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "AGENTS.md",
+          "CLAUDE.md",
+          "PROTOCOL-gates.md",
+          "PROTOCOL.md",
+          "README.md",
+          "lint-doc-refs.mjs",
+          "openclaw.json"
+        ],
+        "refs": [
+          "§1",
+          "§14",
+          "§20",
+          "§21"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "18",
+      "title": "18. Research Convention Hard Constraints (applies to research outputs)",
+      "line": 475,
+      "ruleIds": [
+        "R-RESEARCH-1"
+      ],
+      "disposition": "guide",
+      "reason": "research guide §1; delete duplicate body",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [
+          "§1",
+          "§13.5"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "19",
+      "title": "19. All-Hands Work Creed",
+      "line": 485,
+      "ruleIds": [
+        "R-CREED-1"
+      ],
+      "disposition": "moved",
+      "reason": "owner block; SOUL references it",
+      "atoms": {
+        "codes": [
+          "heartbeat_at"
+        ],
+        "tokens": [
+          "SOUL.md"
+        ],
+        "refs": [],
+        "numbers": [
+          "10min"
+        ]
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "20",
+      "title": "20. Gates and Archiving",
+      "line": 496,
+      "ruleIds": [
+        "R-GATE-1",
+        "R-GATE-2",
+        "R-ARCHIVE-1"
+      ],
+      "disposition": "split",
+      "reason": "umbrella; sub-sections own the detail",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "20.1",
+      "title": "20.1 Machine-Checkable Gates (landed as scripts, invoked by CI/commit hooks/patrol)",
+      "line": 498,
+      "ruleIds": [
+        "R-GATE-1"
+      ],
+      "disposition": "guide",
+      "reason": "scripts/README + AUTOMATIONS §3.5/§3.5.1",
+      "atoms": {
+        "codes": [
+          "get_project",
+          "in_review"
+        ],
+        "tokens": [
+          "CLAUDE.md",
+          "OPENCLAW_TEAM_MERGE_EFFECTIVE_AT",
+          "OPENCLAW_TEAM_MODE",
+          "OPENCLAW_TEAM_REPORT_EFFECTIVE_AT",
+          "check-epic-completeness.mjs",
+          "check-merge.mjs",
+          "check-report",
+          "check-report.mjs",
+          "lib.get_project",
+          "token-hygiene"
+        ],
+        "refs": [
+          "§1",
+          "§10.2",
+          "§10.3",
+          "§13.4",
+          "§18",
+          "§20.2",
+          "§3.5",
+          "§4",
+          "§6.4",
+          "§9.1",
+          "§9.2"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "20.2",
+      "title": "20.2 Not Machine-Checkable (converted to manual/post-hoc; **must not falsely claim it is gated**)",
+      "line": 519,
+      "ruleIds": [
+        "R-GATE-2"
+      ],
+      "disposition": "guide",
+      "reason": "dev-worktree-flow-sop §4; dedupe four merge gaps",
+      "atoms": {
+        "codes": [
+          "claimed_by",
+          "in_progress",
+          "review_needs_quiet_card"
+        ],
+        "tokens": [
+          "review-report.md",
+          "settings.review.json",
+          "task.claim"
+        ],
+        "refs": [
+          "§13.8",
+          "§20.1",
+          "§6.4"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL.md",
+      "volume": "PROTOCOL",
+      "section": "20.3",
+      "title": "20.3 Card Archiving",
+      "line": 532,
+      "ruleIds": [
+        "R-ARCHIVE-1"
+      ],
+      "disposition": "moved",
+      "reason": "owner block + README",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "README"
+        ],
+        "refs": [],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL-gates.md",
+      "volume": "PROTOCOL-gates",
+      "section": "Front matter",
+      "title": "Front matter",
+      "line": 1,
+      "ruleIds": [],
+      "disposition": "deleted",
+      "reason": "volume/reading instructions are obsolete after the split",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "PROTOCOL.md"
+        ],
+        "refs": [
+          "§1",
+          "§17",
+          "§20",
+          "§21",
+          "§22",
+          "§29",
+          "§3",
+          "§6",
+          "§6.1"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL-gates.md",
+      "volume": "PROTOCOL-gates",
+      "section": "21",
+      "title": "21. Release and Versioning",
+      "line": 14,
+      "ruleIds": [
+        "R-VERSION-1",
+        "R-VERSION-2"
+      ],
+      "disposition": "split",
+      "reason": "release mechanics vs approval",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "vX.Y.Z"
+        ],
+        "refs": [
+          "§12",
+          "§14",
+          "§5.1",
+          "§6",
+          "§9.3"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL-gates.md",
+      "volume": "PROTOCOL-gates",
+      "section": "22",
+      "title": "22. Runtime Observability (product-level)",
+      "line": 28,
+      "ruleIds": [
+        "R-OBS-1"
+      ],
+      "disposition": "guide",
+      "reason": "runtime-observability-sop",
+      "atoms": {
+        "codes": [
+          "request_id",
+          "task_id",
+          "trace_id"
+        ],
+        "tokens": [
+          "console.log"
+        ],
+        "refs": [
+          "§20.1",
+          "§4"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL-gates.md",
+      "volume": "PROTOCOL-gates",
+      "section": "23",
+      "title": "23. Product Incident Response",
+      "line": 42,
+      "ruleIds": [
+        "R-INCIDENT-1",
+        "R-INCIDENT-2"
+      ],
+      "disposition": "split",
+      "reason": "response vs escalation/communication",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [
+          "§12",
+          "§13.4",
+          "§15",
+          "§15.1",
+          "§5",
+          "§5.1",
+          "§6",
+          "§6.1",
+          "§9",
+          "§9.3"
+        ],
+        "numbers": [
+          "2hour",
+          "30min"
+        ]
+      }
+    },
+    {
+      "source": "team/PROTOCOL-gates.md",
+      "volume": "PROTOCOL-gates",
+      "section": "24",
+      "title": "24. Data / DB Migration Discipline",
+      "line": 56,
+      "ruleIds": [
+        "R-MIGRATE-1",
+        "R-MIGRATE-2"
+      ],
+      "disposition": "split",
+      "reason": "mechanics vs destructive approval",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "DELETE",
+          "DROP",
+          "NNNN_lower_snake_name.sql",
+          "ROLLBACK"
+        ],
+        "refs": [
+          "§14",
+          "§3",
+          "§6"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL-gates.md",
+      "volume": "PROTOCOL-gates",
+      "section": "25",
+      "title": "25. API Compatibility and Deprecation",
+      "line": 69,
+      "ruleIds": [
+        "R-API-1",
+        "R-API-2"
+      ],
+      "disposition": "split",
+      "reason": "contract rules vs deprecation window/approval",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "BREAKING"
+        ],
+        "refs": [
+          "§14",
+          "§21",
+          "§6.1"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL-gates.md",
+      "volume": "PROTOCOL-gates",
+      "section": "26",
+      "title": "26. Dependency CVE Gate",
+      "line": 82,
+      "ruleIds": [
+        "R-CVE-1",
+        "R-CVE-2",
+        "R-CVE-3"
+      ],
+      "disposition": "split",
+      "reason": "scan/gate vs waiver approval vs adjudication",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [
+          "§20.1",
+          "§20.2",
+          "§21",
+          "§9"
+        ],
+        "numbers": [
+          "90days"
+        ]
+      }
+    },
+    {
+      "source": "team/PROTOCOL-gates.md",
+      "volume": "PROTOCOL-gates",
+      "section": "27",
+      "title": "27. Performance / SLA Baseline",
+      "line": 95,
+      "ruleIds": [
+        "R-PERF-1",
+        "R-PERF-2"
+      ],
+      "disposition": "split",
+      "reason": "baseline/regression vs SLO/SLA adjudication",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "perf-baseline.json"
+        ],
+        "refs": [
+          "§15",
+          "§20.1",
+          "§20.2",
+          "§22",
+          "§9.3"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL-gates.md",
+      "volume": "PROTOCOL-gates",
+      "section": "28",
+      "title": "28. Cross-Cutting Mechanisms for Post-Delivery Operations and Engineering Gates",
+      "line": 109,
+      "ruleIds": [
+        "R-CROSS-1"
+      ],
+      "disposition": "guide",
+      "reason": "object declarations; delete pointer/meta items 4–5",
+      "atoms": {
+        "codes": [],
+        "tokens": [],
+        "refs": [
+          "§15",
+          "§15.1",
+          "§17",
+          "§19",
+          "§21",
+          "§22",
+          "§23",
+          "§24",
+          "§27",
+          "§4",
+          "§6"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL-gates.md",
+      "volume": "PROTOCOL-gates",
+      "section": "29",
+      "title": "29. Card-Creation Idempotency Guard (against same-source duplicate cards)",
+      "line": 121,
+      "ruleIds": [
+        "R-IDEM-1"
+      ],
+      "disposition": "guide",
+      "reason": "task-interface §14 + check-idem; no false machine-semantic claim",
+      "atoms": {
+        "codes": [
+          "review_of"
+        ],
+        "tokens": [
+          "task.create"
+        ],
+        "refs": [
+          "§14"
+        ],
+        "numbers": []
+      }
+    },
+    {
+      "source": "team/PROTOCOL-gates.md",
+      "volume": "PROTOCOL-gates",
+      "section": "Appendix A",
+      "title": "Appendix A: Data-Repo Organization Conventions (general basis for material organization)",
+      "line": 136,
+      "ruleIds": [
+        "R-DATAREPO-1"
+      ],
+      "disposition": "guide",
+      "reason": "research guide §2; compress to avoid duplicate body",
+      "atoms": {
+        "codes": [],
+        "tokens": [
+          "README.md"
+        ],
+        "refs": [
+          "§2"
+        ],
+        "numbers": []
+      }
+    }
+  ],
+  "orphanRules": [],
+  "contradictions": [
+    {
+      "id": "C1",
+      "topic": "turing-runs.json",
+      "issue": "P:147 says register in turing-runs.json; P:150/spawn-lane say legacy log, not a registration surface; Turing AGENTS/tool-discipline still reconcile/register it.",
+      "resolution": "Make claude-sessions.json the sole registry; turing-runs.json only a legacy log; rewrite P:147, Turing AGENTS and tool-discipline.",
+      "status": "resolved-in-migration"
+    },
+    {
+      "id": "C2",
+      "topic": "state machine",
+      "issue": "P:34/42 and redlines.core.md:12 disagree on backlog, canceled entry, failed alias and blocked scope.",
+      "resolution": "One canonical diagram; rewrite redline item 5.",
+      "status": "resolved-in-migration"
+    },
+    {
+      "id": "C3",
+      "topic": "terminal wording",
+      "issue": "P:392/redline call in_review/blocked terminal; only done/canceled are terminal.",
+      "resolution": "Use “closing state” for the three-item closeout.",
+      "status": "resolved-in-migration"
+    },
+    {
+      "id": "C4",
+      "topic": "§6.0 line 181",
+      "issue": "“information does not enter the task card” contradicts the next bullet (Progress is on the card).",
+      "resolution": "Decisions/conventions do not enter the card; milestones do.",
+      "status": "resolved-in-migration"
+    },
+    {
+      "id": "C5",
+      "topic": "least privilege vs containment",
+      "issue": "P:490 defaults writes to ~/.openclaw/team/**; P:79–82 confines project cards to the project root.",
+      "resolution": "State that the default applies to __team__/internal chores only.",
+      "status": "resolved-in-migration"
+    },
+    {
+      "id": "C6",
+      "topic": "confirmation trigger gap",
+      "issue": "P:65 destructive migration and P:76 deprecation window require approval, but §14 triggers list only plan.md/product docs.",
+      "resolution": "Add destructive migration and deprecation to R-CONFIRM-1 triggers.",
+      "status": "resolved-in-migration"
+    },
+    {
+      "id": "C7",
+      "topic": "coverage threshold",
+      "issue": "release-versioning-sop §4.1 says 80% is “to be decided”; engineering-standards clause 2 says ≥80% hard.",
+      "resolution": "One authoritative threshold in R-ENG-1 clause 2.",
+      "status": "resolved-in-migration"
+    },
+    {
+      "id": "C8",
+      "topic": "operator/Terry/language",
+      "issue": "P:451 says all docs use “operator”; README/README.zh-CN/release-sop/elon-report-template/duties-sop use Terry or Chinese; P:110 says English.",
+      "resolution": "Define Terry = operator alias or normalize; state the operator-facing Chinese exception.",
+      "status": "resolved-in-migration"
+    },
+    {
+      "id": "C9",
+      "topic": "patrol cadence/heartbeat",
+      "issue": "elon duties-sop says daily 09:00 and 15min stale; AUTOMATIONS says hourly; P:439 says 30min.",
+      "resolution": "Unify to hourly + 30min, or label 15min as a patrol heuristic.",
+      "status": "resolved-in-migration"
+    },
+    {
+      "id": "C10",
+      "topic": "idempotency semantics",
+      "issue": "P:132 says the ACL implements semantic de-duplication; check-idem says only the LLM semantic gate + key fallback.",
+      "resolution": "Separate the LLM semantic gate from the mechanical key; do not claim a machine semantic gate.",
+      "status": "resolved-in-migration"
+    },
+    {
+      "id": "C11",
+      "topic": "§20.2 duplicate",
+      "issue": "The four check-merge gaps appear in P:524–529 and dev-worktree-flow-sop §4.",
+      "resolution": "Keep one home (the guide); R-GATE-2 references it.",
+      "status": "resolved-in-migration"
+    },
+    {
+      "id": "C12",
+      "topic": "§17 old layering",
+      "issue": "P:462 L0–L5 conflicts with the target L0/L1/L1.5/L2/L3 model.",
+      "resolution": "Rewrite, do not migrate.",
+      "status": "resolved-in-migration"
+    },
+    {
+      "id": "C13",
+      "topic": "ROLES conflict authority",
+      "issue": "ROLES.md:5 says PROTOCOL §10 wins on conflict.",
+      "resolution": "Replace with R-TRIAGE-1.",
+      "status": "resolved-in-migration"
+    },
+    {
+      "id": "C14",
+      "topic": "dangling pointers",
+      "issue": "P:170 “see the 🔑 block above”; spawn-lane has two §10 headings; ui-align §301 says rules remain in PROTOCOL §9.2.",
+      "resolution": "Delete/renumber/rewrite.",
+      "status": "resolved-in-migration"
+    },
+    {
+      "id": "C15",
+      "topic": "SLA single source",
+      "issue": "sla-inspection-contract §2/§11 H6 declare PROTOCOL §15 the sole threshold source.",
+      "resolution": "Point to sla-thresholds.json + R-SLA-*.",
+      "status": "resolved-in-migration"
+    },
+    {
+      "id": "C16",
+      "topic": "guide headers",
+      "issue": "About 20 guides say L2.5 / “Elon is the sole writer of L1” / “never copies L1”.",
+      "resolution": "Rewrite the layering/ownership headers, not just the tokens.",
+      "status": "resolved-in-migration"
+    }
+  ],
+  "bareRefs": {
+    "total": 508,
+    "unresolved": []
+  }
+}

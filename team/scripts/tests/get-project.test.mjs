@@ -88,7 +88,7 @@ test('保留名 __team__：内置短路，输出形状与契约逐字段一致�
     root: null,
     writable: [path.join(os.homedir(), '.openclaw', 'team') + path.sep],
     repos: [],
-    guides: [path.join(ROOT, 'PROTOCOL.md')],
+    guides: [path.join(ROOT, 'ROLES.md')],
     default_git_rules: '仅写 ~/.openclaw/team/**；无项目仓库访问权',
     registered_at: null,
   };

@@ -19,7 +19,7 @@
 2. The plan file is the **sole task source** for subsequent execution; never infer tasks from conversation context ad hoc.
 
 ### Phase 2: Check the Plan
-1. Self-check plan.md item by item — **all six**. The canonical list is `team/guides/plan-quality.md` (① logical completeness · ② omission · ③ quality (simple·feasible·elegant·readable·maintainable) · ④ end-to-end execution path · ⑤ test-scenario coverage · ⑥ todo check); **referenced, not restated here** (`PROTOCOL §17` — the same text in two places is a violation).
+1. Self-check plan.md item by item — **all six**. The canonical list is `team/guides/plan-quality.md` (① logical completeness · ② omission · ③ quality (simple·feasible·elegant·readable·maintainable) · ④ end-to-end execution path · ⑤ test-scenario coverage · ⑥ todo check); **referenced, not restated here** (`R-LAYER-1` — the same text in two places is a violation).
 2. **④ is unconditional**: the end-to-end path (vertical path + per-hop up/downstream impact + side effects/consumers) is required for **every** plan, including changes touching no interface or field. The interface/field-change specialisation (call-chain tracing + the 5 parameter-break types + Breaking determination) is an *addition* to ④, never a replacement.
 3. If the check fails → back to Phase 1 and revise; a blocking defect → must not proceed to execution. Record the verdict (**execute as-is / execute after revision / needs rewrite**).
 4. Details: **six-item checklist (team) + method-per-check (role)** — the checklist is `team/guides/plan-quality.md`, the per-check methods `~/.openclaw/workspace-linus/guides/plan-guide.md`.
@@ -33,8 +33,8 @@
 1. **Walk the closed loop task by task**; each task: TDD decision → develop → unit-test loop → integration-test loop → E2E (if frontend).
 2. **TDD decision + size grading per task** — the TDD decision table (new feature / new API / complex logic ✅ RED→GREEN→REFACTOR · bug fix ⚠️ optional · pure refactor / config / migration ❌ but tests are never skipped) and the coverage grading (micro ≥60% / small ≥75% / medium ≥80% / large ≥85%; integration ≥30-50%; branch ≥60%) are the **home of `~/.openclaw/workspace-linus/guides/execute-guide.md`** — read the numbers there, not from memory.
 3. **Evidence gate**: before each task is `completed` you must have — lint/compile output, unit-test + coverage output, integration-test output (API endpoints with 401/200/business-error 3 cases), E2E output. No evidence = not complete. (Table: `execute-guide.md` §Evidence gate.)
-4. Immediately git commit after each task completes — `git commit -- <explicit paths>` (`PROTOCOL §6` / redline 7), never a bare `git commit`.
-5. **Cross-segment consistency contract** (`PROTOCOL §6.0`, mandatory): when a task is split into multiple spawned sub-sessions, `workspace/<task-id>/state.md` is the **only** carrier between them — append a snapshot at segment end (or that segment does not count as completed), read the whole file before the next spawn (or do not spawn), trail any reversal of an earlier decision explicitly. **Rule of record: `PROTOCOL §6.0`**; the Phase-3 walkthrough is `execute-guide.md` §Cross-segment consistency contract.
+4. Immediately git commit after each task completes — `git commit -- <explicit paths>` (`R-SESSION-2` / redline 7), never a bare `git commit`.
+5. **Cross-segment consistency contract** (`R-SEG-1`, mandatory): when a task is split into multiple spawned sub-sessions, `workspace/<task-id>/state.md` is the **only** carrier between them — append a snapshot at segment end (or that segment does not count as completed), read the whole file before the next spawn (or do not spawn), trail any reversal of an earlier decision explicitly. **Rule of record: `R-SEG-1`**; the Phase-3 walkthrough is `execute-guide.md` §Cross-segment consistency contract.
 
 ### Phase 4: Verify the Plan
 0. **Completion self-verification = two ordered passes** (the "did we finish, correctly" gate):
@@ -54,7 +54,7 @@
 
 ### Pre-Delivery Quality Close-out (mandatory; same level as "Test Discipline" and "Requirement-Completeness Acceptance")
 > After development + testing, and **before setting done**, three items must be completed; **not done ⇒ no done**.
-> **Methods and item-by-item definition: `~/.openclaw/workspace-linus/guides/verify-guide.md` §Pre-delivery quality wrap-up** — **① code review (self-review) · ② dead-code check & cleanup · ③ norm triple-check** — and the Report must attach their results (referenced, not restated here — `PROTOCOL §17`).
+> **Methods and item-by-item definition: `~/.openclaw/workspace-linus/guides/verify-guide.md` §Pre-delivery quality wrap-up** — **① code review (self-review) · ② dead-code check & cleanup · ③ norm triple-check** — and the Report must attach their results (referenced, not restated here — `R-LAYER-1`).
 > **Normative basis**: the project's **existing finalized docs** (`docs/design-docs/architecture/API-spec-design.md` etc.). **Where the norm is not finalized** → follow **current best practice** and mark "**pending norm**" in the Report (do not invent norms, do not change shared norms).
 
-> **Segment close-out mandatory items (missing any one ⇒ the segment does not count as completed)**: before a sub-session segment ends, **three things are mandatory**: ① **refresh heartbeat** (`heartbeat_at` to now); ② **set the card terminal state** (status: done/canceled/blocked, check Acceptance); ③ **send Elon a Report** (conclusion + card path + commit hash).
+> **Segment close-out mandatory items (missing any one ⇒ the segment does not count as completed)**: before a sub-session segment ends, **three things are mandatory**: ① **refresh heartbeat** (`heartbeat_at` to now); ② **set the card closing state** (`in_review`/`done`/`canceled`; `blocked` if blocked; check Acceptance); ③ **send Elon a Report** (conclusion + card path + commit hash).

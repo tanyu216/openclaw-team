@@ -4,7 +4,7 @@
 > 下游：A2 （linus 实现）→ A3 （turing 独立验证）。
 > 规格来源：`workspace/T-20261013-012318-3/design-spec.md`（骨架 / 硬约束 / 已核事实 / 设计裁定 R-1…R-6）。
 > 评估依据：`workspace/T-20261013-005900/consolidation.md`（裁定 = **仅 Codex 腿 opt-in 试点**，其余不动）。
-> 引用约定：本文只写「文档名 §章节名」，**不使用行号锚**（`PROTOCOL §6.1` 第 11 条）。
+> 引用约定：本文只写「文档名 §章节名」，**不使用行号锚**（`R-ENG-1` 第 11 条）。
 > 状态：**设计交付**。不改产品仓、不改运行时代码/配置。
 
 ---
@@ -62,9 +62,9 @@
 
 ⇒ 关键结构性差异：CLI lane 是「worker 回合派生的独立子进程（有自身 pid、脱离父进程组存活）」；CCD lane 是「**网关进程内的 embedded turn**（无独立子进程；句柄 = native thread id）」。这一差异是 §5 G7、§7 与 §11 的核心。
 
-### 2.2 执行唯一权与 `PROTOCOL §6` 执行唯一性的对接
+### 2.2 执行唯一权与 `R-SESSION-1` 执行唯一性的对接
 
-`PROTOCOL §6` 的执行唯一性纪律（卡已 `in_progress` 的新回合只报状态、不重复执行；`heartbeat_at` 新鲜 ≤10min 且 `in_progress` ⇒ poll 返回 `fire:false`）在插件路径下**保持不变，并加一条**：
+`R-SESSION-1` 的执行唯一性纪律（卡已 `in_progress` 的新回合只报状态、不重复执行；`heartbeat_at` 新鲜 ≤10min 且 `in_progress` ⇒ poll 返回 `fire:false`）在插件路径下**保持不变，并加一条**：
 
 **同一卡同一时刻至多 1 个 running 执行 lane**（复核 lane 另有更严格的 quiet-card 门：卡上不得有任何其他活跃 lane），由**双条件**守住：
 1. **registry 活跃判定**：`claude-sessions.json` 中该卡存在 `status=running` 且可达（pid 存活 **或** thread 可达，见 §5 G7）的条目 ⇒ 不重复起 lane；
@@ -90,7 +90,7 @@
 | 网关面 | 插件 harness / app-server | native thread id（Codex 自赋） |
 | registry 面 | `claude-sessions.json` 条目 | `thread_id`（= native thread id）+ `id_state ∈ {pending, bound}` |
 
-**codex 无 `--session-id`**（`design-spec.md` §1；`PROTOCOL §6` 第 8 条），id 由宿主 spawn 时自赋 ⇒ **不能像 claude 那样先取确定性 UUIDv5**。因此契约定义**两步回填**：
+**codex 无 `--session-id`**（`design-spec.md` §1；`R-SESSION-1` 第 8 条），id 由宿主 spawn 时自赋 ⇒ **不能像 claude 那样先取确定性 UUIDv5**。因此契约定义**两步回填**：
 
 1. **spawn 时 `session-set` 先写 `id:pending`**：`seg/owner/backend=codex/harness=plugin/phase/pid(网关 pid 或 `-`)/status=running` 齐全，registry 条目 `id_state=pending`、`thread_id=''`（或未设）。
 2. **spawn 成功后（读回原生 thread id）二次 `session-set` 覆盖同一 `seg:` 行**：`id:<thread_id>`、`harness=plugin`；registry 同键覆盖为 `thread_id=<thread_id>`、`id_state=bound`。
@@ -148,7 +148,7 @@
 
 - `harness` 段插在 `backend:` 之后（**新增可选段**；claude/pi lane 不写该段，行解析需向后兼容）。
 - plugin lane 的 `pid` = **网关进程 pid**（或占位 `-`）；真正的 lane 句柄是 `id`（native thread id）。
-- 只允许经 `task.session-set` 写卡（`PROTOCOL §13.3` 统一写入路径）；**不在 ACL 外手改卡/JSON**。
+- 只允许经 `task.session-set` 写卡（`R-DISC-3` 统一写入路径）；**不在 ACL 外手改卡/JSON**。
 
 ### 4.4 终态同步
 
@@ -202,7 +202,7 @@
 - **定义**：lane 起/终都产出机读证据；命令面 = `--dry-run` 末行 JSON；产物面 = lane `*.out.jsonl` 末行 `type=result` + exit code。
 - **证据位置**：`spawn-lane` 末行 JSON `{ok,backend,harness,session_id|thread_id,cmd,…}`；`<ws>/<owner>-<n>.out.jsonl`（NDJSON）。
 - **机读命令**：`bash <team>/scripts/spawn-lane.sh <card> <owner> backend=codex harness=plugin --dry-run | tail -1 | jq -e '.ok==true and.backend=="codex"'`；`tail -1 <ws>/<owner>-<n>.out.jsonl | jq -e '.type=="result"'`。
-- **期望 exit/断言**：两命令 exit 0；`out.jsonl` 存在且非空、末行 `type=result`、含 `exit_code` 字段（对照 `PROTOCOL §6` 子会话「先落文件」纪律）。
+- **期望 exit/断言**：两命令 exit 0；`out.jsonl` 存在且非空、末行 `type=result`、含 `exit_code` 字段（对照 `R-SESSION-1` 子会话「先落文件」纪律）。
 - **责任人**：linus。
 
 ### G6 卡↔native thread 映射
@@ -218,7 +218,7 @@
 - **定义**：网关重启对账 = registry `status=running` 但 pid/thread **不可达** ⇒ 由 reconcile 置 `failed` 并**保留卡终态**（不丢终态；`terminal_immutable` 不被触发/不改写）。
 - **证据位置**：reconcile 台账 `<ws>/evidence/reconcile-<ts>.md`；卡 `## Sessions` 行 status；卡 frontmatter `status`。
 - **机读命令**：`node <team>/scripts/registry.mjs active <card>`（判活）；`grep 'seg:seg1 ·' <team>/tasks/<card>.md`。
-- **期望 exit/断言**：重启窗口后，不可达的 `running` 条目被置 `failed`（registry `status=failed` + `endedAt`）；卡 `## Sessions` 行 `status` 更新为 `failed/closed`，而卡 **frontmatter `status` 保持其既有态**（终态不被会话关闭反写，`PROTOCOL §1` 终态不可逆）。
+- **期望 exit/断言**：重启窗口后，不可达的 `running` 条目被置 `failed`（registry `status=failed` + `endedAt`）；卡 `## Sessions` 行 `status` 更新为 `failed/closed`，而卡 **frontmatter `status` 保持其既有态**（终态不被会话关闭反写，`R-BOARD-1` 终态不可逆）。
 - **责任人**：linus。
 
 ### G8 日志 24h 内导出到 workspace
@@ -283,17 +283,17 @@ claude/pi **无官方 embedded harness**（`concepts/agent-runtimes.md`：`claud
 
 ---
 
-## 7. 与 `PROTOCOL §6` 现行纪律对照（新增·变更点清单）
+## 7. 与 `R-SESSION-1` 现行纪律对照（新增·变更点清单）
 
-> 逐条对照 `PROTOCOL §6`（会话编排纪律）六项：并发额度 / cwd+沙箱 / 登记 / 终态 / reconcile / 单入口 spawn-lane。矛盾处**显式标注「需 Elon 裁决」**。
+> 逐条对照 `R-SESSION-1`（会话编排纪律）六项：并发额度 / cwd+沙箱 / 登记 / 终态 / reconcile / 单入口 spawn-lane。矛盾处**显式标注「需 Elon 裁决」**。
 
-| PROTOCOL §6 纪律（现行口径见 `PROTOCOL §6`） | CCD 新增·变更点 | 矛盾？ |
+| `R-SESSION-1` 纪律（现行口径见 `R-SESSION-1`） | CCD 新增·变更点 | 矛盾？ |
 |---|---|---|
 | **并发额度**（第 2 条） | 插件 lane 与 CLI lane **合并计数**（同 registry）；registry 条目须带 `backend/harness` 以辨宿主 | **无变更**（沿用 `capFor`/`runningCount`） |
 | **cwd + 沙箱**（第 3 条 / cwd 归一小节） | 插件侧沙箱映射 `appServer.sandbox ∈ {read-only,workspace-write,danger-full-access}` ↔ CLI `-s` 同值；`defaultWorkspaceDir`/thread cwd = resolved cwd | **需 Elon 裁决**：OpenClaw 沙箱激活态下 codex **native Code Mode 被关闭**（`plugins/codex-harness.md`），须裁定「是否要求插件 lane 在无 OpenClaw 沙箱态运行」 |
 | **登记**（第 8 条 / registry 字段小节） | registry 增 `backend/harness/thread_id/id_state/seg`（§4.2）；`## Sessions` 行增 `harness`（§4.3）；**两步回填**（pending→bound） | **需 Elon 裁决**：CCD 无独立子进程 ⇒ 登记改「pending 先写、bound 后覆盖」；是否放宽「立即完整登记（含 pid）」口径 |
-| **终态**（`PROTOCOL §13.2` / `session-close`） | 沿用 `task.session-close <card> <seg> done\|failed\|closed`；CCD 额外保留 `thread_id`（供 resume/审计），`id_state` 保持 `bound` | **无变更** |
-| **reconcile**（第 1 条 / `kill -0`） | 判活扩为「`isPidAlive(pid)` **或** thread 可达（`codex_session_read` / `openclaw codex sessions --json`）」；网关重启场景见 G7 | **需 Elon 裁决**：是否把「native thread 可达性」正式纳入 `PROTOCOL §6` reconcile 判活口径 |
+| **终态**（`R-DISC-2` / `session-close`） | 沿用 `task.session-close <card> <seg> done\|failed\|closed`；CCD 额外保留 `thread_id`（供 resume/审计），`id_state` 保持 `bound` | **无变更** |
+| **reconcile**（第 1 条 / `kill -0`） | 判活扩为「`isPidAlive(pid)` **或** thread 可达（`codex_session_read` / `openclaw codex sessions --json`）」；网关重启场景见 G7 | **需 Elon 裁决**：是否把「native thread 可达性」正式纳入 `R-SESSION-1` reconcile 判活口径 |
 | **单入口 spawn-lane**（单入口小节 / `guides/spawn-lane-sop.md`） | 入口增 `harness=plugin` 分支与两步回填；`--dry-run` 语义不变（只校验+打印，零副作用） | **无变更**（单入口纪律不变；仅增一条分支） |
 
 > 结论：六条纪律中 **三条无变更**（并发额度 / 终态 / 单入口），**三条含变更且各有一处矛盾点，均标注「需 Elon 裁决」**（沙箱态、两步登记、reconcile 判活）。矛盾点汇总见 §11。
@@ -405,18 +405,18 @@ bash scripts/spawn-lane.sh <card> <owner> seg=<seg> backend=codex harness=plugin
 
 ---
 
-## 10. 文档同步判定（`PROTOCOL §12`）
+## 10. 文档同步判定（`R-DOCSYNC-1`）
 
-**判定：有文档影响**（本卡触及接口 / 数据结构 / 约定变更）。需同步章节如下——**由 A2 落地时按 `PROTOCOL §12` 反向回填同步**（A1 为设计交付，只定义、不改文档）：
+**判定：有文档影响**（本卡触及接口 / 数据结构 / 约定变更）。需同步章节如下——**由 A2 落地时按 `R-DOCSYNC-1` 反向回填同步**（A1 为设计交付，只定义、不改文档）：
 
 | 目标文档 | 需同步章节 | 变更要点（明细锚） |
 |---|---|---|
-| `PROTOCOL.md` | `PROTOCOL §6` 第 2/3/8 条、单入口小节、第 1 条（reconcile/`kill -0`）、`PROTOCOL §1` Board `## Sessions` schema 注、`PROTOCOL §13.2` | §4、§7 对照表：插件 lane 合并计数；沙箱映射；codex id = native thread id（非确定性 UUIDv5）+ `harness`；入口增 `harness=plugin`；reconcile 判活扩为 pid 或 thread 可达；`## Sessions` 行增 `harness` 段 |
+| 规则层（AGENTS 块） | `R-SESSION-1` 第 2/3/8 条、单入口小节、第 1 条（reconcile/`kill -0`）、`R-BOARD-1` Board `## Sessions` schema 注、`R-DISC-2` | §4、§7 对照表：插件 lane 合并计数；沙箱映射；codex id = native thread id（非确定性 UUIDv5）+ `harness`；入口增 `harness=plugin`；reconcile 判活扩为 pid 或 thread 可达；`## Sessions` 行增 `harness` 段 |
 | `guides/spawn-lane-sop.md` | §1 Rule、§3 Sequence、§6 How the gates back this up、§7 When the entry refuses | 增 `harness=plugin` 入参与两步回填；新增拒绝码 `unknown_harness` / `thread_bind_timeout` |
 | `guides/task-interface.md` | **AgentSession 的 canonical schema 归产品（引用，不在此声明）**：`skills/meerkat-taskpanel/references/card-schema.md`；`task-interface §2` = 仅 ACL 最小必需集（**不再含 AgentSession**）；§9 Session Association and Resume（team 侧处理）；§8 Future-Swap Mapping | AgentSession 增 `harness/thread_id/id_state`（落产品 `## Sessions` schema）；registry 行映射（§9）；codex resume 形态（插件 `openclaw codex continue <thread_id>`） |
 | `scripts/README.md` | spawn-lane / registry 段 | 后端分派新增插件分支；registry 字段增量 |
 
-> 无「无文档影响」声明。同步触发点 = A2 实现 PR（`PROTOCOL §12` 反向回填）；本契约文档自身为 L5 证据，不改 L1/L2 正文。
+> 无「无文档影响」声明。同步触发点 = A2 实现 PR（`R-DOCSYNC-1` 反向回填）；本契约文档自身为 L5 证据，不改规则层正文。
 
 ---
 
@@ -427,7 +427,7 @@ bash scripts/spawn-lane.sh <card> <owner> seg=<seg> backend=codex harness=plugin
 | ID | 未决项 | 影响 | 处置 |
 |---|---|---|---|
 | **G-1** | **registry upsert 键在大绑定后 session_id 变更**：现行键 = `task_id\|owner\|phase\|session_id`；pending（`session_id=pending`）→ bound（`session_id=<thread_id>`）会产生**两行**（pending 残留），破坏「覆盖同一行」预期 | 两步回填的 registry 侧一致性 | **需 A2 + Elon 裁决**：将 `seg` 纳入 registry 去重键，或绑定步显式关闭（`closed`）pending 行。契约默认 = 键纳入 `seg`（§4.2） |
-| **G-2** | **插件 lane 无独立 pid**：现行 `PROTOCOL §6` 并发/reconcile 以 pid 判活；CCD 的 `pid` = 网关 pid | reconcile 判活口径 | **需 Elon 裁决**：是否把「native thread 可达性」正式纳入 `PROTOCOL §6` reconcile 口径（§7） |
+| **G-2** | **插件 lane 无独立 pid**：现行 `R-SESSION-1` 并发/reconcile 以 pid 判活；CCD 的 `pid` = 网关 pid | reconcile 判活口径 | **需 Elon 裁决**：是否把「native thread 可达性」正式纳入 `R-SESSION-1` reconcile 口径（§7） |
 | **G-3** | **非交互启动面未定稿**：`dist/harness.js` 是 Gateway 加载的 harness 工厂（非 CLI 入口）；CCD lane 的「非交互 dispatch」具体 CLI/RPC 形态（候选：`openclaw agent --model openai/gpt-6-astra` / Gateway RPC / `sessions_spawn({runtime:'codex'})`）须 A2 定稿 | A2 实现入口 | A2 定稿；契约只锁不变量（单入口、机读 JSON、pending→bound、cwd/沙箱等价）。**建议**：优先 Gateway 原生 dispatch（避免自造 CLI） |
 | **G-4** | **OpenClaw 沙箱态下 native Code Mode 关闭** ⇒ 插件 lane 原生执行面受限（`plugins/codex-harness.md`） | cwd+沙箱等价性（G2）/审批（G9） | **需 Elon 裁决**：是否要求插件 lane 在无 OpenClaw 沙箱态运行；`approvalsReviewer` 取值（`auto_review`/`guardian_subagent`）是否可用于无人值守 lane |
 | **G-5** | **`## Sessions` 行新增 `harness` 段**会改变 ACL `sessionSet` 输出（`task.mjs`）——属 task-provider 契约增量 | provider ACL / `check-sessions` 行解析 | A2 与 `task-interface.md §9` 同步；行解析须**向后兼容**（无 `harness` 段的历史行视为 `cli`） |

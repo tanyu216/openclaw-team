@@ -1,6 +1,6 @@
 # Plan Quality Checklist (Linus — plan self-check)
 
-> Companion to `roles/linus/AGENTS.md` **Phase 2** and `PROTOCOL §6.1`. Used before
+> Companion to `roles/linus/AGENTS.md` **Phase 2** and `R-ENG-1`. Used before
 > execution; a plan that fails any required item must not proceed.
 ---
 

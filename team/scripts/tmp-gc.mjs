@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// tmp-gc.mjs — 临时文件回收（PROTOCOL §13.9）
+// tmp-gc.mjs — 临时文件回收（`R-DISC-9`）
 //
 // 两种模式，因为**清扫比一次触发评估的预算更大**：
 //   默认（调度入口，providers.json 调的就是它）：

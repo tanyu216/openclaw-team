@@ -1,15 +1,15 @@
 # Worker Report Standard (common core + Jobs / Linus / Turing)
 
 > **What this is.** The single shape of a worker's delivery Report, so that Elon's
-> acceptance audit (`PROTOCOL §9`, redline 11 in the role redline block) has a fixed set
+> acceptance audit (`R-DEFECT-1`, redline 11 in the role redline block) has a fixed set
 > of slots to look at instead of having to *find* and *guess* them.
 > **Who it binds.** Jobs / Linus / Turing (Assistant follows the common core).
 > **Where it lands.** The `## Report` section of the task card (L5 evidence layer,
-> `PROTOCOL §17`). Message-level reports stay trimmed to conclusion + card path + hash
-> (`PROTOCOL §4` reporting discipline) — this guide governs the **card-facing** Report.
-> **Language.** English by default (`PROTOCOL §4`); keep code/technical terms in English.
+> `R-LAYER-1`). Message-level reports stay trimmed to conclusion + card path + hash
+> (`R-REPORT-1` reporting discipline) — this guide governs the **card-facing** Report.
+> **Language.** English by default (`R-REPORT-1`); keep code/technical terms in English.
 > **Enforcement.** The common core is machine-checked by `team/scripts/check-report.mjs`
-> in the `check-all` fast segment (`PROTOCOL §20.1`, `AUTOMATIONS.md §3.5.1/§6`) — slot
+> in the `check-all` fast segment (`R-GATE-1`, `AUTOMATIONS.md §3.5.1/§6`) — slot
 > **presence**, plus the two declared-semantic rules of §1: the **A0 report origin**
 > (`delivery` | `import`) and the **A4 → A6 coupling** for unmet items. The role-specific
 > sections are audited by the role's own review, not mechanically. Payload bounds (§6) are
@@ -165,7 +165,7 @@ Report states what it is.
 
 - **Write**: each place the work went beyond (or chose between) the card's letter —
   itemized, with **whether it is revertible**.
-- **Why acceptance needs it**: `PROTOCOL §11` requires out-of-bounds handling to be
+- **Why acceptance needs it**: `R-OOB-1` requires out-of-bounds handling to be
   visible; acceptance needs to distinguish "authorized extension" from "silent drift".
 - **Minimal example**: `- **A7 Out-of-literal handling** — extended the gate to warn on content hints (blocking scope unchanged); revertible: yes (delete the hints table).`
 
@@ -208,7 +208,7 @@ Report states what it is.
   interactions work (screenshot path / selector assertion / recording), not just that
   files were written.
 - **J5 doc-only proof** — the evidence that no implementation code was introduced
-  (`prototype/**` must not contain implementation, `PROTOCOL §9.2`): the path set
+  (`prototype/**` must not contain implementation, `R-PROTO-1`): the path set
   touched and the command that shows it.
 
 ### 2.3 Turing — independent verification
@@ -222,11 +222,11 @@ Report states what it is.
   and the GREEN after restoring it.
 - **T5 Requirement → implementation → assertion consistency matrix** — every
   requirement mapped to the implementation site and to the assertion that covers it
-  (`PROTOCOL §6.1` clause 13). A requirement with no assertion is a gap, not a pass.
+  (`R-ENG-1` clause 13). A requirement with no assertion is a gap, not a pass.
 - **T6 Defect grading** — per defect: severity, reproduction steps, expected vs actual,
   suspected owner, evidence path.
 - **T7 Explicit "not fixed, report only"** — state plainly that verification fixes
-  nothing and the defect fix card is created by Elon (`PROTOCOL §9`).
+  nothing and the defect fix card is created by Elon (`R-DEFECT-1`).
 
 ---
 
@@ -330,7 +330,7 @@ habit on every role), but these families leak systematically:
 
 ## 5. Effective date, grandfathering and the gate surface
 
-- **Effective from 2026-10-15** (the local day Terry's instruction landed). Cards created
+- **Effective from 2026-10-15** (the local day operator's instruction landed). Cards created
   before the gate's cutover are **grandfathered** — violations are reported as warnings
   and never set the exit code, so the historical board is not retro-reddened.
 - **Terminal cards** (`done` / `canceled` / `failed`) are never checked at all.
@@ -338,7 +338,7 @@ habit on every role), but these families leak systematically:
   (`in_progress` / `blocked` / `todo` / `ready` / `backlog`) are at most a warning.
 
 What `check-report.mjs` actually decides (this section and the script header are the
-contract; `PROTOCOL §20.1` carries the registry row):
+contract; `R-GATE-1` carries the registry row):
 
 | surface | rule | effect |
 |---|---|---|
@@ -372,7 +372,7 @@ contract; `PROTOCOL §20.1` carries the registry row):
   the provider ACL to stamp `origin` at write time (`skills/task-ops/lib/task.mjs#writeReport`)
   — a base-side change, tracked as a residual on not enforced here.
 - Full trigger surface, cutoff and exemption switches: `team/scripts/check-report.mjs` header
-  (`PROTOCOL §20.1` machine-checkable gate row).
+  (`R-GATE-1` machine-checkable gate row).
 
 ---
 

@@ -47,7 +47,7 @@ One skill resolved to a verified GitHub upstream and installed to `claude`:
   `skills/update.mjs` — the same function `update.mjs --apply` writes with — so
   the value here and the value a later `--apply` recomputes cannot disagree.
 
-#### This skill is what `PROTOCOL §6.4` now delegates to
+#### This skill is what `R-WORKTREE-1` now delegates to
 
 Since 2026-10-16 the framework's dev flow **is** this skill's flow, not a bespoke
 alternative to it. `scripts/spawn-lane.mjs` no longer decides or creates worktrees; the
@@ -73,10 +73,10 @@ What the framework supplies that the skill cannot infer, all in the lane prompt
   commit.
 
 On **first entry** the base needs no machinery: the skill bases on implicit `HEAD`, and the
-main checkout holds `dev` (`PROTOCOL §6.4`), so `HEAD` *is* `dev`. Later segments reuse the
+main checkout holds `dev` (`R-WORKTREE-1`), so `HEAD` *is* `dev`. Later segments reuse the
 card branch; there is no merge between segments.
 
-Normative source: `PROTOCOL §6.4`; sequence and closure strength:
+Normative source: `R-WORKTREE-1`; sequence and closure strength:
 `guides/dev-worktree-flow-sop.md`.
 
 The skill body is deliberately **not** edited to record any of this: bodies are third-party

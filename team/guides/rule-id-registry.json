@@ -1,0 +1,465 @@
+{
+  "version": 1,
+  "rules": {
+    "R-SESSION-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-SESSION-3": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-AMBIG-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-API-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-API-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-ARCHIVE-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-BOARD-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-BOARD-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-BOARD-3": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-BOARD-4": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-BOARD-5": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-CONFIRM-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-CONTAINER-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-CREED-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-CROSS-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-CVE-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-CVE-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-CVE-3": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "turing"
+    },
+    "R-DAG-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-DATAREPO-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "assistant"
+    },
+    "R-DEFECT-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-DISC-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-DISC-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-DISC-3": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-DISC-4": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-DISC-5": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-DISC-6": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-DISC-7": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-DISC-8": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-DISC-9": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-DOCSYNC-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-ENG-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-ENG-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-ENG-3": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-FLOW-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-GATE-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-GATE-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-GRANULARITY-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-IDEM-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-INCIDENT-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-INCIDENT-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-LAYER-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-LAYER-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-LAYER-3": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-LAYER-4": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-LAYER-5": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-MIGRATE-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-MIGRATE-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-MODEL-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-MSG-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-OBS-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-OOB-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-PARALLEL-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-PARALLEL-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-PERF-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-PERF-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-PREREQ-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-PROJECT-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-PROJECT-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-PROTO-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-PUB-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-PUB-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "assistant"
+    },
+    "R-REGISTER-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-REPORT-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-REPORT-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-RESEARCH-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "assistant"
+    },
+    "R-REVIEW-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-ROSTER-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-ROSTER-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-SEG-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-SEGUSE-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-SESSION-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-SESSION-4": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-SLA-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-SLA-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-SLA-3": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-SLA-4": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-SLA-5": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-SLA-6": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-SLA-7": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-STRUCT-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-STRUCT-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-TERM-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-TOOL-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-TOOL-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "jobs"
+    },
+    "R-TOOL-3": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "turing"
+    },
+    "R-TRIAGE-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-UI-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "jobs"
+    },
+    "R-UXACCEPT-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-VERSION-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    },
+    "R-VERSION-2": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
+    },
+    "R-WORKTREE-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "linus"
+    }
+  }
+}

@@ -2,7 +2,7 @@
 /**
  * lib.mjs — OpenClaw 五人团队共享库
  * 职责：任务卡 frontmatter 读写 / 原子领取(claim) / 项目 metadata registry(get_project)
- * 协议唯一正文：~/.openclaw/team/PROTOCOL.md（本文件实现其看板协议原语）
+ * 协议唯一正文：~/.openclaw/team/the rule blocks（本文件实现其看板协议原语）
  *
  * 约定：
  * - TEAM_ROOT 默认 ~/.openclaw/team，可用环境变量 OPENCLAW_TEAM_ROOT 覆盖（单测隔离用）
@@ -48,7 +48,7 @@ const providerPaths = await import(pathToFileURL(path.join(TASK_OPS_LIB, 'team-p
 const { TEAM_ROOT, TASKS_DIR, LOCKS_DIR, PROJECTS_FILE, TEAM_WRITABLE_PREFIX } = providerPaths;
 export { TEAM_ROOT, TASKS_DIR, LOCKS_DIR, PROJECTS_FILE };
 
-// 时间阈值（毫秒）——与 PROTOCOL.md 看板协议一致
+// 时间阈值（毫秒）——与 `R-BOARD-1` 看板规则一致
 export const STALE_LOCK_MS = 15 * 60 * 1000;          // 锁 mtime > 15min = 陈旧锁，可清理重试
 export const HEARTBEAT_FRESH_MS = 10 * 60 * 1000;     // 心跳新鲜：距上次心跳 ≤ 10min
 export const CLAIM_STALE_SAME_MS = 30 * 60 * 1000;    // 陈旧 claim：> 30min 同 assignee 可重领
@@ -56,7 +56,7 @@ export const CLAIM_STALE_ANY_MS = 6 * 60 * 60 * 1000; // > 6h 任意 assignee �
 
 export const AGENTS = ['elon', 'jobs', 'linus', 'turing', 'assistant'];
 
-// ── 集成分支名（`PROTOCOL §6.4`）───────────────────────────────────────────────
+// ── 集成分支名（`R-WORKTREE-1`）───────────────────────────────────────────────
 // 单一出处：`check-merge.mjs`（门禁）与 `spawn-lane.mjs`（车道提示语）**都必须**拿到同一个名字，
 // 否则门禁查的分支和车道建的分支会各说各话——那是静默失效，不是配置自由。
 //
@@ -73,7 +73,7 @@ export function integrationBranch(env = process.env) {
 // `cardPathOf`（显式路径安全）承担。
 
 // ---------- 自动领取排除的 kind（部署类卡） ----------
-// 口径（PROTOCOL §1；与基座 meerkat-taskpanel 同源，T-20261013-232004 / T-20261014-013629-2）：
+// 口径（`R-BOARD-1`；与基座 meerkat-taskpanel 同源，T-20261013-232004 / T-20261014-013629-2）：
 // `kind:deploy` = 须在实例/线上执行的高影响卡（重建 dist、重启 taskd、整跑 install.sh 等），
 // 由 Elon **显式派发**推进（`issue move` / 指派），**自动候选面不领**。
 // 分层与 `epic` **刻意不同**：epic = 领取门拒（claimCard ⇒ `epic_container`，谁都不能领）；
@@ -167,7 +167,7 @@ function quoteIfNeeded(v) {
   return /[:#"']|^\s|\s$|^$/.test(v) ? JSON.stringify(v) : v;
 }
 
-// ---------- 项目内路径口径（PROTOCOL §2.1 的机械基元） ----------
+// ---------- 项目内路径口径（`R-PROJECT-2` 的机械基元） ----------
 /**
  * 写集分割 —— `writes` 口径的**唯一持有者**（`samefile-guard.mjs` 与 `check-card.mjs` 共用，
  * 避免两处政策漂移）。数组直接取；字符串剥 `[]`/引号后按逗号切；其余（数字/布尔/undefined）⇒ 空集。
@@ -181,10 +181,10 @@ export function splitWrites(raw) {
 }
 
 /**
- * 项目内相对路径判定（PROTOCOL §2.1）：返回 null（合法）或人读逃逸原因。
+ * 项目内相对路径判定（`R-PROJECT-2`）：返回 null（合法）或人读逃逸原因。
  * 判据：① 绝对路径 `/…`；② 本机锚 `~…`；③ 盘符绝对 `C:\`/`C:/`；④ **段归一后越出起点**的相对路径
  * —— 看的是 `..` 出现在**任意位置**，不只看开头（`/^\.\.\//` 会把 `a/../../b` 漏过去）。
- * 纯字面：不触盘、不解析符号链接（symlink 越界由运行期 realpath containment 兜，见 PROTOCOL §2.1）。
+ * 纯字面：不触盘、不解析符号链接（symlink 越界由运行期 realpath containment 兜，见 `R-PROJECT-2`）。
  */
 export function escapeReason(v) {
   const s = String(v ?? '').trim();
@@ -451,7 +451,7 @@ function clearStaleLockIfAllowed(lockDir, fm, now) {
 
 /**
  * 原子领取（幂等）：claim.mjs 与 poll.mjs 共用。
- * 规则（PROTOCOL 看板协议）：
+ * 规则（`R-BOARD-1` 看板规则）：
  *  - 仅 assignee 匹配 + new（todo 规范值 / ready 兼容别名，或满足陈旧恢复）可领
  *  - mkdir 抢锁失败 → 不动作（他进程正在领）
  *  - 成功 → 整卡 tmp+rename 写 in_progress + claimed_by/claimed_at/heartbeat_at → 释放锁
@@ -578,7 +578,7 @@ export function claimCard(cardArg, assignee) {
 
 // ---------- 项目 metadata ----------
 /**
- * 内置保留名 `__team__`（PROTOCOL ②）：团队内部杂务专用，不查基座 / 不查回退。
+ * 内置保留名 `__team__`（`R-PROJECT-1`）：团队内部杂务专用，不查基座 / 不查回退。
  *
  * 逐字段与 provider 基座此前的输出一致（对外行为不变）；该保留名是**团队**约定，故由 team 侧持有。
  * 仅可写 ~/.openclaw/team/**（`TEAM_WRITABLE_PREFIX` 来自 provider 路径常量单一来源）。
@@ -590,7 +590,7 @@ export function teamProject() {
     root: null,
     writable: [TEAM_WRITABLE_PREFIX],
     repos: [],
-    guides: [`${TEAM_ROOT}/PROTOCOL.md`],
+    guides: [`${TEAM_ROOT}/ROLES.md`],
     default_git_rules: '仅写 ~/.openclaw/team/**；无项目仓库访问权',
     registered_at: null,
   };

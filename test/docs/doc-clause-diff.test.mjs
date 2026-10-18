@@ -12,9 +12,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { extractAtoms, compareFile } from './doc-clause-diff.mjs';
+import { execFileSync } from 'node:child_process';
+import { extractAtoms, compareFile, diffDocs, DEFAULT_TARGETS } from './doc-clause-diff.mjs';
 
 const EMPTY = { files: {}, atoms: {} };
+const HAS_GIT = (() => { try { execFileSync('git', ['--version'], { stdio: 'ignore' }); return true; } catch { return false; } })();
 
 test('extractAtoms：四轴各自抽取，且 codes 与 tokens 不相交', () => {
   const a = extractAtoms([
@@ -62,6 +64,28 @@ test('compareFile：注入的条款删除被抓到，且按轴归类', () => {
   assert.equal(entry.deleted, false);
 });
 
+test('默认目标覆盖 team 与 roles（顶层协议卷的删除必须可见）', () => {
+  assert.deepEqual(DEFAULT_TARGETS, ['team', 'roles'], '默认目标须覆盖两册所在的 team/ 与角色种子 roles/');
+});
+
+test('diffDocs：默认目标内整份文件删除 ⇒ 报 deleted 且未登记缺失 > 0', { skip: !HAS_GIT && 'container has no git' }, () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clause-del-'));
+  try {
+    execFileSync('git', ['-C', dir, 'init', '-q']);
+    fs.mkdirSync(path.join(dir, 'team'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'team', 'gone.md'), '- Rule: `base_unresolved`; see `§6.1`; cap `64 KiB`.\n');
+    execFileSync('git', ['-C', dir, 'add', 'team/gone.md']);
+    execFileSync('git', ['-C', dir, '-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '-q', '-m', 'init']);
+    fs.rmSync(path.join(dir, 'team', 'gone.md'));
+
+    const report = diffDocs({ base: 'HEAD', targets: ['team'], allow: EMPTY, repo: dir });
+    assert.ok(report.deleted.includes('team/gone.md'), '整份删除必须出现在 deleted 列表');
+    assert.ok(report.unaccountedTotal > 0, '整份删除必须产生未登记缺失，而不是静默通过');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('compareFile：整份文件删除 ⇒ base 版全部原子视为缺失（不得静默通过）', () => {
   const before = '- Rule: refuse with `base_unresolved`; see `§⑥.4`; cap `64 KiB`.\n';
   const { entry, unaccountedTotal } = compareFile('team/guides/gone.md', before, null, EMPTY);
@@ -89,6 +113,25 @@ test('allowlist：精确登记与整轴登记都生效，未登记的仍判红',
 
   const whole = { files: { 'f.md': { codes: '整轴登记（理由）', refs: '整轴登记（理由）' } }, atoms: {} };
   assert.equal(compareFile('f.md', before, after, whole).unaccountedTotal, 0, '整轴登记应全部豁免');
+});
+
+test('refMap：旧 §N 改写成存在的 R-* 即销账；规则不存在或未登记仍红', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dcd-refmap-'));
+  try {
+    fs.mkdirSync(path.join(root, 'team/guides'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'team/guides/rule-id-registry.json'),
+      JSON.stringify({ version: 1, rules: { 'R-BOARD-1': { status: 'active' } } }));
+    const before = '- see `§1`.\n';
+    const after = '- see `R-BOARD-1`.\n';
+    const good = { files: {}, atoms: {}, refMap: { 'f.md': { '§1': 'R-BOARD-1' } } };
+    assert.equal(compareFile('f.md', before, after, good, root).unaccountedTotal, 0, '改名到存在的规则应销账');
+    const bad = { files: {}, atoms: {}, refMap: { 'f.md': { '§1': 'R-NOPE-9' } } };
+    assert.equal(compareFile('f.md', before, after, bad, root).unaccountedTotal, 1, '目标规则不存在必须仍红');
+    const uncited = { files: {}, atoms: {}, refMap: { 'f.md': { '§1': 'R-BOARD-1' } } };
+    assert.equal(compareFile('f.md', before, '- see nothing.\n', uncited, root).unaccountedTotal, 1,
+      '改后文件未引用目标规则时不得销账（refMap 不能只凭规则全局存在放行）');
+    assert.equal(compareFile('f.md', before, after, EMPTY, root).unaccountedTotal, 1, '未登记的 § 引用必须仍红');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
 test('allowlist：整轴登记不越界到别的文件', () => {

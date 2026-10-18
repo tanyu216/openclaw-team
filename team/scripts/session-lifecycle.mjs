@@ -16,7 +16,7 @@
  *      + registry 终态 + `endedAt`）之后，再为该行补 `endedAt` 审计字段（追加式，不改既有字段）；
  *   ③ `appendAudit` —— 逐条留痕（`workspace/<task-id>/lane-lifecycle.log`，JSON Lines）。
  *
- * 纪律：ACL 仍是**唯一**的卡 `## Sessions` 写点（`PROTOCOL §13.3`）。本模块不直接写卡行正文——
+ * 纪律：ACL 仍是**唯一**的卡 `## Sessions` 写点（`R-DISC-3`）。本模块不直接写卡行正文——
  * `endedAt` 补写只在该行**刚被本模块经 ACL 置终态**时发生（追加一个字段，不重写任何既有字段）。
  *
  * provider 依赖：ACL 库是 provider 拥有、有意不 vendoring 的（`skills/PROVENANCE.md`），故**动态**

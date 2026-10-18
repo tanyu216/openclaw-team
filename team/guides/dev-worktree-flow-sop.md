@@ -2,10 +2,10 @@
 
 > **Ownership / Maintainer**: **Linus** (engineering) owns the flow and this guide; **Elon** owns
 > dispatch and acceptance.
-> **Status**: method library (`L2.5`). This file's `§6.4` is the **normative clause body** delegated by
-> `PROTOCOL §6.4` (`PROTOCOL §17` rule 6). `PROTOCOL §6.3` (parallelism-first) and
-> `PROTOCOL §20.1/§20.2` (what is machine-checked and what is *not*) remain in L1 and are referenced.
-> Reference convention: `guides/engineering-standards-sop.md` §6.1 clause 11.
+> **Status**: method library. This file's `§6.4` is the **normative clause body** delegated by
+> `R-WORKTREE-1` (`R-LAYER-1` rule 6). `R-PARALLEL-1` (parallelism-first) and
+> `R-GATE-1` / `R-GATE-2` (what is machine-checked and what is *not*) are referenced.
+> Reference convention: `R-ENG-2`.
 > **Applies to**: every development card whose work lands in a git checkout this framework manages.
 > **Replaces**: `worktree-isolation-sop.md` (deleted 2026-10-16 with the mechanism it documented).
 > **Branch names are resolved, not assumed**: the release branch may be `main`/`master`/`trunk` and is
@@ -17,14 +17,14 @@
 
 ## §6.4 Development-Branch and Worktree Discipline
 
-> **Normative clauses** delegated from `PROTOCOL §6.4` (`PROTOCOL §17` rule 6). The mechanics and the end-to-end sequence follow below.
+> **Normative clauses** delegated from `R-WORKTREE-1` (`R-LAYER-1` rule 6). The mechanics and the end-to-end sequence follow below.
 
-- **Development integrates on the long-lived branch `dev`; no role develops on `main`.** Every development **card** — **Linus, Jobs, Turing alike** — runs on its own **card branch `<card-id>`**, in a **dedicated git worktree**. **One card = one branch = one worktree**: every segment of that card is a new *session* on the same branch and tree, never a new branch. `main` is the protected release branch and is **never a development base** — its only write is the explicit `dev → main` integration/release step. A card's product **merges into `dev`**.
-- **The main checkout holds `dev`.** The tree a worker stands in *is* the integration tree. The `dev → main` step is therefore done from a **throwaway worktree**, not by flipping the main checkout's branch.
+- **Development integrates on the long-lived integration branch; no role develops on the protected release branch.** Every development **card** — **Linus, Jobs, Turing alike** — runs on its own **card branch `<card-id>`**, in a **dedicated git worktree**. **One card = one branch = one worktree**: every segment of that card is a new *session* on the same branch and tree, never a new branch. The protected release branch is **never a development base** — its only write is the explicit integration → release step. A card's product **merges into the integration branch**.
+- **The main checkout holds the integration branch.** The tree a worker stands in *is* the integration tree. The integration → release step is therefore done from a **throwaway worktree**, not by flipping the main checkout's branch.
 - **Isolation is the lane's own act, not the spawner's.** `scripts/spawn-lane.sh` neither decides nor creates worktrees: cwd is always the repo root, and the lane follows the **`using-git-worktrees`** skill, whose git fallback places the tree at `<repo>/.worktrees/<card-id>` (git-ignored). The lane prompt supplies what the skill cannot know — the **authorisation**, the **branch name**, and whether this is a **first entry** (create the branch/tree, `-b`) or a **continuation** (re-enter the existing branch/tree; never `-b`). A **review lane** creates no branch or tree: it re-enters the card worktree read-only at a pinned commit.
-- **The branch is based on `dev`.** Because the main checkout holds `dev`, the skill's implicit `HEAD` base **is** `dev` on first entry. After that the card branch is **reused as-is** by every later segment: a segment is a **session boundary, not a merge boundary**, so there is **no merge between segments** and no intermediate sync of `dev` into the card branch. **Rework of an unmerged branch stays in the same worktree.** (A card that lives long enough for the deferred merge to become painful should be split; the conflict is resolved once at closeout.)
-- **A card's product must be merged into `dev` before the card is closed.** The merge into `dev` is a **precondition of the terminal `done`**, not a cleanup step after it: because every segment shares one branch, the lane owner merges the card branch **once, at card level** (never per segment), and the Report carries the **merged sha / the `dev` tip**; **Elon's acceptance confirms the merge landed and records it on the card** before setting `done`. An **unmerged branch is not evidence of delivery**, so a card whose product was never merged must **not** reach `done` — send it back to the owner to merge first. The closeout order is **merge → remove the worktree → delete the card branch** (`git branch -d`, never `-D`: the safe form refuses an unmerged branch). `scripts/check-merge.mjs` machine-checks the merge at the gate, and its residual limits are in `§20.2`.
-- **Never commit on the protected branch; branch names are resolved, not assumed.** A direct commit on a protected branch is **refused** by `scripts/branch-guard.mjs`; run it before committing. Commits legitimately land on a card branch (and on `dev` for the integration step) — the rule is "not on the protected branch". The protected set is *the repo's own default branch* (detected locally from `refs/remotes/origin/HEAD`) **union** `main` and `master`; a detection failure does **not** shrink the set, and `OPENCLAW_PROTECTED_BRANCHES` / `--protected` pins it exactly (an explicit set is taken **as written**, never unioned). The `dev → main` step is the one sanctioned direct-to-protected action and must pass the guard's explicit `--allow-protected` escape, whose `overridden:true` is its trail. The integration branch is likewise configurable — `OPENCLAW_TEAM_INTEGRATION_BRANCH` (default `dev`), resolved in **one** place and read by **both** the merge gate and the lane prompt (disagreeing is a silent failure); with no resolvable integration branch the merge check is **skipped with a note**, never reddened. Bootstrapping such a repo: `guides/dev-worktree-flow-sop.md`.
+- **The branch is based on the integration branch.** Because the main checkout holds it, the skill's implicit `HEAD` base **is** the integration branch on first entry. After that the card branch is **reused as-is** by every later segment: a segment is a **session boundary, not a merge boundary**, so there is **no merge between segments** and no intermediate sync of the integration branch into the card branch. **Rework of an unmerged branch stays in the same worktree.** (A card that lives long enough for the deferred merge to become painful should be split; the conflict is resolved once at closeout.)
+- **A card's product must be merged into the integration branch before the card is closed.** The merge into it is a **precondition of the terminal `done`**, not a cleanup step after it: because every segment shares one branch, the lane owner merges the card branch **once, at card level** (never per segment), and the Report carries the **merged sha / the integration-branch tip**; **Elon's acceptance confirms the merge landed and records it on the card** before setting `done`. An **unmerged branch is not evidence of delivery**, so a card whose product was never merged must **not** reach `done` — send it back to the owner to merge first. The closeout order is **merge → remove the worktree → delete the card branch** (`git branch -d`, never `-D`: the safe form refuses an unmerged branch). `scripts/check-merge.mjs` machine-checks the merge at the gate, and its residual limits are in `R-GATE-2`.
+- **Never commit on the protected branch; branch names are resolved, not assumed.** A direct commit on a protected branch is **refused** by `scripts/branch-guard.mjs`; run it before committing. Commits legitimately land on a card branch (and on the integration branch for the merge step) — the rule is "not on the protected branch". The protected set is *the repo's own default branch* (detected locally from `refs/remotes/origin/HEAD`) **union** `main` and `master`; a detection failure does **not** shrink the set, and `OPENCLAW_PROTECTED_BRANCHES` / `--protected` pins it exactly (an explicit set is taken **as written**, never unioned). The integration → release step is the one sanctioned direct-to-protected action and must pass the guard's explicit `--allow-protected` escape, whose `overridden:true` is its trail. The integration branch is likewise configurable — `OPENCLAW_TEAM_INTEGRATION_BRANCH` (default `dev`), resolved in **one** place and read by **both** the merge gate and the lane prompt (disagreeing is a silent failure); with no resolvable integration branch the merge check is **skipped with a note**, never reddened. Bootstrapping such a repo: `guides/dev-worktree-flow-sop.md`.
 
 ---
 
@@ -56,7 +56,7 @@ prompt (`.worktrees/<card-id>` under `git rev-parse --show-toplevel`); a tree an
 invisible to `check-merge.mjs`.
 
 **Layer boundary worth restating**: the spawner used to decide *whether* to isolate and *where to
-branch from*. It no longer does either (`PROTOCOL §6.4`). What it still guarantees is that the lane
+branch from*. It no longer does either (`R-WORKTREE-1`). What it still guarantees is that the lane
 starts in the repo root with an unambiguous card, a handoff pack, settings, a registered session and
 an owner for the terminal write.
 
@@ -74,7 +74,7 @@ an owner for the terminal write.
 | 6 | Report written: conclusion · branch · commit sha · **merged sha** | lane | **machine (partial)** — `check-report.mjs` checks slot *presence* only; the merged sha is not a checked slot |
 | 7 | owner merges the **card branch once** into the integration branch | lane owner | **prose** |
 | 8 | Elon accepts: confirms the merge landed, records the merged sha, sets `done` | Elon | **prose** — the `done` write is *git-blind* (ACL requires only actor + non-terminal) |
-| 9 | gate re-checks: a `done` card's worktree must be an ancestor of the integration branch | gate | **machine** — `check-merge.mjs` (`PROTOCOL §20.1`) |
+| 9 | gate re-checks: a `done` card's worktree must be an ancestor of the integration branch | gate | **machine** — `check-merge.mjs` (`R-GATE-1`) |
 | 10 | worktree removed | owner | **prose** — and only **after** the merge |
 | 11 | card branch deleted (`git branch -d`) | owner | **machine-safe** — `-d` (never `-D`) refuses an unmerged branch |
 
@@ -85,15 +85,15 @@ the card is live (`review_needs_quiet_card`).
 
 **The order in steps 7–11 is the load-bearing part.** "Merge, *then* remove" is not tidiness: a
 removed worktree is invisible to `check-merge.mjs`, so removing first silently converts step 9 from a
-check into a no-op (`PROTOCOL §20.2`).
+check into a no-op (`R-GATE-2`).
 
-**Step 11 — delete the branch.** The clause is `PROTOCOL §6.4` ("the closeout order is **merge →
+**Step 11 — delete the branch.** The clause is `R-WORKTREE-1` ("the closeout order is **merge →
 remove the worktree → delete the card branch**"); this section only records *why*, and how.
 `finishing-a-development-branch` (the companion to `using-git-worktrees`) says the same: once the
 merged result is green, clean up the worktree *and then* `git branch -d <feature-branch>`. The **old** mechanism
 deliberately never deleted branches — base derivation reconstructed a predecessor branch by name
 (`lane/<card>-<seg>`), so the branch was load-bearing after teardown. That machinery is gone
-(`PROTOCOL §6.4`), so the reason is gone with it, and keeping branches is now pure accumulation.
+(`R-WORKTREE-1`), so the reason is gone with it, and keeping branches is now pure accumulation.
 
 **Why keeping them is not a disk problem, and why deleting is still right.** A branch is a **ref — 41
 bytes**; a *merged* branch shares every object with the integration branch (that is what merging
@@ -105,12 +105,12 @@ behaviour is the default and no judgement call is needed.
 
 ### 2.1 Continuation and rework
 
-The card branch is created **once**, on the first segment, from the **integration branch** (`dev` by
-default — `OPENCLAW_TEAM_INTEGRATION_BRANCH`; `PROTOCOL §6.4`). Every later segment **re-enters the
+The card branch is created **once**, on the first segment, from the **integration branch** (the configured one by
+default — `OPENCLAW_TEAM_INTEGRATION_BRANCH`; `R-WORKTREE-1`). Every later segment **re-enters the
 same branch and worktree**:
 
 - **A segment is a session boundary, not a merge boundary.** There is **no merge between segments**
-  and no intermediate sync of `dev` into the card branch; the branch is merged exactly once, before
+  and no intermediate sync of the integration branch into the card branch; the branch is merged exactly once, before
   `done`. This is deliberate: segment-level merges used to put unaccepted work on `dev`.
 - **Rework of an unmerged branch stays in the same worktree.** Sending a card back for changes is not
   a reason to build a second tree on a base that lacks the first one's commits.
@@ -174,10 +174,10 @@ This table is the point of the guide. Read it before trusting any claim that a s
 | a review lane is read-only and creates no branch/tree | **machine (partial)** | claude: `settings.review.json` + `dontAsk`; codex: `--sandbox read-only`; the prompt's "do not write" rule is prose |
 | same-file write conflict ⇒ serialized | **machine (warn only)** | `samefile-guard.mjs` reports; nothing blocks a start |
 | no direct commit on the release branch | **prose** | `branch-guard.mjs` is SOP-invoked, not a git hook; it resolves the protected set per repo (default branch ∪ `main` ∪ `master`) |
-| the card branch is deleted after the merge (`PROTOCOL §6.4`) | **prose, safe by construction** | nothing checks it — but `git branch -d` (never `-D`) refuses an unmerged branch, so the failure mode is "the branch lingers", not "work is lost" |
+| the card branch is deleted after the merge (`R-WORKTREE-1`) | **prose, safe by construction** | nothing checks it — but `git branch -d` (never `-D`) refuses an unmerged branch, so the failure mode is "the branch lingers", not "work is lost" |
 
 **Why the protected set is `default ∪ main ∪ master`.** The rule is "not on the protected branch",
-**not** "only `dev`": commits legitimately land on a card branch, and on the integration branch for
+**not** "only the integration branch": commits legitimately land on a card branch, and on the integration branch for
 the merge step. A repo whose release branch is `master` must
 not silently lose protection merely because the framework's docs say `main`. A detection failure
 does **not** shrink the set — it only costs the extra name; an explicit `OPENCLAW_PROTECTED_BRANCHES`
@@ -186,13 +186,20 @@ by **both** the merge gate and the lane prompt: a gate watching a branch the lan
 silent failure. A repo with no resolvable integration branch has its merge check **skipped with a
 note**, never reddened.
 
-**`check-merge.mjs` is a net, not a wall.** Its four structural gaps (`PROTOCOL §20.2`): a removed
+**`check-merge.mjs` is a net, not a wall.** Its four structural gaps (`R-GATE-2`): a removed
 worktree is invisible; a branch name that does not carry the card id escapes attribution; it covers
 only "not merged", not whether the merge was any good; and a merged result can be reverted afterwards.
 The invariant therefore remains **prose-enforced at the moment `done` is written** — the gate is the
 backstop for that discipline, not a replacement for it. During migration a card may temporarily have
 **two** trees (`<card-id>` plus a legacy `<card-id>-segN`); each is checked independently, so removing
 one tree early hides only that branch — remove every tree only after its branch is merged.
+
+**Other deliberately non-machine-checked obligations (`R-GATE-2`)** — kept here so "not machine-checked" never reads as "not required":
+- **claim-path bypass** — a direct dispatch can skip `task.claim`; the card-frontmatter check is prose, and only the poll path is atomic.
+- **business-code provenance / model selection** — reviewed post hoc (by Elon/acceptance), not enforced at write/spawn time.
+- **operator-input trail** — audited post hoc; nothing intercepts an untrailed operator statement.
+- **report trimming / research-report warning** — patrol observations, not hard gate failures.
+- **UI structural contract / selector assertions** — machine checks exist per project, but whether the right subset was declared for the change is reviewed, not gate-enforced.
 
 ---
 
@@ -221,8 +228,8 @@ agent — declare it for `claude` too, or the lane will run without it.
 
 ## 6. Related
 
-- `PROTOCOL §6.4` — the clauses (branch, base, merge-before-`done`, protected branch).
-- `PROTOCOL §20.1` — the gate registry (`check-merge.mjs` is registered there).
-- `PROTOCOL §20.2` — what is deliberately **not** machine-checked, including this flow's residue.
+- `R-WORKTREE-1` — the clauses (branch, base, merge-before-`done`, protected branch).
+- `R-GATE-1` — the gate registry (`check-merge.mjs` is registered there).
+- `R-GATE-2` — what is deliberately **not** machine-checked, including this flow's residue.
 - `guides/spawn-lane-sop.md` — the entry itself (§8, §11).
 - `guides/worktree-…` — **deleted**; this guide is its replacement.

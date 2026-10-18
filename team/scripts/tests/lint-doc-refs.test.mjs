@@ -4,8 +4,8 @@
  * 两道防线都要钉住：
  *   ① **真问题必红** —— 方法库指针断了（历史实证：`roles/turing/guides/` 从未存在）、
  *      跨文件章节锚断了（历史实证：`§6.3` / `§3.3` 写成子标题而目标无此标题）、
- *      节内条款号断了（本腿上线首跑即抓到 `worker-report-template.md` 的
- *      `PROTOCOL §6 clause 13` —— PROTOCOL §6 只有 8 条，实指 `PROTOCOL §6.1` 第 13 条）必须判红；
+ *      节内条款号断了（本腿上线首跑即抓到 `worker-report-template.md` 把「§6.1 第 13 条」
+ *      写成「§6 第 13 条」，而 §6 只有 8 条）必须判红；
  *   ② **误报必零** —— 扩展名散文（`.md`）、运行时点文件（`.claude/settings.json`）、
  *      provider 侧路径（`skills/**`，有意不随仓）、实例/运行时路径（`workspace/…`）、
  *      **目标文件没有编号标题**（如空的 `shared.md`）、**体不是 `1..n` 连续顶层有序列表**
@@ -37,9 +37,6 @@ before(() => {
   put('roles/elon/AGENTS.md');
   put('roles/linus/AGENTS.md', 'see `guides/linus-only.md`\n');
   put('roles/linus/guides/linus-only.md');
-  // 第三腿夹具：圈码锚恒指 `PROTOCOL.md` ⇒ 给它一个 `### ⑥.1` 带 11 条顶层有序项。
-  put('team/PROTOCOL.md',
-    `## 6. S\n### 6.1 Q\n${Array.from({ length: 11 }, (_, i) => `${i + 1}. item ${i + 1}`).join('\n')}\n`);
   put('team/guides/shared.md');
   // 第二腿夹具：一份**有编号标题**的目标（`## 3` / `## 6` + `### 6.3`），用以证 §N 的解析语义。
   put('team/guides/numbered.md', '## 3. Steps\n1. one\n## 6. Invariants\n### 6.3 Sub\ntext\n');
@@ -72,8 +69,6 @@ before(() => {
     'skip-secref-self: see §3.3',            // 无文件名 ⇒ 文件内一类，本腿**有意**不判
     'ok-itemref-file: `guides/items.md` §6 clause 3',
     'ok-itemref-file-step: `guides/items.md` §6 step 2',
-    'ok-itemref-named: PROTOCOL §6.1 clause 11',
-    'ok-itemref-named-hash: PROTOCOL §6.1 #8',
     // **不识别**的三类：裸阿拉伯 #K（本仓表示表格行）、无文件锚的 step、U+2011 连字符节号
     'skip-itemref-bare-hash: the contract §4 #9',
     'skip-itemref-no-file: see §4.1 step 3',
@@ -157,8 +152,8 @@ test('提取：只取 `§` **紧邻**文件名的跨文件锚；文件内与圈�
   // `§` 不紧邻文件名 ⇒ 指自己所在文件：本腿**有意**只做跨文件（文件内编号可能有意变动）
   assert.deepEqual(extractSectionRefs('see `guides/a.md`; also §3.3'), []);
   assert.deepEqual(extractSectionRefs('see §3.3'), []);
-  // 圈码引用是 `lint-refs.mjs` 的领域（且只对 PROTOCOL.md），本腿不碰
-  assert.deepEqual(extractSectionRefs('see `team/PROTOCOL.md` PROTOCOL §6.4'), []);
+  // 文件内的 §N 本腿不碰（只有点名文件才做跨文件锚）
+  assert.deepEqual(extractSectionRefs('see `team/guides/a.md`; also §6.4'), []);
 });
 
 test('基线（含第二腿）：路径锚与章节锚一起零断引用', () => {
@@ -206,13 +201,9 @@ test('提取：只收目标可判定的三类；裸阿拉伯 #K 等三类一概�
     [{ file: 'guides/a.md', sec: '6', kind: 'clause', item: 3 }]);
   assert.deepEqual(extractItemRefs('x `guides/a.md` §3 step 2'),
     [{ file: 'guides/a.md', sec: '3', kind: 'step', item: 2 }]);
-  assert.deepEqual(extractItemRefs('x PROTOCOL §6.1 clause 11'),
-    [{ file: null, sec: '6.1', kind: 'clause', item: 11 }]);
-  assert.deepEqual(extractItemRefs('x `PROTOCOL §6.1` clause 11'),   // 反引号拆写
-    [{ file: null, sec: '6.1', kind: 'clause', item: 11 }]);
-  assert.deepEqual(extractItemRefs('x PROTOCOL §9.1 hard gate #1'),
-    [{ file: null, sec: '9.1', kind: '#', item: 1 }]);
-  // 不识别：裸阿拉伯 #K（本仓 = 表格行）、无文件锚的 step、非识别标记词、U+2011
+  // 规则 ID 的 clause 计数归 `lint-rule-refs.mjs` 管，本腿不得重复解析
+  assert.deepEqual(extractItemRefs('x `R-BOARD-1` clause 11'), []);
+  // 不识别：裸阿拉伯 #K（本仓 = 表格行）、非识别标记词、U+2011
   assert.deepEqual(extractItemRefs('the contract §4 #9'), []);
   assert.deepEqual(extractItemRefs('see §4.1 step 3'),
     [{ file: '@self', sec: '4.1', kind: 'step', item: 3 }]);   // 裸 ⇒ 自引用
@@ -236,17 +227,6 @@ test('突变：条目锚断了必红 —— K 超过该节顶层条目数', () =
     assert.equal(bad[0].token, 'guides/items.md §6 clause 9');
   } finally { fs.writeFileSync(f, saved); }
   assert.deepEqual(lint().bad, [], '恢复后须回绿');
-});
-
-test('突变：点名 `PROTOCOL` 的引用解析到 L1', () => {
-  const f = path.join(ROOT, 'team/guides/refs.md');
-  const saved = fs.readFileSync(f, 'utf8');
-  fs.writeFileSync(f, saved + '\nbad-named: PROTOCOL §6.1 clause 12\n');
-  try {
-    const { bad } = lint();
-    assert.equal(bad.length, 1, `应恰好一条：${JSON.stringify(bad)}`);
-    assert.equal(bad[0].token, 'PROTOCOL §6.1 clause 12');
-  } finally { fs.writeFileSync(f, saved); }
 });
 
 test('嵌套不串节：§6 的 3 条不得把 §6.1 的条目算进来', () => {

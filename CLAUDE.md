@@ -22,13 +22,19 @@ decided by whether an installed instance is resolvable (`$TEAM/scripts` exists �
 **live**, else **repo**; `--repo <R>` / `--live` / `OPENCLAW_TEAM_MODE` override):
 
 - **live** — audits an **installed instance**: board checks over `tasks/`, the
-  provider ACL suites, the archive preview, and the three linters against
+  provider ACL suites, the archive preview, and the lint group against
   `$OPENCLAW_HOME/workspace-<role>/AGENTS.md`.
 - **repo** — **self-verification of this checkout**, needing no instance and no
-  host path: syntax (`bash -n` / `node --check`), the three linters in repo mode
+  host path: syntax (`bash -n` / `node --check`), the lint group in repo mode
   (they check the **seeds** `roles/<role>/AGENTS.md` + `team/**`), and the
   framework suite. Instance-scoped steps are skipped **explicitly**, never red.
   This is the path a contributor, a fresh clone and CI take.
+
+The lint group is: `check-redlines` (redline block byte equality),
+`check-shared-rules` (owner/carrier byte equality + generated index),
+`lint-rule-refs` (stable `R-*` ids), `lint-no-protocol-refs` (guides are leaf
+documents), `lint-doc-refs` (paths and guide-local section anchors),
+`lint-impl-names`, and `check-sla-thresholds` (the JSON threshold source).
 
 The envelope carries `"mode":"live"|"repo"`. `docker/verify-in-container.sh`
 pins the acceptance criterion: a machine with **no** `~/.openclaw` must return
@@ -58,8 +64,8 @@ repository, so treat them as source, not as host configuration.
 # Suites that need the task-ops provider self-skip (they do not fail). To actually run them,
 # point OPENCLAW_TASK_OPS_DIR at a checkout containing lib/ — that is the mode the deployed
 # instance runs (`check-all.sh --segment slow`).
-#   bare            : 781 tests · 199 pass · 0 fail · 582 skip
-#   + provider      : 781 tests · 777 pass · 0 fail ·   4 skip
+#   bare            : 805 tests · 231 pass · 0 fail · 574 skip
+#   + provider      : 805 tests · 796 pass · 0 fail ·   9 skip
 # NOT covered by CI: CI runs `docker/verify-in-container.sh`, which runs only
 # `check-all.sh --segment fast`; this suite lives in the SLOW segment. A green CI run
 # therefore says nothing about it.
@@ -71,8 +77,9 @@ node --test test/install/*.test.mjs
 node --test test/skills/*.test.mjs
 
 # Doc rewriting: prove no clause was lost (repo-side tool, not deployed)
-# before/after diff over team/guides + roles; unregistered losses exit non-zero
-node test/docs/doc-clause-diff.mjs --base dev --path team/guides roles
+# before/after diff over team/ + roles/ (default targets; includes top-level volumes);
+# unregistered losses exit non-zero
+node test/docs/doc-clause-diff.mjs --base dev
 
 # The gate (single source of checks; also what the hourly job runs)
 bash team/scripts/check-all.sh                     # --segment all (default)
@@ -115,7 +122,7 @@ Single entry point, every stage idempotent. Stages (§ markers in the file):
 | § | Action |
 |---|---|
 | 0 | preflight (node / OpenClaw CLI; warns on missing `claude`/`codex`) |
-| 1 | team docs → `~/.openclaw/team/` (`PROTOCOL.md`, `ROLES.md`, `guides/`); never touches `tasks/`, `workspace/`, `memory/` |
+| 1 | team docs → `~/.openclaw/team/` (`ROLES.md`, `SHARED-RULES.md`, `guides/`); retires the former protocol volumes; never touches `tasks/`, `workspace/`, `memory/` |
 | 1a | repo `tools/` → instance `$TEAM/tools/` |
 | 1b–1c | prototype carrier choice (recorded in `team.config.json`) + connector check |
 | 1d | masked API-key prompt → `$TEAM/.secrets.env` (0600) |
@@ -153,7 +160,7 @@ skip). Overrides for local testing: `OPENCLAW_TEAM_POLL_CMD`,
 `OPENCLAW_TEAM_TMPGC_CMD`, and `OPENCLAW_TEAM_TASK_PROVIDER=<name>`.
 
 `tmp-gc` (daily 02:20 Asia/Shanghai) is the enforcement arm of the scratch-file
-discipline `PROTOCOL §13.9`: every role keeps its temporary files in its own
+discipline `R-DISC-9`: every role keeps its temporary files in its own
 `workspace-<role>/.tmp/`, and the job deletes anything older than 14 days there,
 plus `~/.openclaw/tmp/` and `~/.openclaw/team/tmp/`. Roots come from a glob, so
 the repo never carries a second copy of the role roster. It is **split in two**,
@@ -190,7 +197,7 @@ refreshes that cache out of band.
 
 - **[team/scripts/lib.mjs](team/scripts/lib.mjs) is the shared library** — card
   frontmatter I/O, atomic claim, project registry — implementing the board
-  protocol primitives of `PROTOCOL.md`.
+  rules `R-BOARD-1`…`R-BOARD-5`.
 - **Provider ACL is a deliberate runtime dependency, not vendored.** `lib.mjs`
   imports `{team}/skills/task-ops/lib/team-paths.mjs` (owned by the task
   provider; see `skills/PROVENANCE.md`). At import time it checks the library is
@@ -201,7 +208,8 @@ refreshes that cache out of band.
   `OPENCLAW_HOME` (default `~/.openclaw`, used for `workspace-<role>/`) and
   `OPENCLAW_TEAM_MODE=live|repo`. [team/scripts/host-paths.mjs](team/scripts/host-paths.mjs)
   is the single resolver for the lint group (`check-redlines.mjs`,
-  `lint-refs.mjs`, `lint-doc-refs.mjs`, `lint-impl-names.mjs`, `sync-redlines.mjs`); `lib.mjs` (and the
+  `check-shared-rules.mjs`, `lint-rule-refs.mjs`, `lint-no-protocol-refs.mjs`,
+  `lint-doc-refs.mjs`, `lint-impl-names.mjs`, `sync-redlines.mjs`); `lib.mjs` (and the
   provider's `team-paths.mjs` behind it), `check-all.sh` and `scan-deps.mjs`
   resolve the same roots themselves — deliberately not merged, see the module
   header. With `OPENCLAW_TEAM_ROOT=<sandbox>/team` the workspace root becomes
@@ -226,16 +234,18 @@ refreshes that cache out of band.
 ### Content layers
 
 - **[team/](team/)** — static docs deployed to `~/.openclaw/team/`.
-  [PROTOCOL.md](team/PROTOCOL.md) is the L1 index: its numbered headings are the
-  reference surface, and four shared sections (§6.1, §6.4, §9.1, §10.5) are
-  **pointer sections** whose normative bodies live in team-level guides
-  (`PROTOCOL §17` rule 6). [ROLES.md](team/ROLES.md) is
-  the boundary/handoff reconciliation table. Other docs **reference, not copy**.
-  [team/guides/](team/guides/) holds the per-domain SOPs and contracts
-  (`task-interface.md` is the ACL contract; `redlines.core.md` is the canonical
-  redlines source for `check-redlines.mjs`).
+  [SHARED-RULES.md](team/SHARED-RULES.md) is the **generated maintenance index**
+  of every `R-*` rule (metadata only, never an agent entry point).
+  [ROLES.md](team/ROLES.md) is the boundary/handoff reconciliation table.
+  [team/guides/](team/guides/) is the **method layer** — per-domain SOPs and
+  contracts (`task-interface.md` is the ACL contract; `redlines.core.md` is the
+  canonical redlines source; `sla-thresholds.json` is the single numeric SLA
+  source). Guides are **leaf documents**: they never reference the retired
+  protocol volumes, and every rule they cite exists as an `R-*` id.
 - **[roles/<agent>/](roles/)** — workspace seed files. `AGENTS.md` is the role's
-  standing orders (SOP).
+  **complete standing orders** and the **rule layer**: redlines, owner blocks,
+  generated carrier blocks, role-specific orders, and method pointers. There is
+  no separate read-first protocol volume.
 - **[config/](config/)** — `*.json5` are auto-applied; `config/examples/*` are
   reference-only and never applied.
 - **[skills/](skills/)** — skill bodies are **not stored here**. `manifest.json`
@@ -250,6 +260,51 @@ refreshes that cache out of band.
   user-supplied, and `gitnexus` ships only its CLI.
 - **[tools/](tools/)** — `ui-fidelity/` (L1 structural · L2 pixel regression ·
   L3 prototype-as-oracle) and `ui-align/`.
+
+### Shared rules — ownership and maintenance
+
+The rule layer is `roles/<role>/AGENTS.md`. Every cross-role rule is a marked block
+with a stable id `R-<DOMAIN>-<n>`:
+
+- **Owner block** — exactly one per rule, in the owner's `AGENTS.md` under
+  `## Shared rules (owner)`. Marker:
+  `<!-- BEGIN SHARED-RULE:R-<DOMAIN>-<n> v1 owner=<role> carriers=<all|csv> canonical=owner|guide detail=<path §N|-> redline=<csv> -->`.
+- **Carrier blocks** — generated into each carrier role's
+  `## Shared rules (generated)` by `sync-shared-rules.mjs`, byte-identical to the
+  owner payload. **Never hand-edit a carrier.**
+- `canonical=owner` — the owner block carries the normative body.
+- `canonical=guide` — the named `detail=` guide carries the normative body; the
+  owner block is a short rule plus a pointer.
+
+`team/SHARED-RULES.md` and `team/guides/rule-id-registry.json` are generated.
+`SHARED-RULES.md` is metadata-only: owner, carriers, canonical, detail, redline
+items, status. It is **not** an agent entry point.
+
+Maintenance:
+
+1. **Add** — append the block in the owner's `## Shared rules (owner)` with
+   `owner` / `carriers` / `canonical` / `detail` / `redline`; run
+   `node team/scripts/sync-shared-rules.mjs --repo "$PWD"`; then
+   `check-shared-rules.mjs --repo "$PWD"` and `lint-rule-refs.mjs --repo "$PWD"`.
+2. **Edit** — change only the canonical position (owner block for
+   `canonical=owner`, the detail guide for `canonical=guide`); sync propagates.
+3. **Change carriers** — edit `carriers=`; sync adds/removes the copies.
+4. **Retire** — set `status=retired`, clear carriers, keep the block and index
+   row. An id is never reused (`rule-id-registry.json` is append-only).
+5. **No double normative body** — `canonical=guide` must not copy the guide's
+   clause list into the owner block; `canonical=owner` must not be restated in
+   the detail guide.
+6. **Size budget** — `roles/*/AGENTS.md` has a hard per-role cap in
+   `test/docs/shared-rules.test.mjs`. Over budget: narrow carriers first, then
+   convert a rule to `canonical=guide`; do not raise the cap.
+7. **Reference notation** — cross-role rules are backticked `` `R-<DOMAIN>-<n>` ``;
+   guide-local sections are `<guide>.md §N`; a bare `§N` means the current file.
+   Guides must never reference `PROTOCOL.md` / `PROTOCOL-gates.md`
+   (`lint-no-protocol-refs` is a hard gate).
+8. **Live mode** — `sync-shared-rules.mjs --live` reads
+   `$OPENCLAW_HOME/workspace-<role>/AGENTS.md`. `install.sh` deploys the repo
+   seeds and overwrites live edits (with a `.backups/<ts>/` copy), so the **repo
+   seeds are canonical**; edit there, never only in the instance.
 
 ## Branch and worktree discipline
 
@@ -312,12 +367,12 @@ use `dev` and `main`, another repo may use `develop` and `master`.
 - **Bootstrapping:** a repo with no integration branch has no integration target — create it once
   (`git branch dev <base>`), or point `OPENCLAW_TEAM_INTEGRATION_BRANCH` at the branch it already has.
 
-Normative source: PROTOCOL §6.4 (a pointer; the body is
+Normative source: `R-WORKTREE-1` (the body is
 [dev-worktree-flow-sop.md](team/guides/dev-worktree-flow-sop.md) §6.4). Mechanics:
 [dev-worktree-flow-sop.md](team/guides/dev-worktree-flow-sop.md),
 [spawn-lane-sop.md](team/guides/spawn-lane-sop.md). The merge-back is machine-checked at
-the gate by [check-merge.mjs](team/scripts/check-merge.mjs) (`PROTOCOL §20.1`); what it
-structurally cannot catch is listed in `PROTOCOL §20.2`.
+the gate by [check-merge.mjs](team/scripts/check-merge.mjs) (`R-GATE-1`); what it
+structurally cannot catch is listed in `R-GATE-2`.
 
 ## Conventions
 
