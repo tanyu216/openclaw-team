@@ -11,8 +11,8 @@
     "test/install/protocol-retirement.test.mjs"
   ],
   "entries": [
-    "CLAUDE.md:301:PROTOCOL.md",
-    "CLAUDE.md:301:PROTOCOL-gates.md",
+    "CLAUDE.md:302:PROTOCOL.md",
+    "CLAUDE.md:302:PROTOCOL-gates.md",
     "install.sh:426:PROTOCOL.md",
     "install.sh:426:PROTOCOL-gates.md",
     "docker/verify-in-container.sh:86:PROTOCOL.md",

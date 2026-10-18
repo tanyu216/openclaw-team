@@ -66,7 +66,7 @@
  *   隔离：`OPENCLAW_TEAM_ROOT` 覆盖（与 team-paths.mjs 同源），便于单测用 mkdtemp。
  *
  * ── (v) 报告作者来源（Δ2：delivery vs import/代收口）────────────────────────────
- *   对齐 TaskPanel `task_reports.origin = delivery|import`（Terry 2026-10-15 批准的设计输入）：
+ *   对齐 TaskPanel `task_reports.origin = delivery|import`（operator 2026-10-15 批准的设计输入）：
  *   「这张卡的 Report 是谁写的」是**验收资格**问题，不只是内容问题 ——
  *     · `delivery`（默认）：**交付者本人**所写 ⇒ 可作为验收证据；
  *     · `import`：**迁移 / 代收口**所写（替已死会话、或历史迁移补写）⇒ **不是交付证据**。

@@ -1,7 +1,7 @@
 # Release and Versioning SOP (release-versioning-sop.md)
 
 > **Ownership / Maintainer**: **Linus** (engineering) maintains this file. **Elon** owns the release-approval rule `R-VERSION-2`; this file references it and never copies its body.
-> **Depends on**: `R-PUB-1` (public release channel & approval), `R-SESSION-1` (git discipline), `R-ENG-1` (engineering quality standards), `R-CONTAINER-1` (container-form acceptance), `R-DOCSYNC-1` (two-way doc sync), `R-CONFIRM-1` (confirmation gate), `R-SLA-1` (SLA/timeout escalation), `R-SLA-7` (team-stalled exception channel), `R-LAYER-1` (doc layering / no verbatim copying), `R-GATE-1` (machine-checkable gates), `R-VERSION-1` (release & versioning — the rule this SOP details).
+> **Depends on**: `R-PUB-1` (public release channel & approval), `R-SESSION-2` / `R-SESSION-3` (git discipline), `R-ENG-1` (engineering quality standards), `R-CONTAINER-1` (container-form acceptance), `R-DOCSYNC-1` (two-way doc sync), `R-CONFIRM-1` (confirmation gate), `R-SLA-1` (SLA/timeout escalation), `R-SLA-7` (team-stalled exception channel), `R-LAYER-1` (doc layering / no verbatim copying), `R-GATE-1` (machine-checkable gates), `R-VERSION-1` (release & versioning — the rule this SOP details).
 > **Scope**: this file = the **method library** (release/version execution detail). Cross-role mechanisms reference `R-VERSION-1` and are **not copied** here.
 > **Sibling guides**: `ci-release-sop.md` (CI gate / build / deploy) · `runtime-observability-sop.md` (log/metric/alert + observation window) · `incident-response-sop.md` (incident handling) · `data-migration-sop.md` (data migration / forward fix) · `api-compat-sop.md` (external contract compatibility).
 > **Reference convention**: always write `R-<DOMAIN>-<n>` or `guide-name §<section>` — **no line-number anchors, no card-number anchors** (`R-ENG-2`).
@@ -61,7 +61,7 @@
 
 - **Format**: `vX.Y.Z` (release) / `vX.Y.Z-alpha.N`, `vX.Y.Z-rc.N` (pre-release); **always with the `v` prefix**.
 - **Form**: **annotated tag** (with author / time / description); the tag message reads "version + one-line summary + pointer to the changelog section".
-- **Uniqueness**: one version number is tagged once; **moving / force-pushing an existing tag is forbidden** (it falls under the `R-SESSION-1` destructive-git prohibition). Tagged by mistake ⇒ **increment PATCH and re-release** (see §5).
+- **Uniqueness**: one version number is tagged once; **moving / force-pushing an existing tag is forbidden** (it falls under the `R-SESSION-3` destructive-git prohibition). Tagged by mistake ⇒ **increment PATCH and re-release** (see §5).
 - **Trigger**: the release pipeline is triggered by pushing a tag matching `v*` (see `ci-release-sop.md` for the workflow details).
 - **Ledger**: the tag is the version's **external anchor**; changelog, build artifact and release notes must each correspond one-to-one with the tag (§3.3).
 
@@ -85,7 +85,7 @@
 - **Fixed groups** (write if present, omit if not): `Added` / `Changed` / `Deprecated` / `Removed` / `Fixed` / `Security`.
 - **Version section**: `## [X.Y.Z] - YYYY-MM-DD`; keep a `## [Unreleased]` section at the top accumulating unreleased changes.
 - **Entries**: start with a verb, described **for the user** in terms of impact (not a restatement of commits); breaking changes must be explicitly marked **BREAKING** in the entry.
-- **Language**: **follow the project's default documentation language** (`R-SESSION-1` / the project's `default_git_rules` stance) — a project whose default docs are English keeps the changelog in English (bilingual where necessary); a project whose docs are Chinese keeps the changelog in Chinese with technical terms left in English.
+- **Language**: **follow the project's default documentation language** (the project's `default_git_rules` stance) — a project whose default docs are English keeps the changelog in English (bilingual where necessary); a project whose docs are Chinese keeps the changelog in Chinese with technical terms left in English.
 - **Location**: the changelog file at the repo root (a project without one shows `to be created`, see §7).
 
 ### 3.2 Who writes / when
@@ -114,7 +114,7 @@
 ### 4.1 Pre-release
 
 - [ ] **Unit tests all green** (the project's test command; the CI-gate mechanics are `ci-release-sop.md`)
-- [ ] **Coverage threshold met** (`R-ENG-1`; a project sets its own floor — e.g. lines/branches/functions ≥ 80%; **to be decided** (§8))
+- [ ] **Coverage threshold met** (`R-ENG-1` clause 2: **≥80%** unit coverage is a hard delivery gate; a project may set a **higher** floor, never lower)
 - [ ] **Integration / E2E**: critical paths pass (interfaces / data flow)
 - [ ] **lint / static checks**: the project's static-check command passes
 - [ ] **Container-form acceptance (`R-CONTAINER-1`)**: the critical path is **actually run** in the artifact's real runtime form with evidence (command + output); host-form green does not count
@@ -145,9 +145,9 @@
 
 ---
 
-## 5. Rollback Plan (forward edit, per `R-SESSION-1`)
+## 5. Rollback Plan (forward edit, per `R-SESSION-3`)
 
-> 🔒 **Hard constraint**: this SOP's "rollback" is **not** a reverse git operation. **Forbidden**: `git revert` / `git reset` / `git checkout --` / `git restore` / `git stash` / `git clean` / `push --force` (`R-SESSION-1`). Every rollback is realized by a **forward edit + a normal commit**.
+> 🔒 **Hard constraint**: this SOP's "rollback" is **not** a reverse git operation. **Forbidden**: `git revert` / `git reset` / `git checkout --` / `git restore` / `git stash` / `git clean` / `push --force` (`R-SESSION-3`). Every rollback is realized by a **forward edit + a normal commit**.
 
 ### 5.1 Rollback definition
 
@@ -170,7 +170,7 @@
 | The rollback itself is **high-cost / high-risk** (downstream already depends on the new contract) | **Forward fix** |
 | Root cause not located | First **stop the bleeding** (rollback or degrade), then locate; do not make consecutive forward changes before locating the cause |
 
-- **Responsibility**: the rollback / forward-fix **decision is approved by Elon** (major: escalate to Terry); **execution belongs to Linus**; trailed as a confirmation record.
+- **Responsibility**: the rollback / forward-fix **decision is approved by Elon** (major: escalate to operator); **execution belongs to Linus**; trailed as a confirmation record.
 - **After rollback**: a "root cause + regression" card must be opened (`R-DEFECT-1` defect-fix loop), and the failed release noted in the changelog as `Removed`/`Fixed`.
 
 ---
@@ -189,7 +189,7 @@
 
 ### 6.2 Approvers
 
-- **Default (until a different ruling)**: **public release / production (prod)** is approved by **Elon**; **major upgrades** (MAJOR / breaking change / involving data migration) **escalate to Terry**; **dev/staging / internal validation** is self-approved by the implementer with a trail, with Elon reviewing where necessary. The exact approver set per repo is **to be decided** (§8).
+- **Default (until a different ruling)**: **public release / production (prod)** is approved by **Elon**; **major upgrades** (MAJOR / breaking change / involving data migration) **escalate to operator**; **dev/staging / internal validation** is self-approved by the implementer with a trail, with Elon reviewing where necessary. The exact approver set per repo is **to be decided** (§8).
 - **Relation to `R-PUB-1`**: the **public release action itself** (delivery/distribution to an external audience) still follows `R-PUB-1` (always through Elon); this file only adds the "version/tag production" side of the stance.
 
 ### 6.3 Trail
@@ -219,7 +219,7 @@
 1. **Build-metadata injection** — the concrete injection method where no unified builder exists (§2.2).
 2. **Version source, multi-subproject repo** — **to be decided**; candidate: each subproject's manifest (§2.5).
 3. **Version source, document-as-source project** — **to be decided**; suggested: a `VERSION` file or the source document's frontmatter (§2.5).
-4. **Coverage threshold** — where a repo defines no floor (e.g. lines/branches/functions ≥ 80% is one example) (§4.1).
+4. **Coverage threshold** — where a repo defines no floor, the `R-ENG-1` clause 2 floor (**≥80%**) applies; a project may set a higher floor, never lower (§4.1).
 5. **Distribution channel** — actual distribution (publish/upload) where not yet enabled (§4.2).
 6. **Observation window** — duration and metrics where none defined (§4.3).
 7. **Approver set per repo** (§6.2).

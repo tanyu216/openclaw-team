@@ -1,7 +1,7 @@
 # Incident Response SOP (incident-response-sop.md)
 
 > **Ownership / Maintainer**: first response on the engineering side is **Linus**; **Elon** owns coordination and reporting and is the owner of the normative rule. This file is the method library.
-> **Depends on**: `R-MSG-1` (message discipline) · `R-PUB-1` (public release channel & approval) · `R-SESSION-1` (git discipline) · `R-ENG-1` (engineering quality standards) · `R-DEFECT-1` (defect loop) · `R-CONTAINER-1` (container-form acceptance) · `R-DOCSYNC-1` (two-way doc sync) · `R-CONFIRM-1` (confirmation gate) · `R-SLA-1` (SLA / timeout) · `R-SLA-7` (team-stalled exception channel) · `R-LAYER-1` (doc layering / no verbatim copying) · `R-GATE-1` (machine-checkable gates) · `R-GATE-2` (not machine-checkable) · `R-VERSION-1` (release & versioning) · `R-OBS-1` (runtime observability).
+> **Depends on**: `R-MSG-1` (message discipline) · `R-PUB-1` (public release channel & approval) · `R-SESSION-2` / `R-SESSION-3` (git discipline) · `R-ENG-1` (engineering quality standards) · `R-DEFECT-1` (defect loop) · `R-CONTAINER-1` (container-form acceptance) · `R-DOCSYNC-1` (two-way doc sync) · `R-CONFIRM-1` (confirmation gate) · `R-SLA-1` (SLA / timeout) · `R-SLA-7` (team-stalled exception channel) · `R-LAYER-1` (doc layering / no verbatim copying) · `R-GATE-1` (machine-checkable gates) · `R-GATE-2` (not machine-checkable) · `R-VERSION-1` (release & versioning) · `R-OBS-1` (runtime observability).
 > **Scope**: this file = **method library** for product/service incident response. The **normative mechanism** lives in the normative rule `R-INCIDENT-1` (product incident response); this SOP **details and operationalises** it and is **referenced, not copied** (see `R-LAYER-1`). Where this file and the rule disagree, **the rule wins**.
 > **Reference convention**: always write "`R-<DOMAIN>-<n>`" or "`guide-name §<section>`"; **never line-number anchors and never card-number anchors**.
 > **Sibling guides**: `runtime-observability-sop.md` · `release-versioning-sop.md` · `data-migration-sop.md` · `ci-release-sop.md`.
@@ -90,7 +90,7 @@
 
 When only one person is online (no multi-person collaboration is possible), the **minimum-action list** (any S1/S2 first responder must complete) is:
 
-1. **Immediate stop-the-bleed fallback**: if it is a rollback-able release/config change, revert via **forward edits** per `release-versioning-sop.md` (**destructive git is forbidden, `R-SESSION-1`**); if a rollback is not possible, first **degrade / circuit-break / shed traffic**.
+1. **Immediate stop-the-bleed fallback**: if it is a rollback-able release/config change, revert via **forward edits** per `release-versioning-sop.md` (**destructive git is forbidden, `R-SESSION-3`**); if a rollback is not possible, first **degrade / circuit-break / shed traffic**.
 2. **Open the incident and leave a trail**: create or claim the incident card; record **symptom / first-seen time / blast radius / initial grading / actions taken**.
 3. **Report back to Elon**: send back through the team message channel to Elon (conclusion first, `R-MSG-1`; keep it lean) — **this is the team's only human-notification path**. S1/S2 **report back immediately**; for money/security involvement **explicitly tag "recommend escalate to the operator"** in the report-back.
 4. **Keep observing**: after recovery a **post-recovery health check is mandatory** (see §4.3 and the container-form basis in `R-CONTAINER-1`); "I changed the config back" is **not** proof of recovery.
@@ -113,13 +113,13 @@ discover → triage → mitigate → locate → fix → recover → verify
 | **2 Triage** | Grade per §2's three factors + red-line factors; record the first-seen time | On-duty owner | Incident card | Within ack deadline |
 | **3 Stop-the-bleed / mitigate** | **Restore service first, root cause after**; prefer rollback / degrade / circuit-break / shift traffic | On-duty owner (Elon coordinates) | Manual + release rollback plan | S1 ≤30min / S2 ≤4h |
 | **4 Locate** | After mitigation, locate the trigger and root cause; read-only investigation (logs / metrics / traces) | Relevant worker | Observability stack (`runtime-observability-sop.md`) | By level |
-| **5 Fix** | Fix via forward edits; **destructive git is forbidden (`R-SESSION-1`)**; the fix must pass tests (`R-ENG-1`) | Relevant worker | CI (tests / gates) | By level |
+| **5 Fix** | Fix via forward edits; **destructive git is forbidden (`R-SESSION-3`)**; the fix must pass tests (`R-ENG-1`) | Relevant worker | CI (tests / gates) | By level |
 | **6 Recover** | Deploy the recovery and declare "service restored" | On-duty owner | Release channel (`release-versioning-sop.md`) | — |
 | **7 Verify** | **Post-recovery health check**: metrics back to baseline, key paths exercised live, alerts resolved | On-duty owner | CI (health check) + manual | Immediately after recovery |
 
 > **Mitigate-first principle**: **restore service first, root cause after**. Do not do a large refactor or an "incidental root-cause fix" while the incident is in progress; root cause is left to the postmortem and follow-up cards (out-of-scope discoveries are not fixed on the side).
 
-> **Rollback discipline**: when a revert is needed, always use a **forward-edit commit**, or `rm` plus a normal commit (`R-SESSION-1`); **forbidden**: `rebase` / `reset` / `restore` / `stash` / `clean` / `revert` / `checkout --` / `push --force`. Rollback-plan details are in `release-versioning-sop.md`.
+> **Rollback discipline**: when a revert is needed, always use a **forward-edit commit**, or `rm` plus a normal commit (`R-SESSION-3`); **forbidden**: `rebase` / `reset` / `restore` / `stash` / `clean` / `revert` / `checkout --` / `push --force`. Rollback-plan details are in `release-versioning-sop.md`.
 
 ### 4.2 Escalation paths and thresholds
 
@@ -191,7 +191,7 @@ discover → triage → mitigate → locate → fix → recover → verify
 
 | Scenario / need | Where it goes | Note |
 |---|---|---|
-| Release action, version number, changelog, **rollback plan** | `release-versioning-sop.md` | Incident mitigation often needs a rollback ⇒ follow its forward-edit revert plan (obeying `R-SESSION-1`) |
+| Release action, version number, changelog, **rollback plan** | `release-versioning-sop.md` | Incident mitigation often needs a rollback ⇒ follow its forward-edit revert plan (obeying `R-SESSION-3`) |
 | Monitoring / logs / metrics / **alert discovery** / health checks / patrol | `runtime-observability-sop.md` | An incident's "discovery" and "why not detected earlier" depend on its basis |
 | Team collaboration **wait timeout** / **team stalled** | `R-SLA-1` | **Different objects** — see §0 (collaboration process vs team-orchestration stall); the worker→operator exception report is `R-SLA-7` |
 | Code-defect repair and the regression loop | `R-DEFECT-1` | An incident's root-cause fix goes through the defect flow |

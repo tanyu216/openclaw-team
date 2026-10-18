@@ -53,7 +53,7 @@ export function validateThresholds(data) {
       if (seen.has(r.row)) errors.push(`重复行名：${r.row}`);
       seen.add(r.row);
       if (!/^R-SLA-[1-9][0-9]*$/.test(String(r.slaRef || ''))) errors.push(`${r.row}: slaRef 必须是 R-SLA-N`);
-      if (!/^R-SLA-[1-9][0-9]*\s+(?:clause|step)\s+[1-9][0-9]*$/.test(String(r.thresholdRef || ''))) errors.push(`${r.row}: thresholdRef 必须是 R-SLA-N clause M`);
+      if (!/^R-SLA-[1-9][0-9]*$/.test(String(r.thresholdRef || ''))) errors.push(`${r.row}: thresholdRef 必须是 R-SLA-N`);
       if (!Number.isInteger(r.normalMin) || r.normalMin <= 0) errors.push(`${r.row}: normalMin 必须是正整数`);
       if (!Number.isInteger(r.furtherMin) || r.furtherMin <= 0) errors.push(`${r.row}: furtherMin 必须是正整数`);
       if (Number.isInteger(r.normalMin) && Number.isInteger(r.furtherMin) && r.furtherMin <= r.normalMin) errors.push(`${r.row}: furtherMin 必须大于 normalMin`);

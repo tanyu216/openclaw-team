@@ -318,7 +318,7 @@ decisive: manually dispatched cards in the same window were delayed **38–108 m
 Consequence: by the time a true alert reaches the worker the card often already looks
 "closed", so the worker is forced to re-verify live.
 
-**Root cause is 归口 the gateway platform layer (待 Terry 裁定).** The team side cannot
+**Root cause is 归口 the gateway platform layer (待 operator 裁定).** The team side cannot
 bound transport latency from inside `team/scripts/**`. Three candidate mitigations,
 recorded for that decision:
 

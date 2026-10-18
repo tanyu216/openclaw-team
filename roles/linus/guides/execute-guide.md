@@ -7,7 +7,7 @@
 > **On conflict**: the shared-rule block in `roles/linus/AGENTS.md` governs, then this guide.
 > **Single-home boundary**: this guide is the home for the TDD decision table, the coverage grading
 > and the evidence gate. The Report slots belong to `team/guides/worker-report-template.md`; the
-> commit-path rule belongs to `R-SESSION-1` + redline 7; the segment/`state.md` contract belongs to
+> commit-path rule belongs to `R-SESSION-2` + redline 7; the segment/`state.md` contract belongs to
 > `R-SEG-1` — all three are **referenced** below, never restated.
 
 ---
@@ -33,7 +33,7 @@
   `## Report` carries the required slots of `team/guides/worker-report-template.md` (common core
   `A1`…`A8` plus Linus's `L1`…`L6`; `team/scripts/check-report.mjs` machine-checks the common core on
   `in_review` cards), and every delivery task is committed with **explicit paths**
-  (`git commit -- <paths>`, `R-SESSION-1` / redline 7 — a bare `git commit` sweeps another lane's
+  (`git commit -- <paths>`, `R-SESSION-2` / redline 7 — a bare `git commit` sweeps another lane's
   unstaged hunks out of the shared index).
 
 ### N/A policy (same principle as `verify-guide.md` §N/A conditions)
@@ -141,7 +141,7 @@ Commit immediately after each task's loop ("commit immediately after each logica
 done"). Single task format: `feat(scope): desc` + coverage info. After all tasks, if there are
 cross-task common changes, do one summary commit.
 
-> **Rule of record: `R-SESSION-1` + redline 7** — always `git commit -- <explicit paths>`; a bare
+> **Rule of record: `R-SESSION-2` + redline 7** — always `git commit -- <explicit paths>`; a bare
 > `git commit` / `git commit -a` is forbidden, because the shared index gets swept up by another
 > lane's concurrent commits. Not restated here on purpose (`R-LAYER-1`).
 

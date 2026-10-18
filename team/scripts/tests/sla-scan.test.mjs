@@ -831,6 +831,7 @@ test('⑦ check-sla-thresholds：真文件绿；坏文件红；缺文件红（�
   const real = fs.readFileSync(path.join(REPO, 'team/guides/sla-thresholds.json'), 'utf8');
   const run = (root) => spawnSync(process.execPath, [path.join(SCRIPTS, 'check-sla-thresholds.mjs'), '--repo', root, '--json'], { encoding: 'utf8' });
   fs.writeFileSync(path.join(dir, 'sla-thresholds.json'), real, 'utf8');
+  fs.writeFileSync(path.join(dir, 'rule-id-registry.json'), JSON.stringify({ version: 1, rules: Object.fromEntries(Array.from({ length: 7 }, (_, i) => [`R-SLA-${i + 1}`, { status: 'active' }])) }), 'utf8');
   let r = run(tmp);
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.equal(JSON.parse(r.stdout).ok, true);

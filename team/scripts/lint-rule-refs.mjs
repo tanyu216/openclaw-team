@@ -19,7 +19,9 @@ import {
 } from './lib/agent-doc-blocks.mjs';
 
 const RULE_RE = /(?<![A-Za-z0-9-])(R-[A-Z][A-Z0-9]*-[0-9]+)(?![0-9A-Za-z-])/g;
-const CLAUSE_RE = /(?<![A-Za-z0-9-])(R-[A-Z][A-Z0-9]*-[0-9]+)\s+(?:clause|step)\s+(\d+)/g;
+// 允许 ID 后用反引号收尾（`` `R-X-1` clause 2 `` 是本仓常见写法，不能漏检）。
+const CLAUSE_RE = /(?<![A-Za-z0-9-])(R-[A-Z][A-Z0-9]*-[0-9]+)`?\s+(?:clause|step)\s+(\d+)/g;
+const RULE_ITEM_RE = /(?<![A-Za-z0-9-])(R-[A-Z][A-Z0-9]*-[0-9]+)`?\s+rule\s+(\d+)/g;
 
 function walkMd(dir, out, depth = 0, skip = new Set()) {
   if (depth > 8) return;
@@ -72,7 +74,8 @@ function countItems(text) {
   for (const line of String(text || '').split('\n')) {
     if (/^\s*```/.test(line)) { fence = !fence; continue; }
     if (fence) continue;
-    if (/^\d{1,3}\.\s/.test(line)) n++;
+    // 顶层有序项；允许 blockquote 前缀（owner 块的正文以 `> ` 开头）。
+    if (/^[>\s]*\d{1,3}\.\s/.test(line)) n++;
   }
   return n;
 }
@@ -158,7 +161,7 @@ function main() {
           carrierViolations++;
         }
       }
-      for (const m of line.matchAll(CLAUSE_RE)) {
+      for (const m of [...line.matchAll(CLAUSE_RE), ...line.matchAll(RULE_ITEM_RE)]) {
         const id = m[1];
         const n = Number(m[2]);
         const rule = rules.get(id);

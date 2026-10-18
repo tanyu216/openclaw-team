@@ -29,7 +29,7 @@
 11. **Document reference convention (no line numbers)**: references between and within docs **must not be narrowed to file line numbers**; a section reference is `§` + an arabic number and **names its document** (a **bare** `§N` means the document you are in); an item inside a section is `§N clause M` / `§N step M`, never the subsection form `§N.M`. Dangling references are a gate red (`scripts/lint-doc-refs.mjs` / `scripts/lint-rule-refs.mjs`); full notation: `guides/doc-style.md` §6.
 12. **CI gate and release (Linus, delivery hard gate)**: CI gates (lint / type check / unit+integration tests / coverage / **build**) must all be green before merging or marking done; **build, release (tag + CHANGELOG + artifact sha256 + artifact smoke), and deploy (staging→prod, backup/rollback point, deploy smoke) are all Linus's responsibility**; methods in `guides/ci-release-sop.md`; changes to gate configuration are convention changes and require dual-signing.
 13. **Requirement–implementation conformance (Jobs baseline / Turing independent verification)**: Jobs owns the **requirement/design baseline = "what to build"** (PRD / DESIGN.md / prototype structural contract + `ui-align` block list); Linus implements against it; **Turing independently verifies** conformance and produces a **requirement→implementation traceability matrix** (each requirement/REQ or prototype block → implemented? → evidence: test / selector assertion / screenshot). This is **separate from functional testing** (§6.1 #10) and from Jobs's own visual certification; a gap or deviation (missing blocks, invented structures, silently simplified behavior) ⇒ defect ticket + card `blocked`/`canceled` + send back to Elon. For UI this lands through `guides/ui-align-sop.md`; its scope is not limited to UI.
-14. **Linus frontend tech-stack default**: for **new** frontend work the engineering (real) frontend defaults to **`Tailwind CSS` (styles) + `daisyUI` (components) + `Vue 3` or `React` (pick one per project/requirement) + `Vite` (build) + TypeScript first**; existing projects keep their current stack (**no forced migration**). This is a **different layer** from the HTML-path prototype stack closure in `§6` (prototype = `Tailwind CSS + daisyUI + jQuery`): the `§6` closure constrains only the **Jobs prototype**, whereas this clause is the **Linus engineering frontend** default; the two coexist without conflict.
+14. **Linus frontend tech-stack default**: for **new** frontend work the engineering (real) frontend defaults to **`Tailwind CSS` (styles) + `daisyUI` (components) + `Vue 3` or `React` (pick one per project/requirement) + `Vite` (build) + TypeScript first**; existing projects keep their current stack (**no forced migration**). This is a **different layer** from the HTML-path prototype stack closure in `R-TOOL-2` (prototype = `Tailwind CSS + daisyUI + jQuery`): the `R-TOOL-2` closure constrains only the **Jobs prototype**, whereas this clause is the **Linus engineering frontend** default; the two coexist without conflict.
 
 ---
 
@@ -147,7 +147,7 @@ linters (`scripts/lint-rule-refs.mjs`, `scripts/lint-doc-refs.mjs`) enforce it.
 - **Linus frontend stack defaults**: `roles/linus/guides/testing-and-delivery-sop.md`
   § Frontend Tech-Stack Defaults. The prototype stack (`Tailwind CSS` + `daisyUI` + `jQuery`) and
   the engineering stack (`Vue 3` or `React` + `Vite`) are different layers; only the prototype is
-  closed by `R-SESSION-1`.
+  closed by `R-TOOL-2`.
 
 ---
 

@@ -9,43 +9,43 @@
     {
       "row": "blocked_clarification",
       "slaRef": "R-SLA-1",
-      "thresholdRef": "R-SLA-1 clause 1",
+      "thresholdRef": "R-SLA-1",
       "normalMin": 120,
       "furtherMin": 1440,
       "action": "Elon must clarify, revise or reassign",
-      "furtherAction": "> 24h: escalate to the operator"
+      "furtherAction": "> 24h: escalate to the leader (operator only via R-SLA-7)"
     },
     {
       "row": "confirmation_gate",
       "slaRef": "R-SLA-2",
-      "thresholdRef": "R-SLA-2 clause 1",
+      "thresholdRef": "R-SLA-2",
       "normalMin": 240,
       "furtherMin": 1440,
       "action": "Elon must review",
-      "furtherAction": "> 24h: escalate to the operator"
+      "furtherAction": "> 24h: escalate to the leader (operator only via R-SLA-7)"
     },
     {
       "row": "defect_card_creation",
       "slaRef": "R-SLA-3",
-      "thresholdRef": "R-SLA-3 clause 1",
+      "thresholdRef": "R-SLA-3",
       "normalMin": 1440,
       "furtherMin": 2880,
       "action": "Elon must create and dispatch a fix card to Linus",
-      "furtherAction": "> 48h: escalate to the operator"
+      "furtherAction": "> 48h: escalate to the leader (operator only via R-SLA-7)"
     },
     {
       "row": "acceptance_card_creation",
       "slaRef": "R-SLA-4",
-      "thresholdRef": "R-SLA-4 clause 1",
+      "thresholdRef": "R-SLA-4",
       "normalMin": 1440,
       "furtherMin": 2880,
       "action": "Elon must create a review card and dispatch Jobs",
-      "furtherAction": "> 48h: escalate to the operator"
+      "furtherAction": "> 48h: escalate to the leader (operator only via R-SLA-7)"
     },
     {
       "row": "heartbeat_stale",
       "slaRef": "R-SLA-5",
-      "thresholdRef": "R-SLA-5 clause 1",
+      "thresholdRef": "R-SLA-5",
       "normalMin": 30,
       "furtherMin": 360,
       "action": "Same assignee re-claims",
@@ -54,7 +54,7 @@
     {
       "row": "leader_stalled",
       "slaRef": "R-SLA-6",
-      "thresholdRef": "R-SLA-6 clause 1",
+      "thresholdRef": "R-SLA-6",
       "normalMin": 60,
       "furtherMin": 360,
       "furtherRef": "R-SLA-7",

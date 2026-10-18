@@ -70,5 +70,5 @@ That is: **Linus ensures the gate is red/green, while acceptance is judged indep
 ## 7. Reference Relationships
 - Quality / test thresholds: `R-ENG-1`
 - Two-way document sync: `R-DOCSYNC-1`
-- End-of-segment (heartbeat/terminal state/Report): `R-SESSION-1`
+- End-of-segment (heartbeat/closing state/Report): `R-DISC-2`
 - Task-change trail: `R-DISC-7` (`kind=change`)

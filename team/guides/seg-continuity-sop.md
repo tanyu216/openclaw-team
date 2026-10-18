@@ -14,7 +14,7 @@ benefits of segment isolation while guaranteeing cross-segment consistency.
 the same card branch `<card-id>` and the same worktree; the `seg` key remains the session/registration
 identity (`## Sessions` upsert key, deterministic session id, log name), never a branch name.
 
-## 2. Carriers (two layers; information does not enter the task card)
+## 2. Carriers (two layers; decisions/conventions do not enter the task card, milestones do)
 
 - **Task card `## Progress`**: records segment-level **milestones/results** ("Segment N complete,
   pytest X passed, artifact Y"), append-only, each line timestamped (for Elon to see progress).

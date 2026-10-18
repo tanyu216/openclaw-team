@@ -29,8 +29,10 @@ export const ROLES = ['elon', 'jobs', 'linus', 'turing', 'assistant'];
 
 /** OpenClaw home（`<home>/.openclaw` 的 `<home>`… 不，就是 `~/.openclaw` 本身）。 */
 export function openclawHome(env = process.env) {
-  if (env.OPENCLAW_HOME) return path.resolve(env.OPENCLAW_HOME);
+  // TEAM_ROOT wins: a sandbox that pins the team root must also pin workspace-* under
+  // the same parent, even if OPENCLAW_HOME still points at the real host.
   if (env.OPENCLAW_TEAM_ROOT) return path.dirname(path.resolve(env.OPENCLAW_TEAM_ROOT));
+  if (env.OPENCLAW_HOME) return path.resolve(env.OPENCLAW_HOME);
   return path.join(os.homedir(), '.openclaw');
 }
 

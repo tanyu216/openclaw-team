@@ -2,7 +2,7 @@
 
 > **Ownership**: this file is the **method library** for data / DB / schema change discipline — the execution detail for tables, columns, indexes, constraints, data backfills and the migration-script lifecycle. The normative mechanism lives in `R-MIGRATE-1` (data/DB migration discipline); this SOP **details that clause and references it, never copies it** (`R-LAYER-1`).
 > **Maintainer**: **Linus** (engineering). **Elon** owns the normative rule `R-MIGRATE-1`.
-> **Depends on**: `R-STRUCT-1` (shared-structure invariants — a different object from the product DB) · `R-SESSION-1` (git discipline) · `R-ENG-1` (engineering quality standards) · `R-DEFECT-1` (defect loop) · `R-CONTAINER-1` (container-form acceptance) · `R-DOCSYNC-1` (two-way doc sync) · `R-CONFIRM-1` (confirmation gate) · `R-LAYER-1` (doc layering / no verbatim copying) · `R-GATE-1` (machine-checkable gates).
+> **Depends on**: `R-STRUCT-1` (shared-structure invariants — a different object from the product DB) · `R-SESSION-2` / `R-SESSION-3` (git discipline) · `R-ENG-1` (engineering quality standards) · `R-DEFECT-1` (defect loop) · `R-CONTAINER-1` (container-form acceptance) · `R-DOCSYNC-1` (two-way doc sync) · `R-CONFIRM-1` (confirmation gate) · `R-LAYER-1` (doc layering / no verbatim copying) · `R-GATE-1` (machine-checkable gates).
 > **Adjacent guides (different objects, not interchangeable)**: `release-versioning-sop.md` (tags / changelog / channels / release approval; see `R-VERSION-1`) · `ci-release-sop.md` (CI gate / build / release / deploy) · `incident-response-sop.md` (incident response / on-call) · `api-compat-sop.md` (external API compatibility).
 > **Scope**: method library. Cross-role mechanisms that are not data-specific (approval, gate registration) are **referenced by their rule IDs**, not restated.
 > **Reference convention**: always write "`R-<DOMAIN>-<n>`" or "`guide-name §<section>`" — **no line-number anchors and no card-number anchors** (`R-ENG-1` clause 11).
@@ -108,9 +108,9 @@ A representative implementation of this discipline:
 
 ---
 
-## 4. Rollback Strategy (Forward Edit, per `R-SESSION-1`)
+## 4. Rollback Strategy (Forward Edit, per `R-SESSION-3`)
 
-> 🔒 **Hard constraint**: "rollback" in this SOP is **not** reversing the schema, **not** dropping tables, and **not** a git reverse operation. **Forbidden**: `git revert` / `reset` / `restore` / `stash` / `clean` / `checkout --` / `push --force` (`R-SESSION-1` git discipline). All rollback is achieved by **forward edit + a normal commit** (or `rm` of a file).
+> 🔒 **Hard constraint**: "rollback" in this SOP is **not** reversing the schema, **not** dropping tables, and **not** a git reverse operation. **Forbidden**: `git revert` / `reset` / `restore` / `stash` / `clean` / `checkout --` / `push --force` (`R-SESSION-3` destructive-git discipline). All rollback is achieved by **forward edit + a normal commit** (or `rm` of a file).
 
 ### 4.1 Rollback Definition (data dimension)
 
@@ -123,7 +123,7 @@ A representative implementation of this discipline:
 
 - **Forward-fix example**: a new migration adds a column with a default, relaxes a constraint, or repairs bad data back into the legal domain; the **old migration file is untouched** (append-only, §3).
 - **Two legal paths for deletion**: ① a **file** ⇒ `rm` (or `trash`) then a normal `git commit -- <explicit path>`; ② a **table row** ⇒ write a **new migration** (`DELETE` statement) and **leave a trail**. **Forbidden**: any destructive act such as "drop the DB / drop the table / reverse the schema".
-- **Preserve evidence before delete/overwrite** (`R-SESSION-1`): first write `git status --porcelain` + `git log --oneline -3` into the card's progress/report.
+- **Preserve evidence before delete/overwrite** (`R-SESSION-3`): first write `git status --porcelain` + `git log --oneline -3` into the card's progress/report.
 
 ### 4.2 Rollback Decision Criteria (rollback vs forward-fix)
 

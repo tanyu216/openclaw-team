@@ -110,6 +110,12 @@ and documented under `team/guides/` or `CLAUDE.md`; **(data)** = deployed litera
 | `claim-guard.mjs` / `claim.mjs` | unified claim guard (active-session + turn-lock) and its CLI | **(lib)** `claim.mjs`; **provider** — see below |
 | `idem-baseline.json` / `report-baseline.json` | managed empty baseline / exemption templates | **(data)** deployed by `install.sh`; **provider** |
 
+### Non-script gate obligations (`R-GATE-1`)
+
+- **UI structural contract / selector assertions** — per-project machine checks; the gate requires the declared assertion subset to pass before delivery (no global script can know a project's selectors).
+- **Report trimming** — a patrol observation (chat/output size), not a hard red; the card `## Report` slots are the machine-checked part (`check-report.mjs`).
+- **Research-report warning** — a patrol warning, not a hard red; the research guide owns the method.
+
 ## Distribution contract
 
 These files **are the source**: `install.sh` copies this directory, executable

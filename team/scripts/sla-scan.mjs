@@ -116,7 +116,9 @@ const MIN_MS = 60 * 1000;
  * 本文件不再携带任何数字：直接加载 JSON，`slaRef` / `thresholdRef` 指向 `R-SLA-*`。
  * `leader_stalled` 的 `noWarnLead` 是机制标志（该行的界本身就是「无动作」界），不是阈值。
  */
-const REPO_ROOT = repoRootFromScript(import.meta.url);
+const REPO_ROOT = process.env.OPENCLAW_TEAM_MODE === 'repo'
+  ? (process.env.OPENCLAW_TEAM_REPO ? path.resolve(process.env.OPENCLAW_TEAM_REPO) : repoRootFromScript(import.meta.url))
+  : repoRootFromScript(import.meta.url);
 const SLA_MODE = REPO_ROOT
   ? { mode: 'repo', repo: REPO_ROOT, team: teamRoot(), home: openclawHome() }
   : { mode: 'live', repo: '', team: teamRoot(), home: openclawHome() };

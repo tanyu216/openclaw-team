@@ -5,13 +5,32 @@
  * 不依赖 provider（不 import lib.mjs），因此空机器 / 仓库模式也能跑。
  * 用法：node team/scripts/check-sla-thresholds.mjs [--repo <R> | --live] [--json]
  */
+import fs from 'node:fs';
+import path from 'node:path';
 import { resolveMode, UsageError } from './host-paths.mjs';
 import { loadThresholds, thresholdsPath, SLA_ROW_NAMES } from './sla-thresholds.mjs';
+
+function knownRules(mode) {
+  const p = mode.mode === 'repo'
+    ? path.join(mode.repo, 'team/guides/rule-id-registry.json')
+    : path.join(mode.team, 'guides/rule-id-registry.json');
+  try {
+    const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+    return new Set(Object.keys(j.rules || {}));
+  } catch { return new Set(); }
+}
 
 function main() {
   const json = process.argv.includes('--json');
   const mode = resolveMode({ argv: process.argv.slice(2), scriptUrl: import.meta.url });
   const { data, path: p, errors } = loadThresholds(mode);
+  const rules = knownRules(mode);
+  for (const r of data.rows || []) {
+    for (const key of ['slaRef', 'thresholdRef', 'furtherRef']) {
+      const id = r[key];
+      if (id && !rules.has(id)) errors.push(`${r.row}: ${key} 指向未定义的规则 ${id}`);
+    }
+  }
   const result = {
     ok: errors.length === 0,
     mode: mode.mode,

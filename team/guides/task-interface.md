@@ -117,7 +117,7 @@ backlog | todo → in_progress → in_review → done | canceled
 - **Newly started seg background pack**: the task card (Goal/Acceptance/Background) + the card's `## Report` + `## Comments` + `state.md`. Generation: `task.handoff <card> seg=…` → `workspace/<task-id>/handoff.md` (four anchors, summarized); the subsession reads it first; **do not hand-write it**.
 - **Command syntax / per-host resume forms** (`claude --resume`, `codex exec resume`, `pi --session`, plugin-lane thread continue): the provider's `references/cli.md` and `references/practice-guides.md`; the lane entry's registered forms: `guides/spawn-lane-sop.md` §3.
 - **Interactive lane questions/decisions**: an interactive lane's `AskUserQuestion` / `request_user_input` is **not** answered in-process. The host writes `workspace/<task-id>/questions/<owner>-<seg>-<ts>-<request>.json`, posts a `discuss` (clarify) or `decision` comment carrying `blocked_reason=clarify|decision` and `refs:question:<id>`, sets the card `blocked`, and stops. The answer is recorded by the operator/Elon on the card; the owner starts a **new segment**, whose handoff already carries `## Comments`. Full flow: `guides/interactive-lane-sop.md` §7–§8.
-- **Ownership**: OpenClaw agent side only; subsessions are unaware of task management (`R-SESSION-1` clause 7).
+- **Ownership**: OpenClaw agent side only; subsessions are unaware of task management (`R-SESSION-4`).
 
 ---
 
@@ -163,6 +163,7 @@ backlog | todo → in_progress → in_review → done | canceled
 - **(Main gate) LLM content de-duplication**: before creating a card, the creator (Elon/LLM) must read the `title`/`goal`/`Background` of existing non-terminal cards and judge whether the intent matches. A match ⇒ **do not create** (reuse/merge). The mechanical key is only a fallback.
 - **Idempotency key**: `idem = <kind> | <assignee> | <source> | <target>`; `source` = `review_of` if non-empty, else `parent`, else empty. Not dependent on the title.
 - **Semantics**: same key + non-terminal state ⇒ reject creation and return the existing card id (idempotent reuse); concurrency is serialised by a creation lock.
+- **Explicit key**: `--idem <key>` overrides the derived key. Use it **especially** for cards that share `project`/`target`/`review_of`/`parent` — the derivation is intentionally coarse, and an explicit key is how a legitimate sibling card avoids a false match.
 - **Weak signal**: same source + highly similar title ⇒ warn, never a de-duplication basis.
 - **Exemption**: genuinely-needed same-source cards append `#<seg>` to the key, or use `--allow-dup` with a `kind=change` rationale.
 - **Landing / commands / patrol / baseline registry**: provider `references/cli.md` + the reference implementation; this repository bundles no create path, so the convention is guaranteed by the connected provider + the creator carrying the key.

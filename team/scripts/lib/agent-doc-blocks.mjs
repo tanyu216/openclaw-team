@@ -202,6 +202,10 @@ export function titleOf(meta, payload) {
   if (meta && meta.title) return meta.title;
   const line = String(payload || '').split('\n').find((l) => l.trim() && !l.trim().startsWith('<!--'));
   if (!line) return '';
+  // guide-canonical pointer: `> \`R-X-1\` — Title — \`path §N\`.`
+  const pointer = line.match(/^>\s*`R-[^`]+`\s*—\s*(.+?)\s*—\s*`[^`]+`\.?\s*$/);
+  if (pointer) return pointer[1].trim();
+  // legacy pointer form kept for older blocks.
   const short = line.match(/—\s*(.+?);\s*normative body:/);
   if (short) return short[1].trim();
   return line.replace(/^[>\s#*`-]+/, '').replace(/\*\*/g, '').replace(/[.:。]+$/, '').slice(0, 100);

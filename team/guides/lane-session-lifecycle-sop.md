@@ -6,6 +6,17 @@ registry)". Companion to `guides/spawn-lane-sop.md` (the spawn half). Owner: fra
 (`team/scripts/**`); motivated by.
 ---
 
+## 0. Normative clauses (`R-SESSION-1`)
+
+1. **One registry.** `claude-sessions.json` is the **single** registration and counting surface for every owner (including Turing). `turing-runs.json` is a legacy output log and is **never** read for registration or concurrency.
+2. **Concurrency caps.** Linus/Jobs: `running(owner) < 8`; Turing: `running(owner) < 3`; plugin and CLI lanes are counted together. A dead-pid zombie row does not consume a slot (reconcile it).
+3. **One entry.** Every lane starts through `spawn-lane.sh` (claim → handoff → spawn → `session-set`); a direct `claude -p` / `codex exec` that bypasses registration is forbidden. The child is a **new session detached from the parent process group** (`start_new_session=True` / `detached: true`; no `setsid` on macOS).
+4. **Poll to terminal.** The owner polls the lane to a terminal state within the turn; if the turn is interrupted, a later turn must take over — never leave a lane un-polled.
+5. **Output stream.** Use `--output-format stream-json --verbose` (NDJSON); a single JSON written only at the end is easily misjudged as stalled.
+6. **Resume, do not duplicate.** The same task/segment resumes the existing session in the host's exact form (claude `--resume <id>`; codex `codex exec resume <id>`, `--last` for the most recent); never start a second lane for the same `seg`.
+7. **Liveness.** `kill -0` on the registered pid; a plugin lane is live when its **pid is alive OR its native thread is reachable**. The registry pid is the long-lived gateway pid and is not by itself the lane's liveness.
+8. **Deterministic identity.** `session_id = UUIDv5(card, owner, seg)` for claude (`--session-id`); codex self-assigns at spawn. A new segment uses `task.handoff` to generate `handoff.md`, and the sub-session reads it first.
+
 ## 1. The invariant (and why it needed a mechanism, not a rule)
 
 > **A lane that was registered `running` reaches a terminal state on both surfaces — including the

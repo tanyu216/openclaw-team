@@ -25,11 +25,11 @@
 
 ## 团队架构
 
-团队 = **一个人类用户 + 五个 AI agent**。下图中**最上层 Terry 是「人类用户（你）」，不是 agent**；**其下每一层都是 AI**。
+团队 = **一个人类用户 + 五个 AI agent**。下图中**最上层 operator 是「人类用户（你）」，不是 agent**；**其下每一层都是 AI**。
 
 ```mermaid
 flowchart TB
-  Terry["Terry - 人类用户（你）"]
+  operator["operator - 人类用户（你）"]
   Elon["Elon - AI 统筹 / 协调者（唯一派单人）"]
   Jobs["Jobs - AI（设计）"]
   Linus["Linus - AI（开发）"]
@@ -40,7 +40,7 @@ flowchart TB
   Sched["框架调度 - poll / patrol / check-all（provider-agnostic）"]
   Subs["子会话 - Claude Code（Jobs/Linus）/ Codex（Turing）"]
 
-  Terry -->|"目标 + 验收标准"| Elon
+  operator -->|"目标 + 验收标准"| Elon
   Elon -->|"建卡"| Board
   Elon -->|"唯一派单"| Jobs
   Elon -->|"唯一派单"| Linus
@@ -59,12 +59,12 @@ flowchart TB
   Linus -->|"实现"| Subs
   Turing -->|"测试"| Subs
   Board -->|"in_review → 验收"| Elon
-  Elon -->|"进展 + epic 汇总"| Terry
+  Elon -->|"进展 + epic 汇总"| operator
 ```
 
 **层级说明**
 
-1. **Terry —— 人类用户（你）**：给出目标与验收标准；接收进展与 epic 汇总；只做少数非人不可的决策。
+1. **operator —— 人类用户（你）**：给出目标与验收标准；接收进展与 epic 汇总；只做少数非人不可的决策。
 2. **Elon —— AI 统筹 / 协调者**：**唯一建卡人 + 唯一派单人** —— 拆卡、派单、验收、汇报。
 3. **Jobs · Linus · Turing · Assistant —— AI 专家**：设计 / 开发 / 测试 / 助理。
 4. **用户自扩展角色（AI）**：五个内置角色之外，岗位由**用户自行扩展**（见 [角色](#角色)）。

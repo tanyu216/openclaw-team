@@ -156,7 +156,7 @@ Both gates are aggregated by `scripts/check-all.sh`; a bypass lane therefore can
 
 ## 8. Same-repo concurrent lanes ⇒ the lane isolates itself
 
-Two lanes must never share one checkout: multiple writers in a shared working tree corrupt each other's verification (061638 O2: an external lane's `b359780` mixed into an `in_review` snapshot — detected by content forensics, 27,807 B ≠ 18,432 B) and can sweep foreign hunks into a commit (`R-SESSION-1`).
+Two lanes must never share one checkout: multiple writers in a shared working tree corrupt each other's verification (061638 O2: an external lane's `b359780` mixed into an `in_review` snapshot — detected by content forensics, 27,807 B ≠ 18,432 B) and can sweep foreign hunks into a commit (`R-WORKTREE-1`).
 
 **The entry no longer performs the isolation** (`R-WORKTREE-1`). It resolves cwd from the card's `project` + `target` (`§3` step 4), resolves the **git environment** (`repo` / `nogit` / `unresolved` via `git rev-parse --is-inside-work-tree` + `--show-toplevel`), and stops there — cwd is always the repo root. The **lane** sets up or re-enters its tree through the `using-git-worktrees` skill, and the prompt carries what the skill cannot know:
 

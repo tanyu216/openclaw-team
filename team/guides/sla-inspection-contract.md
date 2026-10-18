@@ -24,6 +24,13 @@ It is **not**: the product's runtime alerting stack (`R-OBS-1` / `runtime-observ
 
 **Non-substitution (hard)**: this contract **never** invokes `R-SLA-7`, **never** addresses the operator, and **never** changes a card. See §9.
 
+**Cross-cutting object classes (`R-CROSS-1`)** — three objects share the board but are not substitutable:
+1. **Team collaboration waits** — this contract (`R-SLA-1`…`R-SLA-6`); measured on the board, addressed to the leader.
+2. **Team-stalled exception** — `R-SLA-7`; a worker's judgement, addressed to the operator.
+3. **Product runtime / external SLA** — `R-OBS-1` (runtime) and `R-PERF-1` (SLO/SLA); product-facing, not board waits.
+
+Rules: (a) a gap in one class is **marked as a gap**, never filled with another class's numbers or mechanism; (b) when the boundary is unclear, ask three questions — *which actor, which object, which output/target*; (c) a convention shared across classes is **referenced**, with one responsibility owner and one landing point; (d) a mechanism's rollback/opt-out is explicit and recorded, never silent; (e) do not duplicate another class's normative text here.
+
 **Positioning inside the parent epic**: the two mechanisms driving the *same* `task-interface` board each inspect only a narrow slice today; this contract fixes **one semantics** both must implement (`R-SLA-1` rows), plus the card field `blocked_reason` that the rows need in order to be distinguished.
 
 ---
@@ -184,22 +191,22 @@ in the ledger, since a suppressed duplicate is by definition the alert that is *
 
 ---
 
-## 5. `R-SLA-1` Row-by-Row Mapping
+## 5. `R-SLA-1`…`R-SLA-6` Row-by-Row Mapping
 
 ### 5.1 The mapping table
 
 `T` = elapsed on the row's measurement basis · `L` = the row's `normalMin` in `guides/sla-thresholds.json` · `F` = the row's `furtherMin` there · `P` = the inspecting mechanism's own period · **no numeric SLA value is written here on purpose** (§2).
 
-Rows are identified by **name, never by index or position** — `R-SLA-1`'s table order may drift; the `sla_row` enum value is the stable identifier and the rule row name (quoted) is the human anchor (`R-ENG-1` #11: no positional anchors). `L`/`F` in the table are per-row references to that row's `R-SLA-1` columns.
+Rows are identified by **name, never by index or position** — `R-SLA-1`'s table order may drift; the `sla_row` enum value is the stable identifier and the rule row name (quoted) is the human anchor (`R-ENG-1` #11: no positional anchors). `L`/`F` in the table are per-row references to that row's `R-SLA-N` columns.
 
 | `sla_row` (contract) | `R-SLA-1` row (quoted name) | Measurement origin (§6) | Trigger condition | Threshold (source) | Tier ladder (§5.2) | Action (reminder only) | Target |
 |---|---|---|---|---|---|---|---|
-| `blocked_clarification` | *blocked awaiting the leader's clarification* | `blocked_at` (`status_changed_at` fallback) | card is `blocked` **and** `blocked_at` present **and** the wait is open | `R-SLA-1` · same row · *Normal limit* (= `L`) / *Further timeout* (= `F`) | `warn`: `T ≥ L − P` · `overdue`: `T ≥ L` · `escalate`: `T ≥ F` | the `R-SLA-1` action for this row, restated as "the leader must clarify / revise / reassign"; plus the releasability hint (§7.4) | **leader** |
-| `confirmation_gate` | *confirmation gate awaiting review* (`R-CONFIRM-1`) | `gate_at` (§6.3-A) | card carries an **unanswered** confirmation request (`R-CONFIRM-1`) | `R-SLA-1` · same row · *Normal limit* (= `L`) / *Further timeout* (= `F`) | `warn`: `T ≥ L − P` · `overdue`: `T ≥ L` · `escalate`: `T ≥ F` | the leader must review (`R-CONFIRM-1`); the reminder carries the confirmation-request evidence pointer | **leader** |
-| `defect_card_creation` | *defect fix card creation* (`R-DEFECT-1`) | `trail_event` (§6.3-B) | a defect is recorded on a card (`R-DEFECT-1` step 1: defect ticket + card set `blocked`/`canceled`) **and** no fix card referencing it exists yet | `R-SLA-1` · same row · *Normal limit* (= `L`) / *Further timeout* (= `F`) | `warn`: `T ≥ L − P` · `overdue`: `T ≥ L` · `escalate`: `T ≥ F` | the leader must create the fix card and dispatch it to Linus (`R-DEFECT-1`) | **leader** |
-| `acceptance_card_creation` | *product/UX acceptance queued* (`R-UI-1` tail) | `status_changed_at` (§6.3-C) | the card is **flow A** (`R-FLOW-1`; absent `flow` ⇒ treated as A, fail-safe) **and** its delivery is ready **and** no card with `review_of=<card>` exists | `R-SLA-1` · same row · *Normal limit* (= `L`) / *Further timeout* (= `F`) | `warn`: `T ≥ L − P` · `overdue`: `T ≥ L` · `escalate`: `T ≥ F` | the leader must create the review card and dispatch Jobs (`R-UI-1`) | **leader** |
-| `heartbeat_stale` | *worker heartbeat stale* (`R-BOARD-1`) | `heartbeat_at` | card is `in_progress` **and** the heartbeat is stale (existing behaviour, preserved — §10.4) | `R-SLA-1` · same row · *Normal limit* (= `L`) / *Further timeout* (= `F`) | `warn`: `T ≥ L − P` · `overdue`: `T ≥ L` · `escalate`: `T ≥ F` | reminder that the same assignee may re-claim; at `escalate` the `R-SLA-1` action is "any agent may claim + report" — **the inspector only notifies, it never claims** | **leader** |
-| `leader_stalled` | *leader patrol stalled* | `trail_event` (§6.3-D) | **there is work pending on a leader action** (see below) **and** no leader action is observable on the board for longer than the row's bound | `R-SLA-1` · same row · *Normal limit* (= `L`); the further bound is the `R-SLA-7` stall bound (= `F`) | `warn`: `T ≥ L` (this row's limit is already a "no action for" bound — the `−P` lead is **not** applied; §5.2 rule 5) · `overdue`: not emitted · `escalate`: `T ≥ F` | the leader is reminded that its own patrol looks stalled; **the inspector does not use `R-SLA-7`** — that channel stays a worker's manual exception (§0) | **leader** |
+| `blocked_clarification` | *blocked awaiting the leader's clarification* | `blocked_at` (`status_changed_at` fallback) | card is `blocked` **and** `blocked_at` present **and** the wait is open | `R-SLA-1` · same row · *Normal limit* (= `L`) / *Further timeout* (= `F`) | `warn`: `T ≥ L − P` · `overdue`: `T ≥ L` · `escalate`: `T ≥ F` | the row's action, restated as "the leader must clarify / revise / reassign"; plus the releasability hint (§7.4) | **leader** |
+| `confirmation_gate` | *confirmation gate awaiting review* (`R-CONFIRM-1`) | `gate_at` (§6.3-A) | card carries an **unanswered** confirmation request (`R-CONFIRM-1`) | `R-SLA-2` · same row · *Normal limit* (= `L`) / *Further timeout* (= `F`) | `warn`: `T ≥ L − P` · `overdue`: `T ≥ L` · `escalate`: `T ≥ F` | the leader must review (`R-CONFIRM-1`); the reminder carries the confirmation-request evidence pointer | **leader** |
+| `defect_card_creation` | *defect fix card creation* (`R-DEFECT-1`) | `trail_event` (§6.3-B) | a defect is recorded on a card (`R-DEFECT-1` step 1: defect ticket + card set `blocked`/`canceled`) **and** no fix card referencing it exists yet | `R-SLA-3` · same row · *Normal limit* (= `L`) / *Further timeout* (= `F`) | `warn`: `T ≥ L − P` · `overdue`: `T ≥ L` · `escalate`: `T ≥ F` | the leader must create the fix card and dispatch it to Linus (`R-DEFECT-1`) | **leader** |
+| `acceptance_card_creation` | *product/UX acceptance queued* (`R-UI-1` tail) | `status_changed_at` (§6.3-C) | the card is **flow A** (`R-FLOW-1`; absent `flow` ⇒ treated as A, fail-safe) **and** its delivery is ready **and** no card with `review_of=<card>` exists | `R-SLA-4` · same row · *Normal limit* (= `L`) / *Further timeout* (= `F`) | `warn`: `T ≥ L − P` · `overdue`: `T ≥ L` · `escalate`: `T ≥ F` | the leader must create the review card and dispatch Jobs (`R-UI-1`) | **leader** |
+| `heartbeat_stale` | *worker heartbeat stale* (`R-BOARD-1`) | `heartbeat_at` | card is `in_progress` **and** the heartbeat is stale (existing behaviour, preserved — §10.4) | `R-SLA-5` · same row · *Normal limit* (= `L`) / *Further timeout* (= `F`) | `warn`: `T ≥ L − P` · `overdue`: `T ≥ L` · `escalate`: `T ≥ F` | reminder that the same assignee may re-claim; at `escalate` the row's action is "any agent may claim + report" — **the inspector only notifies, it never claims** | **leader** |
+| `leader_stalled` | *leader patrol stalled* | `trail_event` (§6.3-D) | **there is work pending on a leader action** (see below) **and** no leader action is observable on the board for longer than the row's bound | `R-SLA-6` · same row · *Normal limit* (= `L`); the further bound is the `R-SLA-7` stall bound (= `F`) | `warn`: `T ≥ L` (this row's limit is already a "no action for" bound — the `−P` lead is **not** applied; §5.2 rule 5) · `overdue`: not emitted · `escalate`: `T ≥ F` | the leader is reminded that its own patrol looks stalled; **the inspector does not use `R-SLA-7`** — that channel stays a worker's manual exception (§0) | **leader** |
 
 **"Work pending on a leader action" (`leader_stalled`'s conditioning rule)** — the row is emitted **only** when a leader-owed item exists: a card in `in_review` awaiting acceptance; a card `blocked` whose wait is open; an unanswered confirmation request; a `defect_card_creation` / `acceptance_card_creation` wait that is open. **Rationale**: an idle board is *not* a stalled leader, and an unconditional `leader_stalled` trigger would break the zero-cost-idle rule (§9.4) every night.
 
@@ -492,6 +499,15 @@ The existing heartbeat behaviour (`in_progress` + stale heartbeat ⇒ alert, wit
 - **v1.2** (linus, declaration + test) — §4 declaration fix (defect F1 of): `first_seen` / `last_seen` / `observed_by` are **ledger metadata, never fields of the emitted tuple** — §4.1 added, the `Req.` column gains the `ledger` value, the skeleton split into **emitted tuple** vs **ledger entry**, §8.3 rule 4 cross-references §4.1, hook **H10** added, §12 G‑10 ⑨ registers the closure. **No emitted field changed, no threshold changed**; only the tuple's *description* now matches its shape. *(append change rows over time.)*
 
 ---
+
+## 14. Worker → operator exception channel (`R-SLA-7`)
+
+> This is the **only** worker-to-operator path; it is an exception channel, not a dispatch path.
+
+1. **Trigger** — a worker has waited beyond the `leader_stalled` further bound (`furtherMin` in `guides/sla-thresholds.json`, currently 6h) for Elon/leader action on a blocked/decision item, or its card is stalled because the leader is unreachable.
+2. **Action** — the worker sends one **direct exception report** to the operator (`message` tool), marked `[exception direct report]`, with the card id, the blocker, the elapsed wait and the requested decision.
+3. **Trail** — record the same fact on the card as a `task.comment kind=note` (or `kind=change` if it alters the card); the operator's answer is trailed `author=operator`.
+4. **Scope** — this does **not** let workers dispatch each other or create cards; Elon remains the card creator/dispatcher. The channel exists so a leader stall cannot deadlock the team.
 
 ## See Also
 

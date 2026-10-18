@@ -88,6 +88,22 @@ test('census：退役卷之外不再出现被禁表述', () => {
   assert.deepEqual(hits, [], `被禁表述仍存在：\n${hits.join('\n')}`);
 });
 
+test('census：已标记 resolved 的矛盾在正文里确实不再出现', () => {
+  for (const role of ROLES) {
+    const s = fs.readFileSync(path.join(REPO, `roles/${role}/AGENTS.md`), 'utf8');
+    assert.doesNotMatch(s, /set terminal state|card terminal state/, `${role}/AGENTS.md 仍把 closing state 叫 terminal`);
+  }
+  const devProc = fs.readFileSync(path.join(REPO, 'roles/linus/guides/development-process-sop.md'), 'utf8');
+  assert.doesNotMatch(devProc, /set the card terminal state/, 'development-process-sop 仍用 terminal state');
+  const seg = fs.readFileSync(path.join(REPO, 'team/guides/seg-continuity-sop.md'), 'utf8');
+  assert.doesNotMatch(seg, /information does not enter the task card/, 'seg-continuity 仍说信息不进卡');
+  const rel = fs.readFileSync(path.join(REPO, 'team/guides/release-versioning-sop.md'), 'utf8');
+  assert.doesNotMatch(rel, /Coverage threshold met.*to be decided/, 'release-versioning 仍称覆盖率阈值未定');
+  const duties = fs.readFileSync(path.join(REPO, 'roles/elon/guides/duties-sop.md'), 'utf8');
+  assert.doesNotMatch(duties, /daily 09:00/, 'duties 仍写 daily 09:00');
+  assert.doesNotMatch(duties, />15min/, 'duties 仍用 15min 心跳');
+});
+
 test('census：redline 块引用的规则都存在', () => {
   const ids = new Set(census.rules.map((r) => r.id));
   const text = fs.readFileSync(path.join(REPO, 'team/guides/redlines.core.md'), 'utf8');
@@ -102,7 +118,7 @@ test('census：SLA 数值只有一个来源（sla-thresholds.json）', () => {
   assert.equal(j.rows.length, 6);
   for (const r of j.rows) {
     assert.ok(ids.has(r.slaRef), `${r.row}: slaRef ${r.slaRef} 不是 census 规则`);
-    assert.match(r.thresholdRef, /^R-SLA-[1-9][0-9]* clause [1-9][0-9]*$/);
+    assert.match(r.thresholdRef, /^R-SLA-[1-9][0-9]*$/);
     assert.ok(Number.isInteger(r.normalMin) && Number.isInteger(r.furtherMin));
   }
   const scan = fs.readFileSync(path.join(REPO, 'team/scripts/sla-scan.mjs'), 'utf8');

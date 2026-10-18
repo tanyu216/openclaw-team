@@ -23,6 +23,14 @@
 
 Likewise, **product incident** response is governed by `incident-response-sop.md`; it is a **different object** from `R-SLA-7` (the team-stalled exception channel) and the two **must not substitute for each other**.
 
+**Normative clauses (`R-OBS-1`)**:
+1. **JSON logs + redaction** — structured logs; secrets and personal data are redacted before they are written.
+2. **Metrics** — the minimal set with stable names and units; dashboards are derived, not hand-maintained.
+3. **Alerts** — every alert is executable: a concrete action, an owner and a due point; silence windows and dedup are explicit.
+4. **Health** — separate health / liveness / readiness probes; a probe must not report green when the dependency it checks is unavailable.
+5. **Inspection** — a documented read-only inspection convention for the on-call.
+6. **Object separation** — product runtime observability is not the team's own gateway handbook and not `R-SLA-7`.
+
 ---
 
 ## 1. Scope and Boundaries

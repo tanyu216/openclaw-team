@@ -77,8 +77,9 @@ node --test test/install/*.test.mjs
 node --test test/skills/*.test.mjs
 
 # Doc rewriting: prove no clause was lost (repo-side tool, not deployed)
-# before/after diff over team/guides + roles; unregistered losses exit non-zero
-node test/docs/doc-clause-diff.mjs --base dev --path team/guides roles
+# before/after diff over team/ + roles/ (default targets; includes top-level volumes);
+# unregistered losses exit non-zero
+node test/docs/doc-clause-diff.mjs --base dev
 
 # The gate (single source of checks; also what the hourly job runs)
 bash team/scripts/check-all.sh                     # --segment all (default)

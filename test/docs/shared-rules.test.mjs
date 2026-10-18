@@ -107,3 +107,21 @@ test('真实仓库：每个角色 AGENTS 不超过实测硬预算', () => {
     assert.ok(size <= cap, `${role}/AGENTS.md ${size} bytes > ${BUDGET_KB[role]}KB`);
   }
 });
+
+test('真实仓库：关键 canonical=guide 指针指向的段落确实含规则内容', () => {
+  const checks = [
+    ['team/guides/task-interface.md', '6', /Claim is atomic|Execution uniqueness/],
+    ['team/ROLES.md', '1', /Product design|Task routing matrix/],
+    ['team/guides/sla-inspection-contract.md', '14', /worker-to-operator|exception report/],
+    ['team/guides/lane-session-lifecycle-sop.md', '0', /One registry|Concurrency caps/],
+  ];
+  for (const [rel, num, re] of checks) {
+    const lines = fs.readFileSync(path.join(REPO, rel), 'utf8').split('\n');
+    const start = lines.findIndex((l) => new RegExp(`^#{2,6}\\s*(?:§)?${num}(?:\\.|\\s|$)`).test(l));
+    assert.ok(start >= 0, `${rel}: 缺 §${num}`);
+    let end = lines.length;
+    for (let i = start + 1; i < lines.length; i++) if (/^#{1,6}\s/.test(lines[i])) { end = i; break; }
+    const body = lines.slice(start, end).join('\n');
+    assert.match(body, re, `${rel} §${num} 不含该规则正文`);
+  }
+});

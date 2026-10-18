@@ -143,12 +143,13 @@ if [ "$SEGMENT" = all ] || [ "$SEGMENT" = fast ]; then
 # 纯 lint（不依赖 provider）：两种模式都跑，只是**目标面**不同 —— repo 模式显式 `--repo`，
 # 校验的是仓内种子与仓内文档，不读本机实例。
 LINT_ARGS=()
-[ "$MODE" = repo ] && LINT_ARGS=(--repo "$REPO_DIR")
+ALL_ARGS=()
+[ "$MODE" = repo ] && LINT_ARGS=(--repo "$REPO_DIR") && ALL_ARGS=(--all)
 run "红线块一致性 check-redlines"        node "$S/check-redlines.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"}
 run "术语抽象 lint-impl-names"           node "$S/lint-impl-names.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"}
 run "共享规则块一致性 check-shared-rules" node "$S/check-shared-rules.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"}
 run "规则 ID 可解析 lint-rule-refs"      node "$S/lint-rule-refs.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"}
-run "guides 禁引协议卷 lint-no-protocol-refs" node "$S/lint-no-protocol-refs.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"}
+run "guides 禁引协议卷 lint-no-protocol-refs" node "$S/lint-no-protocol-refs.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"} ${ALL_ARGS[@]+"${ALL_ARGS[@]}"}
 # 文档**路径**引用可解析（本步管文件/目录路径与 guide 内小节锚；规则 ID 由 lint-rule-refs 管）。
 # 历史实证：角色 AGENTS.md 指向从未建立的方法库目录（`roles/turing/guides/`）—— 零成本复发、
 # 无门禁可见。误报控制见脚本头注（宁漏勿误：实测松散规则下 466 条“断引用”里真问题只有 5 条）。

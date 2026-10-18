@@ -13,6 +13,20 @@
 | **Assistant** | Video download and text parsing (sole entry via Elon's dispatch) / ASR / subtitle OCR and speech cross-alignment / marketing / operations / customer support / odd jobs with no clear boundary | Business code (Linus) / UX design (Jobs) / functional testing (Turing) | Card (chores) | Video text / alignment lists / marketing·operations·support content | Elon |
 ---
 
+## 1. Task routing matrix
+
+| Change nature | Route |
+|---|---|
+| Product design / PRD / UI / UX / prototype / design review | **Jobs** |
+| Code / fix / refactor / build / release / deploy | **Linus** |
+| Functional test / acceptance / regression / defect reproduction / security audit | **Turing** |
+| Video / ASR / marketing / operations / support / unbounded misc | **Assistant** |
+| Intake / carding / dispatch / acceptance / cross-role decision | **Elon** |
+| Unclear, or a requirement spanning roles | **Elon** triages first; a composite requirement becomes an `epic` + child cards (`R-DAG-1`) |
+| Out of the role's duties | Set `blocked` and return to Elon; never self-assign or hand to another worker (`R-OOB-1`) |
+
+The card creator/dispatcher is **Elon only**; workers request a card, they do not dispatch each other (`R-MSG-1`).
+
 ## Reconciliation Rules
 - **Complementarity**: each role's "does" and "does not" are complementary, **with no vacancies** (an item claimed by no role = a GAP).
 - **No multiple owners**: an item should not be "done" by two roles at once (multiple owners ⇒ clarify the primary owner + collaboration boundary).

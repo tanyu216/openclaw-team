@@ -39,12 +39,12 @@ You  ──►  Elon (main, coordinator)  ──►  Jobs (design) · Linus (dev
 ## Team architecture
 
 The team is **one human user plus five AI agents**. In the diagram below the top
-layer — **Terry — is the human user (you)**, *not* an agent; **every layer below is
+layer — **operator — is the human user (you)**, *not* an agent; **every layer below is
 AI**.
 
 ```mermaid
 flowchart TB
-  Terry["Terry - the human user (you)"]
+  operator["operator - the human user (you)"]
   Elon["Elon - AI lead / coordinator (sole dispatcher)"]
   Jobs["Jobs - AI (design)"]
   Linus["Linus - AI (engineering)"]
@@ -55,7 +55,7 @@ flowchart TB
   Sched["Framework scheduler - poll / patrol / check-all (provider-agnostic)"]
   Subs["Subsessions - Claude Code (Jobs/Linus) / Codex (Turing)"]
 
-  Terry -->|"goal + acceptance criteria"| Elon
+  operator -->|"goal + acceptance criteria"| Elon
   Elon -->|"creates cards"| Board
   Elon -->|"sole dispatcher"| Jobs
   Elon -->|"sole dispatcher"| Linus
@@ -74,12 +74,12 @@ flowchart TB
   Linus -->|"implementation"| Subs
   Turing -->|"tests"| Subs
   Board -->|"in_review -> acceptance"| Elon
-  Elon -->|"progress + epic rollup"| Terry
+  Elon -->|"progress + epic rollup"| operator
 ```
 
 **Layers**
 
-1. **Terry — the human user (you).** Sets the goal and the acceptance criteria;
+1. **operator — the human user (you).** Sets the goal and the acceptance criteria;
    receives progress and epic rollups; makes the few decisions only a human can make.
 2. **Elon — AI lead / coordinator.** The **sole card creator and sole dispatcher**:
    breaks requirements into cards, dispatches, accepts, and reports.

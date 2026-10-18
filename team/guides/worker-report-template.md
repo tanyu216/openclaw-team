@@ -330,7 +330,7 @@ habit on every role), but these families leak systematically:
 
 ## 5. Effective date, grandfathering and the gate surface
 
-- **Effective from 2026-10-15** (the local day Terry's instruction landed). Cards created
+- **Effective from 2026-10-15** (the local day operator's instruction landed). Cards created
   before the gate's cutover are **grandfathered** — violations are reported as warnings
   and never set the exit code, so the historical board is not retro-reddened.
 - **Terminal cards** (`done` / `canceled` / `failed`) are never checked at all.
