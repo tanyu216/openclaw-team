@@ -30,7 +30,7 @@
 # 失败才唤醒模型）；红时信封另带 message（失败项摘要，dispatcher 直接转发给模型）与 failed[]（失败步骤标签）。
 set -u
 # 团队根目录：默认 ~/.openclaw/team，可用 OPENCLAW_TEAM_ROOT 覆盖（与 lib.mjs / scan-deps.mjs 同源，单测隔离用）。
-TEAM="${OPENCLAW_TEAM_ROOT:-$HOME/.openclaw/team}"
+TEAM="${OPENCLAW_TEAM_ROOT:-${OPENCLAW_HOME:-$HOME/.openclaw}/team}"
 fail=0
 provider_missing=0
 FAILED_STEPS=()          # 失败步骤标签（红时进信封 message/failed[]）
@@ -77,10 +77,10 @@ if [ "$MODE" = repo ]; then
     # 隐式仓根 = 本脚本的 ../../（部署副本的 ../../ 是 ~/.openclaw，不含分发根标记 ⇒ 天然不成立）
     here="$(cd "$(dirname "$0")" && pwd)"
     cand="$(cd "$here/../.." && pwd)"
-    if [ -d "$cand/roles" ] && [ -f "$cand/team/PROTOCOL.md" ] && [ -f "$cand/install.sh" ]; then REPO_DIR="$cand"; fi
+    if [ -d "$cand/roles" ] && [ -f "$cand/team/SHARED-RULES.md" ] && [ -f "$cand/install.sh" ]; then REPO_DIR="$cand"; fi
   fi
   if [ -z "$REPO_DIR" ] || [ ! -f "$REPO_DIR/team/scripts/check-all.sh" ]; then
-    echo "✗ repo 模式：未能定位分发仓根（需同时含 roles/ + team/PROTOCOL.md + install.sh）" >&2
+    echo "✗ repo 模式：未能定位分发仓根（需同时含 roles/ + team/SHARED-RULES.md + install.sh）" >&2
     echo "   请用 --repo <repo> 或 OPENCLAW_TEAM_REPO=<repo> 指定分发仓。" >&2
     exit 2
   fi
@@ -146,18 +146,18 @@ LINT_ARGS=()
 [ "$MODE" = repo ] && LINT_ARGS=(--repo "$REPO_DIR")
 run "红线块一致性 check-redlines"        node "$S/check-redlines.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"}
 run "术语抽象 lint-impl-names"           node "$S/lint-impl-names.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"}
-run "§引用可解析 lint-refs"              node "$S/lint-refs.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"}
-# 文档**路径**引用可解析（与上一条互补：lint-refs 只管 `PROTOCOL §1…PROTOCOL §20` 编号，本步管文件/目录路径）。
+run "共享规则块一致性 check-shared-rules" node "$S/check-shared-rules.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"}
+run "规则 ID 可解析 lint-rule-refs"      node "$S/lint-rule-refs.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"}
+run "guides 禁引协议卷 lint-no-protocol-refs" node "$S/lint-no-protocol-refs.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"}
+# 文档**路径**引用可解析（本步管文件/目录路径与 guide 内小节锚；规则 ID 由 lint-rule-refs 管）。
 # 历史实证：角色 AGENTS.md 指向从未建立的方法库目录（`roles/turing/guides/`）—— 零成本复发、
 # 无门禁可见。误报控制见脚本头注（宁漏勿误：实测松散规则下 466 条“断引用”里真问题只有 5 条）。
 run "文档路径引用 lint-doc-refs"         node "$S/lint-doc-refs.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"}
+run "SLA 阈值文件校验 check-sla-thresholds" node "$S/check-sla-thresholds.mjs" ${LINT_ARGS[@]+"${LINT_ARGS[@]}"}
 
 # repo 模式的仓内语法自证（实例面步骤在 repo 模式整体跳过，见下）。
 if [ "$MODE" = repo ]; then
   run "仓内语法自证 bash -n / node --check" syntax_selfcheck
-  # PROTOCOL 结构门：§1 标题形状、§6/§6.1/§9.1/§10.5 有序条目、§15/§15.1 切片、§9.1 Addendum 锚。
-  # 只对 repo 种子有意义（live 实例是部署副本），故与仓内语法自证同处 repo 分支。
-  run "PROTOCOL 形状回归" node --test "$REPO_DIR/test/docs/protocol-shape.test.mjs"
 fi
 
 # 依赖 CVE 扫描（team/guides/dependency-cve-gate.md §3.2；告警档）：
@@ -217,14 +217,6 @@ if [ "$provider_missing" = 0 ]; then
   run "ACL 终态不可逆守卫"                node "$TEAM/skills/task-ops/tests/terminal-guard.test.mjs"
   run "ACL 项目解析（identity code）"      node --test "$TEAM/skills/task-ops/tests/projects.test.mjs"
   run "ACL 调度求值（provider-agnostic）"  node --test "$TEAM/skills/task-ops/tests/schedule.test.mjs"
-  # SLA 巡检阈值漂移核对（guides/sla-inspection-contract.md §11 钩子 H6）：运行期映射表 vs PROTOCOL §15。
-  # 只在脚本已部署时跑（部署前显式 skip，避免「仓里已修 ≠ 线上已修」制造既存红）；非零 = 阈值漂移 ⇒ 红。
-  if [ -f "$S/sla-scan.mjs" ]; then
-    run "SLA 阈值漂移核对 sla-scan --check-thresholds" node "$S/sla-scan.mjs" --check-thresholds
-  else
-    echo "── SLA 阈值漂移核对 sla-scan --check-thresholds"
-    echo "   (skip) $S/sla-scan.mjs 未部署（install.sh 部署后本步生效）"
-  fi
   [ -n "${PROTOTYPE_DIR:-}" ] && run "原型禁写实现原型门禁" bash "$S/prototype-guard.sh" "$PROTOTYPE_DIR"
   # 只读预览（--dry-run）：只报「将归档」计数，不 mkdir / 不 rename（门禁不得产生写副作用）
   echo "── 归档预览 dry-run（--days 7 · 只读，不移动文件）"; node "$S/archive.mjs" --days 7 --dry-run

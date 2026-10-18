@@ -143,7 +143,7 @@ test('lib.getProject：__team__ 保留名正常（不查基座/回退）', () =>
   const p = lib.getProject('__team__');
   assert.equal(p.kind, 'team');
   assert.equal(p.root, null);
-  assert.ok(p.guides[0].endsWith('/PROTOCOL.md'));
+  assert.ok(p.guides[0].endsWith('/ROLES.md'));
 });
 
 test('lib.getProject：未知 code 抛「项目未注册」', () => {

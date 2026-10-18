@@ -578,7 +578,7 @@ export function claimCard(cardArg, assignee) {
 
 // ---------- 项目 metadata ----------
 /**
- * 内置保留名 `__team__`（PROTOCOL ②）：团队内部杂务专用，不查基座 / 不查回退。
+ * 内置保留名 `__team__`（`R-PROJECT-1`）：团队内部杂务专用，不查基座 / 不查回退。
  *
  * 逐字段与 provider 基座此前的输出一致（对外行为不变）；该保留名是**团队**约定，故由 team 侧持有。
  * 仅可写 ~/.openclaw/team/**（`TEAM_WRITABLE_PREFIX` 来自 provider 路径常量单一来源）。
@@ -590,7 +590,7 @@ export function teamProject() {
     root: null,
     writable: [TEAM_WRITABLE_PREFIX],
     repos: [],
-    guides: [`${TEAM_ROOT}/PROTOCOL.md`],
+    guides: [`${TEAM_ROOT}/ROLES.md`],
     default_git_rules: '仅写 ~/.openclaw/team/**；无项目仓库访问权',
     registered_at: null,
   };

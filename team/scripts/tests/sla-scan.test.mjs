@@ -10,7 +10,7 @@
  *   ④ 工作时段累计（§6.4）+ 去重记账（§8.3：同档不重报、升档是新键）
  *   ⑤ 只提示不自动改状态（§9.1）+ 升级目标恒 leader（H1）
  *   ⑥ 接线：providers.json / dispatch fail-closed / install.sh cadence 与 P 一致（§12 G-6）
- *   ⑦ PROTOCOL §15 阈值漂移核对（H6，`--check-thresholds`）
+ *   ⑦ 阈值单一来源（sla-thresholds.json，H6）
  *
  * 风格：**不做内部 mock 的判定**——fixture 是在 os.tmpdir() 里物化的**真卡文件**，判定走真实现
  * （`scanSla`/`recheckCandidates`/`decide`）。所有时间由显式 `nowMs` 固定（不看墙钟），
@@ -814,42 +814,34 @@ test('⑥ AUTOMATIONS.md 记录了 sla-scan 与 G-6 cadence 口径对齐', () =>
   assert.match(doc, /G-6|口径对齐|cadence/);
 });
 
-// ── ⑦ 阈值漂移核对（契约 §11 钩子 H6）──────────────────────────────────────────
-test('⑦ --check-thresholds 对真 PROTOCOL §15 全绿；阈值表被改坏时转红（齿真）', () => {
-  const real = S.checkThresholds();
-  assert.equal(real.ok, true, `运行期阈值表必须与 PROTOCOL §15 一致：${JSON.stringify(real.rows.filter((r) => r.note !== 'ok'))}`);
-  const broken = S.checkThresholds(undefined, S.SLA_ROWS.map((r) => (r.row === 'heartbeat_stale' ? { ...r, normalMin: 45 } : r)));
-  assert.equal(broken.ok, false, '阈值表漂移必须被检出');
-  assert.equal(broken.rows.find((r) => r.row === 'heartbeat_stale').note.includes('漂移'), true);
-  // 对照：PROTOCOL.md 缺失 ⇒ 不假绿
-  const missing = S.checkThresholds(path.join(os.tmpdir(), 'no-such-PROTOCOL.md'));
-  assert.equal(missing.ok, false);
+// ── ⑦ 阈值单一来源（契约 §11 钩子 H6）──────────────────────────────────────────
+test('⑦ 运行期阈值表直接来自 sla-thresholds.json（代码里没有第二份数字）', () => {
+  const json = JSON.parse(fs.readFileSync(path.join(REPO, 'team/guides/sla-thresholds.json'), 'utf8'));
+  const pick = (r) => ({ row: r.row, slaRef: r.slaRef, thresholdRef: r.thresholdRef, normalMin: r.normalMin, furtherMin: r.furtherMin });
+  assert.deepEqual(S.SLA_ROWS.map(pick), json.rows.map(pick));
+  assert.equal(S.SLA_ROWS.length, 6);
+  assert.deepEqual({ ...S.LIVENESS_ROW }, { ...json.liveness });
 });
 
-test('⑦ --check-thresholds 的解析口径：PROTOCOL §15 六行全部定位到（含无「≤」号与 further 取自 PROTOCOL §15.1 的行）', () => {
-  const res = S.checkThresholds();
-  assert.equal(res.rows.length, 6);
-  for (const r of res.rows) {
-    assert.ok(r.got, `${r.row} 未定位到 PROTOCOL §15 行`);
-    assert.equal(r.got.L, r.want.L);
-    assert.equal(r.got.F, r.want.F);
-  }
-});
-
-test('⑦ --check-thresholds 只在 PROTOCOL §15 节内取表：别处的同名行不得劫持判定', () => {
-  const live = fs.readFileSync(path.join(TEAM_DIR, 'PROTOCOL.md'), 'utf8');
-  // 节标题的写法是 `## 15.`：37e9087（记号阿拉伯化）把 `## ⑮` 换掉了、也换了 `sla-scan.mjs` 的取节
-  // 字面量，但漏了本行与本测试的诱饵标题 ⇒ `indexOf` 返回 -1，`sec` 退化成空串，断言只能红。
-  const i = live.indexOf('## 15.');
-  const sec = live.slice(i, live.indexOf('\n## ', i + 4));
-  const decoy =
-    '## 9. A decoy table with the same row name\n\n' +
-    '| Wait scenario | Normal limit | Action on expiry | Further timeout |\n|---|---|---|---|\n' +
-    '| Worker heartbeat stale (PROTOCOL §1) | ≤ 999h | nope | > 999h ⇒ nope |\n\n';
-  const p = path.join(os.tmpdir(), `sla-proto-${process.pid}.md`);
-  scratchDirs.push(p);
-  fs.writeFileSync(p, decoy + sec, 'utf8');
-  assert.equal(S.checkThresholds(p).ok, true, '小节外的同名行不得改变判定');
+test('⑦ check-sla-thresholds：真文件绿；坏文件红；缺文件红（绝不假绿）', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sla-thr-'));
+  scratchDirs.push(tmp);
+  const dir = path.join(tmp, 'team', 'guides');
+  fs.mkdirSync(dir, { recursive: true });
+  const real = fs.readFileSync(path.join(REPO, 'team/guides/sla-thresholds.json'), 'utf8');
+  const run = (root) => spawnSync(process.execPath, [path.join(SCRIPTS, 'check-sla-thresholds.mjs'), '--repo', root, '--json'], { encoding: 'utf8' });
+  fs.writeFileSync(path.join(dir, 'sla-thresholds.json'), real, 'utf8');
+  let r = run(tmp);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.equal(JSON.parse(r.stdout).ok, true);
+  const broken = JSON.parse(real);
+  broken.rows[0].furtherMin = broken.rows[0].normalMin;
+  fs.writeFileSync(path.join(dir, 'sla-thresholds.json'), JSON.stringify(broken), 'utf8');
+  r = run(tmp);
+  assert.equal(r.status, 1, 'furtherMin <= normalMin 必须红');
+  fs.rmSync(path.join(dir, 'sla-thresholds.json'));
+  r = run(tmp);
+  assert.equal(r.status, 1, '缺文件必须红（绝不假绿）');
 });
 
 // ── CLI（端到端：真子进程、隔离 team root、恰一行 JSON、exit 0）────────────────────
@@ -871,14 +863,6 @@ test('CLI：真子进程跑一次巡检 —— exit 0、恰一行 JSON、信封�
   // 账本 / liveness 落在隔离 root 内（绝不写 repo 或 live team root）
   assert.equal(fs.existsSync(path.join(root.dir, '.sla-scan-ledger.json')), true);
   assert.equal(fs.existsSync(path.join(root.dir, '.sla-scan-state.json')), true);
-
-  // --check-thresholds 走真 PROTOCOL（隔离 root 无 PROTOCOL.md ⇒ 不得假绿）
-  const t = spawnSync(process.execPath, [path.join(SCRIPTS, 'sla-scan.mjs'), '--check-thresholds'], {
-    encoding: 'utf8',
-    env: { ...process.env, OPENCLAW_TASK_OPS_DIR: PROVIDER, OPENCLAW_TEAM_ROOT: root.dir },
-  });
-  assert.equal(t.status, 1, 'PROTOCOL.md 不可读 ⇒ 非零（绝不假绿）');
-  assert.equal(JSON.parse(t.stdout.trim()).ok, false);
 
   // --recheck：对在手信封按现态重核（快照不可读 ⇒ fire:true 而非静默）
   const snap = path.join(root.dir, 'snap.json');

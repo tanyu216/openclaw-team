@@ -53,7 +53,7 @@ export function workspaceDir(role, env = process.env) {
  * `team/scripts/tests/{check-all-repo-mode,no-maintainer-paths}.test.mjs` 的 live 守卫共用它，
  * 免得同一个问题在两处各写一份、日后各自漂移。
  */
-export const REPO_MARKS = ['roles', 'team/PROTOCOL.md', 'install.sh'];
+export const REPO_MARKS = ['roles', 'team/SHARED-RULES.md', 'install.sh'];
 
 /** 该目录是否为一个分发仓根（标记齐全）。部署副本（`<team>/scripts/*.mjs`）的上一级是
  *  `~/.openclaw`，含运行期件但不含这些标记 ⇒ false。 */

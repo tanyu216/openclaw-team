@@ -131,12 +131,12 @@ test('the gate is green ONLY when the fast segment AND a fresh cached slow verdi
 });
 
 test('a red FAST segment is reported in-band with the failing steps (the masking fix)', () => {
-  const v = computeVerdict({ ok: false, unconfirmed: false, failed: ['卡 schema/状态机 check-card', '§引用可解析 lint-refs'] }, fresh(true));
+  const v = computeVerdict({ ok: false, unconfirmed: false, failed: ['卡 schema/状态机 check-card', '规则 ID 可解析 lint-rule-refs'] }, fresh(true));
   assert.equal(v.ok, false);
   assert.match(v.message, /check-all gate RED/);
   assert.match(v.message, /check-card/);
-  assert.match(v.message, /lint-refs/);
-  assert.match(v.message, /PROTOCOL §20/, 'the alarm stays actionable');
+  assert.match(v.message, /lint-rule-refs/);
+  assert.match(v.message, /R-GATE-1/, 'the alarm stays actionable');
 });
 
 test('an UNCONFIRMED fast segment never reads as green', () => {
@@ -203,8 +203,9 @@ test('resolveTeamDir: env override wins, else the deployed layout (this file\'s 
 
 const OK_STUB = 'process.exit(0);\n';
 const FAST_STEPS = [
-  'scripts/check-redlines.mjs', 'scripts/lint-impl-names.mjs', 'scripts/lint-refs.mjs',
-  'scripts/lint-doc-refs.mjs',
+  'scripts/check-redlines.mjs', 'scripts/lint-impl-names.mjs',
+  'scripts/check-shared-rules.mjs', 'scripts/lint-rule-refs.mjs', 'scripts/lint-no-protocol-refs.mjs',
+  'scripts/lint-doc-refs.mjs', 'scripts/check-sla-thresholds.mjs',
   'scripts/scan-deps.mjs', 'scripts/check-handoff.mjs', 'scripts/check-relations.mjs',
   'scripts/check-idem.mjs', 'scripts/check-sessions.mjs', 'scripts/archive.mjs',
   'skills/task-ops/tests/contract.test.mjs', 'skills/task-ops/tests/terminal-guard.test.mjs',

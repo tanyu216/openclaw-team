@@ -80,7 +80,7 @@ test('PRIORITY 枚举 = low|medium|high|urgent', () => {
   assert.deepEqual(PRIORITY, ['low', 'medium', 'high', 'urgent']);
 });
 
-test('STATUS 白名单 = canonical 7 ∪ 旧词别名 {ready, failed}（对齐 PROTOCOL.md PROTOCOL §1）', () => {
+test('STATUS 白名单 = canonical 7 ∪ 旧词别名 {ready, failed}（对齐 `R-BOARD-3`）', () => {
   assert.deepEqual(READ_STATUSES, ['backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done', 'canceled', 'ready', 'failed']);
 });
 

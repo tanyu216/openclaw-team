@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * lint-impl-names.mjs — 术语抽象门禁（task-interface v1 §1）
- * 上层文档不得出现「实现名」；实现名只许出现在 PROTOCOL §1（基座 spec）与 ACL/代码内部。
- * 扫描范围：PROTOCOL.md（跳过 §1 节）、各角色 AGENTS.md、ROLES.md、guides/redlines.core.md
+ * 上层文档不得出现「实现名」；实现名只许出现在 ACL/代码内部。
+ * 扫描范围：各角色 AGENTS.md、ROLES.md、SHARED-RULES.md、guides/redlines.core.md
  * 用法：node lint-impl-names.mjs [--repo <R> | --live] [--report]
  *       --repo <R> / 仓内自动判定 ⇒ 扫仓内种子；实例在场 ⇒ live（行为与历史一致）
  *       --report  只报告不失败（基线）
@@ -28,30 +28,15 @@ const BANNED = [
 
 function files() {
   const list = [];
-  const proto = path.join(docRoot, 'PROTOCOL.md');
-  if (fs.existsSync(proto)) list.push({ path: proto, skipSection: '## 1.' });
-  // L1 第二册（§21 起，产品/工程门禁）：同样是 L1，实现名一样不得出现。
-  const gates = path.join(docRoot, 'PROTOCOL-gates.md');
-  if (fs.existsSync(gates)) list.push({ path: gates });
   for (const a of ROLES) {
     const p = M.mode === 'repo' ? path.join(M.repo, 'roles', a, 'AGENTS.md') : path.join(M.home, `workspace-${a}`, 'AGENTS.md');
     if (fs.existsSync(p)) list.push({ path: p });
   }
-  for (const g of ['ROLES.md', 'guides/redlines.core.md']) {
+  for (const g of ['ROLES.md', 'SHARED-RULES.md', 'guides/redlines.core.md']) {
     const p = path.join(docRoot, g);
     if (fs.existsSync(p)) list.push({ path: p });
   }
   return list;
-}
-
-function skipRanges(text, heading) {
-  // 返回需跳过的 [start,end) 行区间（§1 节）
-  const lines = text.split('\n');
-  const hi = lines.findIndex((l) => l.startsWith(heading));
-  if (hi === -1) return null;
-  let end = lines.length;
-  for (let i = hi + 1; i < lines.length; i++) if (/^## \d+\./.test(lines[i])) { end = i; break; }
-  return [hi, end];
 }
 
 let total = 0;
@@ -59,10 +44,8 @@ const hits = [];
 for (const f of files()) {
   const text = fs.readFileSync(f.path, 'utf8');
   const lines = text.split('\n');
-  const skip = f.skipSection ? skipRanges(text, f.skipSection) : null;
   let fence = false;
   lines.forEach((line, i) => {
-    if (skip && i >= skip[0] && i < skip[1]) return;      // 跳过基座 spec 节
     if (/^\s*```/.test(line)) fence = !fence;            // 跳过代码围栏内
     if (fence) return;
     const prev = i > 0 ? lines[i - 1] : '';
