@@ -24,6 +24,7 @@
 | `R-CVE-3` | CVE adjudication | turing | turing,linus | guide | `team/guides/dependency-cve-gate.md` | - | active |
 | `R-DAG-1` | Composite tasks and DAG | elon | elon | guide | `team/guides/task-interface.md §10` | 9 | active |
 | `R-DATAREPO-1` | Data-repo organization | assistant | elon,assistant | guide | `roles/assistant/guides/research-and-data-repo-conventions.md §2` | - | active |
+| `R-DECISION-1` | Quality-first, complete solution; never a stopgap | elon | all | guide | `team/guides/decision-quality-sop.md` | - | active |
 | `R-DEFECT-1` | Defect fix and regression loop | elon | elon,linus,turing | guide | `team/guides/defect-loop-sop.md §0` | - | active |
 | `R-DISC-1` | Silent when idle: no empty receipts. Wake Elon only for a claim, a milestone, a completed Report, a  | elon | all | owner | - | - | active |
 | `R-DISC-2` | Segment end, in order: refresh `heartbeat_at`; set the closing state; `sessions_send` an Elon Report | elon | all | owner | - | - | active |

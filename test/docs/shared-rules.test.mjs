@@ -114,6 +114,7 @@ test('真实仓库：关键 canonical=guide 指针指向的段落确实含规则
     ['team/ROLES.md', '1', /Product design|Task routing matrix/],
     ['team/guides/sla-inspection-contract.md', '14', /worker-to-operator|exception report/],
     ['team/guides/lane-session-lifecycle-sop.md', '0', /One registry|Concurrency caps/],
+    ['team/guides/decision-quality-sop.md', '2', /simple.*reliable.*maintainable.*efficient.*elegant/is],
   ];
   for (const [rel, num, re] of checks) {
     const lines = fs.readFileSync(path.join(REPO, rel), 'utf8').split('\n');

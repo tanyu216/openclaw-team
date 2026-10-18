@@ -460,6 +460,11 @@
       "status": "active",
       "firstSeen": "2026-10-18",
       "owner": "linus"
+    },
+    "R-DECISION-1": {
+      "status": "active",
+      "firstSeen": "2026-10-18",
+      "owner": "elon"
     }
   }
 }

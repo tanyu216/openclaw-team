@@ -56,16 +56,18 @@
 
 ### Pattern 1: Design philosophy (detail for check ③)
 
-Check ③ in `team/guides/plan-quality.md` is the canonical wording: **simple, feasible, elegant,
-readable, maintainable**. Examine the design along these dimensions:
+Check ③ in `team/guides/plan-quality.md` is the plan-local canonical wording: **simple, feasible,
+elegant, readable, maintainable**. The canonical decision-dimension wording is `team/guides/decision-quality-sop.md` §2
+(`R-DECISION-1`); `plan-quality.md` §3 maps the plan-local words to it. Examine the design along these dimensions:
 
 | Dimension | Core question |
 |------|---------|
-| Simple & feasible | Is the simplest feasible approach used (fewest moving parts that works)? Any over-design / YAGNI violation? Reuse before inventing? |
+| Simple & feasible | Is the simplest feasible approach used (fewest moving parts that **fully meets the requirement**)? Any over-design / YAGNI violation? Reuse before inventing? |
 | Elegant | Consistent abstraction levels? One responsibility per unit? A clear seam? Follows project conventions? |
 | Readable | Can a reviewer follow it top-down without extra context? No magic values / hidden coupling / surprising control flow? |
 | Maintainable | Localized change impact? Self-explanatory naming? Clear interface contract? No duplicated logic? |
-| Reliability / robustness (supplementary) | Is the data flow correct and complete? No gaps in the state machine? Adequate error handling? Can exceptions/boundaries/concurrency conflicts be handled gracefully without dying? |
+| Efficient | Acceptable time, compute, memory, bandwidth and cost across the whole lifecycle, not just the first run? |
+| Reliable / robust | Is the data flow correct and complete? No gaps in the state machine? Adequate error handling? Can exceptions/boundaries/concurrency conflicts be handled gracefully without dying? |
 
 ### Pattern 2: Call-chain tracing (impact-tracing) — impact scope + parameter breaks
 

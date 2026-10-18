@@ -82,6 +82,10 @@
 > `R-DAG-1` — Composite tasks and DAG — `team/guides/task-interface.md §10`.
 <!-- END SHARED-RULE:R-DAG-1 -->
 
+<!-- BEGIN SHARED-RULE:R-DECISION-1 v1 owner=elon carriers=all canonical=guide detail=team/guides/decision-quality-sop.md -->
+> `R-DECISION-1` — Quality-first, complete solution; never a stopgap — `team/guides/decision-quality-sop.md`.
+<!-- END SHARED-RULE:R-DECISION-1 -->
+
 <!-- BEGIN SHARED-RULE:R-DEFECT-1 v1 owner=elon carriers=elon,linus,turing canonical=guide detail=team/guides/defect-loop-sop.md §0 -->
 > `R-DEFECT-1` — Defect fix and regression loop — `team/guides/defect-loop-sop.md`.
 <!-- END SHARED-RULE:R-DEFECT-1 -->

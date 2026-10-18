@@ -90,6 +90,10 @@
 > `R-CVE-1` — Dependency CVE gate — `team/guides/dependency-cve-gate.md`.
 <!-- END SHARED-RULE:R-CVE-1 -->
 
+<!-- BEGIN SHARED-RULE:R-DECISION-1 v1 generated=1 source=owner:elon -->
+> `R-DECISION-1` — Quality-first, complete solution; never a stopgap — `team/guides/decision-quality-sop.md`.
+<!-- END SHARED-RULE:R-DECISION-1 -->
+
 <!-- BEGIN SHARED-RULE:R-DEFECT-1 v1 generated=1 source=owner:elon -->
 > `R-DEFECT-1` — Defect fix and regression loop — `team/guides/defect-loop-sop.md`.
 <!-- END SHARED-RULE:R-DEFECT-1 -->

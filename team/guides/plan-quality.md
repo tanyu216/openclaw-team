@@ -16,10 +16,17 @@ Every new item has a **full integration path**: definition → registration → 
 line maps to at least one plan step.
 
 ### 3. Quality — simple, feasible, elegant, readable, maintainable
-- **Simple & feasible**: the fewest moving parts that actually works with the
-  available tools, skills and time; reuse before inventing; no speculative
+> Canonical decision dimensions: `decision-quality-sop.md` §2 (`R-DECISION-1`).
+> This plan check is the plan-local projection: **feasible** = simple under the full
+> constraint set; **readable** = a facet of maintainable/elegant. The canonical
+> wording, the no-stopgap rule and the high-cost escalation rule live there; this
+> file does not restate them.
+
+- **Simple & feasible**: the fewest moving parts that **fully meets the requirement**
+  with the available tools and skills; reuse before inventing; no speculative
   abstraction or future-proofing. If a simpler option exists, the plan must say why
-  it was rejected.
+  it was rejected; a cheaper option that leaves the requirement incomplete is not
+  "simpler" (`R-DECISION-1`).
 - **Elegant**: fits the existing patterns; one responsibility per unit; a clear
   seam; no accidental complexity; naming and structure express intent.
 - **Readable**: a reviewer can follow it top-down without extra context; no magic
@@ -28,7 +35,8 @@ line maps to at least one plan step.
   extension points; **failure / retry / idempotency** considered; no fragile
   ordering, no reliance on luck (timing, races).
 - If any of these is weak, the plan must state the trade-off explicitly and prefer
-  the simpler/clearer option.
+  the simpler/clearer option **that still meets the full requirement**; a stopgap
+  with an unowned tail is rejected (`R-DECISION-1`).
 
 ### 4. End-to-end execution path (UI → API → persistence → back)
 Trace the **full vertical path** — e.g.

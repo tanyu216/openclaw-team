@@ -70,6 +70,10 @@
 > `R-CONFIRM-1` — Confirmation gate — `team/guides/confirmation-gate-sop.md`.
 <!-- END SHARED-RULE:R-CONFIRM-1 -->
 
+<!-- BEGIN SHARED-RULE:R-DECISION-1 v1 generated=1 source=owner:elon -->
+> `R-DECISION-1` — Quality-first, complete solution; never a stopgap — `team/guides/decision-quality-sop.md`.
+<!-- END SHARED-RULE:R-DECISION-1 -->
+
 <!-- BEGIN SHARED-RULE:R-DISC-1 v1 generated=1 source=owner:elon -->
 > Silent when idle: no empty receipts. Wake Elon only for a claim, a milestone, a completed Report, a blocked card awaiting clarification, or an anomaly needing coordination.
 <!-- END SHARED-RULE:R-DISC-1 -->
