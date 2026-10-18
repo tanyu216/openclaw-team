@@ -421,6 +421,20 @@ if [ "$DO_TEAM" = 1 ]; then
     fi
   done
   for d in tasks workspace memory; do run mkdir -p "$TEAM_DIR/$d"; done
+  # Retire the former two-volume protocol and the superseded §N lint. Idempotent:
+  # missing files are skipped; --keep-existing is an explicit opt-out (warning only).
+  for legacy in PROTOCOL.md PROTOCOL-gates.md scripts/lint-refs.mjs; do
+    [ -e "$TEAM_DIR/$legacy" ] || continue
+    if [ "$KEEP" = 1 ]; then
+      # Notice, not warn(): --keep-existing is an explicit opt-out, so it must not
+      # flip the installer's exit code (warnings do).
+      printf '  \033[33m! %s\033[0m\n' "keep-existing: legacy $legacy left in place (rules are now in AGENTS.md)" >&2
+      continue
+    fi
+    backup_path "$TEAM_DIR/$legacy"
+    run rm -f "$TEAM_DIR/$legacy"
+    info "retired  $legacy"
+  done
   info "rule index: $TEAM_DIR/SHARED-RULES.md"
 fi
 

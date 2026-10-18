@@ -80,8 +80,11 @@ HOME="$KHOME" ./install.sh --openclaw-home "$KHOME/.openclaw" --claude-home "$KH
 
 step "installer real run (file deploy; isolated HOME; no network)"
 HOME="$KHOME" ./install.sh --openclaw-home "$KHOME/.openclaw" --claude-home "$KHOME/.claude" --codex-home "$KHOME/.codex" --no-meerkat-taskpanel --skip-skills --no-register --skip-config >/dev/null
-for f in .openclaw/team/PROTOCOL.md .openclaw/team/PROTOCOL-gates.md .openclaw/team/guides/ci-release-sop.md .openclaw/team/guides/task-interface.md .openclaw/team/guides/seg-continuity-sop.md .openclaw/team/.install-state.json; do
+for f in .openclaw/team/SHARED-RULES.md .openclaw/team/guides/sla-thresholds.json .openclaw/team/guides/ci-release-sop.md .openclaw/team/guides/task-interface.md .openclaw/team/guides/seg-continuity-sop.md .openclaw/team/.install-state.json; do
   [ -f "$KHOME/$f" ] || { echo "missing after install: $f"; exit 1; }
+done
+for f in .openclaw/team/PROTOCOL.md .openclaw/team/PROTOCOL-gates.md .openclaw/team/scripts/lint-refs.mjs; do
+  [ ! -e "$KHOME/$f" ] || { echo "retired file still present after fresh install: $f"; exit 1; }
 done
 for f in .openclaw/workspace-elon/AGENTS.md .openclaw/workspace-linus/AGENTS.md; do
   [ -f "$KHOME/$f" ] || { echo "missing role workspace: $f"; exit 1; }
@@ -103,14 +106,19 @@ for f in \
 done
 echo "deployed files ok"
 
-step "install/upgrade path (idempotent + backup)"
-echo "# local edit" >> "$KHOME/.openclaw/team/PROTOCOL.md"
+step "install/upgrade path (idempotent + backup + retirement)"
+# Simulate an old instance that still has the retired volumes/lint, then upgrade.
+for legacy in PROTOCOL.md PROTOCOL-gates.md; do echo "# legacy" > "$KHOME/.openclaw/team/$legacy"; done
+echo "// legacy" > "$KHOME/.openclaw/team/scripts/lint-refs.mjs"
 echo "my prefs" >> "$KHOME/.openclaw/workspace-elon/USER.md"
 HOME="$KHOME" ./install.sh --openclaw-home "$KHOME/.openclaw" --claude-home "$KHOME/.claude" --codex-home "$KHOME/.codex" --no-meerkat-taskpanel --skip-skills --no-register --skip-config >/dev/null
-[ -n "$(find "$KHOME/.openclaw/team/.backups" -name PROTOCOL.md 2>/dev/null)" ] || { echo "no backup written on upgrade"; exit 1; }
-grep -q "local edit" "$KHOME/.openclaw/team/.backups"/*/team/PROTOCOL.md || { echo "backup missing edit"; exit 1; }
+for legacy in PROTOCOL.md PROTOCOL-gates.md scripts/lint-refs.mjs; do
+  [ -n "$(find "$KHOME/.openclaw/team/.backups" -path "*/team/$legacy" 2>/dev/null)" ] || { echo "no backup written for retired $legacy"; exit 1; }
+  [ ! -e "$KHOME/.openclaw/team/$legacy" ] || { echo "retired file not removed: $legacy"; exit 1; }
+done
+grep -q "# legacy" "$KHOME/.openclaw/team/.backups"/*/team/PROTOCOL.md || { echo "backup missing edit"; exit 1; }
 grep -q "my prefs" "$KHOME/.openclaw/workspace-elon/USER.md" || { echo "USER.md was clobbered"; exit 1; }
-echo "upgrade + backup + user-file preservation ok"
+echo "upgrade + backup + retirement + user-file preservation ok"
 
 if [ "${OPENCLAW_TEAM_NET:-0}" = "1" ]; then
   step "fetch from upstream sources (network sample)"
