@@ -3,10 +3,12 @@
   "files": [
     "test/docs/clause-allowlist.json",
     "test/docs/protocol-removal-census.json",
+    "test/docs/protocol-removal-volumes.json",
     "test/docs/protocol-removal-census.mjs",
     "test/docs/lint-no-protocol-refs.test.mjs",
     "test/docs/doc-clause-diff.test.mjs",
-    "test/docs/doc-clause-diff.mjs"
+    "test/docs/doc-clause-diff.mjs",
+    "test/install/protocol-retirement.test.mjs"
   ],
   "entries": [
     "CLAUDE.md:301:PROTOCOL.md",

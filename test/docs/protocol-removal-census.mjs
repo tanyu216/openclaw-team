@@ -352,10 +352,13 @@ export function buildCensus() {
     ['team/PROTOCOL-gates.md', 'PROTOCOL-gates'],
   ];
   const sections = [];
+  const volumesPath = path.join(HERE, 'protocol-removal-volumes.json');
+  const volumes = fs.existsSync(volumesPath) ? JSON.parse(fs.readFileSync(volumesPath, 'utf8')) : {};
   const readSource = (rel) => {
     const p = path.join(REPO, rel);
     if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8');
-    // 卷已删除（C6 之后）：从集成基线的历史里读，census 仍可复现。
+    // 卷已删除（C6 之后）：读测试夹具快照；容器内没有 git，这条路径必须可用。
+    if (volumes[rel] !== undefined) return volumes[rel];
     return execFileSync('git', ['show', `dev:${rel}`], { cwd: REPO, encoding: 'utf8' });
   };
   for (const [rel, label] of sources) {

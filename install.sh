@@ -366,11 +366,11 @@ register_automation() {
       # team/scripts/poll-run.mjs). The fired run's real payload is poll.mjs's `message`; this
       # default is the pre-claim/fallback wording and never asks for a resident run.
       msg="$(node "$REPO/team/scripts/poll-run.mjs" message "$agent" 2>/dev/null || echo "[openclaw-team] Scheduled poll for $agent: if the dispatcher claimed a card, claim → hand off via scripts/spawn-lane.sh (detached) → return; otherwise reply NO_REPLY.")" ;;
-    patrol)    msg="[openclaw-team] Stale in_progress card(s) detected by task-patrol: recover per the `R-BOARD-4` recovery rules." ;;
-    sla-scan)  msg="[openclaw-team] Board SLA alert(s) from sla-scan (the alerts list is in this message): handle each `R-SLA-*` action as the leader — clarification/reassign, review the confirmation gate, create the defect or acceptance card. The inspector only notifies; it never changes a card (guides/sla-inspection-contract.md)." ;;
-    check-all) msg="[openclaw-team] Team gate patrol failed: run the team gate checks and handle per the `R-GATE-1` / `R-ARCHIVE-1` rules." ;;
+    patrol)    msg="[openclaw-team] Stale in_progress card(s) detected by task-patrol: recover per the \`R-BOARD-4\` recovery rules." ;;
+    sla-scan)  msg="[openclaw-team] Board SLA alert(s) from sla-scan (the alerts list is in this message): handle each \`R-SLA-*\` action as the leader — clarification/reassign, review the confirmation gate, create the defect or acceptance card. The inspector only notifies; it never changes a card (guides/sla-inspection-contract.md)." ;;
+    check-all) msg="[openclaw-team] Team gate patrol failed: run the team gate checks and handle per the \`R-GATE-1\` / \`R-ARCHIVE-1\` rules." ;;
     skills-update) msg="[openclaw-team] Upstream skill ref(s) moved (the change list is in this message), or the upstream check failed: review, then advance with \`node skills/update.mjs --apply\` after Elon's review (third-party bodies are agent instructions — see team/AUTOMATIONS.md)." ;;
-    tmp-gc)    msg="[openclaw-team] tmp-gc scratch cleanup could not be confirmed (an unreadable root or a failed delete — the details are in this message). Check permissions/space on the scratch roots (workspace-*/.tmp, ~/.openclaw/tmp, ~/.openclaw/team/tmp) and re-run \`node scripts/tmp-gc.mjs --dry-run\` to see the state (`R-DISC-9`)." ;;
+    tmp-gc)    msg="[openclaw-team] tmp-gc scratch cleanup could not be confirmed (an unreadable root or a failed delete — the details are in this message). Check permissions/space on the scratch roots (workspace-*/.tmp, ~/.openclaw/tmp, ~/.openclaw/team/tmp) and re-run \`node scripts/tmp-gc.mjs --dry-run\` to see the state (\`R-DISC-9\`)." ;;
     *)         msg="[openclaw-team] Scheduled job $name." ;;
   esac
   tmp="$(mktemp "${TMPDIR:-/tmp}/openclaw-trigger.XXXXXX")"
@@ -740,8 +740,8 @@ if [ "$DO_AUTOMATIONS" = 1 ]; then
   info "bounds: trigger-eval ${EVAL_TIMEOUT_MS}ms (OPENCLAW_TEAM_EVAL_TIMEOUT_MS) · poll run ${POLL_RUN_TIMEOUT_S}s (default = interval; OPENCLAW_TEAM_POLL_RUN_TIMEOUT_S, 0=off)"
   info "poll: every $POLL_INTERVAL (OPENCLAW_TEAM_POLL_INTERVAL) · --light-context on poll/patrol/check-all/skills-update/sla-scan/tmp-gc"
   info "skills-update: Sundays 05:00 Asia/Shanghai (detect-only; --apply is manual after review)"
-  info "sla-scan: every $SLA_INTERVAL (OPENCLAW_TEAM_SLA_INTERVAL; must stay < 30m — `R-SLA-5`'s tightest row, contract §12 G-6)"
-  info "tmp-gc: daily 02:20 Asia/Shanghai — delete scratch >14 days under workspace-*/.tmp, \$OPENCLAW_HOME/tmp, \$OPENCLAW_HOME/team/tmp (`R-DISC-9`; zero-cost idle, wakes only on an unconfirmed sweep)"
+  info "sla-scan: every $SLA_INTERVAL (OPENCLAW_TEAM_SLA_INTERVAL; must stay < 30m — \`R-SLA-5\`'s tightest row, contract §12 G-6)"
+  info "tmp-gc: daily 02:20 Asia/Shanghai — delete scratch >14 days under workspace-*/.tmp, \$OPENCLAW_HOME/tmp, \$OPENCLAW_HOME/team/tmp (\`R-DISC-9\`; zero-cost idle, wakes only on an unconfirmed sweep)"
   # built-in workers only for poll (skip main/elon), derived from ROLES/AGENT_ID
   auto_agents=()
   for i in "${!ROLES[@]}"; do

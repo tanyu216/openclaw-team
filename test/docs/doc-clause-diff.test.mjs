@@ -16,6 +16,7 @@ import { execFileSync } from 'node:child_process';
 import { extractAtoms, compareFile, diffDocs, DEFAULT_TARGETS } from './doc-clause-diff.mjs';
 
 const EMPTY = { files: {}, atoms: {} };
+const HAS_GIT = (() => { try { execFileSync('git', ['--version'], { stdio: 'ignore' }); return true; } catch { return false; } })();
 
 test('extractAtoms：四轴各自抽取，且 codes 与 tokens 不相交', () => {
   const a = extractAtoms([
@@ -67,7 +68,7 @@ test('默认目标覆盖 team 与 roles（顶层协议卷的删除必须可见�
   assert.deepEqual(DEFAULT_TARGETS, ['team', 'roles'], '默认目标须覆盖两册所在的 team/ 与角色种子 roles/');
 });
 
-test('diffDocs：默认目标内整份文件删除 ⇒ 报 deleted 且未登记缺失 > 0', () => {
+test('diffDocs：默认目标内整份文件删除 ⇒ 报 deleted 且未登记缺失 > 0', { skip: !HAS_GIT && 'container has no git' }, () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clause-del-'));
   try {
     execFileSync('git', ['-C', dir, 'init', '-q']);
