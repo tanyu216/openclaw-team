@@ -47,6 +47,16 @@ const AXES = ['codes', 'tokens', 'refs', 'numbers'];
 /** 只报告不判红的轴。 */
 const SOFT_AXES = ['headings'];
 
+/**
+ * 未显式 `--path` 时的默认目标。
+ *
+ * 旧默认只有 `team/guides`，因此删除 `team/PROTOCOL.md` / `team/PROTOCOL-gates.md`
+ * 这类**顶层文档**在默认运行下是**不可见**的（整份文件消失会被读成静默通过）。
+ * 默认覆盖整个 `team/` 与 `roles/`，让 L1 卷、ROLES、AGENTS、SOUL 的整文件删除
+ * 都进入比对面；显式 `--path` 仍然覆盖默认值。
+ */
+export const DEFAULT_TARGETS = ['team', 'roles'];
+
 const FENCE = /^\s*```/;
 
 // ── 登记解析 ────────────────────────────────────────────────────────────────
@@ -60,13 +70,13 @@ const FENCE = /^\s*```/;
  *   · `atoms[...] = { to, reason }`          **搬移**：工具验证 `to` 文件确实含该原子。
  *                                           目标不存在 / 不含该原子 ⇒ 仍算未登记（拒绝「假搬移」）。
  */
-function atomAccounted(rel, axis, atom, allow) {
+function atomAccounted(rel, axis, atom, allow, repo = REPO) {
   if (allow.files[rel] && allow.files[rel][axis]) return true;
   const entry = allow.atoms[`${rel}:${axis}:${atom}`];
   if (entry === undefined) return false;
   if (typeof entry === 'string') return true;
   if (entry && typeof entry.to === 'string') {
-    const dest = path.isAbsolute(entry.to) ? entry.to : path.join(REPO, entry.to);
+    const dest = path.isAbsolute(entry.to) ? entry.to : path.join(repo, entry.to);
     try {
       if (!fs.existsSync(dest)) return false;
       return extractAtoms(fs.readFileSync(dest, 'utf8'))[axis].has(atom);
@@ -114,7 +124,7 @@ export function extractAtoms(text) {
 
 // ── 文件与版本 ──────────────────────────────────────────────────────────────
 
-function collectMarkdown(targets) {
+function collectMarkdown(targets, repo = REPO) {
   const files = [];
   const walk = (p, depth = 0) => {
     if (depth > 8) return;
@@ -126,8 +136,8 @@ function collectMarkdown(targets) {
       walk(path.join(p, e.name), depth + 1);
     }
   };
-  for (const t of targets) walk(path.resolve(REPO, t));
-  return files.map((p) => path.relative(REPO, p).split(path.sep).join('/')).sort();
+  for (const t of targets) walk(path.resolve(repo, t));
+  return files.map((p) => path.relative(repo, p).split(path.sep).join('/')).sort();
 }
 
 /**
@@ -135,17 +145,17 @@ function collectMarkdown(targets) {
  * 必须与工作树取**并集**：一个文件被整个删掉时，它在工作树里已不存在 ⇒ 只走工作树会让
  * 「整份文档消失」变成静默通过，而这是本工具最该抓住的一种丢条款。
  */
-function collectMarkdownAt(ref, targets) {
-  const out = execFileSync('git', ['-C', REPO, 'ls-tree', '-r', '--name-only', ref, '--', ...targets], {
+function collectMarkdownAt(ref, targets, repo = REPO) {
+  const out = execFileSync('git', ['-C', repo, 'ls-tree', '-r', '--name-only', ref, '--', ...targets], {
     encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
   });
   return out.split('\n').map((s) => s.trim()).filter((s) => s.endsWith('.md'));
 }
 
 /** `git show <ref>:<relPath>` ⇒ 文本；该版不存在该文件 ⇒ null；ref 本身不可解析 ⇒ 抛。 */
-function readAt(ref, rel) {
+function readAt(ref, rel, repo = REPO) {
   try {
-    return execFileSync('git', ['-C', REPO, 'show', `${ref}:${rel}`], {
+    return execFileSync('git', ['-C', repo, 'show', `${ref}:${rel}`], {
       encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
     });
   } catch (e) {
@@ -174,7 +184,7 @@ export function loadAllowlist(p = ALLOWLIST_PATH) {
  * 单文件比对（纯函数，便于单测）：`afterText === null` = 该文件已被删除。
  * 返回 { entry, missingTotal, unaccountedTotal }。
  */
-export function compareFile(rel, beforeText, afterText, allow) {
+export function compareFile(rel, beforeText, afterText, allow, repo = REPO) {
   const A = extractAtoms(beforeText);
   const B = afterText === null ? null : extractAtoms(afterText);
   const entry = { file: rel, deleted: afterText === null, missing: {}, unaccounted: {}, counts: {} };
@@ -189,7 +199,7 @@ export function compareFile(rel, beforeText, afterText, allow) {
     if (!missing.length) continue;
     entry.missing[axis] = missing;
     if (!AXES.includes(axis)) continue;                                // 软轴只报告
-    const un = missing.filter((x) => !atomAccounted(rel, axis, x, allow));
+    const un = missing.filter((x) => !atomAccounted(rel, axis, x, allow, repo));
     if (un.length) entry.unaccounted[axis] = un;
     missingTotal += missing.length;
     unaccountedTotal += un.length;
@@ -197,18 +207,18 @@ export function compareFile(rel, beforeText, afterText, allow) {
   return { entry, missingTotal, unaccountedTotal };
 }
 
-export function diffDocs({ base, targets, allow = loadAllowlist() }) {
-  const files = [...new Set([...collectMarkdownAt(base, targets), ...collectMarkdown(targets)])].sort();
+export function diffDocs({ base, targets, allow = loadAllowlist(), repo = REPO }) {
+  const files = [...new Set([...collectMarkdownAt(base, targets, repo), ...collectMarkdown(targets, repo)])].sort();
   const report = { base, files: [], added: [], deleted: [], missingTotal: 0, unaccountedTotal: 0, counts: {} };
 
   for (const rel of files) {
-    const before = readAt(base, rel);
+    const before = readAt(base, rel, repo);
     if (before === null) { report.added.push(rel); continue; }         // base 里没有 ⇒ 新增文件
-    const abs = path.join(REPO, rel);
+    const abs = path.join(repo, rel);
     const after = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : null;
     if (after === null) report.deleted.push(rel);
 
-    const { entry, missingTotal, unaccountedTotal } = compareFile(rel, before, after, allow);
+    const { entry, missingTotal, unaccountedTotal } = compareFile(rel, before, after, allow, repo);
     report.missingTotal += missingTotal;
     report.unaccountedTotal += unaccountedTotal;
     if (Object.keys(entry.missing).length) report.files.push(entry);
@@ -229,7 +239,7 @@ function parseArgv(argv) {
     else if (a === '--allowlist') o.allowlist = argv[++i];
     else { const e = new Error(`未知参数：${a}`); e.usage = true; throw e; }
   }
-  if (!o.targets.length) o.targets.push('team/guides');
+  if (!o.targets.length) o.targets.push(...DEFAULT_TARGETS);
   if (o.base === undefined || o.targets.includes(undefined)) { const e = new Error('--base/--path 缺值'); e.usage = true; throw e; }
   return o;
 }

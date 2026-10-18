@@ -12,7 +12,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { extractAtoms, compareFile } from './doc-clause-diff.mjs';
+import { execFileSync } from 'node:child_process';
+import { extractAtoms, compareFile, diffDocs, DEFAULT_TARGETS } from './doc-clause-diff.mjs';
 
 const EMPTY = { files: {}, atoms: {} };
 
@@ -60,6 +61,28 @@ test('compareFile：注入的条款删除被抓到，且按轴归类', () => {
   assert.equal(unaccountedTotal, 1, '注入删除须恰好产生 1 条未登记缺失');
   assert.deepEqual(entry.unaccounted.codes, ['in_review'], '缺失须落在 codes 轴');
   assert.equal(entry.deleted, false);
+});
+
+test('默认目标覆盖 team 与 roles（顶层协议卷的删除必须可见）', () => {
+  assert.deepEqual(DEFAULT_TARGETS, ['team', 'roles'], '默认目标须覆盖两册所在的 team/ 与角色种子 roles/');
+});
+
+test('diffDocs：默认目标内整份文件删除 ⇒ 报 deleted 且未登记缺失 > 0', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clause-del-'));
+  try {
+    execFileSync('git', ['-C', dir, 'init', '-q']);
+    fs.mkdirSync(path.join(dir, 'team'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'team', 'gone.md'), '- Rule: `base_unresolved`; see `§6.1`; cap `64 KiB`.\n');
+    execFileSync('git', ['-C', dir, 'add', 'team/gone.md']);
+    execFileSync('git', ['-C', dir, '-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '-q', '-m', 'init']);
+    fs.rmSync(path.join(dir, 'team', 'gone.md'));
+
+    const report = diffDocs({ base: 'HEAD', targets: ['team'], allow: EMPTY, repo: dir });
+    assert.ok(report.deleted.includes('team/gone.md'), '整份删除必须出现在 deleted 列表');
+    assert.ok(report.unaccountedTotal > 0, '整份删除必须产生未登记缺失，而不是静默通过');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('compareFile：整份文件删除 ⇒ base 版全部原子视为缺失（不得静默通过）', () => {
