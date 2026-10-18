@@ -1,6 +1,6 @@
 # Task-Management Interface Contract (`task-interface v1`)
 
-> **Ownership**: the task-management **base** (an independent layer). Normative team rules = `PROTOCOL §1`; this file is the base's **sole access contract to the upper layers** (the task-provider ACL).
+> **Ownership**: the task-management **base** (an independent layer). Normative team rules = `R-BOARD-1`; this file is the base's **sole access contract to the upper layers** (the task-provider ACL).
 > **Purpose**: the upper layers depend only on this contract, not on the underlying implementation ⇒ swapping the task system changes zero upper-layer behavior (only the provider implementation + the contract tests).
 > **Provider**: **not mandatory, swappable**. `meerkat-taskpanel` is the **reference implementation** (task skill + `taskctl` CLI); Jira / Linear / Plane / GitHub Issues / a custom board works if it satisfies this contract.
 > **Scope**: this project delivers only the ACL and the team-side adaptation conventions; each task system's own skill / MCP / authentication is user-supplied and out of scope.
@@ -22,7 +22,7 @@
 
 > **The canonical card schema lives in the provider, not here.** Field meanings, value enums, body-section shapes and the import→export round-trip are owned by the provider's `references/card-schema.md`. A replacement provider ships its own canonical schema document; this contract only requires that the fields the team uses are mapped 1:1 and that unknown/team-side keys round-trip verbatim.
 
-- **Team-side extension keys** (outside the provider's schema; carried by the provider's unknown-key passthrough): `target` (project-internal location), `goal` (one-line goal), `review_of` (the reviewed card), `writes` (declared write set), `git_rules`, `subsession_ids`, `active_session_id`. Their discipline is owned by `PROTOCOL §1`.
+- **Team-side extension keys** (outside the provider's schema; carried by the provider's unknown-key passthrough): `target` (project-internal location), `goal` (one-line goal), `review_of` (the reviewed card), `writes` (declared write set), `git_rules`, `subsession_ids`, `active_session_id`. Their discipline is owned by `R-BOARD-1`.
 - **`project`** = a project identity code, resolved through this ACL to a backend entity; the upper layers never depend on a backend's internal project id.
 - **`writes`** (optional): the card's declared file/resource set; defaults to `target`. It feeds the same-file concurrency warning (`scripts/samefile-guard.mjs`) — overlap ⇒ serialize first or isolate in a worktree.
 - **Swappability**: a candidate provider must map the fields the team uses 1:1, preserve unknown keys, and pass the ACL contract tests (§6 invariants + §4 operation semantics) to be judged conformant (§12).
@@ -37,7 +37,7 @@ backlog | todo → in_progress → in_review → done | canceled
 ```
 
 - `in_review` = delivered and awaiting Elon's acceptance; thereafter no heartbeat refresh, no re-claim, poll does not fire.
-- `done` / `canceled` (legacy word `failed`) are **terminal and frozen**: the ACL refuses any further write to the card outside the acceptance path (§4, §6.3).
+- `done` / `canceled` (legacy word `failed`) are **terminal and frozen**: the ACL refuses any further write to the card outside the acceptance path (§4, `R-PARALLEL-1`).
 - The **full machine** — including the provider's attention overlay (`awaiting`) and every per-transition rule — is in the provider's `references/card-schema.md`. The team relies on the transitions above, not on a second copy of the machine.
 
 ---
@@ -86,7 +86,7 @@ backlog | todo → in_progress → in_review → done | canceled
 - **Use**: record team collaboration discussions, operator input (suggestions / decisions / questions / clarifications / corrections), confirmations, dual-signs and anomaly-handling notes.
 - **`kind` enum**: `discuss` / `decision` / `confirm` / `change` / `note` / `defect`.
 - **Task-change trail**: any substantive card change (Acceptance / Background / scope / assignee / priority / target / convention) ⇒ a `kind:change` comment (what/why/who, before→after when needed). Ordinary state transitions do not need one.
-- **Operator-input trail**: whatever the operator says about a card lands on that card as an `author=operator` comment **in the same turn it is received** — the conversation is not a durable carrier; no card yet ⇒ card the input first (normative text `PROTOCOL §13.8`).
+- **Operator-input trail**: whatever the operator says about a card lands on that card as an `author=operator` comment **in the same turn it is received** — the conversation is not a durable carrier; no card yet ⇒ card the input first (normative text `R-DISC-8`).
 - **Report ≠ comment**: Report = delivery conclusion (one per card); comments = process flow (many, any role).
 - **Replaceability**: a comment ≈ an issue comment; the provider's command/`kind` handling is in `references/cli.md`.
 
@@ -117,7 +117,7 @@ backlog | todo → in_progress → in_review → done | canceled
 - **Newly started seg background pack**: the task card (Goal/Acceptance/Background) + the card's `## Report` + `## Comments` + `state.md`. Generation: `task.handoff <card> seg=…` → `workspace/<task-id>/handoff.md` (four anchors, summarized); the subsession reads it first; **do not hand-write it**.
 - **Command syntax / per-host resume forms** (`claude --resume`, `codex exec resume`, `pi --session`, plugin-lane thread continue): the provider's `references/cli.md` and `references/practice-guides.md`; the lane entry's registered forms: `guides/spawn-lane-sop.md` §3.
 - **Interactive lane questions/decisions**: an interactive lane's `AskUserQuestion` / `request_user_input` is **not** answered in-process. The host writes `workspace/<task-id>/questions/<owner>-<seg>-<ts>-<request>.json`, posts a `discuss` (clarify) or `decision` comment carrying `blocked_reason=clarify|decision` and `refs:question:<id>`, sets the card `blocked`, and stops. The answer is recorded by the operator/Elon on the card; the owner starts a **new segment**, whose handoff already carries `## Comments`. Full flow: `guides/interactive-lane-sop.md` §7–§8.
-- **Ownership**: OpenClaw agent side only; subsessions are unaware of task management (`PROTOCOL §6` clause 7).
+- **Ownership**: OpenClaw agent side only; subsessions are unaware of task management (`R-SESSION-1` clause 7).
 
 ---
 
@@ -125,11 +125,11 @@ backlog | todo → in_progress → in_review → done | canceled
 
 - **Split**: a composite task = a `kind:epic` parent (not claimable) + child cards (`parent=<epic>`, ordinary cards); hierarchy depth follows the provider base; a parent must be an epic.
 - **Dependencies**: children carry `depends_on` (predecessors only; successors are derived); no dependency = parallel, with dependency = serial.
-- **Registration**: all batches are registered at once; only dispatch/release may be batched (`PROTOCOL §10.2`).
+- **Registration**: all batches are registered at once; only dispatch/release may be batched (`R-DAG-1`).
 - **Claim guard**: `epic` ⇒ `epic_container`; unmet `depends_on` ⇒ `deps_unmet` (no new status). A review card's `review_of` dependency is exempt; the review gate additionally requires the target to exist and be `in_review` (`review_not_ready`).
 - **Aggregation**: parent `done` = all children done **+ integration acceptance**; blocked/canceled children block/cancel the parent (`task.rollup`).
 - **Deploy cards**: `kind:deploy` is never auto-claimed; explicit dispatch only (the candidate surface excludes it, the explicit claim path still allows it — only `epic` is refused).
-- **Provider command names, invariant reason codes and hierarchy limits**: `references/cli.md`; team granularity: `PROTOCOL §10.3`, `roles/elon/guides/carding-sop.md`.
+- **Provider command names, invariant reason codes and hierarchy limits**: `references/cli.md`; team granularity: `R-GRANULARITY-1`, `roles/elon/guides/carding-sop.md`.
 
 ---
 

@@ -1,9 +1,9 @@
 # 交互式 Lane SOP（`interactive-lane-sop.md`）
 
-> **Ownership**: Linus owns the host/policy implementation; Elon owns the L1 clause (`PROTOCOL §6` clause 3) and approves policy exceptions.
-> **Status**: L2.5 method guide. **默认关闭**；只有显式 `interactive=1` / `--interactive` 的 lane 才走本指南。
-> **Depends on**: `PROTOCOL §6` · `guides/spawn-lane-sop.md` · `guides/lane-session-lifecycle-sop.md` · `guides/task-interface.md` §7/§9 · `guides/codex-plugin-lane-contract.md`.
-> **Reference convention**: `PROTOCOL §<n> <name>` / `<guide> §<section>`；不写行号、不写卡号。
+> **Ownership**: Linus owns the host/policy implementation; Elon owns the normative rule (`R-SESSION-1` clause 3) and approves policy exceptions.
+> **Status**: method guide. **默认关闭**；只有显式 `interactive=1` / `--interactive` 的 lane 才走本指南。
+> **Depends on**: `R-SESSION-1` · `guides/spawn-lane-sop.md` · `guides/lane-session-lifecycle-sop.md` · `guides/task-interface.md` §7/§9 · `guides/codex-plugin-lane-contract.md`.
+> **Reference convention**: `R-<DOMAIN>-<n>` / `<guide> §<section>`；不写行号、不写卡号。
 
 ---
 

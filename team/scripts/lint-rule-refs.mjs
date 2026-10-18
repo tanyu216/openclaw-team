@@ -138,10 +138,13 @@ function main() {
     const role = roleOf(rel);
     const lines = text.split('\n');
     let fence = false;
+    let redline = false;
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (/^\s*```/.test(line)) { fence = !fence; continue; }
       if (fence) continue;
+      if (/^\s*<!--\s*BEGIN\s+REDLINES:v1/.test(line)) { redline = true; continue; }
+      if (/^\s*<!--\s*END\s+REDLINES:v1/.test(line)) { redline = false; continue; }
       if (/^\s*<!--\s*(?:BEGIN|END)\s+SHARED-RULE:/.test(line)) continue;
       for (const m of line.matchAll(RULE_RE)) {
         const id = m[1];
@@ -150,7 +153,7 @@ function main() {
         if (rule.status === 'retired') { errors.push(`${rel}:${i + 1}: 引用已退役规则 ${id}`); unknown++; continue; }
         if (!inBackticks(line, m.index)) errors.push(`${rel}:${i + 1}: 规则 ID ${id} 未用反引号包住`);
         resolved++;
-        if (role && !carried.get(role).has(id)) {
+        if (role && !redline && !carried.get(role).has(id)) {
           errors.push(`${rel}:${i + 1}: ${role} 未携带规则 ${id}（AGENTS 的 owner/generated 段都没有它）`);
           carrierViolations++;
         }

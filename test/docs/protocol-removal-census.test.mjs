@@ -72,7 +72,7 @@ test('census：16 条内部矛盾都有处置', () => {
 
 test('census：bare-§ 工作清单存在且每条都有定位', () => {
   assert.ok(census.bareRefs.total > 0, '必须扫描到裸 §N');
-  assert.ok(census.bareRefs.unresolved.length > 0, '当前仍有需要迁移的裸 §N');
+  assert.equal(census.bareRefs.unresolved.length, 0, '仍有未解析的裸 §N：必须本地可解析或改写为规则 ID');
   for (const b of census.bareRefs.unresolved) {
     assert.ok(b.file && b.line > 0 && b.ref && b.intendedTarget);
   }

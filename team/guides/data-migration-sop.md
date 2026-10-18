@@ -1,29 +1,29 @@
 # Data / DB Migration SOP (data-migration-sop.md)
 
-> **Ownership**: this file is the **L2.5 method library** for data / DB / schema change discipline — the execution detail for tables, columns, indexes, constraints, data backfills and the migration-script lifecycle. The normative mechanism lives in `PROTOCOL §24` (data/DB migration discipline); this SOP **details that clause and references it, never copies it** (`PROTOCOL §17`).
-> **Maintainer**: **Linus** (engineering). **Elon** is the sole writer of the L1 normative text (`PROTOCOL`).
-> **Depends on**: `PROTOCOL §3` (shared-structure invariants — a different object from the product DB) · `PROTOCOL §6` (git discipline) · `PROTOCOL §6.1` (engineering quality standards) · `PROTOCOL §9` (defect loop) · `PROTOCOL §9.3` (container-form acceptance) · `PROTOCOL §12` (two-way doc sync) · `PROTOCOL §14` (confirmation gate) · `PROTOCOL §17` (doc layering / no verbatim copying) · `PROTOCOL §20.1` (machine-checkable gates).
-> **Adjacent guides (different objects, not interchangeable)**: `release-versioning-sop.md` (tags / changelog / channels / release approval; see `PROTOCOL §21`) · `ci-release-sop.md` (CI gate / build / release / deploy) · `incident-response-sop.md` (incident response / on-call) · `api-compat-sop.md` (external API compatibility).
-> **Scope**: L2.5 method library. Cross-role mechanisms that are not data-specific (approval, gate registration) are **referenced by their L1 numbers**, not restated.
-> **Reference convention**: always write "`PROTOCOL §<n> <name>`" or "`guide-name §<section>`" — **no line-number anchors and no card-number anchors** (`PROTOCOL §6.1` clause 11).
+> **Ownership**: this file is the **method library** for data / DB / schema change discipline — the execution detail for tables, columns, indexes, constraints, data backfills and the migration-script lifecycle. The normative mechanism lives in `R-MIGRATE-1` (data/DB migration discipline); this SOP **details that clause and references it, never copies it** (`R-LAYER-1`).
+> **Maintainer**: **Linus** (engineering). **Elon** owns the normative rule `R-MIGRATE-1`.
+> **Depends on**: `R-STRUCT-1` (shared-structure invariants — a different object from the product DB) · `R-SESSION-1` (git discipline) · `R-ENG-1` (engineering quality standards) · `R-DEFECT-1` (defect loop) · `R-CONTAINER-1` (container-form acceptance) · `R-DOCSYNC-1` (two-way doc sync) · `R-CONFIRM-1` (confirmation gate) · `R-LAYER-1` (doc layering / no verbatim copying) · `R-GATE-1` (machine-checkable gates).
+> **Adjacent guides (different objects, not interchangeable)**: `release-versioning-sop.md` (tags / changelog / channels / release approval; see `R-VERSION-1`) · `ci-release-sop.md` (CI gate / build / release / deploy) · `incident-response-sop.md` (incident response / on-call) · `api-compat-sop.md` (external API compatibility).
+> **Scope**: method library. Cross-role mechanisms that are not data-specific (approval, gate registration) are **referenced by their rule IDs**, not restated.
+> **Reference convention**: always write "`R-<DOMAIN>-<n>`" or "`guide-name §<section>`" — **no line-number anchors and no card-number anchors** (`R-ENG-1` clause 11).
 
 ---
 
 ## 0. Key Distinction (read first — avoid confusion with adjacent SOPs)
 
 > ⚠️ The object of this SOP is **the discipline of data / DB / schema change** — the lifecycle of tables, columns, indexes, constraints, data backfills and migration scripts.
-> It is **not** a release / versioning SOP (tags, changelog, channels, release approval → `release-versioning-sop.md`, `PROTOCOL §21`), and **not** a runtime observability SOP.
+> It is **not** a release / versioning SOP (tags, changelog, channels, release approval → `release-versioning-sop.md`, `R-VERSION-1`), and **not** a runtime observability SOP.
 
 **File-level method (Responsibility / Landing point — every section below is under it)**: per-section wording is owned and landed as:
 
 | Section | Responsibility | Landing point |
 |---|---|---|
-| §1 Scope and boundary | wording maintained by **Linus** (engineering); L1 text integration belongs to **Elon** | project repository (migration files) + project CI + the team-level aggregator gate (`PROTOCOL §20.1`) + human approval |
+| §1 Scope and boundary | wording maintained by **Linus** (engineering); rule integration belongs to **Elon** | project repository (migration files) + project CI + the team-level aggregator gate (`R-GATE-1`) + human approval |
 | §2 Forward compatibility | the change plan is designed by the **implementer (Linus)** with the three-step breakdown written in the plan; **destructive cleanup (step ③) requires approver sign-off** (§7) | each step gets its **own migration file** (§3); the step ③ "no reader dependency" evidence goes into the card's progress record |
-| §5 Data validation | the validation script + idempotent implementation belong to the **implementer (Linus)**; the **validation assertions are independently re-checked by an independent verifier (Turing) at acceptance** (real business scenarios, aligned with `PROTOCOL §6.1`) | the validation script goes into the project (called by CI); idempotency is enforced by the runner + bookmark table |
+| §5 Data validation | the validation script + idempotent implementation belong to the **implementer (Linus)**; the **validation assertions are independently re-checked by an independent verifier (Turing) at acceptance** (real business scenarios, aligned with `R-ENG-1`) | the validation script goes into the project (called by CI); idempotency is enforced by the runner + bookmark table |
 | §6 Invariants and constraints | constraint/trigger design belongs to the **implementer (Linus)**; consistency is machine-checked by the **contract tests** | project CI (running the test suite); a new constraint must be committed together with its migration file (§3) |
-| §4 Rollback | rollback / forward-fix is **approved through the confirmation gate** (`PROTOCOL §14`), with major changes escalating to the next authority; **execution belongs to Linus**; the trail is a confirmation-gate record (`kind=confirm`, `PROTOCOL §14`) | the data dimension only (§4.1) |
-| §7 Approval and trail | the approval **decision** belongs to the confirmation-gate approver (`PROTOCOL §14`); **execution belongs to Linus** | a confirmation-gate record (`task.comment kind=confirm`) — see §7.2 |
+| §4 Rollback | rollback / forward-fix is **approved through the confirmation gate** (`R-CONFIRM-1`), with major changes escalating to the next authority; **execution belongs to Linus**; the trail is a confirmation-gate record (`kind=confirm`, `R-CONFIRM-1`) | the data dimension only (§4.1) |
+| §7 Approval and trail | the approval **decision** belongs to the confirmation-gate approver (`R-CONFIRM-1`); **execution belongs to Linus** | a confirmation-gate record (`task.comment kind=confirm`) — see §7.2 |
 
 | Dimension | This SOP (data/DB migration discipline) | Adjacent SOP (different object, not interchangeable) |
 |---|---|---|
@@ -31,9 +31,9 @@
 | **Focus** | forward compatibility / append-only / validation / invariants / rollback (forward) | tag / changelog / channel / release approval |
 | **Junction** | a migration **is a sub-step of a release** ⇒ the release checklist must contain the migration gate | the release SOP's "data/migration" rollback row **references** this file, never copies its text |
 
-- **vs `PROTOCOL §6.1` (test-resource residue cleanup)**: different object — that clause governs leftover test runners / temp DBs / ports; this file governs the **production schema/data evolution**. They connect (after a migration runs, clean up temp DBs/connections) but do not replace each other.
-- **vs `PROTOCOL §9.3` (container-form acceptance)**: if a migration or data validation runs in a container form ⇒ it must be **actually run inside the target form** (e.g. DB connectivity inside the container), never self-certified on the host process form.
-- **vs `PROTOCOL §3` (shared-structure invariants)**: a **different object** — `PROTOCOL §3` governs **collaboration structures**, this file the **product data plane** (see §3.3).
+- **vs `R-ENG-1` (test-resource residue cleanup)**: different object — that clause governs leftover test runners / temp DBs / ports; this file governs the **production schema/data evolution**. They connect (after a migration runs, clean up temp DBs/connections) but do not replace each other.
+- **vs `R-CONTAINER-1` (container-form acceptance)**: if a migration or data validation runs in a container form ⇒ it must be **actually run inside the target form** (e.g. DB connectivity inside the container), never self-certified on the host process form.
+- **vs `R-STRUCT-1` (shared-structure invariants)**: a **different object** — `R-STRUCT-1` governs **collaboration structures**, this file the **product data plane** (see §3.3).
 
 ---
 
@@ -43,9 +43,9 @@
 |---|---|
 | **Does** | data / DB / schema change discipline: **forward compatibility** (Expand-Contract / stepwise dual-write), **append-only migration scripts**, **rollback strategy (forward edit)**, **pre/post migration validation**, **idempotency**, **invariant and constraint gates**, **destructive-change approval and trail** |
 | **Does not** | ① **backup / restore drills** (object is disaster recovery, not schema evolution); ② **capacity planning** (object is resource sizing); ③ **product observability** (logs/metrics/alerts/health — a separate observability SOP); ④ version numbers / tags / changelog (→ `release-versioning-sop.md`); ⑤ live incident response / on-call (→ `incident-response-sop.md`) |
-| **Handoffs** | migration scripts land in the project repository (§10); destructive/irreversible migrations are **pre-approved** through the confirmation gate (`PROTOCOL §14`, see §7); runtime observation after a migration/rollback is handed to the observability path; a failed migration triggers the defect loop (`PROTOCOL §9`) |
+| **Handoffs** | migration scripts land in the project repository (§10); destructive/irreversible migrations are **pre-approved** through the confirmation gate (`R-CONFIRM-1`, see §7); runtime observation after a migration/rollback is handed to the observability path; a failed migration triggers the defect loop (`R-DEFECT-1`) |
 
-- **Wording**: this file defines only "how a data/schema change is made safe, traceable and machine-checkable". Cross-role mechanisms (approval / gates registration) are always **referenced by their L1 numbers**, never copied (`PROTOCOL §17` single source of truth). (Responsibility / Landing point → the §0 file-level table.)
+- **Wording**: this file defines only "how a data/schema change is made safe, traceable and machine-checkable". Cross-role mechanisms (approval / gates registration) are always **referenced by their rule IDs**, never copied (`R-LAYER-1` single source of truth). (Responsibility / Landing point → the §0 file-level table.)
 
 ---
 
@@ -101,16 +101,16 @@ A representative implementation of this discipline:
 
 > This is an example of the mechanism, not a fixed requirement. The mechanism — append-only, checksummed, atomic, idempotent, parity-checked — is what is normative.
 
-### 3.3 Boundary with Shared-Structure Invariants (`PROTOCOL §3`)
+### 3.3 Boundary with Shared-Structure Invariants (`R-STRUCT-1`)
 
-- `PROTOCOL §3`: card / scripts / project-registry schema is **maintained by the maintainer and implementers — agents read and write data but do not change the structure**.
-- This file: the **product's own DB schema** evolves under this SOP (append-only + validation). The two have **different objects**: `PROTOCOL §3` governs **collaboration-structure conventions**, this file governs the **product data plane**.
+- `R-STRUCT-1`: card / scripts / project-registry schema is **maintained by the maintainer and implementers — agents read and write data but do not change the structure**.
+- This file: the **product's own DB schema** evolves under this SOP (append-only + validation). The two have **different objects**: `R-STRUCT-1` governs **collaboration-structure conventions**, this file governs the **product data plane**.
 
 ---
 
-## 4. Rollback Strategy (Forward Edit, per PROTOCOL §6)
+## 4. Rollback Strategy (Forward Edit, per `R-SESSION-1`)
 
-> 🔒 **Hard constraint**: "rollback" in this SOP is **not** reversing the schema, **not** dropping tables, and **not** a git reverse operation. **Forbidden**: `git revert` / `reset` / `restore` / `stash` / `clean` / `checkout --` / `push --force` (`PROTOCOL §6` git discipline). All rollback is achieved by **forward edit + a normal commit** (or `rm` of a file).
+> 🔒 **Hard constraint**: "rollback" in this SOP is **not** reversing the schema, **not** dropping tables, and **not** a git reverse operation. **Forbidden**: `git revert` / `reset` / `restore` / `stash` / `clean` / `checkout --` / `push --force` (`R-SESSION-1` git discipline). All rollback is achieved by **forward edit + a normal commit** (or `rm` of a file).
 
 ### 4.1 Rollback Definition (data dimension)
 
@@ -123,7 +123,7 @@ A representative implementation of this discipline:
 
 - **Forward-fix example**: a new migration adds a column with a default, relaxes a constraint, or repairs bad data back into the legal domain; the **old migration file is untouched** (append-only, §3).
 - **Two legal paths for deletion**: ① a **file** ⇒ `rm` (or `trash`) then a normal `git commit -- <explicit path>`; ② a **table row** ⇒ write a **new migration** (`DELETE` statement) and **leave a trail**. **Forbidden**: any destructive act such as "drop the DB / drop the table / reverse the schema".
-- **Preserve evidence before delete/overwrite** (`PROTOCOL §6`): first write `git status --porcelain` + `git log --oneline -3` into the card's progress/report.
+- **Preserve evidence before delete/overwrite** (`R-SESSION-1`): first write `git status --porcelain` + `git log --oneline -3` into the card's progress/report.
 
 ### 4.2 Rollback Decision Criteria (rollback vs forward-fix)
 
@@ -135,7 +135,7 @@ A representative implementation of this discipline:
 | A migration is **already applied** but a bug is found | **forward-fix** (a corrective new migration) | applied migrations are append-only (§3) |
 | Cause **not yet located** | **stop the bleeding first** (switch back / stop the new write path), then locate | do not chain forward changes before the cause is known |
 
-- **After rollback**: a "root-cause + regression" card must be opened (aligned with the defect loop, `PROTOCOL §9`), and the change record must be annotated `Fixed`/`Removed`.
+- **After rollback**: a "root-cause + regression" card must be opened (aligned with the defect loop, `R-DEFECT-1`), and the change record must be annotated `Fixed`/`Removed`.
 - **To be decided**: the production "switch back to the old code" deployment/traffic-switch mechanism depends on each project's deployment form and is out of this SOP's scope.
 
 ---
@@ -156,7 +156,7 @@ A representative implementation of this discipline:
 
 - **Pre-validation**: confirm the **precondition** before migrating (that the old data satisfies the premise of the new constraint).
 - **Post-validation**: confirm the **target state** after migrating (backfill complete, constraint creatable, invariants hold).
-- **Failure handling**: any validation failure ⇒ **roll the migration back to the pre-migration state** (transaction `ROLLBACK`; no bookmark row written) and mark the card `blocked`/`failed` + escalate (aligned with `PROTOCOL §9`).
+- **Failure handling**: any validation failure ⇒ **roll the migration back to the pre-migration state** (transaction `ROLLBACK`; no bookmark row written) and mark the card `blocked`/`failed` + escalate (aligned with `R-DEFECT-1`).
 
 ### 5.2 Idempotency (re-runnable)
 
@@ -201,15 +201,15 @@ A representative implementation of this discipline:
 |---|---|---|
 | Pure Expand (add a nullable column / new table / new index) | No (self-review + trail) | implementer self-review |
 | Data backfill / dual-write | No (self-review + pre/post validation) | implementer self-review |
-| **Destructive / irreversible** (`DROP` / column deletion / type change / data deletion) | **Yes** | **the confirmation-gate approver (`PROTOCOL §14`)** |
+| **Destructive / irreversible** (`DROP` / column deletion / type change / data deletion) | **Yes** | **the confirmation-gate approver (`R-CONFIRM-1`)** |
 
-- **Default (until a further ruling)**: **production migrations** (including any destructive change) go through the confirmation gate (`PROTOCOL §14`); **major changes** (irreversible / cross-repo / touching core data) escalate to the next authority. (The exact escalation path is **to be decided**.)
+- **Default (until a further ruling)**: **production migrations** (including any destructive change) go through the confirmation gate (`R-CONFIRM-1`); **major changes** (irreversible / cross-repo / touching core data) escalate to the next authority. (The exact escalation path is **to be decided**.)
 
 ### 7.2 Trail Carrier
 
 - **Carrier**: a confirmation-gate record (`task.comment kind=confirm`) whose content includes: **change type** (expand/backfill/contract), **target object** (DB/table/column), **migration file number + name**, **validation result**, **approver/time**, **rollback plan** (§4).
 - **Forbidden**: replacing an approval trail with a verbal "OK"; skipping the gate and applying a destructive migration directly; editing an already-applied migration (append-only, §3).
-- **Junction**: gates and timing follow the confirmation gate (`PROTOCOL §14`).
+- **Junction**: gates and timing follow the confirmation gate (`R-CONFIRM-1`).
 
 ---
 
@@ -218,7 +218,7 @@ A representative implementation of this discipline:
 **Before applying**
 - [ ] The change is classified (pure Expand / backfill / Contract / destructive) and recorded.
 - [ ] For a forward-compatible change, the three-step plan (Expand → Migrate → Contract) is written.
-- [ ] A destructive/irreversible change is approved through the confirmation gate (`PROTOCOL §14`) with a trail.
+- [ ] A destructive/irreversible change is approved through the confirmation gate (`R-CONFIRM-1`) with a trail.
 - [ ] The new migration file is named `NNNN_lower_snake_name.sql`, the sequence is monotonic, and each step is a single new file.
 - [ ] Pre-migration validation is written (row count / non-null / uniqueness / FK / invariants).
 - [ ] Statements are idempotent (`IF NOT EXISTS` / `ON CONFLICT DO NOTHING` / `WHERE new_col IS NULL`).
@@ -228,7 +228,7 @@ A representative implementation of this discipline:
 **During**
 - [ ] Each file runs in its own `BEGIN IMMEDIATE` transaction.
 - [ ] A bookmark row, with version + checksum + `applied_at`, is written only on success.
-- [ ] Any validation failure ⇒ `ROLLBACK` to the pre-migration state; the card is marked `blocked`/`failed`; the defect loop (`PROTOCOL §9`) is triggered.
+- [ ] Any validation failure ⇒ `ROLLBACK` to the pre-migration state; the card is marked `blocked`/`failed`; the defect loop (`R-DEFECT-1`) is triggered.
 - [ ] Checksums are normalized for cross-platform stability.
 
 **After**
@@ -243,7 +243,7 @@ A representative implementation of this discipline:
 ## 9. Machine-Checkable vs Manual Gate Matrix
 
 > A card's acceptance hard requirement: **annotate every item's landing point**. A machine-check landing point = `CI / aggregator gate / hook`; a manual landing point = a responsible role.
-> "Aggregator gate" = the team-level gate aggregation (`PROTOCOL §20.1`); "CI" = the project's own pipeline.
+> "Aggregator gate" = the team-level gate aggregation (`R-GATE-1`); "CI" = the project's own pipeline.
 
 | # | Check | Machine-checkable (landing point) | Manual (responsible role) |
 |---|---|---|---|
@@ -254,13 +254,13 @@ A representative implementation of this discipline:
 | 5 | **Migration file append-only check** (an applied file cannot change) | **aggregator gate**: scan the migrations directory for checksum/sequence uniqueness (the project-side runner also enforces it) | implementer obeys "add only, never edit" |
 | 6 | **Naming-convention lint** (`NNNN_lower_snake_name.sql`, unique sequence) | **aggregator gate / CI**: migration filename/sequence lint | implementer names the files |
 | 7 | **Migration review** (three-step plan, blast radius) | manual | implementer produces the plan; approver reviews |
-| 8 | **Destructive-change approval** (`DROP` / column deletion / type change / data deletion) | manual | **confirmation-gate approver (`PROTOCOL §14`)**; major changes escalate |
+| 8 | **Destructive-change approval** (`DROP` / column deletion / type change / data deletion) | manual | **confirmation-gate approver (`R-CONFIRM-1`)**; major changes escalate |
 | 9 | **"No reader dependency" criteria** (Contract precondition) | semi-machine-checkable: whole-repo reference search (CI can grep/assert the contract) | confirm downstream / external consumers manually |
-| 10 | **Rollback decision criteria** (switch back vs forward-fix) | manual | **approver decides (`PROTOCOL §14`)**; Linus executes |
+| 10 | **Rollback decision criteria** (switch back vs forward-fix) | manual | **approver decides (`R-CONFIRM-1`)**; Linus executes |
 
 - **Landing summary**:
   - **CI carries**: the project's own test pipeline (the migration runner's idempotency/checksum enforcement, the parity/invariant contract tests, the validation script).
-  - **Aggregator gate carries**: **text-level lint** over migration files (append-only / naming / sequence uniqueness, `PROTOCOL §20.1`) — it does **not** replace the project's own DB tests.
+  - **Aggregator gate carries**: **text-level lint** over migration files (append-only / naming / sequence uniqueness, `R-GATE-1`) — it does **not** replace the project's own DB tests.
   - **Hook**: a project-side migration-commit hook (e.g. a pre-commit check of migration sequence/checksum) — **to be decided**; not yet fixed.
   - **Manual**: approval, review, and rollback decisions are all manual landing points (responsibility in §4 / §7).
 
@@ -274,10 +274,10 @@ A representative implementation of this discipline:
 |---|---|---|---|
 | Version-controlled repo that owns the deployed DB | migrations directory under version control (`NNNN_*.sql`) + a bookmark table (version + checksum) + a declared table manifest in code | **CI** (test suite incl. parity/invariant contract tests) + migration-runner idempotency/checksum enforcement + **manual** plan review & destructive-change approval | the primary case; the reference blueprint (append-only + `STRICT` + invariant triggers) |
 | Directory excluded from git (a locally scoped / vault-like root that must not use git) | — | — | such a directory **must not** be relied on for version management and **must not** host the migration files; the real carrier must be verified (see below) |
-| Repo that is **not** under version control | no VCS carrier; migrations must be represented as "script + date/doc version + manual trail" | **manual + project scripts** (aggregator-gate scripts, `PROTOCOL §20.1`); no CI ⇒ "migration script + manual trail" is the main stay | a non-versioned repo has no CI; generated build artifacts must **never** be the migration carrier |
-| Multi-repo layout (implementation repo + design/interface docs) | land the migration files in the repo that owns the **implemented DB** (e.g. `projects/<sub>/migrations/*.sql`) | project CI + manual approval | if the schema change also touches design/interface wording, sync those docs (`PROTOCOL §12`); migrate files must not land in a directory that cannot be versioned |
+| Repo that is **not** under version control | no VCS carrier; migrations must be represented as "script + date/doc version + manual trail" | **manual + project scripts** (aggregator-gate scripts, `R-GATE-1`); no CI ⇒ "migration script + manual trail" is the main stay | a non-versioned repo has no CI; generated build artifacts must **never** be the migration carrier |
+| Multi-repo layout (implementation repo + design/interface docs) | land the migration files in the repo that owns the **implemented DB** (e.g. `projects/<sub>/migrations/*.sql`) | project CI + manual approval | if the schema change also touches design/interface wording, sync those docs (`R-DOCSYNC-1`); migrate files must not land in a directory that cannot be versioned |
 
 **Landing-carry rules**:
 - A directory that is **excluded from git** (a locally scoped root, a vault root, or similar) **must not** host migration files and rely on version management; verify where the real migration files land first.
-- In a multi-repo layout, decide **which repository** the migration files belong to before starting: if each sub-project builds its own DB, give each its own `migrations/` directory; if a schema change also touches shared design/interface wording, sync those docs (`PROTOCOL §12`).
+- In a multi-repo layout, decide **which repository** the migration files belong to before starting: if each sub-project builds its own DB, give each its own `migrations/` directory; if a schema change also touches shared design/interface wording, sync those docs (`R-DOCSYNC-1`).
 - **Recommendation** (pending confirmation): land migration files in the repository of the sub-project that implements the DB, and reuse the discipline of §3 / §5 / §6.

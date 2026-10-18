@@ -317,8 +317,8 @@ function bareRefsCensus() {
       if (fence) continue;
       for (const m of line.matchAll(/§\s*\d+(?:\.\d+)*/g)) {
         const before = line.slice(0, m.index);
-        if (/PROTOCOL\s*$/.test(before)) continue;                 // 点名 PROTOCOL：不是裸引用
-        if (/[A-Za-z0-9_.-]+\.md`?\s*$/.test(before)) continue;    // 点名 guide：不是裸引用
+        if (/PROTOCOL/.test(before)) continue;                     // 点名 PROTOCOL：不是裸引用
+        if (/[A-Za-z0-9_.-]+\.md`?/.test(before)) continue;        // 已点名 guide：同一行后续 §N 属于同一引用列表
         total++;
         const ref = m[0].replace(/\s+/g, '');
         if (!resolvesLocally(ref, headings)) {

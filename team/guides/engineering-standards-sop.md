@@ -2,8 +2,8 @@
 
 > **Ownership / Maintainer**: **Linus** owns the engineering method; **Turing** owns independent
 > verification (including the test-case realism check); **Elon** accepts against the checklist.
-> **Status**: method library (`L2.5`). This file's `§6.1` is the **normative checklist** (14 clauses)
-> delegated by `PROTOCOL §6.1` under `PROTOCOL §17` rule 6 — the L1 section is a pointer to this body.
+> **Status**: method library. This file's `§6.1` is the **normative checklist** (14 clauses)
+> delegated by `R-ENG-1` under `R-LAYER-1` rule 6 — the owner AGENTS block is a pointer to this body.
 > The sections below carry the methods, examples and checklists the clauses point at.
 > **Role-owned method homes**: Linus's `roles/linus/guides/testing-and-delivery-sop.md` (test
 > discipline, prototype consumption, frontend stack defaults, requirement completeness) and
@@ -14,7 +14,7 @@
 
 ## §6.1 Engineering Quality Standards (Linus delivery hard gate)
 
-> **Normative checklist** delegated from `PROTOCOL §6.1` (`PROTOCOL §17` rule 6). Elon/Turing accept against this list; the method detail follows below.
+> **Normative checklist** delegated from `R-ENG-1` (`R-LAYER-1` rule 6). Elon/Turing accept against this list; the method detail follows below.
 
 1. **TDD first**: failing test first → implement → go green; writing code before tests is forbidden.
 2. **Unit-test coverage ≥ 80%** (lines/branches); below 80% must not be marked done.
@@ -33,7 +33,7 @@
 
 ---
 
-## 1. TDD and coverage (`PROTOCOL §6.1` clauses 1–2)
+## 1. TDD and coverage (`R-ENG-1` clauses 1–2)
 
 - One feature point → one failing test written first → implement → go green. "Code then tests" is
   the forbidden order, not merely a weaker preference.
@@ -45,7 +45,7 @@
   live in `~/.openclaw/workspace-linus/guides/execute-guide.md`. Tests are never skipped — only the
   RED-first ceremony is waived.
 
-## 2. Mock boundary and integration tests (`PROTOCOL §6.1` clauses 3–4)
+## 2. Mock boundary and integration tests (`R-ENG-1` clauses 3–4)
 
 - Mock **external I/O and external systems only**: http / db / redis / mq / filesystem /
   third-party SDK / clock and randomness sources. **Never mock internal functions** (pure functions,
@@ -59,7 +59,7 @@
 - API endpoint tests carry the three cases that make the endpoint's contract real: 401, 200, and a
   business-error path. Evidence table: `roles/linus/guides/development-process-sop.md` Phase 3.
 
-## 3. Self-proof and requirement completeness (`PROTOCOL §6.1` clauses 5–6)
+## 3. Self-proof and requirement completeness (`R-ENG-1` clauses 5–6)
 
 - The Report attaches **command + exit code + output summary + coverage number + unit/integration
   case count** — never the bare claim "tests pass".
@@ -70,7 +70,7 @@
 - Method detail: `roles/linus/guides/testing-and-delivery-sop.md` § Requirement-Completeness
   Acceptance.
 
-## 4. Four-stage development loop (`PROTOCOL §6.1` clause 7)
+## 4. Four-stage development loop (`R-ENG-1` clause 7)
 
 Requirement development **starts from a Plan by default**; writing code directly is forbidden.
 The four stages and their method homes:
@@ -84,7 +84,7 @@ The four stages and their method homes:
 
 Skeleton and gates: `roles/linus/guides/development-process-sop.md`.
 
-## 5. Historically frequent defects (`PROTOCOL §6.1` clause 8)
+## 5. Historically frequent defects (`R-ENG-1` clause 8)
 
 Two checks carry the highest priority because they are the defects that recur:
 
@@ -99,7 +99,7 @@ Method homes: the plan-side gates are `~/.openclaw/workspace-linus/guides/plan-g
 verify-side counterparts are `~/.openclaw/workspace-linus/guides/verify-guide.md` § Phase 1
 (parameter-passing completeness / dead-code and caller verification).
 
-## 6. Test-resource cleanup (`PROTOCOL §6.1` clause 9)
+## 6. Test-resource cleanup (`R-ENG-1` clause 9)
 
 After every round of unit / integration / regression tests, confirm no test-related resource is
 left behind:
@@ -114,7 +114,7 @@ left behind:
 Why it is a rule: leftovers hold memory, ports and file locks; they pollute later subsessions and
 create cross-task interference.
 
-## 7. Test-case realism — Turing (`PROTOCOL §6.1` clause 10)
+## 7. Test-case realism — Turing (`R-ENG-1` clause 10)
 
 At acceptance, check whether the unit / integration cases fit **real business scenarios** rather
 than existing "for testing's sake". Distinguish case by case:
@@ -131,13 +131,13 @@ the card `blocked`/`canceled` + send it back to Elon. **Green ≠ real scenario 
 checklist: "test-case scenario authenticity check" under Turing's pass criteria in
 `roles/turing/guides/duties-sop.md`.
 
-## 8. Document references (`PROTOCOL §6.1` clause 11)
+## 8. Document references (`R-ENG-1` clause 11)
 
 The rule is in the clause; the **full notation form** — the name-not-glyph discriminator, the
 citation-list shorthand, circled numerals, and the item form — is `guides/doc-style.md` §6. The two
 linters (`scripts/lint-refs.mjs`, `scripts/lint-doc-refs.mjs`) enforce it.
 
-## 9. Delivery, conformance and frontend stack (`PROTOCOL §6.1` clauses 12–14)
+## 9. Delivery, conformance and frontend stack (`R-ENG-1` clauses 12–14)
 
 - **CI / release / deploy**: `guides/ci-release-sop.md` (Docker verification environment, gate
   discipline, build/release/deploy SOP, pre-delivery checklist).
@@ -147,13 +147,13 @@ linters (`scripts/lint-refs.mjs`, `scripts/lint-doc-refs.mjs`) enforce it.
 - **Linus frontend stack defaults**: `roles/linus/guides/testing-and-delivery-sop.md`
   § Frontend Tech-Stack Defaults. The prototype stack (`Tailwind CSS` + `daisyUI` + `jQuery`) and
   the engineering stack (`Vue 3` or `React` + `Vite`) are different layers; only the prototype is
-  closed by `PROTOCOL §6`.
+  closed by `R-SESSION-1`.
 
 ---
 
 ## 10. Related
 
-- `PROTOCOL §6.1` — the 14 normative clauses this guide supports.
+- `R-ENG-1` — the 14 normative clauses this guide supports.
 - `roles/linus/guides/testing-and-delivery-sop.md` — Linus's test discipline, prototype
   consumption, frontend defaults and requirement-completeness acceptance.
 - `roles/linus/guides/development-process-sop.md` — the phased development gates.

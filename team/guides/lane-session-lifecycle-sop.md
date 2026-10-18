@@ -95,7 +95,7 @@ recovery is preserved.
 
 ## 4. Rollback / opt-out (and what you then owe)
 
-The reaper is **on by default**. To run without it (§11-style explicit discipline):
+The reaper is **on by default**. To run without it (explicit, recorded opt-out):
 
 ```bash
 bash scripts/spawn-lane.sh <card> <owner> --no-reaper      # or OPENCLAW_TEAM_REAPER=0

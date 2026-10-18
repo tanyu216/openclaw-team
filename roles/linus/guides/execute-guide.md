@@ -3,12 +3,12 @@
 > **This guide = the detailed method for development process Phase 3** (TDD/coverage/evidence gate/cross-segment contract).
 > Usage: first follow the "Execution Checklist" item by item; "Details" is the concrete reference for each step, consult as needed.
 >
-> **Layer**: L2.5 role method library (`PROTOCOL §17`). **Owner**: Linus. **Effective**: 2026-10-16.
-> **On conflict**: `PROTOCOL` governs, then `roles/<role>/AGENTS.md`, then this guide.
+> **Layer**: role method library (`R-LAYER-1`). **Owner**: Linus. **Effective**: 2026-10-16.
+> **On conflict**: the shared-rule block in `roles/linus/AGENTS.md` governs, then this guide.
 > **Single-home boundary**: this guide is the home for the TDD decision table, the coverage grading
 > and the evidence gate. The Report slots belong to `team/guides/worker-report-template.md`; the
-> commit-path rule belongs to `PROTOCOL §6` + redline 7; the segment/`state.md` contract belongs to
-> `PROTOCOL §6.0` — all three are **referenced** below, never restated.
+> commit-path rule belongs to `R-SESSION-1` + redline 7; the segment/`state.md` contract belongs to
+> `R-SEG-1` — all three are **referenced** below, never restated.
 
 ---
 
@@ -33,7 +33,7 @@
   `## Report` carries the required slots of `team/guides/worker-report-template.md` (common core
   `A1`…`A8` plus Linus's `L1`…`L6`; `team/scripts/check-report.mjs` machine-checks the common core on
   `in_review` cards), and every delivery task is committed with **explicit paths**
-  (`git commit -- <paths>`, `PROTOCOL §6` / redline 7 — a bare `git commit` sweeps another lane's
+  (`git commit -- <paths>`, `R-SESSION-1` / redline 7 — a bare `git commit` sweeps another lane's
   unstaged hunks out of the shared index).
 
 ### N/A policy (same principle as `verify-guide.md` §N/A conditions)
@@ -118,9 +118,9 @@ Existing fixture > factory function (factory-boy) > test SQL script > mock (last
 
 Before a fix loop: snapshot backup of the code → run related regressions → confirm pass before fixing → full regression after the fix. Key constraint: a fix must not break existing functionality.
 
-### Cross-segment consistency contract (`PROTOCOL §6.0`)
+### Cross-segment consistency contract (`R-SEG-1`)
 
-Full rule of record: `PROTOCOL §6.0`. What matters when you are the one walking Phase 3:
+Full rule of record: `R-SEG-1`. What matters when you are the one walking Phase 3:
 
 - **Segment end** — **append** a completion snapshot to `workspace/<task-id>/state.md` (goal /
   implemented / key decisions with reasons+constraints / conventions / pitfalls / leftovers /
@@ -141,9 +141,9 @@ Commit immediately after each task's loop ("commit immediately after each logica
 done"). Single task format: `feat(scope): desc` + coverage info. After all tasks, if there are
 cross-task common changes, do one summary commit.
 
-> **Rule of record: `PROTOCOL §6` + redline 7** — always `git commit -- <explicit paths>`; a bare
+> **Rule of record: `R-SESSION-1` + redline 7** — always `git commit -- <explicit paths>`; a bare
 > `git commit` / `git commit -a` is forbidden, because the shared index gets swept up by another
-> lane's concurrent commits. Not restated here on purpose (`PROTOCOL §17`).
+> lane's concurrent commits. Not restated here on purpose (`R-LAYER-1`).
 
 ---
 

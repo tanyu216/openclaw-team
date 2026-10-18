@@ -3,12 +3,12 @@
 > **This guide = the detailed method for development process Phase 4** (quality gate/traceability matrix/smoke/pre-delivery wrap-up).
 > Usage: first follow the "Execution Checklist" item by item; "Details" is the concrete reference for each step, consult as needed.
 >
-> **Layer**: L2.5 role method library (`PROTOCOL §17`). **Owner**: Linus. **Effective**: 2026-10-16.
-> **On conflict**: `PROTOCOL` governs, then `roles/<role>/AGENTS.md`, then this guide.
+> **Layer**: role method library (`R-LAYER-1`). **Owner**: Linus. **Effective**: 2026-10-16.
+> **On conflict**: the shared-rule block in `roles/linus/AGENTS.md` governs, then this guide.
 > **Single-home boundary**: this guide is the home for the pre-delivery quality wrap-up (items 1-3 of
 > its Details), the requirement→test traceability matrix, and the N/A policy. The Report **slots**
-> belong to `team/guides/worker-report-template.md`; the doc-sync rule belongs to `PROTOCOL §12`;
-> the segment/`state.md` contract belongs to `PROTOCOL §6.0`.
+> belong to `team/guides/worker-report-template.md`; the doc-sync rule belongs to `R-DOCSYNC-1`;
+> the segment/`state.md` contract belongs to `R-SEG-1`.
 
 ---
 
@@ -28,7 +28,7 @@
 - [ ] 9. **Endpoint smoke**: really send the request (404/500 = fatal) (Details §Phase 4)
 - [ ] 10. **E2E** (when frontend is involved): Playwright verifies the key user path
 - [ ] 11. **Pre-delivery quality wrap-up**: Code review (self-check) / dead code cleanup / standards three checks => write each one into the Report (Details §Pre-delivery quality wrap-up — the home for this)
-- [ ] 12. **Documentation impact determination (`PROTOCOL §12`)**: does this diff involve [interface/data structure/architecture/config/convention]? Involved => sync the design doc (or list it in the Report as pending sync); not involved => declare "no documentation impact". *(An earlier revision had a second, narrower item — "requirement doc sync for new tables/fields/API" — which is the same determination for one sub-case; it was merged into this one.)*
+- [ ] 12. **Documentation impact determination (`R-DOCSYNC-1`)**: does this diff involve [interface/data structure/architecture/config/convention]? Involved => sync the design doc (or list it in the Report as pending sync); not involved => declare "no documentation impact". *(An earlier revision had a second, narrower item — "requirement doc sync for new tables/fields/API" — which is the same determination for one sub-case; it was merged into this one.)*
 - [ ] 13. **Write the Report** — the card's `## Report`, per the **slots** in `team/guides/worker-report-template.md` (common core `A1`…`A8` + Linus's `L1`…`L6`): Acceptance item-by-item checklist (requirement/done?/evidence); write unfinished items truthfully, do not mark done. `team/scripts/check-report.mjs` machine-checks the common core on `in_review` cards.
 
 ---

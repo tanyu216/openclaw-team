@@ -1,8 +1,8 @@
 # Cross-Segment Continuity SOP (`seg-continuity-sop.md`)
 
-> Method home for `PROTOCOL §6.0`. The L1 clause states the contract (carriers, read/write
+> Method home for `R-SEG-1`. `R-SEG-1` states the contract (carriers, read/write
 > obligations, overturn declaration); this guide carries the template and the operational detail.
-> It references `PROTOCOL §6.0` and never redefines it.
+> It references `R-SEG-1` and never redefines it.
 
 ## 1. Why the contract exists
 
@@ -40,7 +40,7 @@ At the end of each segment, `state.md` appends a section with at least:
   completed.
 - **Start of segment = must first read `state.md` and inject it into the segment's prompt**
   (making the previous segment's decisions/constraints/conventions explicit context), otherwise do
-  not spawn. The background pack for a newly started seg is the one defined in `PROTOCOL §6`
+  not spawn. The background pack for a newly started seg is the one defined in `R-SESSION-1`
   clause 8 (card Goal/Acceptance/Background + `## Report` + `## Comments` + `state.md`).
 - **Overturning a previous segment's decision must be declared explicitly** ("overturning
   segment N's decision X, for reason Y"); silent drift is not allowed.

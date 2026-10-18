@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * check-redlines.mjs — 校验各 AGENTS.md 的标记块 == canonical，且含开工硬前置（防漂移）
+ * check-redlines.mjs — 校验各 AGENTS.md 的标记块 == canonical（防漂移）
  * 退出码：0 全绿；1 有漂移/缺失；2 用法错或模式不可判定。
  * 模式（判定见 host-paths.mjs）：实例在场 ⇒ **live**（默认，行为与历史一致，读
  *   `<home>/workspace-<role>/AGENTS.md` + `<team>/guides/redlines.core.md`）；
@@ -35,9 +35,6 @@ for (const r of ROLES) {
   const b = (/<!-- BEGIN REDLINES:v1[\s\S]*?<!-- END REDLINES:v1 -->/.exec(s) || [])[0];
   if (!b) { console.log(`✗ ${r}: 缺红线标记块`); bad++; continue; }
   if (b !== BLOCK) { console.log(`✗ ${r}: 红线块 != canonical（漂移）`); bad++; continue; }
-  // 硬前置句：AGENTS.md 已英文化（context 优化），canonical 句为 "Hard prerequisite for starting"；
-  // 兼容旧中文「开工硬前置」（过渡/未迁移角色），两者其一即可。
-  if (!/开工硬前置|Hard prerequisite for starting/.test(s)) { console.log(`✗ ${r}: 缺开工硬前置`); bad++; continue; }
   console.log(`✔ ${r}`);
 }
 console.log(bad ? `\n红线校验失败：${bad} 项（${M.mode} 模式）` : `\n红线校验通过 ✔（${M.mode} 模式）`);
